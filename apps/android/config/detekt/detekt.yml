@@ -1,0 +1,25 @@
+# Overrides on top of detekt's default rule set (buildUponDefaultConfig is
+# on). Keep this file short: every entry is a deliberate departure, with a
+# reason.
+
+naming:
+  FunctionNaming:
+    # Composables are PascalCase by Compose convention.
+    ignoreAnnotated: ['Composable']
+
+style:
+  MagicNumber:
+    # Design tokens are literal values by definition (Color(0xFF1C1C1E),
+    # 48.dp). They live in property declarations; logic still may not
+    # hide numbers.
+    ignorePropertyDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+  UnusedPrivateMember:
+    # @Preview functions are private and only called by tooling.
+    ignoreAnnotated: ['Preview']
+
+complexity:
+  LongParameterList:
+    # Composables take a modifier, state and callbacks by design.
+    ignoreAnnotated: ['Composable']
+

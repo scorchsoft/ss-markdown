@@ -1,0 +1,22 @@
+# Android (apps/android). Build artefacts never go in git; hand-over APKs
+# go to Drive.
+apps/android/.gradle/
+apps/android/**/build/
+apps/android/build-logic/.gradle/
+apps/android/local.properties
+apps/android/.kotlin/
+apps/android/build-logic/.kotlin/
+apps/android/keystore.properties
+apps/android/**/*.hprof
+.idea/
+*.iml
+.DS_Store
+
+# Signing material never enters git.
+*.keystore
+*.jks
+*.p12
+
+*.apk
+*.aab
+*.aar

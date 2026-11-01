@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SS Markdown</string>
+    <string name="untitled">Untitled</string>
+    <string name="status_draft">Draft · kept on this phone</string>
+    <string name="placeholder_start_writing">Start writing…</string>
+    <string name="mode_code">Code</string>
+    <string name="mode_split">Split</string>
+    <string name="mode_preview">Preview</string>
+</resources>

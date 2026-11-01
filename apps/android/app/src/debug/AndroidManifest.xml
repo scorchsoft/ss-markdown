@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug-only: registers the plain ComponentActivity that
+     createComposeRule launches in tests (the ui-test-manifest AAR is not
+     merged into unit-test manifests). Never shipped. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name="androidx.activity.ComponentActivity"
+            android:exported="false"
+            android:theme="@style/Theme.SSMarkdown" />
+    </application>
+</manifest>

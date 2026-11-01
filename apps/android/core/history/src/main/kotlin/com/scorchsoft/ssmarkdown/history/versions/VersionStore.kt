@@ -256,6 +256,13 @@ public class VersionStore(
     ): ImportResult = synchronized(lock) { HistoryImporter(directory).import(zip, target, sourceUri) }
 
     /**
+     * Lists the documents inside an export without importing anything,
+     * for the import picker. Reads only the manifest; pass a listed
+     * document's [ExportedDocument.uri] to [import] as `sourceUri`.
+     */
+    public fun listExport(zip: File): ExportContents = ExportContentsReader.read(zip)
+
+    /**
      * Switches history off ("Keep version history" → off) and deals with
      * what exists as the user chose. Recording stops either way.
      */

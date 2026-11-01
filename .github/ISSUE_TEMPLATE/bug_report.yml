@@ -1,0 +1,52 @@
+name: Bug report
+description: Something doesn't work, or work was lost.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. **Security problems go through SECURITY.md, not here.**
+        Please don't attach documents with private content; a small made-up file that shows the problem is best.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a 5 MB .md file from Files
+        2. Switch to Preview
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: lost
+    attributes:
+      label: Was any work lost?
+      options:
+        - "No"
+        - "Yes, text or a file was lost or damaged"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Settings → About.
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device, Android version and WebView version
+      placeholder: Pixel 6a, Android 15, WebView 131
+  - type: textarea
+    id: file
+    attributes:
+      label: File details
+      description: Rough size, where it came from (Files, Drive, email), encoding or line endings if you know them.

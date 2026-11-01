@@ -11,6 +11,7 @@ import com.scorchsoft.ssmarkdown.files.document.OpenDocument
 import com.scorchsoft.ssmarkdown.files.document.OpenOutcome
 import com.scorchsoft.ssmarkdown.files.memory.Budget
 import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
+import com.scorchsoft.ssmarkdown.markdown.Heading
 import com.scorchsoft.ssmarkdown.media.ImageExports
 import com.scorchsoft.ssmarkdown.media.MediaController
 import com.scorchsoft.ssmarkdown.media.ViewerViewModel
@@ -49,6 +50,8 @@ class EditorViewModel(
     private val anchorFlow = MutableStateFlow(0)
     private val metas = HashMap<String, DocumentMeta>()
     private var outlineJob: Job? = null
+    private var shownCrumbs: List<Heading> = emptyList()
+    private var shownTexts: List<String> = emptyList()
     private var started = false
     private var explicitOpen = false
 
@@ -444,14 +447,27 @@ class EditorViewModel(
         updateBreadcrumb()
     }
 
+    /**
+     * The breadcrumb and reading line for the anchor. Called for nearly
+     * every frame of a fling, so it emits only when what is drawn changes
+     * (performance review PERF-13): the crumbs are compared as headings,
+     * and the fraction moves in steps of [READING_STEPS], about a pixel of
+     * the reading line on a phone. An emission recomposes the whole screen.
+     */
     private fun updateBreadcrumb() {
         val doc = active ?: return
         val line = anchorFlow.value
-        val crumbs = doc.outline.breadcrumbAt(line)
-        val total = doc.outline.lineCount.coerceAtLeast(1)
         // The breadcrumb appears only once the first heading has scrolled past the top (ux-spec "Where am I?").
-        val shown = if (line == 0) emptyList() else crumbs.map { it.text }
-        ui.update { it.copy(breadcrumb = shown, readingFraction = (line.toFloat() / total).coerceIn(0f, 1f)) }
+        val crumbs = if (line == 0) emptyList() else doc.outline.breadcrumbAt(line)
+        val total = doc.outline.lineCount.coerceAtLeast(1)
+        val fraction = ((line.toLong() * READING_STEPS / total).toFloat() / READING_STEPS).coerceIn(0f, 1f)
+        val current = ui.value
+        if (crumbs == shownCrumbs && fraction == current.readingFraction && current.breadcrumb === shownTexts) return
+        if (crumbs != shownCrumbs) {
+            shownCrumbs = crumbs
+            shownTexts = crumbs.map { it.text }
+        }
+        ui.update { it.copy(breadcrumb = shownTexts, readingFraction = fraction) }
     }
 
     private fun scheduleOutline() {
@@ -490,6 +506,9 @@ class EditorViewModel(
 
     private companion object {
         const val OUTLINE_SLICE_MILLIS = 16L
+
+        /** The reading line moves in thousandths: a pixel or so on a phone, never once per line of a long file. */
+        const val READING_STEPS = 1_000L
 
         /** Long enough for an `fsync` under load, short enough never to feel like a hang on leaving. */
         const val PAUSE_JOURNAL_WAIT_MILLIS = 300L

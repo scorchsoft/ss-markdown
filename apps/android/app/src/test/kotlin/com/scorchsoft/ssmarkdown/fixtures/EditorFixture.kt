@@ -38,6 +38,7 @@ import java.io.File
  * `root/files`. Building a second fixture over the same [root] is a
  * process restart: whatever was flushed survives, nothing else does.
  */
+@Suppress("LongParameterList") // A test fixture: every collaborator a test may swap.
 class EditorFixture(
     val root: File,
     dispatcher: CoroutineDispatcher,

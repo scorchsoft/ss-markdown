@@ -50,7 +50,6 @@ internal fun EditorRoute(
     val vm = graph.editor
     val state by vm.uiState.collectAsState()
     val active by vm.activeDocument.collectAsState()
-    val anchor by vm.anchorLine.collectAsState()
     val settings by graph.settings.settings.collectAsState()
     // Remembered once: EditorPanes hosts this with movableContentOf, so its identity must never change.
     val codePane = remember(vm) { codePaneFor(vm) }
@@ -59,7 +58,9 @@ internal fun EditorRoute(
         PreviewHostState(
             document = active?.text,
             version = active?.text?.version ?: 0,
-            anchorLine = anchor,
+            // Read, not collected: the pane uses it only to land when it appears, and collecting it here
+            // recomposed the whole screen on every frame of a fling (PERF-13).
+            anchorLine = vm.anchorLine.value,
             zoomPercent = state.previewZoom,
             tapToEdit = settings.tapToEditPreview,
             onAnchorLineChanged = { vm.onPaneTopLine(Pane.Preview, it) },

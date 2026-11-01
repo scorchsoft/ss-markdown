@@ -5,7 +5,10 @@ import com.scorchsoft.ssmarkdown.editor.LineChange
 import com.scorchsoft.ssmarkdown.editor.MarkdownCodeView
 import com.scorchsoft.ssmarkdown.editor.clearFindMatches
 import com.scorchsoft.ssmarkdown.editor.setFindMatches
+import com.scorchsoft.ssmarkdown.editor.trimLayoutCaches
+import com.scorchsoft.ssmarkdown.editor.trimTokenCache
 import com.scorchsoft.ssmarkdown.files.document.OpenDocument
+import com.scorchsoft.ssmarkdown.files.memory.ShedStep
 import com.scorchsoft.ssmarkdown.markdown.edit.DocumentStyle
 import com.scorchsoft.ssmarkdown.text.EditObserver
 import com.scorchsoft.ssmarkdown.text.EditOp
@@ -129,6 +132,20 @@ class ActiveDocument(
     /** Removes the find highlights: the bar closed. */
     fun clearHighlights() {
         view?.clearFindMatches()
+    }
+
+    /**
+     * Gives memory back for one rung of the governor's ladder: the Code
+     * view's layouts and display lists, or its cached tokens. Never text,
+     * never undo, never block states (performance review PERF-9).
+     */
+    fun shed(step: ShedStep) {
+        val codeView = view ?: return
+        when (step) {
+            ShedStep.LineLayoutCaches -> codeView.trimLayoutCaches()
+            ShedStep.TokenizerCache -> codeView.trimTokenCache()
+            else -> Unit
+        }
     }
 
     /** The Code view left the composition. */

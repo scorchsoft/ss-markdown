@@ -13,11 +13,12 @@ class MemoryGovernorTest {
     private val governor = MemoryGovernor(source)
 
     // Free heap is 200 MB, so the normal line is 80 MB of cost and the lean line 140 MB.
-    private fun fileCosting(cost: Long) = (cost - MemoryGovernor.SAFETY_MARGIN_BYTES) * 2 / 5
+    private fun fileCosting(cost: Long) = (cost - MemoryGovernor.SAFETY_MARGIN_BYTES) * 2 / 13
 
     @Test
-    fun `cost is twice the size plus index, caches and margin`() {
-        assertEquals(10 * MB * 5 / 2 + MemoryGovernor.SAFETY_MARGIN_BYTES, governor.estimateOpenCost(10 * MB))
+    fun `cost counts the text, index, tokenizers, a transient copy and the margin (PERF-9, DS-19)`() {
+        // Text x2, index x0.5, two tokenizers x2, one String copy for a recovery or conflict x2.
+        assertEquals(10 * MB * 13 / 2 + MemoryGovernor.SAFETY_MARGIN_BYTES, governor.estimateOpenCost(10 * MB))
     }
 
     @Test
@@ -33,10 +34,10 @@ class MemoryGovernorTest {
 
     @Test
     fun `beyond 70 percent is declined with the numbers for the message`() {
-        val declined = governor.admit(180 * MB) as Admission.Declined
+        val declined = governor.admit(40 * MB) as Admission.Declined
 
-        assertEquals(180 * MB, declined.fileBytes)
-        assertEquals(governor.estimateOpenCost(180 * MB), declined.neededBytes)
+        assertEquals(40 * MB, declined.fileBytes)
+        assertEquals(governor.estimateOpenCost(40 * MB), declined.neededBytes)
         assertEquals(256 * MB, declined.allowedBytes)
     }
 

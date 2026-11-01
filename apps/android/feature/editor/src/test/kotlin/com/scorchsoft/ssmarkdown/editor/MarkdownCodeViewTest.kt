@@ -122,6 +122,22 @@ class MarkdownCodeViewTest {
         assertTrue(view.cachedLineCount() <= visible + 1 + PREFETCH_SLACK)
     }
 
+    @Test
+    fun `memory pressure drops cached layouts and tokens, and the next frame draws again (PERF-9)`() {
+        show("# Title\n" + "short *line*\n".repeat(2_000))
+        draw()
+        assertTrue(view.cachedLineCount() > 0)
+        assertTrue(view.highlight.tokens.cachedLines > 0)
+
+        view.trimLayoutCaches()
+        view.trimTokenCache()
+        assertEquals(0, view.cachedLineCount())
+        assertEquals(0, view.highlight.tokens.cachedLines)
+
+        draw()
+        assertTrue(view.cachedLineCount() > 0)
+    }
+
     private companion object {
         const val WIDTH = 1_080
         const val HEIGHT = 1_920

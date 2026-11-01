@@ -8,6 +8,18 @@ import android.app.Application
  * backup never pays for the editor.
  */
 class SSMarkdownApplication : Application() {
+    private val lazyGraph = lazy { AppGraph(this) }
+
     /** Everything the app is made of; see [AppGraph]. */
-    val graph: AppGraph by lazy { AppGraph(this) }
+    val graph: AppGraph by lazyGraph
+
+    /**
+     * The platform asks for memory back: the governor walks its shed
+     * ladder (docs/robustness.md Part 2a, "Under pressure"). A graph that
+     * was never built has nothing to give, and is not built just to say so.
+     */
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (lazyGraph.isInitialized()) graph.governor.onTrimMemory(level)
+    }
 }

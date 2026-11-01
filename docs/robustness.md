@@ -512,12 +512,15 @@ instead of hoping. A small `MemoryGovernor` service owns it.
   needed for the journal, history and saves.
 
 **Admission control before loading**
-- Estimate the cost of opening a file: decoded size × 2 (UTF-16) plus
-  the line index, caches and a safety margin.
+- Estimate the cost of opening a file from everything that grows with
+  it: decoded size × 2 (UTF-16), the line index and bounded caches (× ½),
+  the two tokenizers' per-line block states (× 2), and one transient
+  full copy of the text for a recovery replay or a conflict (× 2), plus a
+  safety margin. `MemoryGovernor.estimateOpenCost` names each term.
 - If that fits within 40% of the free heap, open normally.
 - If it fits within 70%, open in the lean budget (caches capped, live
   preview off), with a quiet notice.
-- If it doesn't fit, explain: "This 180 MB file needs about 400 MB and
+- If it doesn't fit, explain: "This 60 MB file needs about 400 MB and
   this phone allows 256 MB." Offer a read-only streamed view (paged from
   disk) and nothing worse.
 - Opening a second large file in folder mode counts against the same

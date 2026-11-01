@@ -24,7 +24,8 @@ internal class EditorGeometry(
     private val textSource: () -> PieceTree,
     private val versionSource: () -> Long,
 ) {
-    private val cache = LineLayoutCache()
+    /** The per-line layouts; memory pressure clears it (heights are kept, so nothing on screen moves). */
+    val cache = LineLayoutCache()
 
     /** Line tops and heights. */
     var heights: HeightMap = HeightMap(1, 1)

@@ -13,6 +13,7 @@ import com.scorchsoft.ssmarkdown.files.document.DocumentStore
 import com.scorchsoft.ssmarkdown.files.drafts.DraftStore
 import com.scorchsoft.ssmarkdown.files.memory.AndroidMemorySource
 import com.scorchsoft.ssmarkdown.files.memory.MemoryGovernor
+import com.scorchsoft.ssmarkdown.files.memory.ShedStep
 import com.scorchsoft.ssmarkdown.files.provider.ContentResolverProvider
 import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.files.provider.FileDocumentProvider
@@ -48,6 +49,7 @@ import com.scorchsoft.ssmarkdown.viewstate.JsonViewStateStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.io.File
 
 /**
@@ -193,7 +195,21 @@ class AppGraph(
                 viewStates = JsonViewStateStore(File(app.filesDir, "view-state.json")),
                 pictures = pictures,
             ),
-        ).also { autosave.start() }
+        ).also {
+            autosave.start()
+            registerShedders(it)
+        }
+    }
+
+    /**
+     * Gives the memory governor something to shed (performance review
+     * PERF-9): the Code view's layouts and tokens, then clean buffers no
+     * window shows. Unsaved work is never on the ladder.
+     */
+    private fun registerShedders(editor: EditorViewModel) {
+        governor.register(ShedStep.LineLayoutCaches) { editor.active?.shed(it) }
+        governor.register(ShedStep.TokenizerCache) { editor.active?.shed(it) }
+        governor.register(ShedStep.InactiveCleanBuffers) { mainScope.launch { store.evictInactiveClean() } }
     }
 
     /** Pictures next to the open document, inside the folder the user granted; also the preview's `/doc/` resolver. */

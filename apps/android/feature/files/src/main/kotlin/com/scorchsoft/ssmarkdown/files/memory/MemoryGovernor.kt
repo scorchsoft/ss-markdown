@@ -28,11 +28,25 @@ class MemoryGovernor(
     fun freeHeapBytes(): Long = (heapCeilingBytes() - source.heap().usedBytes).coerceAtLeast(0)
 
     /**
-     * Estimated cost of opening a file of [fileBytes]: decoded size × 2
-     * (UTF-16), plus the line index and caches (about half again), plus a
-     * fixed safety margin.
+     * Estimated cost of opening a file of [fileBytes], counting everything
+     * that grows with the file (performance review PERF-9, DS-19):
+     *
+     * - the text, decoded to UTF-16: × 2;
+     * - the line index and the bounded caches: × ½;
+     * - the two tokenizers' per-line block states (the outline's and the
+     *   Code pane's): × 2, measured at 41 MB for a 20 MB file;
+     * - one transient full copy of the text, as a `String`, built while the
+     *   buffer is live: the replay of recovered edits on open, or a
+     *   conflict's copies of the base and the file on disk: × 2;
+     *
+     * plus a fixed safety margin.
      */
-    fun estimateOpenCost(fileBytes: Long): Long = fileBytes * 2 + fileBytes / 2 + SAFETY_MARGIN_BYTES
+    fun estimateOpenCost(fileBytes: Long): Long =
+        fileBytes * TEXT_PER_BYTE +
+            fileBytes / INDEX_DIVISOR +
+            fileBytes * TOKENIZERS_PER_BYTE +
+            fileBytes * TRANSIENT_COPY_PER_BYTE +
+            SAFETY_MARGIN_BYTES
 
     /**
      * May a file of [fileBytes] open? Within 40% of free heap it opens
@@ -110,6 +124,18 @@ class MemoryGovernor(
         private const val NORMAL_SHARE_PERCENT = 40
         private const val LEAN_SHARE_PERCENT = 70
         private const val PRESSURE_PERCENT = 15
+
+        /** UTF-16: two bytes a char, and a Markdown file's bytes are mostly one char each. */
+        private const val TEXT_PER_BYTE = 2L
+
+        /** The line index and bounded caches: half the file again. */
+        private const val INDEX_DIVISOR = 2L
+
+        /** Two tokenizers' block states, about ten bytes a line each, plus the outline (host-measured). */
+        private const val TOKENIZERS_PER_BYTE = 2L
+
+        /** One full `String` copy of the text during a recovery replay or a conflict (DS-19). */
+        private const val TRANSIENT_COPY_PER_BYTE = 2L
 
         /** Fixed headroom added to every open estimate. */
         const val SAFETY_MARGIN_BYTES: Long = 8 * MEGABYTE

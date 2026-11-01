@@ -50,3 +50,20 @@ fun MarkdownCodeView.fenceStates(): FenceStates =
             .positionAt(it)
             .line
     }
+
+/**
+ * The memory governor's "line layout caches" step: drops every cached
+ * line layout and recorded display list. They are rebuilt for the lines
+ * drawn next; nothing on screen moves.
+ */
+fun MarkdownCodeView.trimLayoutCaches() {
+    geometry.cache.clear()
+    renderer.invalidateDrawings()
+    invalidate()
+}
+
+/**
+ * The memory governor's "tokenizer cache" step: drops every cached
+ * token. Block states stay, so only the lines drawn next are re-tokenised.
+ */
+fun MarkdownCodeView.trimTokenCache() = highlight.trimCache()

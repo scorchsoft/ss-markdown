@@ -488,6 +488,8 @@ set in Settings.
 - A "n files unsaved · Save all" row exists only while n > 0.
 - Several dirty buffers are held in memory, with no tabs. The drawer and
   the Navigator are the switchers.
+- Docked (≥ 840 dp), the header's ≡ hides the panel ("Hide folder") and
+  brings it back ("Show folder"), so the text can take the full width.
 
 ## Editing in Preview
 
@@ -639,15 +641,31 @@ Custom themes are JSON with this shape:
 
 These are edited through pickers (Type / Colours / Spacing / JSON tabs)
 and exported or imported through the system file picker. Fonts are Google
-Fonts family names, downloaded on first use and cached. The editor
-(code) font is a separate setting.
+Fonts family names, downloaded on first use and cached.
+
+**Where each font lives** (decided after review 2, UX2-12 and UX2-17):
+
+- **App chrome** (bars, sheets, menus, settings): Inter, bundled. Not a
+  setting.
+- **Code pane**: JetBrains Mono, bundled. Not a setting: one monospace
+  face keeps the cell grid, caret maths and line wrap identical in every
+  theme.
+- **Code inside Preview** (code spans and fenced blocks): the theme's
+  `code` font. It is part of each theme, edited on the theme's Type tab
+  ("Code font (inside preview)").
+
+Settings → Text has no font pickers of its own. Its "Code font" and
+"Preview font" rows say where the choice lives: "Part of each theme:
+⋮ → Display → Edit theme…". This replaces the earlier plan of a separate
+code-font setting.
 
 ## Settings
 
 - Opening: when a file opens, show Code / Preview / Last used. On launch,
   reopen the last file or start a new scratch doc.
-- Text: default zoom for each pane, the code font, the preview font
-  override, and line numbers.
+- Text: default zoom for each pane (− / + steppers, as on the Display
+  sheet), and line numbers. The code font and preview font rows point to
+  the theme, where both are set (see "Where each font lives" under Themes).
 - Saving: write to the file "When I tap Save" (default) or "Autosave"
   (see `robustness.md` §3a), version history (on, storage cap, clear).
 - Split view: scroll panes together.
@@ -695,8 +713,9 @@ See `robustness.md` §2a.
 - With unsaved edits, a sheet shows the file as it is now and offers:
   - **Merge my edits into the new file** (recommended), with a summary
     such as "3 merge cleanly, 1 overlaps".
-  - **Compare side by side** (tablets). On a phone it is a single
-    scrolling diff, as in History, with a "Theirs / Mine" toggle.
+  - **Compare**: a single scrolling diff, as in History, with a
+    "Theirs / Mine" toggle. (A side-by-side layout for tablets is not
+    built yet, so the button does not promise one.)
   - **Keep the file as it is** (your edits stay in History).
   - **Use my version…**, behind a confirmation.
 - Nothing is written until you choose and then save.

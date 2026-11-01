@@ -122,10 +122,15 @@ sdk buys a second sandbox and doubles the run time.
   and set `robolectric.dependency.repo.url` to the same for Robolectric's
   own downloads. Never commit that workaround.
 - **Fonts.** Inter, JetBrains Mono and four more families are bundled in
-  `feature/fonts` (OFL, subset to Latin; see NOTICE) and used by the Code
-  pane and Preview themes. The app chrome (`SSType`) still uses the system
-  sans and monospace; switching it to Inter is an open design decision,
-  not a missing step. Never drop a bundled family to save size.
+  `feature/fonts` (OFL, subset to Latin; see NOTICE). The app chrome is set
+  in Inter and the Code pane in JetBrains Mono, read from those same files
+  (no extra bytes). core/ui owns no font files and must not depend on a
+  feature, so `app/ui/ChromeFonts.kt` builds the families and passes them
+  to `SSMarkdownTheme(fonts = …)`, and hands the code face to
+  `MarkdownCodeView.codeTypeface`. `SSType.*` are `@Composable` getters
+  that read the theme's scale: use them inside composition only. A test
+  that themes without `fonts` gets the system families. Never drop a
+  bundled family to save size.
 
 ## Preview bundle
 

@@ -249,6 +249,21 @@ public class JournalStore internal constructor(
         return JournalReader(file).salvage(baseTextFor)
     }
 
+    /**
+     * Deletes exactly [files] from `quarantine/`: the user's confirmed
+     * clear on the Storage screen, after the export its confirmation
+     * offers. The app never calls this on its own. A file that is not
+     * directly inside this store's quarantine is refused and left alone,
+     * so a caller can never be steered into deleting elsewhere. Returns
+     * how many files were deleted.
+     */
+    public fun deleteSetAside(files: Collection<File>): Int {
+        val quarantineDir = File(root, Quarantine.DIRECTORY_NAME).canonicalFile
+        val deleted = files.count { it.canonicalFile.parentFile == quarantineDir && it.isFile && it.delete() }
+        if (deleted > 0) runCatchingIo { AtomicFile.syncDirectory(quarantineDir) }
+        return deleted
+    }
+
     /** The journal file for [documentKey], whether or not it exists. */
     public fun fileFor(documentKey: String): File {
         val digest = MessageDigest.getInstance("SHA-256").digest(Wtf8.encode(documentKey))

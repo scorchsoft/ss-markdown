@@ -4,6 +4,10 @@ import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.files.save.SaveOutcome
 import com.scorchsoft.ssmarkdown.history.journal.Salvage
 import java.io.File
+import java.io.IOException
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
 
 /** What making a copy of unreachable or unapplied edits came to (R2-DS-2, R2-DS-3). */
 sealed interface CopyOutcome {
@@ -52,6 +56,13 @@ data class SetAsideEdits(
     val sizeBytes: Long,
     internal val file: File,
 )
+
+/**
+ * Set-aside edits above this size are called out on the Storage screen,
+ * with an export-first clear. The app never deletes them on its own, at
+ * any size (robustness §1): the cap decides when to ask, never what to drop.
+ */
+const val SET_ASIDE_CAP_BYTES: Long = 32L * 1024 * 1024
 
 /**
  * Turning a journal that cannot be replayed onto its file into a draft
@@ -103,6 +114,72 @@ internal class RecoveryCopies(
             }
         }
 
+    /**
+     * Writes [edits] into [zip] for the user to keep before a clear: each
+     * one's rebuilt text (or the typed fragments, labelled as such) and its
+     * raw journal. True only when every journal is in the zip byte for byte.
+     */
+    suspend fun exportSetAside(
+        edits: List<SetAsideEdits>,
+        zip: File,
+    ): Boolean =
+        context.journalThread.call {
+            try {
+                ZipOutputStream(zip.outputStream().buffered()).use { out ->
+                    edits.forEachIndexed { index, set -> writeEntries(out, index, set) }
+                }
+                ZipFile(zip).use { written ->
+                    edits.all { set ->
+                        val entry = written.getEntry(RAW_FOLDER + set.file.name) ?: return@all false
+                        written.getInputStream(entry).use { it.readBytes() }.contentEquals(set.file.readBytes())
+                    }
+                }
+            } catch (_: IOException) {
+                false
+            }
+        }
+
+    /**
+     * Deletes [edits] from quarantine: only after the user confirmed, on
+     * the Storage screen, and only those listed then. Returns how many went.
+     */
+    suspend fun deleteSetAside(edits: List<SetAsideEdits>): Int =
+        context.journalThread.call { context.journals.deleteSetAside(edits.map { it.file }) }
+
+    private fun writeEntries(
+        out: ZipOutputStream,
+        index: Int,
+        set: SetAsideEdits,
+    ) {
+        val salvage =
+            context.journals.salvageSetAside(set.file) { base ->
+                set.uri?.let { context.readBaseText(it, base)?.text?.toString() }
+            }
+        val stem =
+            "%02d-%s".format(
+                index + 1,
+                set.uri
+                    ?.value
+                    ?.substringAfterLast('/')
+                    ?.ifBlank { null } ?: "unknown",
+            )
+        val safe = stem.replace(UNSAFE_NAME, "_")
+        val text =
+            when (salvage) {
+                is Salvage.Text -> "$safe.md" to salvage.text
+                is Salvage.Fragments -> "$safe-typed-text-only.txt" to salvage.text
+                is Salvage.Unavailable -> null
+            }
+        text?.let { (name, body) ->
+            out.putNextEntry(ZipEntry(name))
+            out.write(body.toByteArray(Charsets.UTF_8))
+            out.closeEntry()
+        }
+        out.putNextEntry(ZipEntry(RAW_FOLDER + set.file.name))
+        set.file.inputStream().use { it.copyTo(out) }
+        out.closeEntry()
+    }
+
     /** A set-aside journal, rebuilt into [draft]. The journal stays in quarantine. */
     suspend fun copySetAside(
         edits: SetAsideEdits,
@@ -145,5 +222,10 @@ internal class RecoveryCopies(
         } else {
             context.journalThread.call { runCatching { context.journals.setAside(uri.value) } }
         }
+    }
+
+    private companion object {
+        const val RAW_FOLDER = "journals/"
+        val UNSAFE_NAME = Regex("[^A-Za-z0-9._-]")
     }
 }

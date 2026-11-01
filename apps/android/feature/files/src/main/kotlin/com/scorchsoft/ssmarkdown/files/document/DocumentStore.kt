@@ -13,6 +13,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.util.concurrent.Executor
 
 /**
@@ -241,6 +242,24 @@ class DocumentStore(
 
     /** Edits set aside into quarantine, newest first: the Storage screen's list (R2-DS-3). */
     suspend fun setAsideEdits(): List<SetAsideEdits> = copies.setAsideEdits()
+
+    /**
+     * Exports [edits] (their rebuilt text and raw journals) into [zip] for
+     * the user to keep; true only when every journal is in it, byte for
+     * byte. The Storage screen's clear runs this first unless the user
+     * unticked "Export first".
+     */
+    suspend fun exportSetAsideEdits(
+        edits: List<SetAsideEdits>,
+        zip: File,
+    ): Boolean = copies.exportSetAside(edits, zip)
+
+    /**
+     * Deletes [edits] from quarantine, and only those: the user confirmed
+     * it on the Storage screen ("This can't be undone"). Never called by
+     * the app on its own; see [SET_ASIDE_CAP_BYTES]. Returns how many went.
+     */
+    suspend fun clearSetAsideEdits(edits: List<SetAsideEdits>): Int = copies.deleteSetAside(edits)
 
     /** [edits]' text, rebuilt into [draft]; the set-aside journal stays where it is. */
     suspend fun recoverSetAsideAsCopy(

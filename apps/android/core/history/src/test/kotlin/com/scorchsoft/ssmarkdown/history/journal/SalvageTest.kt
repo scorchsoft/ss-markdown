@@ -99,6 +99,23 @@ class SalvageTest {
     }
 
     @Test
+    fun `a confirmed clear deletes exactly the set-aside journals it names, and nothing outside quarantine`() {
+        test.start(key, base).apply { append(TextEdit(6, "", "old")) }.close()
+        val first = store.setAside(key)!!
+        test.clock.now += 1_000
+        test.start(key, base).apply { append(TextEdit(6, "", "newer")) }.close()
+        val second = store.setAside(key)!!
+        test.start(key, base).apply { append(TextEdit(6, "", "live")) }.close()
+        val elsewhere = folder.newFile("elsewhere")
+
+        assertEquals(1, store.deleteSetAside(listOf(first, store.fileFor(key), elsewhere)))
+
+        assertEquals(listOf(second), store.listSetAside().map { it.file })
+        assertTrue("the live journal is never touched", store.fileFor(key).exists())
+        assertTrue(elsewhere.exists())
+    }
+
+    @Test
     fun `salvaging a file outside the quarantine is refused`() {
         test.start(key, base).apply { append(TextEdit(6, "", "x")) }.close()
 

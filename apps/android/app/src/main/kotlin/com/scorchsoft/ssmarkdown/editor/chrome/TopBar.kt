@@ -25,6 +25,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -219,20 +221,19 @@ fun TitleBlock(
                         it is SaveStatusLine.UnsavedReadOnly
                 }
             Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
+                TitleFirstRow {
                     Text(
                         title,
                         style = SS.type.bodyStrong,
                         color = SS.colors.ink,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
+                        modifier = Modifier.layoutId(TITLE_ID),
                     )
-                    if (state.save.showDirtyDot) UnsavedDot(labelled = compact || !lineSaysUnsaved)
-                    if (compact) CompactStatus(state.save.status, Modifier.weight(1f, fill = false))
+                    if (state.save.showDirtyDot) {
+                        UnsavedDot(Modifier.layoutId(DOT_ID), labelled = compact || !lineSaysUnsaved)
+                    }
+                    if (compact) CompactStatus(state.save.status, Modifier.layoutId(STATUS_ID))
                 }
                 if (!compact) SecondLine(state, wide)
             }
@@ -240,6 +241,53 @@ fun TitleBlock(
         // UX-14 / UX2-5: Big-file mode is its own 48 dp target beside the title, never
         // nested in the title's Navigator tap, and shown in the compact header too.
         if (state.bigFile) BigFileChip { onAction(EditorAction.BigFileChipTapped) }
+    }
+}
+
+private const val TITLE_ID = "title"
+private const val DOT_ID = "dot"
+private const val STATUS_ID = "status"
+private val TitleGap = 6.dp
+
+/**
+ * The name, then the unsaved dot, then (in the one-line header) the status.
+ * The name is first in line for the room: when name and status cannot both
+ * be whole on one line, the status moves under the name rather than
+ * squeezing it, and the bar grows (UX-7). Sharing the line equally let
+ * "· Unsaved · read-only" cut a long name to two letters on a 360 dp phone
+ * at 2× font in folder mode.
+ */
+@Composable
+private fun TitleFirstRow(content: @Composable () -> Unit) {
+    Layout(content) { measurables, constraints ->
+        val gap = TitleGap.roundToPx()
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val dot = measurables.firstOrNull { it.layoutId == DOT_ID }?.measure(loose)
+        val title = measurables.first { it.layoutId == TITLE_ID }
+        val status = measurables.firstOrNull { it.layoutId == STATUS_ID }
+        val room = (constraints.maxWidth - (dot?.let { it.width + gap } ?: 0)).coerceAtLeast(0)
+        val titleWanted = title.maxIntrinsicWidth(constraints.maxHeight)
+        val statusWanted = status?.maxIntrinsicWidth(constraints.maxHeight) ?: 0
+        val oneLine = status == null || titleWanted + gap + statusWanted <= room
+        val titlePlaceable = title.measure(loose.copy(maxWidth = minOf(titleWanted, room)))
+        val statusPlaceable =
+            status?.measure(
+                loose.copy(maxWidth = if (oneLine) statusWanted else constraints.maxWidth),
+            )
+        val firstRow = listOfNotNull(titlePlaceable, dot, statusPlaceable.takeIf { oneLine })
+        val firstHeight = firstRow.maxOf { it.height }
+        val below = statusPlaceable.takeIf { !oneLine }
+        val width =
+            maxOf(firstRow.sumOf { it.width } + gap * (firstRow.size - 1), below?.width ?: 0)
+                .coerceAtMost(constraints.maxWidth)
+        layout(width, firstHeight + (below?.height ?: 0)) {
+            var x = 0
+            firstRow.forEach {
+                it.placeRelative(x, (firstHeight - it.height) / 2)
+                x += it.width + gap
+            }
+            below?.placeRelative(0, firstHeight)
+        }
     }
 }
 

@@ -6,5 +6,14 @@ plugins {
 }
 
 dependencies {
+    // `api`: LineSource adapters for PieceTree and Snapshot are public API.
+    api(project(":core:text"))
     testImplementation(libs.junit)
+}
+
+tasks.test {
+    // `-Pssmarkdown.heavyTests=true` runs more property-test seeds and the
+    // tokenizer benchmark (a 20 MB corpus), which `check` skips.
+    systemProperty("ssmarkdown.heavyTests", providers.gradleProperty("ssmarkdown.heavyTests").getOrElse("false"))
+    maxHeapSize = "2g"
 }

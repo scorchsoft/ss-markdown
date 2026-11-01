@@ -39,6 +39,8 @@ is green in CI).
 | Hardware keyboard or Chromebook | Ctrl+S, Ctrl+F, Ctrl+Z / Ctrl+Shift+Z, Ctrl+B / Ctrl+I, Tab to indent; arrows and Shift-select work. | Instrumented key-event tests | planned |
 | Paste of 50 MB | Chunked insert off the main thread with progress; undoable as one step; admission control applies. | Instrumented test | planned |
 | Undo across a Preview edit | The Preview round-trip is applied as one piece-table operation and lands on the same undo stack. | Unit test | planned |
+| Typing that changes block state (e.g. typing ``` or a table pipe) far up a huge file | Main thread re-tokenises only to the viewport (≤ 8 ms); the rest converges in idle slices. Follow-up: measured ~5,000 lines re-tokenised per state-changing edit on a 1.46M-line file; profile convergence once the editor renders colours | `IncrementalTokenizer` property and benchmark tests | handled (tune in iteration 2) |
+| Known tokenizer simplifications: setext restyles one line; links close on the same line; ≤ 8 nested containers; footnote defs don't continue | Documented; revisit if seen in real files | `LineTokenizerTest` | handled (known limitation) |
 
 ## Storage and clean-up
 

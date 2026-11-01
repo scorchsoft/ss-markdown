@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.scorchsoft.ssmarkdown.core.ui.SS
+import com.scorchsoft.ssmarkdown.core.ui.SSColors
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -47,9 +48,24 @@ private const val REPEAT_DELAY_MS = 400L
 private const val REPEAT_INTERVAL_MS = 50L
 
 /**
+ * How a pressed toggle key looks (UX-5). The tint alone is 1.1:1 on the
+ * strip, below the 3:1 WCAG 1.4.11 asks of a state indicator, so the face
+ * also gets an [ring] outline all the way round (never a one-sided bar),
+ * which is ink: 14:1 or more on the strip in both themes.
+ */
+internal object PressedKeyFace {
+    val ringWidth = 1.5.dp
+
+    fun fill(colors: SSColors): Color = colors.segmentTrack
+
+    fun ring(colors: SSColors): Color = colors.ink
+}
+
+/**
  * One 48 dp strip key. A toggle key is a checkbox to TalkBack ("Bold,
  * checked"), the Android twin of `aria-pressed`, and shows a filled tint
- * when pressed: never an accent colour, since red means "needs you".
+ * inside an ink ring when pressed ([PressedKeyFace]): never an accent
+ * colour, since red means "needs you".
  */
 @Composable
 internal fun StripKeyButton(
@@ -81,7 +97,15 @@ internal fun StripKeyButton(
                 Modifier
                     .size(KeyFace)
                     .clearAndSetSemantics {}
-                    .background(if (pressed) colors.segmentTrack else Color.Transparent, KeyShape),
+                    .then(
+                        if (pressed) {
+                            Modifier
+                                .background(PressedKeyFace.fill(colors), KeyShape)
+                                .border(PressedKeyFace.ringWidth, PressedKeyFace.ring(colors), KeyShape)
+                        } else {
+                            Modifier
+                        },
+                    ),
         ) {
             KeyGlyph(key, tint)
         }
@@ -150,7 +174,9 @@ private fun iconFor(key: StripKey): ImageVector = keyIcons[key]?.invoke() ?: Str
 /**
  * The pinned `{ }` key. It is outlined so it reads as a page switch, and
  * inverted (ink fill) while the symbols page is showing, matching the
- * mockup's "Back to formatting" state.
+ * mockup's "Back to formatting" state. To TalkBack it is a checkbox with
+ * a stable name, "Symbols, checked" (UX-28): a label that flipped as well
+ * as the state read "Back to formatting, checked", which says neither.
  */
 @Composable
 internal fun SymbolsToggleKey(
@@ -158,7 +184,7 @@ internal fun SymbolsToggleKey(
     onClick: () -> Unit,
 ) {
     val colors = SS.colors
-    val label = stringResource(if (showingSymbols) StripLabels.backToFormatting else StripKey.Symbols.label)
+    val label = stringResource(StripKey.Symbols.label)
     Box(
         contentAlignment = Alignment.Center,
         modifier =

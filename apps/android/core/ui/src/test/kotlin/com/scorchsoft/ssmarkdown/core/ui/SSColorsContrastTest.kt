@@ -2,6 +2,7 @@ package com.scorchsoft.ssmarkdown.core.ui
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import com.scorchsoft.ssmarkdown.ui.strip.PressedKeyFace
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -25,6 +26,11 @@ class SSColorsContrastTest {
                     "on needs-you" to (c.onNeedsYou to c.needsYou),
                     "info" to (c.info to c.infoBg),
                     "caution" to (c.caution to c.cautionBg),
+                    // UX-4: error text sits on the chrome (status line, find bar),
+                    // the page (dialogs) and the neutral banner box.
+                    "needs-you text on chrome" to (c.needsYouText to c.chrome),
+                    "needs-you text on bg" to (c.needsYouText to c.bg),
+                    "needs-you text on segment track" to (c.needsYouText to c.segmentTrack),
                 )
             textPairs.forEach { (name, pair) -> assertContrast("$theme $name", pair.first, pair.second, AA_TEXT) }
         }
@@ -35,6 +41,16 @@ class SSColorsContrastTest {
         // The unsaved dot is a graphic, not text: AA asks 3:1 of it.
         for (c in listOf(SSLightColors, SSDarkColors)) {
             assertContrast("needs-you dot (dark=${c.isDark})", c.needsYou, c.chrome, AA_GRAPHIC)
+        }
+    }
+
+    @Test
+    fun `a pressed strip key's ring stands out from the strip and its own fill`() {
+        // UX-5: WCAG 1.4.11 asks 3:1 of a state indicator. The tint alone was 1.1:1.
+        for (c in listOf(SSLightColors, SSDarkColors)) {
+            val ring = PressedKeyFace.ring(c)
+            assertContrast("pressed ring on strip (dark=${c.isDark})", ring, c.chrome, AA_GRAPHIC)
+            assertContrast("pressed ring on its fill (dark=${c.isDark})", ring, PressedKeyFace.fill(c), AA_GRAPHIC)
         }
     }
 

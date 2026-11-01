@@ -30,6 +30,13 @@ data class SSColors(
     val gutter: Color,
     /** Unsaved dot, Save pill, Save all and errors. */
     val needsYou: Color,
+    /**
+     * [needsYou] as text or a small icon: "Couldn't save", an invalid
+     * pattern, an error glyph. In light mode it is [needsYou] itself; in dark
+     * mode the pill red is only 3.2:1 on the chrome, so text gets a lighter
+     * red that passes AA (UX-4). Never a fill: white on it fails.
+     */
+    val needsYouText: Color,
     /** Text on a [needsYou] fill. */
     val onNeedsYou: Color,
     /** Recovery, notes and alerts: [info] text on [infoBg]. */
@@ -53,6 +60,7 @@ val SSLightColors =
         inkMuted = Color(0xFF636369),
         gutter = Color(0xFF6E6E73),
         needsYou = Color(0xFFB3191B),
+        needsYouText = Color(0xFFB3191B),
         onNeedsYou = Color(0xFFFFFFFF),
         info = Color(0xFF1D5DBF),
         infoBg = Color(0xFFEAF1FC),
@@ -65,7 +73,9 @@ val SSLightColors =
 // Dark values come from the signed-off design canvas. The spec's gutter
 // (#6E6E73) is a light-theme value: on the dark page it is only 3.6:1, so
 // the dark gutter is #8E8E96. The spec gives no dark caution pair; the one
-// here keeps the amber hue and passes AA (see SSColorsContrastTest).
+// here keeps the amber hue and passes AA (see SSColorsContrastTest). The
+// pill red #C9302F is a fill colour; as text it is 3.2:1, so error text
+// uses needsYouText #FF6B66 (6.1:1 on the chrome).
 val SSDarkColors =
     SSColors(
         isDark = true,
@@ -76,6 +86,7 @@ val SSDarkColors =
         inkMuted = Color(0xFFA3A3AB),
         gutter = Color(0xFF8E8E96),
         needsYou = Color(0xFFC9302F),
+        needsYouText = Color(0xFFFF6B66),
         onNeedsYou = Color(0xFFFFFFFF),
         info = Color(0xFF82B4FF),
         infoBg = Color(0xFF1B2536),

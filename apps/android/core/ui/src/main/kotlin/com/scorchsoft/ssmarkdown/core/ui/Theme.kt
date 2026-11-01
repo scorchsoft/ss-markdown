@@ -33,8 +33,10 @@ fun SSMarkdownTheme(
             onSurfaceVariant = c.inkMuted,
             outline = c.border,
             outlineVariant = c.border,
-            error = c.needsYou,
-            onError = c.onNeedsYou,
+            // Material draws error text and icons with `error`, so it is the
+            // text-safe red; in dark that red is light, so ink on it is the page colour.
+            error = c.needsYouText,
+            onError = if (c.isDark) c.bg else c.onNeedsYou,
             surfaceTint = c.chrome,
         )
     CompositionLocalProvider(LocalSSColors provides c) {

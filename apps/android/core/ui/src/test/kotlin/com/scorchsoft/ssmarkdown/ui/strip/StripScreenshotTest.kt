@@ -58,6 +58,20 @@ class StripScreenshotTest(
             FormattingStripState(canUndo = true, document = StripDocument("release-notes.md", isDirty = true)),
             FormattingStripState(canUndo = true, document = StripDocument("release-notes.md", isDirty = false)),
             FormattingStripState(canUndo = true, inTable = true, document = StripDocument("budget.md", isDirty = true)),
+            // UX-9: the rest of the Save-state table, since the header is gone.
+            FormattingStripState(canUndo = true, document = StripDocument("Untitled", true, StripSave.SaveAs)),
+            FormattingStripState(
+                canUndo = true,
+                document =
+                    StripDocument(
+                        "release-notes.md",
+                        isDirty = true,
+                        save = StripSave.Retry,
+                        status = "Couldn't save · storage full",
+                        statusIsError = true,
+                    ),
+            ),
+            FormattingStripState(canUndo = true, document = StripDocument("release-notes.md", true, StripSave.Saving)),
         )
 
     private fun capture(

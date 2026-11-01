@@ -76,12 +76,47 @@ data class SymbolKey(
     @param:StringRes val label: Int,
 )
 
-/** The filename, unsaved dot and Save pill the strip carries in landscape, when the header steps aside. */
+/**
+ * The filename, unsaved dot and Save button the strip carries in
+ * landscape, when the header steps aside. Because the header is gone, the
+ * strip must say everything it would have said (UX-9): [save] follows the
+ * header's Save-state table, and [status] carries the header's second
+ * line when it matters ("Couldn't save · storage full", "Read-only").
+ */
 @Immutable
 data class StripDocument(
     val name: String,
     val isDirty: Boolean,
+    val save: StripSave = if (isDirty) StripSave.Save else StripSave.Saved,
+    /** The header's status line, shown under the name; null when there is nothing to say. */
+    val status: String? = null,
+    /** [status] is a failure, drawn in the error red. */
+    val statusIsError: Boolean = false,
 )
+
+/**
+ * The strip's Save button, one per row of the header's Save-state table
+ * (docs/ux-spec.md). [filled] states are the red pill; the others are an
+ * ink outline, because a draft or a read-only file is already safe.
+ */
+enum class StripSave(
+    @param:StringRes val label: Int,
+    val filled: Boolean,
+) {
+    /** The muted tick; still the Save button. */
+    Saved(R.string.strip_saved, filled = false),
+    Save(R.string.strip_save, filled = true),
+
+    /** A draft or a read-only file: Save as…, outlined, not red. */
+    SaveAs(R.string.strip_save_as, filled = false),
+
+    /** The file can't be written where it is (moved, permission gone): red Save as…. */
+    SaveAsRequired(R.string.strip_save_as, filled = true),
+    Retry(R.string.strip_retry, filled = true),
+
+    /** A save is running: a spinner, and the button does nothing. */
+    Saving(R.string.strip_saving, filled = false),
+}
 
 /**
  * Everything the strip draws. The strip is stateless: the editor owns
@@ -204,13 +239,7 @@ internal object StripLabels {
 
     @StringRes val cursorRight: Int = R.string.strip_cursor_right
 
-    @StringRes val backToFormatting: Int = R.string.strip_back_to_formatting
-
     @StringRes val toolbar: Int = R.string.strip_toolbar
 
     @StringRes val unsaved: Int = R.string.strip_unsaved
-
-    @StringRes val save: Int = R.string.strip_save
-
-    @StringRes val saved: Int = R.string.strip_saved
 }

@@ -83,7 +83,7 @@ fun FormattingStrip(
         } else {
             StripKeyButton(StripKey.Done, pressed = false, enabled = true) { onKey(StripKey.Done) }
         }
-        state.document?.let { StripSaveButton(it.isDirty, onSave) }
+        state.document?.let { StripSaveButton(it.save, onSave) }
         Spacer(Modifier.width(EdgePadding))
     }
 }

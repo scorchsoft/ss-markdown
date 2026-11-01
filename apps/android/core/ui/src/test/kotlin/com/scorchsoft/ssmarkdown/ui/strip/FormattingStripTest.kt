@@ -97,7 +97,7 @@ class FormattingStripTest {
         node("Open bracket").performClick()
         node("Backtick").performClick()
         assertEquals(listOf("[", "`"), symbols)
-        node("Back to formatting").assertIsOn().performClick()
+        node("Symbols").assertIsOn().performClick()
         assertEquals(listOf(StripKey.Symbols), keys)
     }
 
@@ -145,6 +145,36 @@ class FormattingStripTest {
         show(FormattingStripState(document = StripDocument("release.md", isDirty = false)))
         node("Unsaved").assertDoesNotExist()
         node("Saved").assertExists()
+    }
+
+    @Test
+    fun landscapeSaveFollowsTheSaveStateTable() {
+        // UX-9: with the header gone, the strip must not say "Save" for a draft or a failed save.
+        show(FormattingStripState(document = StripDocument("Untitled", isDirty = true, save = StripSave.SaveAs)))
+        node("Save as…").assertExists()
+        node("Save").assertDoesNotExist()
+    }
+
+    @Test
+    fun landscapeShowsAFailedSaveAndOffersRetry() {
+        val failed =
+            StripDocument(
+                "notes.md",
+                isDirty = true,
+                save = StripSave.Retry,
+                status = "Couldn't save · storage full",
+                statusIsError = true,
+            )
+        show(FormattingStripState(document = failed))
+        rule.onNodeWithText("Couldn't save · storage full").assertExists()
+        node("Retry").performClick()
+        assertEquals(1, saves)
+    }
+
+    @Test
+    fun landscapeSavingIsNotTappable() {
+        show(FormattingStripState(document = StripDocument("notes.md", isDirty = true, save = StripSave.Saving)))
+        node("Saving").assertIsNotEnabled()
     }
 
     @Test

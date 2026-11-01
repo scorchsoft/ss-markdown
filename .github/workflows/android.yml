@@ -4,8 +4,11 @@ name: android
 # needs a secret: the app is offline and there is nothing to sign yet.
 on:
   push:
-    branches: [main]
+    # main, plus Claude Code working branches, so work in progress gets
+    # real CI before a pull request exists.
+    branches: [main, "ccr-**"]
     paths: ["apps/android/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
   pull_request:
     paths: ["apps/android/**", ".github/workflows/android.yml"]
 

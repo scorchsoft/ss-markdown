@@ -52,7 +52,8 @@ Each layer assumes every layer above it has failed.
   is still there, and we offer Retry / Save as…
 - **Conflict check.** Before writing, the file's `lastModified`, size and
   hash are compared with what we loaded. A mismatch shows the conflict
-  banner (Compare · Reload · Keep mine) instead of overwriting.
+  "Changed in another app · Review" banner instead of overwriting.
+  Review opens the conflict sheet (§2a).
 - **Lost permission.** If file permission has gone (a temporary grant
   from another app, or a revoked folder), the work stays in the journal
   and we offer "Save as…". We never fail silently.
@@ -195,7 +196,8 @@ history.
 - Autosave **pauses** (with a banner) when the file has changed on disk,
   when write permission has been lost, or when a save fails. It never
   overwrites someone else's change.
-- A file can override the global mode through ⋮ → "Autosave this file".
+- A file can override the global mode: long-press Save → "Autosave this
+  file", or the same toggle at the top of its Version history.
 
 ### 4. Byte-faithful files (no silent corruption)
 
@@ -253,8 +255,14 @@ views, which is the classic way an Android editor loses text. Our rules:
 
 ### 6. Leaving and switching
 
-- Closing a dirty document, opening another, or closing a folder with
-  dirty files always prompts. Back gesture included.
+- The Save / Don't save / Keep editing prompt appears **only when a dirty
+  buffer would leave memory**: closing the file, leaving the app with
+  Back, opening a file outside the open folder (single-file mode), or
+  closing a folder with dirty files.
+- **Switching between files inside a folder never prompts.** Dirty
+  buffers stay in memory, journalled, with dots in the drawer.
+- While a dirty buffer is on screen, predictive back shows the prompt
+  instead of the back-to-home preview.
 - Dirty buffers in folder mode are journaled exactly like single files.
 
 ## Part 2 — Large files: virtualised everywhere

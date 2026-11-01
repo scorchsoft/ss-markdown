@@ -16,18 +16,28 @@ mockups agreed with Andrew win, and this file gets updated.
   is docked on tablets).
 - **Copy** is always visible and copies the whole document as Markdown.
   Long-pressing it gives "Copy as rich text".
-- **Save** is always visible:
-  - Clean: a muted outline icon.
-  - Unsaved: a red filled "Save" pill (text only, 40 dp tall, 48 dp hit
-    area).
-  - Clean: a check-in-circle labelled "All saved" (tapping it shows "All
-    saved").
-  - Untitled, or read-only with edits: a red "Save as…" pill.
-  - **Long-press Save** opens Save as… · Autosave this file (on/off).
-  - A brief toast confirms each save with the destination.
+- **Save** is always visible. One table defines every state:
+
+  | State | Looks like | Status line | Tap |
+  |---|---|---|---|
+  | Clean (manual or autosave) | Ink check-in-circle, label "All saved" | "Saved · 2 min ago" / "Autosaved · just now" | Shows "All saved" |
+  | Unsaved | **Red** "Save" pill, text only | "Unsaved" (+ red dot by the name) | Saves |
+  | Saving | Pill with a spinner, disabled | "Saving…" | — |
+  | Untitled draft | Outline "Save as…" pill (not red: drafts are already safe) | "Draft · kept on this phone" | System picker, name prefilled from the first heading |
+  | Read-only with edits | **Red** "Save as…" pill | "Unsaved · read-only" | System picker |
+  | Save failed | **Red** "Retry" pill | "Couldn't save · <reason>" (error colour) | Retries; banner offers Save as… |
+  | Autosave paused (conflict, permission, error) | **Red** "Save" pill | "Autosave paused · <reason>" | Opens the reason (conflict sheet or Save as…) |
+
+  - Pills are 40 dp tall with a 48 dp hit area.
+  - **Long-press Save** offers: Save as… · Autosave this file (on/off).
+    The twin for Autosave this file is the toggle at the top of Version
+    history.
+  - Every successful save confirms with a short "Saved to <place>"
+    message.
 - **⋮** opens: New · Open file · Open folder · Save as │ Find & replace ·
-  Version history │ Export… (PDF · Images · Section) · Share │ Display ·
-  Settings.
+  Version history │ Export PDF · Export images… · Share │ Display ·
+  Settings. Share also offers *Copy as rich text*, the twin for
+  long-pressing Copy.
 
 **Bottom bar (64 dp)**
 - A segmented Code | Split | Preview control, with icon and label.
@@ -65,8 +75,25 @@ shared by Code and Preview, and updates as headings scroll past the top.
   to say ("· Unsaved", "· Saving…", "· Read-only"), alongside the red dot
   and the Save pill. Back at the top of the document, the line shows the
   full save status again ("Saved · 2 min ago").
-- On narrow screens the parent crumbs are truncated first; the current
-  section never truncates before its parents.
+- Below about 360 dp of title width, only the current section is shown
+  ("› Code review"). The parents are dropped rather than truncated to
+  useless stubs.
+
+## System bars and insets
+
+The app is edge-to-edge (Android 15 enforces it). The top bar sits below
+the status-bar inset. The bottom bar and strip sit above the
+navigation-bar inset (3-button or gesture) and the keyboard inset. The
+mockups leave system bars out, as the canvas convention, but every
+layout budget assumes them:
+- **Phone landscape:** the header and mode switch merge into **one 48 dp
+  bar** (title · Code/Split/Preview · zoom chip · Copy · Save · ⋮). There
+  is no bottom bar, so ~250 dp of text remains even with a 3-button nav
+  bar.
+- **Landscape with the keyboard:** the header steps aside; the strip
+  carries the name, the unsaved dot, undo, `{ }` and Save. The editor
+  sets `IME_FLAG_NO_EXTRACT_UI` so the keyboard's full-screen extract
+  mode never hides the app.
 - The header's bottom hairline doubles as a **reading-position line**:
   a neutral grey fill, 2 dp, full width. It is not an accent colour and
   doesn't animate on its own.
@@ -83,12 +110,15 @@ shared by Code and Preview, and updates as headings scroll past the top.
    edit" off, a tap opens the link directly.
 4. Tap on a **task checkbox** → toggles it (one character changes).
 5. Tap on **text** → caret and keyboard (if "Tap to edit" is on).
-6. **Long-press text** → native selection. When the selection starts in
-   a heading, the selection toolbar adds **Section…** (Copy section ·
-   Copy as rich text · Select section · Export section). It never
-   replaces native selection.
-7. **Pinch** → this file's preview text size. **Double-tap a block** →
-   jumps to its source line in Code.
+6. **Long-press a heading** → the section menu directly (Copy section ·
+   Copy as rich text · Select section · Export section…), with **Select
+   text instead** as its last row. That's J10 in 2 taps.
+7. **Long-press other text** → native selection.
+8. **Pinch** → this file's preview text size.
+9. **No double-tap gestures** on text in Preview. Double-tap is Android's
+   select-word gesture, and listening for it would delay every tap by
+   about 300 ms. "Jump to source" isn't needed: switching to Code
+   already lands on the same paragraph through the anchor.
 
 ## Recovery (reopening after a crash)
 
@@ -122,7 +152,10 @@ Back.
 
 - **Pinch** and the **Display sheet stepper** both set *this file's* size
   for the pane you're in.
-- **Settings → Default zoom** sets the size new files start at.
+- **100% is defined by the preview theme's base size** (Clean: 15 px;
+  a custom theme's "Base size" redefines it). Code's 100% is 12.5 sp.
+- **Settings → Default zoom** (a percentage of that base) sets the size
+  new files start at.
 - The **zoom chip** appears when this file differs from the default, and
   tapping it resets.
 - The copy says "This file" and "New files" so the difference is
@@ -159,6 +192,26 @@ Never put a one-sided coloured border on anything.
   the space.
 - **Export maths blocks toggle.** In Export images → Include, there's a
   "Maths blocks" switch, off by default.
+- **Rename / delete a file.** Long-press a file in the drawer or the
+  Files tab → Rename · Duplicate · Delete. The ⋯ on each row is the
+  visible twin. Delete asks for confirmation and keeps the history entry.
+- **Drafts.** Untitled drafts appear as a **Drafts** group at the top of
+  the Navigator's Files tab, with their first line and age, so a draft
+  left behind by "New" is never lost. Drafts older than 30 days and
+  untouched get a gentle "Old draft" label; they are never auto-deleted.
+- **A file too large to open.** A full-width message in the editor area:
+  "This 180 MB file needs about 400 MB, and this phone allows 256 MB",
+  with Open read-only (streamed) and Share.
+- **Big-file mode explanation.** Tapping the chip opens a small sheet
+  listing what's paused (live preview while typing, diagram cache, spell
+  suggestions) and why.
+- **Preview restarted.** A one-line message in the preview pane, "Preview
+  restarted", that fades after 2 s. After two crashes in a minute, the
+  pane shows "Preview paused · Retry".
+- **Navigator, no results.** "Nothing matches “xyz”" followed by "Open a
+  file…". Full-text search across files is out of scope.
+- **About → Open-source licences.** Every bundled library and font
+  (Apache-2.0, MIT, OFL), generated at build time.
 
 ## Navigator (tap the title)
 
@@ -175,8 +228,8 @@ separate Recent menu.
   flow" and "savings-plan.md", never "re*s*e*a*rch-o*v*erview"). Results
   are ranked headings, then recent files, then folder files. The Ctrl K
   hint shows only when a hardware keyboard is attached.
-- **Search field on top (the quick switcher).** It fuzzy-matches as you
-  type across three groups, in this order:
+- **Search field on top (the quick switcher).** It matches word starts
+  as you type, across three groups, in this order:
   - headings in this file;
   - recent files;
   - files in the open folder.
@@ -203,7 +256,7 @@ and for `.md` files. Sharing text opens a small sheet over the sending
 app:
 - **New note** — an untitled draft containing the text.
 - **Append to…** — recent and pinned files, newest first.
-  - Options: Bottom (default) or Top; a prefix of none, `- `, or a
+  - Options: Bottom (default) or Top; a prefix of none (default) or a
     `### <date time>` heading.
   - The last-used target and options are remembered.
 - Appending runs through the normal save pipeline: fingerprint check,
@@ -247,7 +300,6 @@ orientation.
   blocks.
 - In Split, the panes scroll together (a setting, on by default); the
   pane being touched leads.
-- Double-tapping a preview block opens Code at its source line.
 - The cursor, selection, scroll, view mode and zoom are stored per file.
 
 ## Zoom
@@ -262,10 +314,16 @@ set in Settings.
 - Untitled documents autosave to app-private drafts.
 - Real files use an explicit Save. Autosave is an opt-in setting.
 - A recovery journal keeps unsaved buffers across crashes.
-- Before writing, the file's `lastModified` and size are compared with
-  what we loaded. If they differ, a banner under the header offers
-  Compare · Reload · Keep mine.
-- Leaving with unsaved changes prompts Save / Discard / Cancel.
+- Before writing, the file's fingerprint is compared with what we
+  loaded. If it differs, nothing is written: a banner says "Changed in
+  another app · nothing is overwritten · **Review**", and Review opens
+  the conflict sheet (see "File changed outside the app"). The conflict
+  sheet is the only place conflicts are resolved.
+- Leaving with unsaved changes prompts Save / Don't save / Keep editing.
+  This happens only when a buffer would leave memory (see `robustness.md`
+  §6); switching files in a folder never prompts.
+- First open of a file, under "Last used": **Preview** for files opened
+  from another app, **Code** for files created in SS Markdown.
 
 ## Folder mode
 
@@ -291,7 +349,7 @@ the keyboard opens, and the block under edit gets a faint tint.
   only that block is turned back into Markdown and spliced into its
   source lines. Every other line of the file stays byte-for-byte as it
   was, so editing in Preview never reformats a hand-written document.
-- Links open on long-press while editing (a tap places the cursor).
+- Links: tapping shows the *Open · Edit link* chip (Gestures, rule 3).
 - Diagrams, maths and images are not text, so tapping them opens the
   viewer instead of a cursor.
 - A setting, "Tap to edit in Preview", is on by default; turn it off for
@@ -312,9 +370,12 @@ beside rows show the current column and row; long-press a handle to
 move it. Wide tables scroll sideways inside their own box, with a fade
 at the edge, and never scroll the page.
 
-The table is written back as a tidy GFM pipe table: columns padded to
-line up in Code view and alignment markers kept. Only the table's own
-lines change.
+The table is written back **in its existing style**. A compact table
+(`|a|b|`) stays compact. A padded table stays padded, re-padded only
+where a cell's width changed, using display width (East Asian wide
+characters and emoji count as 2 columns; graphemes, not chars).
+Alignment markers are kept. Only the table's own lines change, and only
+the rows that need it.
 
 ## Viewer (diagrams and images)
 

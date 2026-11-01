@@ -20,14 +20,14 @@ Scale: 0 missing · 1 broken · 2 works but frustrating · 3 acceptable ·
 | 7 | **Reading quality** | 2 | Text meets WCAG AA contrast in all themes and the line length is comfortable. The small default is still legible. Pinch reflows instead of scaling. | Contrast checker on the theme tokens; screenshot review |
 | 8 | **Adaptive layouts** | 2 | Phone portrait, phone landscape, foldable and tablet each have a deliberate layout, never a stretched phone UI. Split orientation follows the window shape. | Robolectric renders at 360, 600, 840 and 1280 dp |
 | 9 | **Power depth** | 1 | Folder mode, Save all, no-wrap, custom themes and fonts, PDF and Mermaid export are each reachable within two taps of ⋮. Any heading or recent file is reachable in ≤ 3 interactions through the Navigator (tap, type 2–3 letters, tap). A snippet can be shared into a file in ≤ 3 taps without leaving the sending app. | A tap-count audit |
-| 10 | **Accessibility** | 1 | Every control has a TalkBack label and a ≥ 48 dp touch target. System font scale is respected. No signal relies on colour alone. | An accessibility scanner plus a TalkBack pass |
-
+| 10 | **Accessibility** | 1 | Every control has a TalkBack label and meets the touch-target tokens in `quality-bar.md` (48 dp icon buttons and keys; pills 40 dp with 48 dp hit areas; segments 44 dp). Every gesture-only action has a visible twin. System font scale is respected. No signal relies on colour alone. | An accessibility scanner plus a TalkBack pass |
 | 11 | **Craft (open-source code quality)** | 2 | A stranger can clone the repo, build, run the tests and find their way around within 30 minutes. Lint, ktlint and detekt report zero issues. `core/*` has ≥ 90% coverage, with property tests. Dependencies point inwards (CI-enforced). Every significant decision has an ADR. Every row in `edge-cases.md` is `tested`. | CI gates; a review against `docs/engineering.md`; a fresh-clone test by someone new to the code |
 
 Weighted average = Σ(score × weight) / 23.
 
 ## Scorecard
 
-| Iteration | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | Weighted |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| 0 (mockups) | — | — | — | — | — | — | — | — | — | — | not scored; design only |
+| Iteration | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | Weighted |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 · review 1 (design) | 3 | 4 | 3 | 3 | 3 | 3 | 3 | 3 | 4 | 2 | 3 | 3.13 |
+| 0 · review 2 (design) | 4 | 4 | 4 | 3 | 3 | 3 | 4 | 3 | 4 | 3 | 3 | 3.52 |

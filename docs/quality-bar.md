@@ -14,12 +14,12 @@ counts as one.
 
 | # | Job | Steps (happy path) | Target | Failures we refuse |
 |---|---|---|---|---|
-| J1 | **Fix a typo in a .md from Files, Gmail or Drive** | Tap the file in the other app → SS Markdown opens it in Preview at the top → tap the word, fix it → Save | 3 taps, < 10 s; the file is saved in place | Silently importing a copy; read-only without saying so; "Save" producing a new file |
+| J1 | **Fix a typo in a .md from Files or Drive** | Tap the file in the other app → SS Markdown opens it in Preview at the top → tap the word, fix it → Save | 3 taps, < 10 s; saved in place when the source grants write access | Silently importing a copy; read-only without saying so; "Save" producing a new file. **Expected exception:** Gmail and most email apps hand over read-only copies. Then the Read-only badge shows and Save becomes Save as… (+1 tap). That is honest, not a failure. |
 | J2 | **Jump to a section in a 10k-line doc** | Tap the title → type 2–3 letters → tap the heading | 3 taps, < 3 s; lands with the heading at the top | Scrolling by hand; Outline taking > 300 ms to open |
 | J3 | **Edit a table on a phone** | Tap a cell in Preview → type → Next cell → … → Save | No raw pipes seen; nothing else in the file changes | Table reformatting elsewhere; keyboard covering the cell; losing the cell on rotation |
 | J4 | **Get my work back after a crash or a dead battery** | Reopen the app | 0 taps to see "Recovered unsaved changes"; ≤ 1 s of typing lost | A blank editor; a silent restore over a newer file |
 | J5 | **Another app changed the file while I had edits** | Reopen → sheet → Merge my edits → resolve 1 overlap → Save | Never loses either side; 3–4 taps | Our old text overwriting the new file; the old undo stack reaching into new content |
-| J6 | **Export every diagram for a slide deck** | ⋮ → Export images → Export | 2–3 taps, one ZIP or a folder in Downloads | Saving each one by hand; blurry PNGs (2× default) |
+| J6 | **Export every diagram for a slide deck** | ⋮ → Export images… → Export | 3 taps to separate files in Downloads (the default); ZIP adds the folder picker once, then it's remembered | Saving each one by hand; blurry PNGs (2× default) |
 | J7 | **Tidy several files in a folder, then save them all** | ≡ → file → edit → ≡ → file → edit → Save all | One tap to save everything; conflicted files are skipped and listed | Losing which files are unsaved; Save all overwriting an outside change |
 | J8 | **Read a long doc in bed, in the dark, at a larger size** | Open → Preview (remembered) → pinch | Pinch reflows text smoothly; no white flash; the size is remembered | Bitmap-scaled blur; a white flash on load; the zoom resetting next time |
 | J9 | **Capture a snippet from Chrome into my notes file** | Share → SS Markdown → Append to notes.md | 2–3 taps; I stay in Chrome; a toast confirms | Opening the full app; racing the editor; appending to a stale copy |
@@ -84,6 +84,18 @@ scored by walking these jobs on a device.
 - Neutral surfaces. Scorchsoft red means **"needs you"**: the unsaved
   dot, the Save pill, Save all and errors. It is never decoration.
 - Every token pair meets WCAG AA, and the Contrast theme meets AAA.
+- **Semantic tokens** (and nothing else carries colour):
+  - **Needs you** — red (`#B3191B` / `#C9302F` dark): unsaved, Save,
+    Save all, errors.
+  - **Info** — blue (`#1D5DBF` on `#EAF1FC`): recovery, notes and alerts.
+  - **Caution** — amber (`#5C4300` on `#FFF4DA`): changed in another app,
+    Big-file mode, contrast warnings.
+  - **Ink** — everything else that needs emphasis: syntax markers,
+    checkboxes, toggles, sliders, the caret, the current table cell and
+    handles, pins.
+  - Selection uses the system colour.
+- Gutter text is `#6E6E73`, which passes AA on both the page and the
+  current-line tint.
 
 **States.** Every surface specifies all of these:
 - **Empty:** an untitled scratch doc with "Start writing…" placeholder

@@ -22,7 +22,7 @@ mockups agreed with Andrew win, and this file gets updated.
   - Untitled: "Save as…".
   - A brief toast confirms each save with the destination.
 - **⋮** opens: New · Open file · Open folder · Recent · Save as · Find &
-  replace · Export PDF · Share · Display · Settings.
+  replace · Export PDF · Export images · Share · Display · Settings.
 
 **Bottom bar (64 dp)**
 - A segmented Code | Split | Preview control, with icon and label.
@@ -90,14 +90,80 @@ set in Settings.
 - Several dirty buffers are held in memory, with no tabs. The drawer and
   Recent are the switchers.
 
+## Editing in Preview
+
+Preview is not read-only. Tap rendered text and the cursor lands there,
+the keyboard opens, and the block under edit gets a faint tint.
+
+- The formatting strip works on rendered text: a block-style picker
+  (Heading 1–3, Paragraph, Quote, Code block), then B, I, inline code,
+  link, list, insert table, and undo. Toggles show their state, so Bold
+  is pressed when the cursor is in bold text.
+- **Edits are scoped to one block.** When the cursor leaves a block,
+  only that block is turned back into Markdown and spliced into its
+  source lines. Every other line of the file stays byte-for-byte as it
+  was, so editing in Preview never reformats a hand-written document.
+- Links open on long-press while editing (a tap places the cursor).
+- Diagrams, maths and images are not text, so tapping them opens the
+  viewer instead of a cursor.
+- A setting, "Tap to edit in Preview", is on by default; turn it off for
+  a read-only Preview.
+
+### Tables
+
+Tapping a cell puts the cursor in it, and a dark table toolbar appears
+above the table:
+- **+ Row** and **+ Column** insert after the current cell.
+- Align left / centre / right applies to the current column.
+- **⋯** offers insert before, move, delete row or column, and delete
+  table.
+
+The formatting strip's right end becomes **‹ Prev cell / Next cell ›**.
+"Next" on the last cell adds a row. Thin handles above columns and
+beside rows show the current column and row; long-press a handle to
+move it. Wide tables scroll sideways inside their own box, with a fade
+at the edge, and never scroll the page.
+
+The table is written back as a tidy GFM pipe table: columns padded to
+line up in Code view and alignment markers kept. Only the table's own
+lines change.
+
+## Viewer (diagrams and images)
+
+Tapping a diagram or image in Preview, or "View full screen" from its
+long-press sheet, opens a full-screen viewer:
+- It has its own pinch, pan and double-tap zoom, separate from the
+  preview's text zoom. A chip shows the zoom ("250%") with a Fit button.
+- Diagrams are vector, so they stay sharp at any zoom. A mini-map
+  appears when zoomed in.
+- A strip along the bottom holds every image in the document. Swipe or
+  tap to move between them ("2 of 5").
+- Save and Share sit in the viewer's header.
+
 ## Mermaid
 
 Long-press a rendered diagram to get a sheet with:
+- View full screen
 - Save as PNG (1× / 2× / 3×)
 - Save as SVG
 - Copy image
 - Share
 - Show source in Code
+
+## Export images (⋮ → Export images…)
+
+This exports every rendered image in the file in one go: Mermaid
+diagrams, maths blocks if you want them, and embedded pictures.
+- **Include:** thumbnails, all selected by default, with Select none.
+- **Diagrams as:** PNG / SVG / Both, plus a PNG scale of 1× / 2× / 3×.
+  Pictures keep their original format and size.
+- **Save as:**
+  - **One ZIP file** (`<doc>-images.zip`), saved wherever you choose.
+  - **Separate files** in `Downloads/SS Markdown/<doc>/`, numbered in
+    document order: `01-save-flow.png`, `02-architecture.png`, …
+- **Share instead** hands the files to the system share sheet.
+- In folder mode, the folder's ⋮ offers the same export for every file
+  in the folder.
 
 ## PDF
 
@@ -139,4 +205,5 @@ Fonts family names, downloaded on first use and cached. The editor
   override, and line numbers.
 - Saving: autosave files and recovery copies.
 - Split view: scroll panes together.
+- Preview: tap to edit (on by default).
 - Themes: manage custom themes.

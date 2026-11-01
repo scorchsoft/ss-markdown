@@ -51,6 +51,11 @@ it that is always on screen is not.
 | Saving files | Explicit Save by default (autosave is a setting); untitled docs keep drafts automatically | The user wants to see unsaved state at a glance, which only means something with explicit save. Recovery copies remove the downside. |
 | Open mode | Setting: always Code, always Preview, or last used per file (the default) | Asked for directly; "last used" respects how each file is actually used. |
 | Wrap modes | Code: Wrap / No wrap. Preview: Fluid / A4 page / No wrap | Fluid suits reading, A4 previews print and PDF, and No wrap suits wide tables and code. |
+| Editing in Preview | Tap-to-edit on the rendered view, with a block-scoped round trip: only the edited block is turned back into Markdown and spliced into its source lines | Most editors' "visual" mode is poor, especially for tables, and re-serialising the whole document mangles hand-written Markdown. Scoping edits to one block keeps every untouched line byte-identical. |
+| Tables | A structured cell editor (toolbar for + Row / + Column / align, Prev/Next cell), written back as a padded GFM table | Tables are where raw Markdown is most painful on a phone. |
+| Image zoom | A separate full-screen viewer for diagrams and images, with its own zoom | Pinch in Preview changes text size, so it can't also zoom a diagram. A dedicated viewer avoids two gestures fighting over one pinch. |
+| Export images | One action exports every rendered image as a ZIP or as separate files in Downloads | Saving diagrams one by one is tedious. ZIP vs files is offered because both are reasonable. |
+| Line spacing | Line height is a ratio of font size, so zoom never changes the gaps between lines on its own | The spacing in the first round of mockups was a mockup bug, not the design. |
 | Toolchain | Mirrors Measur3D's Android setup (AGP 8.13, Kotlin 2.3, Compose BOM 2026.06, no wrapper) | Already proven in this cloud container and on CI. |
 
 ## Iteration history

@@ -53,6 +53,8 @@ class EditorFixture(
     io: CoroutineDispatcher = dispatcher,
     /** Where find searches run; the test dispatcher by default, so a search lands before the next line. */
     compute: CoroutineDispatcher = dispatcher,
+    /** Folder mode's file system; none by default. */
+    folders: FolderSource = NoFolders,
 ) {
     val files = File(root, "files").apply { mkdirs() }
     val scope = CoroutineScope(SupervisorJob() + dispatcher)
@@ -102,7 +104,7 @@ class EditorFixture(
                 versions = versions,
                 settings = this.settings,
                 diskReader = DiskReader(provider, io),
-                folders = NoFolders,
+                folders = folders,
                 permissions = { _, _ -> true },
                 clock = { now },
                 scope = scope,

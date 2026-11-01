@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.editor
 
+import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.files.provider.ProviderResult
 import com.scorchsoft.ssmarkdown.files.saf.FolderRow
 import com.scorchsoft.ssmarkdown.files.saf.unsavedCountsByFolder
@@ -22,6 +23,9 @@ class FolderController(
 ) {
     private val deps get() = host.deps
     private var listed: List<FolderRow> = emptyList()
+
+    /** The files the drawer currently marks unsaved. */
+    private var shownDirty: Set<DocumentUri> = emptySet()
 
     /** The folder picker answered; null when cancelled. */
     fun onFolderPicked(treeUri: String?) {
@@ -50,6 +54,19 @@ class FolderController(
             FolderAction.ToggleShowAllFiles, FolderAction.Refresh -> load()
             else -> Unit
         }
+    }
+
+    /**
+     * The open file was edited or saved: its row's dot follows, so a
+     * docked panel, or a drawer opened later, never shows it clean while
+     * it has unsaved edits (rubric #1). Only a clean ↔ unsaved change
+     * redraws the rows; ordinary keystrokes cost one set lookup.
+     */
+    fun onActiveChanged(
+        uri: DocumentUri,
+        dirty: Boolean,
+    ) {
+        if (host.state.folder != null && (uri in shownDirty) != dirty) refreshDots()
     }
 
     /** Unsaved dots follow edits in any open buffer. */
@@ -87,6 +104,7 @@ class FolderController(
             deps.store.dirtyDocuments
                 .map { it.uri }
                 .toSet()
+        shownDirty = dirty
         val marked = rows.map { it.copy(dirty = it.entry.uri in dirty) }
         val counts = marked.unsavedCountsByFolder()
         val active = host.active?.open?.uri

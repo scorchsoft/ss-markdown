@@ -427,11 +427,17 @@ class EditorViewModel(
         val activeUri = active?.open?.uri
         when (event) {
             is DocumentEvent.Edited -> {
-                if (event.uri == activeUri) refresh() else folder.refreshDots()
+                if (event.uri == activeUri) {
+                    refresh()
+                    folder.onActiveChanged(event.uri, active?.open?.isDirty == true)
+                } else {
+                    folder.refreshDots()
+                }
             }
 
             is DocumentEvent.SaveFinished -> {
                 saves.onSaveFinished(event.uri.value, event.outcome)
+                folder.onActiveChanged(event.uri, deps.store[event.uri]?.isDirty == true)
             }
 
             is DocumentEvent.Reloaded -> {

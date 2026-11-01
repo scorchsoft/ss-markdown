@@ -23,6 +23,7 @@ class JvmLibraryConventionPlugin : Plugin<Project> {
         with(pluginManager) {
             apply("org.jetbrains.kotlin.jvm")
             apply("ssmarkdown.static-analysis")
+            apply("ssmarkdown.coverage")
         }
         extensions.configure<JavaPluginExtension> {
             sourceCompatibility = JavaVersion.VERSION_17

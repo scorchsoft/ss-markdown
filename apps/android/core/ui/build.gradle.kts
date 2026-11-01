@@ -2,6 +2,7 @@
 plugins {
     id("ssmarkdown.android.library")
     alias(libs.plugins.kotlin.compose)
+    id("ssmarkdown.coverage")
 }
 
 // `-Pssmarkdown.screenshots=true` renders the components to PNGs under

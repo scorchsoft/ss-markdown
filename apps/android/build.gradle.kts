@@ -8,6 +8,8 @@ plugins {
     alias(libs.plugins.kotlin.compose) apply false
     // Gives the root its own `check`, which runs the module-graph rule.
     id("ssmarkdown.module-graph")
+    // Merged Kover coverage of every core module (koverHtmlReport, koverXmlReport).
+    id("ssmarkdown.coverage-report")
 }
 
 // Unit tests run on DEBUG only. The release unit-test component of every

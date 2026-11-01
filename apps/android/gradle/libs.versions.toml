@@ -29,6 +29,9 @@ ktlint = "1.8.0"
 # that compiler so it does not pick up the project's newer Kotlin.
 detekt = "1.23.8"
 detektKotlin = "2.0.21"
+# Line coverage for the core modules (docs/engineering.md: >= 90% in core/*).
+# Kover is JetBrains' Kotlin-aware coverage tool; Apache-2.0.
+kover = "0.9.11"
 
 # :tools:editor-bench only (the ADR 0001 editor-engine benchmark).
 # Coroutines sequence the scripted runs; Apache-2.0.
@@ -46,6 +49,7 @@ android-gradlePlugin = { group = "com.android.tools.build", name = "gradle", ver
 kotlin-gradlePlugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
 ktlint-gradlePlugin = { group = "org.jlleitschuh.gradle", name = "ktlint-gradle", version.ref = "ktlintGradle" }
 detekt-gradlePlugin = { group = "io.gitlab.arturbosch.detekt", name = "detekt-gradle-plugin", version.ref = "detekt" }
+kover-gradlePlugin = { group = "org.jetbrains.kotlinx", name = "kover-gradle-plugin", version.ref = "kover" }
 
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }

@@ -23,6 +23,7 @@ dependencies {
     // runtime classpath (nothing in the root build declares them).
     implementation(libs.ktlint.gradlePlugin)
     implementation(libs.detekt.gradlePlugin)
+    implementation(libs.kover.gradlePlugin)
 }
 
 gradlePlugin {
@@ -38,6 +39,14 @@ gradlePlugin {
         register("staticAnalysis") {
             id = "ssmarkdown.static-analysis"
             implementationClass = "StaticAnalysisConventionPlugin"
+        }
+        register("coverage") {
+            id = "ssmarkdown.coverage"
+            implementationClass = "CoverageConventionPlugin"
+        }
+        register("coverageReport") {
+            id = "ssmarkdown.coverage-report"
+            implementationClass = "CoverageReportConventionPlugin"
         }
         register("moduleGraph") {
             id = "ssmarkdown.module-graph"

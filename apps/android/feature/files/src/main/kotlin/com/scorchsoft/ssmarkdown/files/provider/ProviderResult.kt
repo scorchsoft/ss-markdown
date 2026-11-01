@@ -28,6 +28,9 @@ sealed interface ProviderResult<out T> {
     /** The device (or the provider's quota) is full: `ENOSPC`. */
     data object StorageFull : Failure
 
+    /** The call took longer than its deadline allowed (a slow cloud provider); see `SaveTimeout`. */
+    data object TimedOut : Failure
+
     /** The provider refused the requested open mode, as some do with `"wt"`. */
     data object ModeUnsupported : Failure
 

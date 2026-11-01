@@ -6,6 +6,7 @@ import com.scorchsoft.ssmarkdown.files.provider.DocumentProvider
 import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.files.save.BaseCopyStore
 import com.scorchsoft.ssmarkdown.files.save.SavePipeline
+import com.scorchsoft.ssmarkdown.files.save.SaveTimeout
 import com.scorchsoft.ssmarkdown.history.journal.BaseFingerprint
 import com.scorchsoft.ssmarkdown.history.journal.JournalStore
 import com.scorchsoft.ssmarkdown.text.DecodeResult
@@ -30,12 +31,13 @@ internal class StoreContext(
     val io: CoroutineDispatcher,
     val history: HistoryHook,
     val cursorMapper: CursorMapper,
+    saveTimeout: SaveTimeout,
 ) {
     val entries = LinkedHashMap<DocumentUri, OpenDocument>()
     val listeners = CopyOnWriteArrayList<(DocumentEvent) -> Unit>()
     val loader = DocumentLoader(provider, governor)
     val probe = DiskProbe(provider)
-    val pipeline = SavePipeline(provider, baseCopies)
+    val pipeline = SavePipeline(provider, baseCopies, saveTimeout)
 
     /** Edit times from the last launch scan, for the recovery banner. */
     val journalTimes = HashMap<DocumentUri, Long>()

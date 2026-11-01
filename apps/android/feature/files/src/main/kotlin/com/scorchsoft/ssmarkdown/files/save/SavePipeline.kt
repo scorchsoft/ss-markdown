@@ -29,10 +29,13 @@ import com.scorchsoft.ssmarkdown.text.Utf8Encoder
  *
  * Blocking: run it on the I/O dispatcher. The caller marks the document
  * clean, records history and ends the journal, and only on [SaveOutcome.Saved].
+ * A save that runs past [timeout] ends as [SaveOutcome.TimedOut] with the
+ * file untouched or restored; see [SaveTimeout] for where it is enforced.
  */
 class SavePipeline(
     private val provider: DocumentProvider,
     private val baseCopies: BaseCopyStore,
+    private val timeout: SaveTimeout = SaveTimeout(),
 ) {
     private val probe = DiskProbe(provider)
     private val writer = ProviderWriter(provider)
@@ -41,16 +44,18 @@ class SavePipeline(
     @Suppress("ReturnCount") // The steps of the class description, each able to end the save.
     fun save(request: SaveRequest): SaveOutcome {
         if (request.readOnly) return SaveOutcome.ReadOnly
+        val deadline = timeout.start()
         checkDiskAndBackup(request.uri, request.base)?.let { return it }
+        if (deadline.expired) return SaveOutcome.TimedOut(FileIntegrity.Untouched)
         val first =
-            writer.write(request.uri) { Utf8Encoder.write(request.text, request.format, it) }
+            writer.write(request.uri) { Utf8Encoder.write(request.text, request.format, deadline.guard(it)) }
         val written =
             when (first) {
                 is WriteAttempt.Written -> first.digest
                 is WriteAttempt.NotOpened -> return failure(first.failure, FileIntegrity.Untouched)
                 is WriteAttempt.FailedAfterOpen -> return failure(first.failure, restore(request))
             }
-        return verifyOrRepair(request, written)
+        return verifyOrRepair(request, written, deadline)
     }
 
     /** Steps 1 and 2. Null means "carry on"; anything else ends the save. */
@@ -83,13 +88,14 @@ class SavePipeline(
     private fun verifyOrRepair(
         request: SaveRequest,
         written: ByteDigest,
+        deadline: SaveDeadline,
     ): SaveOutcome {
         var readBack = probe.digest(request.uri)
         val tooLong = readBack.valueOrNull()?.let { it.size > written.size } == true
         if (tooLong) {
             val retry =
                 writer.write(request.uri, forceExplicitTruncate = true) {
-                    Utf8Encoder.write(request.text, request.format, it)
+                    Utf8Encoder.write(request.text, request.format, deadline.guard(it))
                 }
             if (retry !is WriteAttempt.Written) return failure(retry.failureOrNull(), restore(request))
             readBack = probe.digest(request.uri)
@@ -164,6 +170,7 @@ class SavePipeline(
             ProviderResult.NotFound -> SaveOutcome.Missing(file)
             ProviderResult.PermissionDenied -> SaveOutcome.PermissionLost(file)
             ProviderResult.StorageFull -> SaveOutcome.StorageFull(file)
+            ProviderResult.TimedOut -> SaveOutcome.TimedOut(file)
             null -> SaveOutcome.VerifyFailed(file)
             else -> SaveOutcome.ProviderError(failure, file)
         }

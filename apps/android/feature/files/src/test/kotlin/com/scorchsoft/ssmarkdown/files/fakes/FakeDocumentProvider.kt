@@ -61,6 +61,12 @@ class FakeDocumentProvider : DocumentProvider {
     /** Each read sleeps this long: a slow cloud provider. */
     var readDelayMillis = 0L
 
+    /** Called before every byte written: a test advances its clock here to fake a slow upload. */
+    var onWriteByte: (() -> Unit)? = null
+
+    /** Called on every open for reading: a test advances its clock here to fake a slow download. */
+    var onOpenInput: (() -> Unit)? = null
+
     /** Writes opened so far, for asserting nothing was written. */
     var writesOpened = 0
         private set
@@ -123,6 +129,7 @@ class FakeDocumentProvider : DocumentProvider {
         providerCall {
             val file = find(uri)
             if (readDelayMillis > 0) Thread.sleep(readDelayMillis)
+            onOpenInput?.invoke()
             ByteArrayInputStream(file.bytes.copyOf())
         }
 
@@ -164,6 +171,7 @@ class FakeDocumentProvider : DocumentProvider {
         override val stream: OutputStream =
             object : OutputStream() {
                 override fun write(b: Int) {
+                    onWriteByte?.invoke()
                     if (failAfter != null && written >= failAfter) throw IOException("connection reset")
                     if (fullAfter != null &&
                         written >= fullAfter

@@ -102,4 +102,22 @@ sealed interface SaveOutcome {
         val failure: ProviderResult.Failure,
         val file: FileIntegrity,
     ) : SaveOutcome
+
+    /**
+     * The save ran past its [SaveTimeout]: offer Retry or Save locally.
+     *
+     * A timeout is reported as a [ProviderError] whose failure is
+     * [ProviderResult.TimedOut], so exhaustive `when`s over [SaveOutcome]
+     * written before timeouts existed keep compiling and still land on
+     * "Couldn't save". Build one with `SaveOutcome.TimedOut(file)` and
+     * recognise one with [SaveOutcome.isTimedOut].
+     */
+    object TimedOut {
+        /** The outcome for a save that timed out, leaving the file as [file] says. */
+        operator fun invoke(file: FileIntegrity): ProviderError = ProviderError(ProviderResult.TimedOut, file)
+    }
 }
+
+/** True when the save ran out of time (see [SaveOutcome.TimedOut]). */
+val SaveOutcome.isTimedOut: Boolean
+    get() = this is SaveOutcome.ProviderError && failure == ProviderResult.TimedOut

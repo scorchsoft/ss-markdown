@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.files.provider
 
+import com.scorchsoft.ssmarkdown.files.save.SaveTimedOut
 import java.io.FileNotFoundException
 import java.io.IOException
 
@@ -22,16 +23,27 @@ internal object ProviderFailures {
     ): ProviderResult.Failure =
         when {
             error is SecurityException -> ProviderResult.PermissionDenied
+
+            generateSequence(
+                error,
+            ) { it.cause }.take(MAX_CAUSE_DEPTH).any { it is SaveTimedOut } -> ProviderResult.TimedOut
+
             isStorageFull(error) -> ProviderResult.StorageFull
+
             openingForWrite && isModeRejection(error) -> ProviderResult.ModeUnsupported
+
             error is FileNotFoundException -> ProviderResult.NotFound
+
             error is Exception -> ProviderResult.Failed(error)
+
             else -> ProviderResult.Failed(IOException(error))
         }
 
+    private fun causes(error: Throwable): Sequence<Throwable> =
+        generateSequence(error) { it.cause }.take(MAX_CAUSE_DEPTH)
+
     private fun isStorageFull(error: Throwable): Boolean =
-        generateSequence(error) { it.cause }
-            .take(MAX_CAUSE_DEPTH)
+        causes(error)
             .any { cause -> FULL_MARKERS.any { cause.message?.contains(it) == true } }
 
     private fun isModeRejection(error: Throwable): Boolean =

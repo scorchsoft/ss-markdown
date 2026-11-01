@@ -6,6 +6,7 @@ import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.files.save.BaseCopyStore
 import com.scorchsoft.ssmarkdown.files.save.FileIntegrity
 import com.scorchsoft.ssmarkdown.files.save.SaveOutcome
+import com.scorchsoft.ssmarkdown.files.save.SaveTimeout
 import com.scorchsoft.ssmarkdown.history.journal.JournalStore
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.sync.Mutex
@@ -23,6 +24,9 @@ import kotlinx.coroutines.withContext
  * open, save, check and resolve steps are serialised by its own lock.
  *
  * Startup order: [scanForRecovery] once, before anything opens.
+ *
+ * [saveTimeout] bounds each save; a slow provider ends as
+ * [SaveOutcome.TimedOut] with the file untouched or restored.
  */
 @Suppress(
     "LongParameterList", // Constructor injection without a DI framework (docs/engineering.md).
@@ -36,8 +40,9 @@ class DocumentStore(
     io: CoroutineDispatcher,
     history: HistoryHook = HistoryHook.NONE,
     cursorMapper: CursorMapper = CursorMapper.BY_LINE,
+    saveTimeout: SaveTimeout = SaveTimeout(),
 ) {
-    private val context = StoreContext(provider, journals, baseCopies, governor, io, history, cursorMapper)
+    private val context = StoreContext(provider, journals, baseCopies, governor, io, history, cursorMapper, saveTimeout)
     private val opener = DocumentOpener(context)
     private val changes = OutsideChanges(context)
     private val saves = SaveCoordinator(context, changes)

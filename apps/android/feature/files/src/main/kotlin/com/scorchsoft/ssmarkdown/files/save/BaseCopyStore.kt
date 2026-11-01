@@ -8,6 +8,7 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * The exact bytes each open document was loaded from or last saved as,
@@ -28,6 +29,8 @@ class BaseCopyStore(
 ) {
     /** Saves in flight, recorded beside the copies so a torn write can be repaired (see [PendingSaves]). */
     val pendingSaves: PendingSaves = PendingSaves(this)
+
+    private val staging = AtomicLong()
 
     /** The copy's file for [uri], whether or not it exists. */
     fun fileFor(uri: DocumentUri): File = File(root, nameFor(uri))
@@ -55,11 +58,17 @@ class BaseCopyStore(
             null
         }
 
-    /** Starts writing a replacement copy; nothing changes until [StagedCopy.commit]. */
+    /**
+     * Starts writing a replacement copy; nothing changes until [StagedCopy.commit].
+     * Each staged copy has a file of its own: a commit may wait on the
+     * journal thread while the same document is staged again (a resolved
+     * conflict, then an outside change), and two copies sharing one
+     * staging file would truncate, or delete, each other's bytes.
+     */
     fun stage(uri: DocumentUri): StagedCopy {
         root.mkdirs()
         val target = fileFor(uri)
-        return StagedCopy(target, File(root, target.name + NEW_SUFFIX))
+        return StagedCopy(target, File(root, target.name + NEW_SUFFIX + "-" + staging.incrementAndGet()))
     }
 
     /** Deletes the copy for [uri], if any. */

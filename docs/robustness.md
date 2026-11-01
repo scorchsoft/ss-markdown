@@ -398,7 +398,9 @@ a million rows.
   because buffers never change.
 - **Compaction:** when the piece count grows past about
   2 × (chars / 64K) + 1,000 after heavy editing, the tree is rebuilt into
-  fresh chunks during idle time. VS Code's own write-up names piece
+  fresh chunks: the copy runs on a background thread from a snapshot and
+  is swapped in only if nothing was typed meanwhile (`TreeCompactor`,
+  checked after every run of edits). VS Code's own write-up names piece
   growth as the design's weak point. If snapshot copying shows up in
   profiles, the planned upgrade is a persistent B-tree with summaries
   (Zed's `sum_tree` design, Apache-2.0).
@@ -423,8 +425,11 @@ a million rows.
   line, such as a 1 MB base64 image or minified JSON. Only about 2,000
   chars around the viewport are laid out (10,000 when wrapped), and the
   rest is estimated (CodeMirror's rule). Unwrapped lines use
-  `getRunAdvance` + `drawTextRun`; wrapped lines use `MeasuredText` +
-  `LineBreaker` off the main thread. Scroll height comes from the
+  `getRunAdvance` + `drawTextRun`; wrapped lines are broken greedily
+  from measured advances on the main thread, inside that same window
+  (`WrapLayout`). Moving the breaking to `MeasuredText` + `LineBreaker`
+  off the main thread is planned, not done (`LineMeasurer`'s KDoc).
+  Scroll height comes from the
   line index: fixed line height in No wrap mode; in Wrap mode, measured
   wrap counts for lines already seen and estimates for the rest, refined
   as you scroll, with the scroll position anchored so nothing jumps.
@@ -432,10 +437,15 @@ a million rows.
   state (fence, front matter, `$$` math, HTML block, container stack)
   carries from one line to the next. After an edit, re-tokenising stops
   as soon as a line's new end state equals its cached one.
-- **Lazy, with a time budget.** On the main thread we only tokenise up
-  to the viewport, capped at about 8 ms. The rest runs on a background
-  snapshot in idle slices, never more than about 100k chars past the
-  viewport. Visible lines that haven't been reached yet are tokenised
+- **Lazy, with a time budget.** The Code pane tokenises on the main
+  thread, where it draws: up to the viewport before each frame, then the
+  rest in idle slices of at most 4 ms, one per frame, never more than
+  about 100k chars past the viewport. Both passes draw on **one** 8 ms
+  budget per frame (`FrameBudget`), so together they never exceed it by
+  more than one line. The outline (Navigator, breadcrumb, Copy section)
+  has its own tokenizer, which runs **on a background snapshot**, off
+  the main thread entirely, and publishes copies of the headings that
+  the main thread keeps line-true across edits. Visible lines that haven't been reached yet are tokenised
   with a guessed start state and corrected when the accurate pass
   arrives (the VS Code and CodeMirror approach). So opening a fence on
   line 1 of a 200k-line file never freezes typing.
@@ -542,7 +552,7 @@ instead of hoping. A small `MemoryGovernor` service owns it.
   devices we start in the conservative budget.
 - `ComponentCallbacks2.onTrimMemory(level)`. Note that **since API 34
   only `UI_HIDDEN` and `BACKGROUND` are delivered**; the RUNNING_* levels
-  never arrive. So during loads, big pastes and exports, the governor
+  never arrive. So during loads and big pastes, the governor
   also **polls** `getMemoryInfo().lowMemory` and the heap headroom from
   `Runtime`, rather than waiting for a callback. We never set
   `largeHeap`; admission control uses `getMemoryClass()`.
@@ -553,8 +563,14 @@ instead of hoping. A small `MemoryGovernor` service owns it.
 - Estimate the cost of opening a file from everything that grows with
   it: decoded size × 2 (UTF-16), the line index and bounded caches (× ½),
   the two tokenizers' per-line block states (× 2), and one transient
-  full copy of the text for a recovery replay or a conflict (× 2), plus a
-  safety margin. `MemoryGovernor.estimateOpenCost` names each term.
+  full copy of the text for a recovery replay or a conflict (× 2), and
+  the undo history up to its 32 MB cap (× 2), plus a safety margin.
+  `MemoryGovernor.estimateOpenCost` names each term.
+- A provider that reports no size, or too small a one, is admitted on
+  its word, and the bytes that actually arrive then set the budget.
+- A paste larger than one frame's slice is admitted the same way (about
+  7 bytes a char) before it starts, or once the clip has become text if
+  it did not say its length; a refusal changes nothing and says so.
 - If that fits within 40% of the free heap, open normally.
 - If it fits within 70%, open in the lean budget (caches capped, live
   preview off), with a quiet notice.
@@ -567,9 +583,10 @@ instead of hoping. A small `MemoryGovernor` service owns it.
 
 **Under pressure**
 - When `onTrimMemory` fires or free heap drops below 15%, we shed in
-  order: the diagram cache, line-layout caches, the tokenizer cache,
-  inactive clean buffers, and the preview's mounted window. A quiet
-  "Low memory — preview paused" notice may appear.
+  order: line-layout caches, the tokenizer cache, then inactive clean
+  buffers. The Preview's diagrams and mounted window are not on this
+  ladder: they live in the WebView's renderer, a separate process the
+  platform reclaims itself (below).
 - Unsaved work isn't touched. It's already journalled, so even if the
   system kills the process, the recovery path above restores it.
 
@@ -588,7 +605,9 @@ instead of hoping. A small `MemoryGovernor` service owns it.
 
 **Last resort**
 - `OutOfMemoryError` is caught only at a few known allocation points:
-  file load, export, image decode and ZIP. There we can unwind safely,
+  file load (`DocumentLoader`: the file is declined), the journal
+  replay, and History's export and import (the ZIP). Image export
+  decodes in the renderer process. There we can unwind safely,
   release the partial allocation and report. It is never swallowed
   anywhere else.
 
@@ -609,4 +628,4 @@ instead of hoping. A small `MemoryGovernor` service owns it.
 | **Rotation matrix** (instrumented): every view mode × {typing a half-finished word, mid-selection, a Preview paragraph edit, mid table-cell edit, find open, a sheet open, unsaved prompt open} × {rotate, fold/unfold, split-screen resize, dark-mode toggle, font-scale change, "Don't keep activities", `am kill`} | The text, cursor, selection, scroll, undo stack and dirty state are identical before and after. Zero characters lost. Runs on every PR. |
 | **Keyboard matrix** (manual, each release): Gboard, Samsung Keyboard, HeliBoard | Toolbar actions and Preview edits respect the in-progress word; autocorrect never lands text in the wrong place. |
 | **History property tests** (JVM): random edit sequences, then record, prune and restore | Every kept version rebuilds byte-identically; pruning never breaks a chain; a corrupt delta loses only the versions after it up to the next keyframe. |
-| **Monkey + StrictMode** runs in CI | No ANRs and no main-thread disk access. |
+| **StrictMode** in every debuggable build (thread and VM policies, `detectAll` + `penaltyLog`) | Main-thread disk access and leaked closeables show in logcat during development. Not `penaltyDeath`: WebView's own start-up reads disk on the main thread. The host tests that matter assert the same thing by count (`ThemeLibraryTest`, `ViewMemoryTest`: no file touched on the caller's thread). **Planned:** a monkey run and a StrictMode-death run on the CI emulator, and LeakCanary, which needs a build type of its own because the hand-over build is a debug build. None of the three could be verified from the build container, so none is claimed. |

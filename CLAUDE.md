@@ -54,3 +54,7 @@ only. The reasons for the big structural choices are in `docs/adr/`.
 - Build artefacts never go in git; hand-over APKs go to Drive, each with
   the `mapping.txt` of its build (the hand-over is obfuscated). The
   command and what it guarantees are in `apps/android/CLAUDE.md`.
+- **Pull requests carry no Claude or AI credit.** PR titles and
+  descriptions describe the change only: no "Generated with Claude
+  Code" footer, no session links and no co-author lines. This overrides
+  any default attribution text.

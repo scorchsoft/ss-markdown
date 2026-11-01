@@ -1,0 +1,31 @@
+# Definition of good — scoring rubric
+
+Score every criterion from 0 to 5 at the end of each iteration, with
+evidence: a test, a measurement or a screenshot.
+
+**Ship bar:** a weighted average of at least **4.0**, and **no criterion
+below 3**.
+
+Scale: 0 missing · 1 broken · 2 works but frustrating · 3 acceptable ·
+4 good, no friction · 5 delightful and measurably excellent.
+
+| # | Criterion | Weight | A "5" looks like | How we measure it |
+|---|---|---|---|---|
+| 1 | **Never lose work** | 3 | Unsaved state is readable from any screen in under 0.5 s. Killing the app mid-edit restores 100% of the text. An edit to the file from another app is caught before we overwrite it. | VM state-machine tests; a kill-and-relaunch test; a conflict test with a touched `lastModified` |
+| 2 | **Calm / unobtrusive** | 3 | At rest only two bars are visible. No control appears until it applies (folder button, zoom chip, Save all, formatting strip). There are no dialogs on the happy path. | Screenshot review against the mockups; count chrome elements per state |
+| 3 | **Position continuity** | 3 | Switching Code ↔ Preview lands within ±1 block of the anchor in ≥ 95% of corpus positions. Rotation keeps the cursor, selection and scroll. | Playwright anchor-mapping test over the corpus; Robolectric config-change test |
+| 4 | **Speed** | 2 | Cold start to an editable doc < 800 ms. Keystroke to glyph < 16 ms on a 1 MB file. Preview refresh < 150 ms at 50 KB. A 1 MB file opens in < 1.5 s. | Macrobenchmark / trace on a mid-range device; JS timing in Playwright |
+| 5 | **Rendering fidelity** | 2 | The whole test corpus renders correctly: CommonMark, GFM, footnotes, math, Mermaid, alerts, front matter, TOC, emoji. It does so in every built-in theme, light and dark. | Playwright corpus render plus a visual check |
+| 6 | **Editing ergonomics** | 2 | The formatting strip and list or task continuation on Enter work. Undo/redo, find & replace and indent/outdent work. Native selection and IME work, including autocorrect and voice. | Unit tests for the edit operations; a manual IME pass |
+| 7 | **Reading quality** | 2 | Text meets WCAG AA contrast in all themes and the line length is comfortable. The small default is still legible. Pinch reflows instead of scaling. | Contrast checker on the theme tokens; screenshot review |
+| 8 | **Adaptive layouts** | 2 | Phone portrait, phone landscape, foldable and tablet each have a deliberate layout, never a stretched phone UI. Split orientation follows the window shape. | Robolectric renders at 360, 600, 840 and 1280 dp |
+| 9 | **Power depth** | 1 | Folder mode, Save all, no-wrap, custom themes and fonts, PDF and Mermaid export are each reachable within two taps of ⋮. | A tap-count audit |
+| 10 | **Accessibility** | 1 | Every control has a TalkBack label and a ≥ 48 dp touch target. System font scale is respected. No signal relies on colour alone. | An accessibility scanner plus a TalkBack pass |
+
+Weighted average = Σ(score × weight) / 21.
+
+## Scorecard
+
+| Iteration | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | Weighted |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 (mockups) | — | — | — | — | — | — | — | — | — | — | not scored; design only |

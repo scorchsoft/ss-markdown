@@ -10,6 +10,8 @@ principles ("features may be deep, chrome may not be busy") and the
 reasons behind every decision so far. Then:
 
 - `docs/ux-spec.md` — what each control does and when it appears.
+- `docs/robustness.md` — the never-lose-work and large-file contract.
+  Required reading before touching files, saving or the editor.
 - `docs/rubric.md` — the definition of good. Score it at the end of
   every iteration.
 

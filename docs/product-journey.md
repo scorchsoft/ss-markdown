@@ -56,6 +56,8 @@ it that is always on screen is not.
 | Image zoom | A separate full-screen viewer for diagrams and images, with its own zoom | Pinch in Preview changes text size, so it can't also zoom a diagram. A dedicated viewer avoids two gestures fighting over one pinch. |
 | Export images | One action exports every rendered image as a ZIP or as separate files in Downloads | Saving diagrams one by one is tedious. ZIP vs files is offered because both are reasonable. |
 | Line spacing | Line height is a ratio of font size, so zoom never changes the gaps between lines on its own | The spacing in the first round of mockups was a mockup bug, not the design. |
+| Robustness | Layered defences: a recovery journal, verified saves with a backup, local version history, byte-faithful encoding and line endings, and Binder-safe copy/share. Size tiers degrade features rather than risk a crash. Full contract in `docs/robustness.md`. | "It lost my work" and "it chokes on big files" are the top complaints about Markdown editors. Andrew made this the first priority. |
+| Editor engine gate | First task of iteration 1: benchmark `EditText` at 1, 5 and 20 MB. If it misses the targets, use Sora Editor behind the same `EditorEngine` interface. | `EditText` gives the best keyboard feel but isn't built for huge files. We measure before committing to it. |
 | Toolchain | Mirrors Measur3D's Android setup (AGP 8.13, Kotlin 2.3, Compose BOM 2026.06, no wrapper) | Already proven in this cloud container and on CI. |
 
 ## Iteration history

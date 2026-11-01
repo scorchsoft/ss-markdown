@@ -16,7 +16,16 @@ gradle_args=(--no-daemon --console=plain -p apps/android)
 pkg=com.scorchsoft.ssmarkdown
 
 adb shell settings put global package_verifier_enable 0 || true
-# The heap the admission rules see (the workflow sets a Pixel 6a-class 256 MB growth limit).
+# A Pixel 6a's per-app heap (dalvik.vm.heapgrowthlimit=256m on 6 GB Pixels),
+# the phone the budgets name. The API 34 AVD ships 192m, under which the
+# admission rules (robustness Part 2a) rightly decline a 20 MB file. The
+# property is read when the runtime starts, so restart it.
+adb root > /dev/null && adb wait-for-device
+adb shell setprop dalvik.vm.heapgrowthlimit 256m
+adb shell stop && adb shell start
+adb wait-for-device
+until [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1" ]; do sleep 2; done
+sleep 10
 echo "heap: growthlimit=$(adb shell getprop dalvik.vm.heapgrowthlimit) heapsize=$(adb shell getprop dalvik.vm.heapsize) ram=$(adb shell cat /proc/meminfo | head -1)"
 
 echo "::group::Baseline Profile"

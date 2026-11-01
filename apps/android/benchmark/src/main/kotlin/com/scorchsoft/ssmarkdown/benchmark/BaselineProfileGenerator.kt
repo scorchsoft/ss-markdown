@@ -23,9 +23,13 @@ class BaselineProfileGenerator {
 
     @Test
     fun generate() =
-        rule.collect(packageName = PACKAGE, includeInStartupProfile = true) {
-            pressHome()
-            startActivityAndWait()
+        rule.collect(
+            packageName = PACKAGE,
+            maxIterations = MAX_ITERATIONS,
+            stableIterations = STABLE_ITERATIONS,
+            includeInStartupProfile = true,
+        ) {
+            // A cold start straight into a file: the start-up and the open in one launch.
             resetApp(CorpusFile.Large)
             disableKeyboards()
             try {
@@ -54,6 +58,8 @@ class BaselineProfileGenerator {
         }
 
     private companion object {
+        const val MAX_ITERATIONS = 8
+        const val STABLE_ITERATIONS = 2
         const val CODE_PANE_Y = 0.4f
         const val KEYSTROKES = 10
         const val FLINGS = 4

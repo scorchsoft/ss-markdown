@@ -60,9 +60,20 @@ internal fun MacrobenchmarkScope.openForEditing(file: CorpusFile) {
 /** Waits until [file]'s name is in the top bar, which the editor shows once the buffer is bound. */
 internal fun MacrobenchmarkScope.awaitDocument(file: CorpusFile) {
     val shown = device.wait(Until.hasObject(By.textContains(file.fileName.removeSuffix(".md"))), OPEN_TIMEOUT_MILLIS)
-    check(shown == true) { "${file.fileName} never appeared; was it declined as too large? See logcat." }
+    check(shown == true) { "${file.fileName} never appeared. On screen: ${screenTexts()}" }
     device.waitForIdle()
 }
+
+/** Every text on screen, so a failure says what the app showed instead (a "too large" notice, an error). */
+private fun MacrobenchmarkScope.screenTexts(): String =
+    device
+        .findObjects(By.textContains(""))
+        .mapNotNull { runCatching { it.text }.getOrNull() }
+        .filter(String::isNotBlank)
+        .joinToString(" | ")
+        .take(SCREEN_TEXT_LIMIT)
+
+private const val SCREEN_TEXT_LIMIT = 1_500
 
 /**
  * Keys reach the editor as hardware key events, with no soft keyboard:

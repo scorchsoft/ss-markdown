@@ -34,6 +34,7 @@ class TokenizerBenchmarkTest {
         jumpFrames(doc)
         typing(doc, cache, paragraphsOnly = true)
         typing(doc, cache, paragraphsOnly = false)
+        breaksNearTop(doc, cache)
         fenceAtTop(doc, cache, "```", "a ``` fence (closed by the corpus's next fence)")
         fenceAtTop(doc, cache, "~~~~", "a ~~~~ fence nothing closes (worst case)")
     }
@@ -108,6 +109,29 @@ class TokenizerBenchmarkTest {
         )
     }
 
+    /** Enter at line 10, then [BREAKS] more just below it (PERF-E): the state slots each break moves. */
+    private fun breaksNearTop(
+        doc: TestDoc,
+        cache: IncrementalTokenizer,
+    ) {
+        val moved = cache.stateEntriesMoved
+        doc.lines.add(10, "")
+        val firstNs = timed { cache.invalidate(10, 1, 2) }
+        val afterFirst = cache.stateEntriesMoved
+        var restNs = 0L
+        for (i in 1..BREAKS) {
+            doc.lines.add(10 + i, "") // The test document's own O(n) shift: not timed.
+            restNs += timed { cache.invalidate(10 + i, 1, 2) }
+        }
+        println(
+            "line breaks near the top: first ${firstNs / 1_000} µs (${afterFirst - moved} slots moved), " +
+                "then ${restNs / BREAKS / 1_000.0} µs each (${cache.stateEntriesMoved - afterFirst} slots for $BREAKS)",
+        )
+        repeat(BREAKS + 1) { doc.lines.removeAt(10) }
+        cache.invalidate(10, BREAKS + 2, 1)
+        cache.continueInIdle(Long.MAX_VALUE / 4)
+    }
+
     private fun fenceAtTop(
         doc: TestDoc,
         cache: IncrementalTokenizer,
@@ -166,5 +190,6 @@ class TokenizerBenchmarkTest {
         const val JUMP_LINE = 585_000
         const val JUMP_VISIBLE = 45
         const val JUMP_FRAMES = 10
+        const val BREAKS = 1_000
     }
 }

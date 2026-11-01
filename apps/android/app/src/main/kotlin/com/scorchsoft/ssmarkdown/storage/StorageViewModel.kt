@@ -55,6 +55,7 @@ data class StorageDependencies(
 class StorageViewModel(
     private val deps: StorageDependencies,
 ) {
+    private var previewSkip: Set<DocumentKey> = emptySet()
     private val ui = MutableStateFlow(StorageUiState(policy = deps.settings.settings.value.history))
     private val eventChannel = Channel<ScreenEvent>(Channel.BUFFERED)
 
@@ -158,8 +159,11 @@ class StorageViewModel(
         }
         val probe = StorageReducer.confirmFor(kind, null, daysFor(kind, state), document)
         val request = probe.request ?: return
+        // Read on the main thread, where the store lives, never from the I/O hop (DS-18).
+        val skip = openDirty()
+        previewSkip = skip
         deps.scope.launch {
-            val preview = withContext(deps.io) { deps.versions.previewClear(request, openDirty()) }
+            val preview = withContext(deps.io) { deps.versions.previewClear(request, skip) }
             ui.update {
                 it.copy(
                     confirm = probe.copy(versions = preview.versions, files = preview.files, bytes = preview.bytes),
@@ -190,7 +194,9 @@ class StorageViewModel(
             }
             val request = confirm.request ?: return@launch
             val zip = if (confirm.exportFirst) exportFile("cleared") else null
-            val result = withContext(deps.io) { deps.versions.clear(request, openDirty(), zip) }
+            // Everything the confirmation promised to keep stays kept, plus anything dirty since (DS-18).
+            val skip = previewSkip + openDirty()
+            val result = withContext(deps.io) { deps.versions.clear(request, skip, zip) }
             finish(result, zip)
         }
     }
@@ -235,8 +241,14 @@ class StorageViewModel(
         deps.versions.updatePolicy(policy)
     }
 
+    /**
+     * Documents whose History a clear must not touch: those with unsaved
+     * edits, and those holding an earlier session's edits that could not
+     * be applied (their History may be the only way back). Main thread only.
+     */
     private fun openDirty(): Set<DocumentKey> =
-        deps.store.dirtyDocuments
+        deps.store.openDocuments
+            .filter { it.isDirty || it.holdsUnappliedEdits }
             .map { DocumentKey(it.uri.value) }
             .toSet()
 

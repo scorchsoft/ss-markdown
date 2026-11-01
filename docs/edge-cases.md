@@ -24,14 +24,15 @@ is green in CI).
 | Same file open twice (multi-window, or open again from the file manager) | One `DocumentStore` entry per URI; both windows share the same buffer. | Instrumented test | planned |
 | Zero-byte, extension-less, or `text/plain` `.MD` (upper case) | Opens normally. MIME and extension matching ignore case. | Unit test | planned |
 | Binary file opened by mistake | NUL bytes or invalid UTF-8 → read-only with "This doesn't look like text". It is never saved over. | Corpus test | planned |
-| Mixed line endings in one file | Preserved byte-for-byte. New lines use the file's dominant ending. | Round-trip corpus | planned |
-| A save interrupted by power loss | Backup + verify + journal; on next launch the file is old-or-new, never partial. | Kill test | planned |
+| Mixed line endings in one file | Preserved byte-for-byte. New lines use the file's dominant ending. | Round-trip corpus | tested |
+| Mixed-EOL file: a line break deleted then restored by undo | Comes back in the file's dominant style (documented in `TextDocument`); every other line stays byte-exact. Acceptable for now; revisit if seen in the wild | `LineEndingsTest` | tested (known limitation) |
+| A save interrupted by power loss | Backup + verify + journal; on next launch the file is old-or-new, never partial. | Kill test (journal half proven: torn-tail tests in core/history) | planned |
 
 ## Text and input
 
 | Case | Handling | Test | Status |
 |---|---|---|---|
-| Emoji, surrogate pairs, flags, ZWJ sequences, combining marks | All cursor, selection and anchor maths works in grapheme clusters (`BreakIterator`), never raw `char` indices. | Property tests with a grapheme corpus | planned |
+| Emoji, surrogate pairs, flags, ZWJ sequences, combining marks | All cursor, selection and anchor maths works in grapheme clusters (`BreakIterator`), never raw `char` indices. | Property tests with a grapheme corpus | handled |
 | Right-to-left and mixed-direction text | The view uses `Bidi` per line; caret movement follows visual order. | Corpus + screenshot test | planned |
 | One 5 MB line (minified JSON, base64 image) | Virtualised horizontally too. Colouring is capped at 10k characters per line. Wrap mode measures that line lazily. | Benchmark corpus | planned |
 | Keyboard composing during rotation or toolbar tap | Commit composing text first (`finishComposingText`). | Rotation + keyboard matrix | planned |

@@ -8,9 +8,9 @@ the app shell hold real code yet.
 
 ```
 app/              MainActivity (edge to edge, handles its own config changes) and shell/
-core/text         PURE JVM. Piece table, line index, graphemes, undo.        (placeholder)
+core/text         PURE JVM. Piece table, line index, graphemes, undo.        (piece tree, done: see core/text/NOTICE)
 core/markdown     PURE JVM. Tokenizer, block index, anchor maths.             (placeholder)
-core/history      PURE JVM. Journal, keyframe+diff history, retention.        (placeholder)
+core/history      PURE JVM. Journal, keyframe+diff history, retention.        (recovery journal, done: see core/history/FORMAT.md)
 core/theme        PURE JVM. Theme schema, CSS generation, contrast checks.    (placeholder)
 core/ui           Design system: SS.colors, SSType, SSDimens, SS* components
 feature/editor    empty: MarkdownCodeView, InputConnection, gestures

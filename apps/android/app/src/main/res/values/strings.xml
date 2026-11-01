@@ -226,7 +226,7 @@
     <string name="save_failed_untouched">Your text is safe on this phone, and the file on disk was not changed.</string>
 
     <!-- Preview slot -->
-    <string name="preview_placeholder">Preview arrives with the preview module</string>
+    <string name="preview_placeholder">Preview draws here (a stand-in where no WebView runs)</string>
 
     <!-- Bottom bar while the keyboard is up: Done hides it -->
     <string name="split_divider">Resize panes</string>

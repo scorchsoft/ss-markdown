@@ -6,6 +6,13 @@ plugins {
     // build types (benchmarkRelease, nonMinifiedRelease) it measures.
     alias(libs.plugins.baselineprofile)
     id("ssmarkdown.static-analysis")
+    // Line coverage gated at what it passes, rounded down to 5% (63.1%
+    // measured 2026-11-01; Robolectric screens, not the device-only glue).
+    id("ssmarkdown.coverage")
+}
+
+ssmarkdownCoverage {
+    minLineCoverage = 60
 }
 
 // `-Pssmarkdown.minifyDebug=true` turns `assembleDebug` into the hand-over

@@ -6,6 +6,13 @@ plugins {
     id("ssmarkdown.android.library")
     // For the MarkdownEditor composable that hosts the view.
     alias(libs.plugins.kotlin.compose)
+    // Line coverage gated at what it passes, rounded down to 5%
+    // (85.8% measured 2026-11-01): a floor that only moves up.
+    id("ssmarkdown.coverage")
+}
+
+ssmarkdownCoverage {
+    minLineCoverage = 85
 }
 
 // `-Pssmarkdown.screenshots=true` runs EditorScreenshotTest, which renders the

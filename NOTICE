@@ -43,8 +43,11 @@ Open Font License, Version 1.1; the full texts ship in the app under
 assets/fonts/licences/ and are shown on the "Open-source licences" screen.
 They are fetched from github.com/google/fonts by
 apps/android/tools/fetch-fonts.sh. Families without a Reserved Font Name
-are subset to Latin (a Modified Version under the OFL); Lora and IBM Plex
-Sans declare Reserved Font Names and are redistributed unmodified.
+are subset to Latin (a Modified Version under the OFL) and bundled in the
+APK. Lora and IBM Plex Sans declare Reserved Font Names, so they could only
+ship unmodified; to keep the APK small they are not bundled. The app
+downloads them, unmodified, from Google Fonts when a theme first asks for
+them, and their OFL texts still ship so the licence travels with the app.
 
 - Inter: Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter)
 - JetBrains Mono: Copyright 2020 The JetBrains Mono Project Authors
@@ -53,9 +56,11 @@ Sans declare Reserved Font Names and are redistributed unmodified.
   (https://github.com/adobe-fonts/source-serif)
 - Literata: Copyright 2017 The Literata Project Authors
   (https://github.com/googlefonts/literata)
-- Lora: Copyright 2011 The Lora Project Authors
-  (https://github.com/cyrealtype/Lora-Cyrillic), with Reserved Font Name "Lora"
-- IBM Plex Sans: Copyright © 2017 IBM Corp. with Reserved Font Name "Plex"
+- Lora (downloaded on demand, not bundled): Copyright 2011 The Lora
+  Project Authors (https://github.com/cyrealtype/Lora-Cyrillic), with
+  Reserved Font Name "Lora"
+- IBM Plex Sans (downloaded on demand, not bundled): Copyright © 2017 IBM
+  Corp. with Reserved Font Name "Plex"
 - Atkinson Hyperlegible Next: Copyright 2020-2024 The Atkinson Hyperlegible
   Next Project Authors (https://github.com/googlefonts/atkinson-hyperlegible-next)
 - Fira Code: Copyright 2014-2020 The Fira Code Project Authors

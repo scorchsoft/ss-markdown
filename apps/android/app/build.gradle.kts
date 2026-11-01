@@ -2,6 +2,9 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    // Consumes the profile :benchmark generates, and adds the benchmark
+    // build types (benchmarkRelease, nonMinifiedRelease) it measures.
+    alias(libs.plugins.baselineprofile)
     id("ssmarkdown.static-analysis")
 }
 
@@ -34,7 +37,9 @@ android {
         // versionCode bumps by exactly one per artefact handed to anyone.
         versionCode = 1
         versionName = "0.1.0"
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // AndroidJUnitRunner that also installs LeakCanary's watcher, so the
+        // instrumented tests fail on a leaked Activity, View or ViewModel.
+        testInstrumentationRunner = "com.scorchsoft.ssmarkdown.LeakCheckRunner"
     }
 
     androidResources {
@@ -140,6 +145,33 @@ androidComponents {
     }
 }
 
+// The app's own Baseline Profile (rubric #4): generated on the CI
+// emulator by :benchmark's BaselineProfileGenerator and committed under
+// src/main/generated/baselineProfiles/, so EVERY non-debuggable variant
+// compiles it in, the hand-over (minified debug) build included, not only
+// release. Generation needs a device, so an ordinary build never runs it:
+//   gradle -p apps/android :app:generateBaselineProfile
+baselineProfile {
+    mergeIntoMain = true
+    saveInSrc = true
+    automaticGenerationDuringBuild = false
+}
+
+// Benchmark-only sources (src/perf): a provider that serves generated
+// 50 KB, 1 MB and 20 MB Markdown files, so the benchmarks can open them
+// through the same content:// path as Files or Drive. Added to the two
+// build types the baselineprofile plugin creates, through the variant API,
+// because the plugin copies release's manifest over theirs. Never in
+// debug, release or the hand-over.
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        if (variant.buildType in setOf("benchmarkRelease", "nonMinifiedRelease")) {
+            variant.sources.java?.addStaticSourceDirectory("src/perf/kotlin")
+            variant.sources.manifests.addStaticManifestFile("src/perf/AndroidManifest.xml")
+        }
+    }
+}
+
 kotlin {
     compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
 }
@@ -159,6 +191,9 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     // Dispatchers.Main for the view models; the same pin as feature:files' core.
     implementation(libs.kotlinx.coroutines.android)
+    // Installs the Baseline Profile on sideloaded builds (the hand-over is sideloaded).
+    implementation(libs.androidx.profileinstaller)
+    baselineProfile(project(":benchmark"))
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
@@ -171,4 +206,6 @@ dependencies {
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.compose.ui.test.junit4)
+    // Test APK only: never merged into any app APK, so never handed over.
+    androidTestImplementation(libs.leakcanary.android.instrumentation)
 }

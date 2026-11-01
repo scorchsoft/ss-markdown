@@ -52,5 +52,11 @@ include(
 // carries Sora Editor (LGPL-2.1) as a baseline, which is why it lives here.
 include(":tools:editor-bench")
 
+// Emulator evidence: Macrobenchmark (cold start, open, typing, fling,
+// Preview refresh) and the app's Baseline Profile generator. A
+// `com.android.test` module that drives :app's benchmark build types; it
+// never ships and nothing depends on it.
+include(":benchmark")
+
 // Fonts: bundled registry, Google Fonts catalogue and downloader, import.
 include(":feature:fonts")

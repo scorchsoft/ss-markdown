@@ -19,9 +19,11 @@ import com.scorchsoft.ssmarkdown.history.journal.JournalStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import leakcanary.DetectLeaksAfterTestSuccess
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
@@ -35,6 +37,8 @@ import java.io.File
  */
 @RunWith(AndroidJUnit4::class)
 class KillRecoveryTest {
+    @get:Rule val leaks = DetectLeaksAfterTestSuccess()
+
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val root = File(context.noBackupFilesDir, "kill-test").apply { deleteRecursively() }
     private val file = File(root, "notes.md")

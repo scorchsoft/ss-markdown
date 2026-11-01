@@ -15,6 +15,9 @@ is green in CI).
 |---|---|---|---|
 | Disk full during save (`ENOSPC`) | The write fails without touching the original thanks to the backup and verification. The doc stays dirty and we show "Storage full — free space or Save as". | Fault-injection provider | planned |
 | Disk full for the journal or history | Check `getAllocatableBytes` before writing. If space is low, warn early ("Less than 50 MB free — recovery copies may stop"). History pruning runs first. The journal has 2 MB reserved and preallocated. | Unit test with a fake StorageManager | planned |
+| File changed by another app between sessions, with no unsaved edits | Load the disk version and record "Changed outside" in history. Cursor and scroll are mapped through the diff; the old undo stack is discarded. | Outside-change scenarios | planned |
+| File changed by another app while we hold unsaved edits (open now or in the journal) | Never auto-apply: the conflict sheet offers merge, compare, keep file, or use mine. Autosave pauses. | Outside-change scenarios | planned |
+| Outside change with the same size in the same second, or a provider reporting `lastModified = 0` | Base fingerprint includes SHA-256; hash compared when metadata is ambiguous or unreliable, and always before save. | Outside-change scenarios | planned |
 | File deleted or renamed by another app while open | The next save or focus check notices. Banner: "File no longer exists — Save as / Recreate". The text is kept. | Instrumented test | planned |
 | SD card ejected or cloud provider uninstalled | Same as a lost permission: work stays in the journal; offer Save as. | Fault-injection provider | planned |
 | Slow cloud provider (Drive, OneDrive) | All file I/O runs off the main thread with a progress indicator after 300 ms. A timeout offers Retry or Save locally. We never block the UI. | Fake provider with a delay | planned |

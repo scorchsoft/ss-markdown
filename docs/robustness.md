@@ -45,6 +45,66 @@ Each layer assumes every layer above it has failed.
   from another app, or a revoked folder), the work stays in the journal
   and we offer "Save as…". We never fail silently.
 
+### 2a. Other apps edit our files: the disk is always the truth
+
+We are never the only app touching a file: Syncthing, Drive, a desktop
+editor and git clients all change files too. The invariant:
+
+> **Nothing we hold — cached text, the journal, undo stacks, saved
+> cursor positions, history — is ever applied over the file on disk
+> unless the user chooses it.** Our copy is only "newer" when it
+> carries unsaved edits, and those edits are merged or compared, never
+> blindly applied.
+
+**Fingerprints, not just timestamps.** `lastModified` alone is
+unreliable: some providers report 0 or whole seconds, clocks skew, and a
+same-length edit inside one second is invisible to it. Each document
+therefore records a **base fingerprint**: size + `lastModified` +
+SHA-256 of the bytes, taken when it was loaded or last saved. If the
+metadata changes, we compare hashes. If the metadata is unchanged but
+can't be trusted (it's 0, or a provider known for coarse times), we hash
+anyway. For very large files we hash in the background, but the full
+hash is always taken before a save.
+
+**When we check**
+- On open and reopen, including journal recovery after a restart.
+- On returning to the app or the file (`onResume`, switching files).
+- Every few seconds while the file is in the foreground (cheap metadata
+  query, with a `ContentObserver` where the provider supports one).
+- Immediately before every save, manual or auto. **A save requires the
+  disk fingerprint to equal the base fingerprint.** If it doesn't, the
+  save becomes the conflict flow. This is an invariant in code, not a
+  UI check.
+
+**What happens when the disk version is new**
+
+| Our state | What we do |
+|---|---|
+| No unsaved edits | Silently load the file as it is now. Record a history entry "Changed outside SS Markdown". Map the cursor and scroll through the diff so you stay near the same place. **Discard the old undo stack**, because undoing into stale content would bring old text back. |
+| Unsaved edits (open now, or recovered from the journal) | **Never auto-apply.** Show the file as it is now, plus the "changed since your unsaved edits" sheet with these choices: **Merge my edits** (a three-way merge), **Compare side by side**, **Keep the file as it is** (your edits stay in History), or **Use my version…** (behind a confirmation; the disk version is recorded in history first). Autosave is paused until you choose. |
+| File deleted or moved | Your text is kept. Offer **Save as / Recreate**. |
+
+**Three-way merge (the "Merge my edits" choice)**
+- **Base** = the version our edits started from. It's always in history
+  because we record "Opened" and "Saved" versions.
+- **Ours** = the unsaved buffer. **Theirs** = the disk version now.
+- Changes are merged line by line, as git does. Non-overlapping changes
+  apply automatically. Overlaps are presented one by one (take theirs /
+  take mine / edit). The result loads as an unsaved edit, and nothing is
+  written until you save.
+- It lives in pure JVM (`core/history`) and is property-tested.
+
+**History is a graph, not a line.** Each version records its parent, so
+an outside change becomes its own node, and your edits branch from the
+base they actually started from. Restoring an old version always goes
+through this same conflict check, so it can never silently overwrite a
+newer outside change.
+
+**Folder mode.** Files changed outside the app show a small "changed"
+marker in the drawer. Clean buffers refresh silently (with a history
+entry). Dirty buffers get the conflict sheet when you open them. Save
+all skips conflicted files and lists them for you.
+
 ### 3. Version history (keyframes + diffs, like git or video)
 
 This is a local, per-file history that costs almost nothing in storage.
@@ -335,6 +395,8 @@ instead of hoping. A small `MemoryGovernor` service owns it.
 | **Large-file benchmarks** (macrobenchmark, Pixel 6a-class and a 3 GB low-end phone) | Open, type and scroll targets at 1, 20 and 100 MB. Frame cost doesn't grow with file size. |
 | **Memory-pressure tests**: a 128 MB heap emulator, `am send-trim-memory`, killing the WebView renderer (`chrome://crash` / `am kill`), and opening several large files | No out-of-memory crash; admission control refuses cleanly; the preview restarts after a renderer death; no unsaved work lost. |
 | **Clipboard/share at 5 MB** | No `TransactionTooLargeException`; the fallback works. |
+| **Outside-change scenarios** (instrumented + JVM): change the file externally (a) while open and clean, (b) while open and dirty, (c) between sessions with no journal, (d) between sessions with a journal, (e) same size and same second, (f) on a provider that reports `lastModified = 0`; plus delete, rename and replace with a different file of the same name | Stale text is never written or shown as current. The old undo stack is never used against new content. Every case ends in the matrix outcome above. |
+| **Three-way merge property tests** (JVM) | Non-overlapping edits merge exactly as git's `merge-file` would; overlaps are always reported, never silently resolved. |
 | **Rotation matrix** (instrumented): every view mode × {typing a half-finished word, mid-selection, a Preview paragraph edit, mid table-cell edit, find open, a sheet open, unsaved prompt open} × {rotate, fold/unfold, split-screen resize, dark-mode toggle, font-scale change, "Don't keep activities", `am kill`} | The text, cursor, selection, scroll, undo stack and dirty state are identical before and after. Zero characters lost. Runs on every PR. |
 | **Keyboard matrix** (manual, each release): Gboard, Samsung Keyboard, HeliBoard | Toolbar actions and Preview edits respect the in-progress word; autocorrect never lands text in the wrong place. |
 | **History property tests** (JVM): random edit sequences, then record, prune and restore | Every kept version rebuilds byte-identically; pruning never breaks a chain; a corrupt delta loses only the versions after it up to the next keyframe. |

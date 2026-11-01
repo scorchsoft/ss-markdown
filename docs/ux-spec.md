@@ -240,3 +240,16 @@ Full evidence is in `research-findings.md`.
 - The theme editor warns when a custom theme's contrast is below AA.
 - The formatting strip is always one row and always sits above the
   keyboard, edge-to-edge-safe on Android 15+.
+
+## File changed outside the app
+
+See `robustness.md` §2a.
+- With no unsaved edits, the file refreshes silently and a "Changed
+  outside SS Markdown" entry appears in History.
+- With unsaved edits, a sheet shows the file as it is now and offers:
+  - **Merge my edits into the new file** (recommended), with a summary
+    such as "3 merge cleanly, 1 overlaps".
+  - **Compare side by side.**
+  - **Keep the file as it is** (your edits stay in History).
+  - **Use my version…**, behind a confirmation.
+- Nothing is written until you choose and then save.

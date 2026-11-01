@@ -13,6 +13,7 @@ reasons behind every decision so far. Then:
 - `docs/robustness.md` — the never-lose-work and large-file contract.
   Required reading before touching files, saving or the editor.
 - `docs/research-findings.md` — what users hate and love in other editors, and the requirements (R1–R13) we took from it.
+- `docs/performance-techniques.md` — the open-source techniques we borrowed, with sources and licences.
 - `docs/edge-cases.md` — every known hostile case, how it's handled, and its test. Add a row for every new bug.
 - `docs/engineering.md` — open-source code standards (Apache-2.0, showcase quality).
 - `docs/rubric.md` — the definition of good. Score it at the end of

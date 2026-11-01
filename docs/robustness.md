@@ -14,7 +14,13 @@ Each layer assumes every layer above it has failed.
 - Each open document with unsaved changes has an **append-only journal**
   in app-private storage. The journal holds the base file's identity
   (URI, size, hash) and then a list of edit operations.
-- The journal is flushed with `fsync` after about 1 s of idle typing, on
+- **Record framing** follows LevelDB's log format. Each record is
+  length + CRC32C + sequence number + the operation. A torn record at
+  the tail is legal and simply truncated; replay stops at the first bad
+  CRC. The journal header names the base file's SHA-256, so a journal
+  can never be replayed onto the wrong file.
+- The journal is flushed with `fsync` (group commit, never per
+  keystroke) after about 1 s of idle typing, on
   `onPause`/`onStop`, and before any risky step (save, view switch,
   opening another file). Worst case, you lose the last second of typing.
 - Every so often the journal is compacted into a full snapshot plus a
@@ -31,9 +37,14 @@ Each layer assumes every layer above it has failed.
 
 - **Back up before overwriting.** The last saved version goes to
   app-private storage before every write.
+- **App-private files** (journal index, history index, settings, themes)
+  are written with `AtomicFile`: write `<name>.new`, sync, then rename.
+  User files reached through Storage Access Framework URIs can't be
+  renamed, so they rely on the backup and verify steps here.
 - **Truncating write mode.** Writes use `openOutputStream(uri, "wt")` and
   never plain `"w"`: on Android 10+ some providers don't truncate with
-  `"w"`, which leaves stale bytes at the end of a shorter file.
+  `"w"`, which leaves stale bytes at the end of a shorter file. If a provider
+  rejects `"wt"`, we fall back to `"rwt"` plus `FileChannel.truncate`.
 - **Verify after writing.** After the write we read the file back and
   compare its length and hash. The document is marked clean only after
   that check passes. If it fails, Save shows an error state, the backup
@@ -122,11 +133,19 @@ So even in manual-save mode, the unsaved work you never saved is in the
 history.
 
 **Storage format**
-- **Keyframes** are full, deflate-compressed snapshots. **Deltas** are
-  line-based diffs (Myers algorithm), compressed against the previous
-  version.
-- A new keyframe is written every 50 versions, or once the delta chain
-  since the last keyframe exceeds half the keyframe's size. That keeps
+- **Reverse deltas.** The newest version is stored in full, and older
+  versions are backward deltas from it, as in RCS/Fossil style. Opening
+  the latest version is instant, and retention thinning simply drops
+  entries from the old end without re-composing chains.
+- Deltas are line diffs: common prefix and suffix are stripped first,
+  lines are interned to ints, then linear-space Myers runs with a time
+  and edit cap. Hitting the cap stores a keyframe instead.
+- **Keyframe rule (from Mercurial's `revlogutils/deltas.py`).** Store a
+  full deflated snapshot instead of a delta when any of these hold:
+  - the delta is bigger than the text;
+  - the deltas needed to rebuild the version would exceed 2× the text
+    length (`LIMIT_DELTA2TEXT = 2`);
+  - the chain reaches 50 (git's default pack depth). That keeps
   restore fast and limits how much one bad record can damage.
 - Every version stores a SHA-256 of its full text. Rebuilding a version
   is verified against it. If a delta is corrupt, we fall back to the
@@ -142,8 +161,8 @@ history.
   daily for 90 days, then weekly.
 - Each file is capped at 20 MB and the whole history at 100 MB (both
   adjustable), with the oldest pruned first.
-- Pruning rebuilds the next kept version and recomputes its delta, so
-  chains never break.
+- Pruning only ever removes from the old end, or collapses a run into
+  its newest member re-stored as a keyframe, so chains never break.
 - **Pinned** versions (long-press → "Keep forever", optionally named) are
   never pruned.
 
@@ -246,9 +265,29 @@ a million rows.
 
 ### Text model (pure JVM, in `core/text`)
 
-- The text is a **piece table** (an original buffer, an append buffer and
-  a piece list) with a **line index** kept as a balanced tree of line
-  lengths.
+- The text is a **piece tree**, ported from VS Code's MIT-licensed
+  design. It is one balanced tree of pieces in which each node also
+  stores the length and line-feed count of its left subtree. Offset↔line
+  lookups are O(log n) through that **one** structure. There is no
+  separate line tree to drift out of sync.
+- **Buffers are immutable chunks** of at most 64K chars, each with a
+  precomputed `lineStarts` array. Files are decoded straight into chunks
+  by a streaming `CharsetDecoder`, never into a whole-document `String`.
+  A chunk never ends on `\r` or a high surrogate.
+- Line endings are normalised to `\n` in memory. The original style
+  (LF, CRLF, or mixed with a per-line map) is remembered and re-emitted
+  on save, which removes the CRLF bug class.
+- Typing appends to the last add-buffer chunk in place (VS Code's fast
+  path). A last-line cache serves repeated reads.
+- **Snapshots:** readers on background threads (tokenizer, save, history
+  diff, preview sync) take an O(pieces) immutable snapshot. That's safe
+  because buffers never change.
+- **Compaction:** when the piece count grows past about
+  2 × (chars / 64K) + 1,000 after heavy editing, the tree is rebuilt into
+  fresh chunks during idle time. VS Code's own write-up names piece
+  growth as the design's weak point. If snapshot copying shows up in
+  profiles, the planned upgrade is a persistent B-tree with summaries
+  (Zed's `sum_tree` design, Apache-2.0).
 - An edit costs O(log n) regardless of file size. Finding the offset of
   line 80,000 costs O(log n). Opening a file never copies its text: the
   original buffer *is* the decoded file.
@@ -261,17 +300,44 @@ a million rows.
 
 - A custom `MarkdownCodeView` draws only the visible lines plus about
   one screen above and below. Each line is laid out on its own and cached
-  by (line content hash, width, font size). Scroll height comes from the
+  by **stable line ID + edit version** (not by content hash, which costs
+  O(line length) per lookup and can collide). On API 29+, each visible
+  line is also recorded into a pooled `RenderNode`, so scrolling redraws
+  without re-laying out. The render margin leans towards the scroll
+  direction (about 1,000 px ahead).
+- **Long lines are chunked.** No layout is ever built for a whole huge
+  line, such as a 1 MB base64 image or minified JSON. Only about 2,000
+  chars around the viewport are laid out (10,000 when wrapped), and the
+  rest is estimated (CodeMirror's rule). Unwrapped lines use
+  `getRunAdvance` + `drawTextRun`; wrapped lines use `MeasuredText` +
+  `LineBreaker` off the main thread. Scroll height comes from the
   line index: fixed line height in No wrap mode; in Wrap mode, measured
   wrap counts for lines already seen and estimates for the rest, refined
   as you scroll, with the scroll position anchored so nothing jumps.
-- Syntax highlighting is a per-line tokenizer whose state carries from
-  one line to the next (for code fences and front matter). Results are
-  cached per line, and editing a line re-tokenises forward only until
-  the carried state matches the cached state again.
+- Syntax highlighting is a per-line tokenizer whose small end-of-line
+  state (fence, front matter, `$$` math, HTML block, container stack)
+  carries from one line to the next. After an edit, re-tokenising stops
+  as soon as a line's new end state equals its cached one.
+- **Lazy, with a time budget.** On the main thread we only tokenise up
+  to the viewport, capped at about 8 ms. The rest runs on a background
+  snapshot in idle slices, never more than about 100k chars past the
+  viewport. Visible lines that haven't been reached yet are tokenised
+  with a guessed start state and corrected when the accurate pass
+  arrives (the VS Code and CodeMirror approach). So opening a fence on
+  line 1 of a 200k-line file never freezes typing.
+- Markdown's non-local rules are handled explicitly. A setext underline
+  (`===` or `---`) re-styles the line above it. Reference definitions
+  live in a separate document-wide index. Lazy continuation in lists
+  and quotes is part of the container state.
 - The keyboard connection is a custom `InputConnection` with full
-  composing support. It never hands the keyboard more than a window of
-  text around the cursor, which is safe however big the file. This is
+  composing support. It never hands the keyboard more than a **32K-char
+  window** centred on the selection (`getTextBefore/AfterCursor`,
+  `getSelectedText`, `getExtractedText`); without that limit, select-all
+  causes ANRs. Batch edits don't nest, and `updateSelection` fires only
+  when the outermost batch ends. `restartInput` is called only when the
+  text is replaced from outside. On API 30+ we set
+  `setInitialSurroundingSubText`. Accessibility node text is capped at
+  100K chars (the parcel-safe limit). This is
   the highest-risk component, so it carries the keyboard matrix (Gboard,
   Samsung, HeliBoard, plus a hardware keyboard) and its own tests.
 - Native selection handles, the magnifier, the text-action toolbar,
@@ -302,13 +368,29 @@ is a benchmark baseline, not the plan.
 
 - The page keeps a **block index** from markdown-it, with each block's
   source line range and a measured or estimated height.
-- Only blocks within about two screens of the viewport are in the page;
-  spacer elements stand in for the rest. Scrolling mounts and unmounts
+- markdown-it isn't incremental, so the source is split into top-level
+  **sections** at blank lines outside fences, lists and HTML blocks.
+  Each section is keyed by hash. Reference definitions are collected
+  across the whole document once and passed in through `env`. Only dirty
+  sections, plus one neighbour, are re-parsed. Every block carries
+  `data-line` / `data-line-end` from `token.map` for scroll sync (as the
+  VS Code preview does).
+- Sections near the viewport use `content-visibility: auto` with
+  `contain-intrinsic-size: auto <estimate>px`, so the browser skips their
+  layout and remembers real sizes. Beyond about 3 screens, sections are
+  unmounted and replaced by spacers.
+- Very tall documents get a **height scaler**: spacer heights are
+  compressed above about 7M px, as CodeMirror does, because browser
+  layout units overflow on huge pages. Scrolling mounts and unmounts
   blocks, and the scroll position is anchored to a block so nothing
   jumps.
 - Parsing runs in a Web Worker on changed line ranges only. Kotlin sends
   edits over a `WebMessagePort`, never the whole document.
-- Mermaid and KaTeX render only in mounted blocks. The SVGs are cached
+- **KaTeX renders in the worker** (`renderToString` needs no DOM), with
+  `trust: false` and `maxExpand`/`maxSize` limits. **Mermaid needs the
+  DOM**, so it runs on the main thread, one diagram per idle slice, with
+  text-size and edge-count caps.
+- Both render only in mounted blocks. The SVGs are cached
   by source hash with a byte budget (oldest evicted first). Each diagram
   has a render timeout: a failing or timed-out diagram shows an inline
   error box with its source and never blanks the page.
@@ -344,8 +426,12 @@ instead of hoping. A small `MemoryGovernor` service owns it.
   `lowMemory` flag and its threshold.
 - `ActivityManager.isLowRamDevice()` and `memoryClass` — on low-RAM
   devices we start in the conservative budget.
-- `ComponentCallbacks2.onTrimMemory(level)` — the system's own
-  memory-pressure signals.
+- `ComponentCallbacks2.onTrimMemory(level)`. Note that **since API 34
+  only `UI_HIDDEN` and `BACKGROUND` are delivered**; the RUNNING_* levels
+  never arrive. So during loads, big pastes and exports, the governor
+  also **polls** `getMemoryInfo().lowMemory` and the heap headroom from
+  `Runtime`, rather than waiting for a callback. We never set
+  `largeHeap`; admission control uses `getMemoryClass()`.
 - `StorageManager.getAllocatableBytes()` — free disk space, which is
   needed for the journal, history and saves.
 
@@ -371,7 +457,12 @@ instead of hoping. A small `MemoryGovernor` service owns it.
   system kills the process, the recovery path above restores it.
 
 **The WebView runs in a separate process. Its crash must not be ours.**
-- We implement `onRenderProcessGone`. If we don't, the WebView renderer
+- The preview's renderer runs at `RENDERER_PRIORITY_IMPORTANT`
+  (`setRendererPriorityPolicy(…, waivedWhenNotVisible = true)`).
+- We implement `onRenderProcessGone`, which returns `true`, then removes
+  and `destroy()`s the dead WebView. `detail.didCrash()` tells a renderer
+  bug from an out-of-memory kill; after an OOM kill we reload with a
+  lower preview budget. If we don't, the WebView renderer
   being killed for memory, or by a WebView update, **crashes the app**.
   Instead we drop that WebView, create a fresh one, re-render around
   the current anchor, and show "Preview restarted".

@@ -34,12 +34,12 @@ public object PerfTrace {
         name: String,
         block: () -> T,
     ): T {
-        val traced = isTracing
-        if (traced) Trace.beginSection(name)
+        if (!isTracing) return block()
+        Trace.beginSection(name)
         try {
             return block()
         } finally {
-            if (traced) Trace.endSection()
+            Trace.endSection()
         }
     }
 

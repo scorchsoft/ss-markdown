@@ -46,3 +46,8 @@ include(
     ":feature:preview",
     ":feature:files",
 )
+
+// Developer tools: leaves that may depend on anything but that nothing may
+// depend on (checkModuleGraph). Never shipped. The editor-engine benchmark
+// carries Sora Editor (LGPL-2.1) as a baseline, which is why it lives here.
+include(":tools:editor-bench")

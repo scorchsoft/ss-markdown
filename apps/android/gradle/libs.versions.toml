@@ -27,6 +27,15 @@ ktlint = "1.8.0"
 detekt = "1.23.8"
 detektKotlin = "2.0.21"
 
+# :tools:editor-bench only (the ADR 0001 editor-engine benchmark).
+# Coroutines sequence the scripted runs; Apache-2.0.
+kotlinxCoroutines = "1.10.2"
+# Sora Editor is LGPL-2.1. BENCHMARK-ONLY: it is the baseline the spike is
+# measured against, in a module that never ships. It must never become a
+# dependency of :app or of any core/feature module (checkModuleGraph forbids
+# depending on :tools:*, and nothing else may declare this alias).
+soraEditor = "0.23.6"
+
 [libraries]
 # Plugins as artifacts, so build-logic can compile against them while the
 # plugin ids below share the same version refs and cannot drift.
@@ -52,6 +61,10 @@ robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "
 androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCore" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestExtJunit" }
 androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunner" }
+
+# :tools:editor-bench only; see the version comments above.
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
+sora-editor = { group = "io.github.Rosemoe.sora-editor", name = "editor", version.ref = "soraEditor" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

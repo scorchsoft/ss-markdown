@@ -16,7 +16,11 @@ import org.gradle.language.base.plugins.LifecycleBasePlugin
  * declared module graph:
  *
  * - `:core:*` never depends on `:feature:*` or `:app`;
- * - `:feature:*` never depends on another `:feature:*` or on `:app`.
+ * - `:feature:*` never depends on another `:feature:*` or on `:app`;
+ * - nothing depends on `:tools:*`. Tools (the editor-engine benchmark)
+ *   are leaves: they may depend on anything, but they carry dependencies
+ *   that must never ship (Sora Editor is LGPL-2.1), so no shipping module
+ *   may reach them.
  *
  * Applied to the root project only. It reads every module's declared
  * project dependencies, so a violation fails `check` before anything is
@@ -27,7 +31,7 @@ class ModuleGraphConventionPlugin : Plugin<Project> {
         target.pluginManager.apply("base")
         val checkGraph = target.tasks.register<CheckModuleGraphTask>("checkModuleGraph") {
             group = LifecycleBasePlugin.VERIFICATION_GROUP
-            description = "Fails if a module dependency points outwards (core -> feature, feature -> feature)."
+            description = "Fails if a module dependency points outwards (core -> feature, feature -> feature, * -> tools)."
             // Lazy: evaluated after every module is configured.
             edges.set(target.provider { declaredEdges(target) })
             report.set(target.layout.buildDirectory.file("reports/module-graph.txt"))
@@ -60,6 +64,7 @@ internal data class ModuleEdge(
             from.isCore() && (to.isFeature() || to == APP) -> "core must not depend on ${to.layer()}"
             from.isFeature() && to.isFeature() -> "features must not depend on each other"
             from.isFeature() && to == APP -> "features must not depend on the app"
+            to.isTool() && !from.isTool() -> "nothing may depend on a tool (tools never ship)"
             else -> null
         }
 
@@ -74,6 +79,8 @@ internal data class ModuleEdge(
         private fun String.isCore() = startsWith(":core:")
 
         private fun String.isFeature() = startsWith(":feature:")
+
+        private fun String.isTool() = startsWith(":tools:")
 
         private fun String.layer() = if (isFeature()) "a feature" else "the app"
     }

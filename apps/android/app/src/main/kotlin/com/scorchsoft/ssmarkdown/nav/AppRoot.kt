@@ -56,7 +56,7 @@ fun AppRoot(
     graph: AppGraph,
     platform: PlatformActions,
     versionName: String,
-    licences: List<Licence>,
+    licences: () -> List<Licence>,
     previewView: PreviewView? = null,
     previewPane: (@Composable (PreviewHostState) -> Unit)? = null,
 ) {
@@ -82,7 +82,7 @@ private fun ScreenOver(
     graph: AppGraph,
     platform: PlatformActions,
     versionName: String,
-    licences: List<Licence>,
+    licences: () -> List<Licence>,
 ) {
     when (screen) {
         AppScreen.Editor -> {
@@ -108,7 +108,7 @@ private fun ScreenOver(
         }
 
         AppScreen.Licences -> {
-            LicencesRoute(licences, { graph.screens.pop() })
+            LicencesRoute(licences(), { graph.screens.pop() })
         }
 
         AppScreen.Merge -> {

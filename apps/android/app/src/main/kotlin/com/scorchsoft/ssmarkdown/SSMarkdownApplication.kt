@@ -14,6 +14,17 @@ class SSMarkdownApplication : Application() {
     val graph: AppGraph by lazyGraph
 
     /**
+     * Starts reading the settings file now: the platform loads a
+     * preferences file on its own thread from the first
+     * `getSharedPreferences`, so by the time the graph's first read needs
+     * it the main thread no longer waits on the disk (PERF-21).
+     */
+    override fun onCreate() {
+        super.onCreate()
+        getSharedPreferences(SETTINGS_PREFERENCES, MODE_PRIVATE)
+    }
+
+    /**
      * The platform asks for memory back: the governor walks its shed
      * ladder (docs/robustness.md Part 2a, "Under pressure"). A graph that
      * was never built has nothing to give, and is not built just to say so.

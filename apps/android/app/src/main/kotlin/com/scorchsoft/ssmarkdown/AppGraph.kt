@@ -85,7 +85,7 @@ class AppGraph(
 
     val settings: SettingsRepository =
         PersistedSettingsRepository(
-            PreferencesSettingsStore(app.getSharedPreferences("settings", Context.MODE_PRIVATE)),
+            PreferencesSettingsStore(app.getSharedPreferences(SETTINGS_PREFERENCES, Context.MODE_PRIVATE)),
         )
 
     val versions = VersionStore(layout.history, policy = settings.settings.value.history)
@@ -245,3 +245,6 @@ class AppGraph(
         FontPickerViewModel({ fonts }, mainScope, io, onChosen = themeEditor::onFontChosen)
     }
 }
+
+/** The settings file; the Application starts loading it before the graph is built (PERF-21). */
+internal const val SETTINGS_PREFERENCES = "settings"

@@ -54,7 +54,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         graph.editor.start(launchRequest(intent))
         val platform = PlatformActions(this, graph.io)
-        val licences = Licences.parse(readAsset(LICENCES_ASSET))
+        // Parsed when the Licences screen first opens, not on every launch (PERF-21).
+        val licences by lazy { Licences.parse(readAsset(LICENCES_ASSET)) }
         setContent {
             val settings by graph.settings.settings.collectAsState()
             val dark =
@@ -69,7 +70,7 @@ class MainActivity : ComponentActivity() {
                         graph,
                         platform,
                         versionName(),
-                        licences,
+                        { licences },
                         previewView =
                             previewView.also {
                                 previewCreated =

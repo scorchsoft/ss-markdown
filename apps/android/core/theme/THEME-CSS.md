@@ -18,9 +18,10 @@ generator emits a variable this file does not document.
    stack falls through to the generic family until the download lands.
 3. One `:root { … }` block: `color-scheme` plus the variables below.
 4. The theme's **Advanced CSS**, verbatim and last, so it can override
-   anything. It has been checked by `CssPolicy` (no `</`, no `@import`,
-   no remote `url()`, no script); the preview's CSP is still the real
-   wall.
+   anything. It has been checked by `CssPolicy` after decoding CSS
+   escapes and comments (no `</`, no `@import` or `@font-face`, no
+   `image-set()` or `src()`, no `url()` but `data:` and relative paths,
+   no script); the preview's CSP is still the real wall.
 
 ## Variables
 

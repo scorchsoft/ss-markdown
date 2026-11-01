@@ -181,6 +181,28 @@ class ThemeCodecTest {
     }
 
     @Test
+    fun `css escapes, comments and image-set cannot smuggle a load past the policy (SEC-5)`() {
+        listOf(
+            "@\\69mport \"https://evil.example/i.css\";" to "can't use @import; themes work offline",
+            "@im/**/port \"x.css\";" to "can't use @import; themes work offline",
+            "body{background-image:image-set(\"https://evil.example/a.png\" 1x)}" to
+                "can't load from the internet; themes work offline",
+            ".x{background:\\75rl(https://evil.example/b.png)}" to "can't load from the internet; themes work offline",
+            ".y{background:url(\"\\68ttps://evil.example/c.png\")}" to
+                "can't load from the internet; themes work offline",
+            ".z{background:url(//evil.example/d.png)}" to "can't load from the internet; themes work offline",
+            "@font-face{font-family:x;src:url(a.woff2)}" to "can't declare fonts; pick them in the theme's Fonts",
+        ).forEach { (css, message) ->
+            assertEquals(css, message, CssPolicy.violation(css))
+        }
+        listOf(
+            "h1 { color: #123 }",
+            "p{background:url(data:image/png;base64,AAAA)}",
+            ".a::before{content:'\\2014'}",
+        ).forEach { assertEquals(it, null, CssPolicy.violation(it)) }
+    }
+
+    @Test
     fun `oversized files are refused before parsing`() {
         assertEquals(listOf("the file is too large to be a theme"), problems(" ".repeat(ThemeCodec.MAX_BYTES + 1)))
     }

@@ -29,6 +29,48 @@ sealed interface FindResult {
 }
 
 /**
+ * [text] that gives up when [cancelled] says so: the regex engine reads
+ * through `charAt`, and a scan with no match is one long `Matcher.find`
+ * call with nowhere else to check. Polled every [POLL_EVERY] reads, so the
+ * check costs one decrement per char (performance review PERF-8).
+ */
+class CancellableText(
+    private val text: CharSequence,
+    private val cancelled: () -> Boolean,
+) : CharSequence {
+    private var untilPoll = POLL_EVERY
+
+    /** Chars read so far, for the bounded-work tests. */
+    var reads: Long = 0
+        private set
+
+    override val length: Int get() = text.length
+
+    override fun get(index: Int): Char {
+        reads++
+        if (--untilPoll == 0) {
+            untilPoll = POLL_EVERY
+            if (cancelled()) throw SearchCancelled()
+        }
+        return text[index]
+    }
+
+    override fun subSequence(
+        startIndex: Int,
+        endIndex: Int,
+    ): CharSequence = text.subSequence(startIndex, endIndex)
+
+    override fun toString(): String = text.toString()
+
+    /** Thrown out of the matcher when the search is no longer wanted. */
+    class SearchCancelled : RuntimeException("search cancelled")
+
+    private companion object {
+        const val POLL_EVERY = 16_384
+    }
+}
+
+/**
  * Searching and replacing, as pure functions over a [CharSequence] (a
  * piece-tree snapshot in the app), so every option combination is a unit
  * test. Plain queries are quoted into a pattern, so one code path serves

@@ -50,4 +50,21 @@ class FindEngineTest {
         assertEquals(0, state.next().next().current)
         assertEquals(2, state.copy(current = 0).previous().current)
     }
+
+    @Test
+    fun `a cancelled search stops reading within one poll, even mid-scan with no match (PERF-8)`() {
+        val hay = "hay ".repeat(500_000) // 2M chars, no needle: one long Matcher.find call.
+        val text = CancellableText(hay) { true }
+        val thrown =
+            runCatching { FindEngine.find(text, "needle", FindOptions()) }
+                .exceptionOrNull()
+        assertTrue(thrown is CancellableText.SearchCancelled)
+        assertTrue("read ${text.reads} chars of ${hay.length}", text.reads <= 16_384)
+    }
+
+    @Test
+    fun `an uncancelled search through the wrapper finds the same matches`() {
+        val text = CancellableText("a b a", cancelled = { false })
+        assertEquals(listOf(0, 4), starts(FindEngine.find(text, "a", FindOptions())))
+    }
 }

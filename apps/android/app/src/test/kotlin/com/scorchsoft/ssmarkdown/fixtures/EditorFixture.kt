@@ -46,6 +46,8 @@ class EditorFixture(
     viewStates: ViewStateStore = InMemoryViewStates(),
     /** Where disk work runs; an [InterleavingDispatcher] lets a test type while it waits. */
     io: CoroutineDispatcher = dispatcher,
+    /** Where find searches run; the test dispatcher by default, so a search lands before the next line. */
+    compute: CoroutineDispatcher = dispatcher,
 ) {
     val files = File(root, "files").apply { mkdirs() }
     val scope = CoroutineScope(SupervisorJob() + dispatcher)
@@ -92,6 +94,7 @@ class EditorFixture(
                 clock = { now },
                 scope = scope,
                 io = io,
+                compute = compute,
                 viewStates = viewStates,
             ),
         ).also { vm ->

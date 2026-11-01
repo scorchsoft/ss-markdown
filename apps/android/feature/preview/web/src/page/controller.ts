@@ -4,7 +4,7 @@
  * changed are sent to the worker, and only sections near the viewport are
  * sent first.
  */
-import { collectDefinitions, type DocDefinitions } from "../core/definitions";
+import { collectDefinitions, definitionSignature, type DocDefinitions } from "../core/definitions";
 import { contentHash } from "../core/hash";
 import { resplitRange, splitSections, type Resplit, type Section } from "../core/sections";
 import { EditSync } from "../core/editSync";
@@ -17,7 +17,6 @@ import { Virtualizer } from "./virtualizer";
 const BATCH = 40;
 /** Above this many views a splice is rebuilt with `concat` rather than spread into arguments. */
 const SPLICE_SPREAD_LIMIT = 16_384;
-const DEFINITION_HINT = /^\s{0,3}\*?\[|\[\^/m;
 
 export interface ControllerHooks {
     /** A batch of sections has new HTML (some may be mounted). */
@@ -37,6 +36,8 @@ export class RenderController {
     readonly virtualizer: Virtualizer;
     private defs: DocDefinitions = collectDefinitions([]);
     private defsKey = "";
+    /** Whole-document definition scans so far: the PERF-H statistic (one per change that can alter them). */
+    definitionScans = 0;
     private generation = 0;
     private readonly requested = new Set<string>();
     /** Views by key, so a worker reply finds its sections without walking all of them. */
@@ -106,7 +107,7 @@ export class RenderController {
             const change = this.doc.applyEdit(edit);
             const newTo = change.fromLine + change.lines.length;
             first = Math.min(first, this.splice(resplitRange(this.views, this.doc.lines, fromLine, toLine, newTo)));
-            if (DEFINITION_HINT.test(before) || DEFINITION_HINT.test(change.lines.join("\n")))
+            if (definitionSignature(before) !== definitionSignature(change.lines.join("\n")))
                 first = Math.min(first, this.refreshDefinitions(false));
         }
         this.afterEdit(first);
@@ -181,7 +182,7 @@ export class RenderController {
         const delta = this.doc.replaceLines(change);
         const newTo = change.toLine + delta;
         let first = this.splice(resplitRange(this.views, this.doc.lines, change.fromLine, change.toLine, newTo));
-        if (DEFINITION_HINT.test(before) || DEFINITION_HINT.test(change.lines.join("\n")))
+        if (definitionSignature(before) !== definitionSignature(change.lines.join("\n")))
             first = Math.min(first, this.refreshDefinitions(false));
         return first;
     }
@@ -192,6 +193,7 @@ export class RenderController {
      * render arrives. Returns 0 then (everything needs work), else the end.
      */
     private refreshDefinitions(force: boolean): number {
+        this.definitionScans++;
         this.defs = collectDefinitions(this.doc.lines);
         const key = contentHash(JSON.stringify(this.defs));
         if (key === this.defsKey && !force) return this.views.length;

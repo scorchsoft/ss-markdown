@@ -137,6 +137,18 @@ scored by walking these jobs on a device.
 | History | Default limits 100 MB per file and 1 GB total (adjustable or off); thinning only, never silent; chain ≤ 50; Mercurial 2× rule |
 | APK size (minified) | < 15 MB including the preview bundle. **A guideline, not a hard limit** (see below) |
 
+**Where each budget is measured.** The budgets are for a Pixel 6a-class
+phone, and only a run on one proves them. CI's `perf` job measures the same
+things on an API 34 emulator with a 6a-class heap (cold start to an
+editable document, open 1 MB / 20 MB, keystroke to commit and typing frames
+on 1 MB / 20 MB, a 10 s fling on 20 MB, Preview refresh at 50 KB). Those
+numbers are **advisory against these budgets**: an emulator on a shared
+runner is noisy and is neither faster nor slower than a phone in a
+predictable way. What the job enforces is the trend: it fails on a
+regression of more than 25% against `docs/perf/emulator-baseline.json`,
+beyond each metric's noise floor. The latest figures are in
+`performance-techniques.md` ("Emulator measurements").
+
 **The APK size budget is a guideline.** Andrew set this policy on
 2026-11-01. The mission comes first: a fast, calm editor that never
 loses work.

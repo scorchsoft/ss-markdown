@@ -1,0 +1,28 @@
+{
+  "_about": "CI emulator baseline (API 34 x86_64, 6 GB, 256 MB heap growth limit), NOT a device. Medians from the perf job of a1c059b (run 41361377483), except coldStart.timeToFullDisplayMs from ea23a79 (run 41358849555), the last run that recorded it. perf_report.py fails on a >25% regression beyond each metric's noise floor; refresh with --write-baseline on a green run's perf-results.json and say why in the commit.",
+  "metrics": {
+    "coldStart.timeToFullDisplayMs": 878.18,
+    "coldStart.timeToInitialDisplayMs": 870.06,
+    "fling20Mb.frameCount": 1722.0,
+    "fling20Mb.frameCpuP50Ms": 4.63,
+    "fling20Mb.frameCpuP90Ms": 6.99,
+    "fling20Mb.frameCpuP99Ms": 18.75,
+    "fling20Mb.framesOver32MsPercent": 0.23,
+    "fling20Mb.jankyPercent": 4.88,
+    "open1Mb.openMs": 254.24,
+    "open20Mb.openMs": 662.24,
+    "previewRefresh50Kb.count": 18.0,
+    "previewRefresh50Kb.maxMs": 19.75,
+    "previewRefresh50Kb.meanMs": 17.66,
+    "typing1Mb.commitCount": 90.0,
+    "typing1Mb.commitMaxMs": 4.48,
+    "typing1Mb.commitMeanMs": 1.97,
+    "typing1Mb.frameCpuP50Ms": 5.41,
+    "typing1Mb.frameCpuP99Ms": 9.04,
+    "typing20Mb.commitCount": 90.0,
+    "typing20Mb.commitMaxMs": 8.69,
+    "typing20Mb.commitMeanMs": 2.38,
+    "typing20Mb.frameCpuP50Ms": 5.07,
+    "typing20Mb.frameCpuP99Ms": 10.75
+  }
+}

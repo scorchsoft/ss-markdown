@@ -214,8 +214,12 @@ def main():
             json.dump({"metrics": numbers}, f, indent=2, sort_keys=True)
             f.write("\n")
     if args.write_baseline:
+        about = {}
+        if os.path.exists(args.baseline):
+            with open(args.baseline, encoding="utf-8") as f:
+                about = {k: v for k, v in json.load(f).items() if k.startswith("_")}
         with open(args.baseline, "w", encoding="utf-8") as f:
-            json.dump({"metrics": numbers}, f, indent=2, sort_keys=True)
+            json.dump({**about, "metrics": numbers}, f, indent=2, sort_keys=True)
             f.write("\n")
     if failures:
         for failure in failures:

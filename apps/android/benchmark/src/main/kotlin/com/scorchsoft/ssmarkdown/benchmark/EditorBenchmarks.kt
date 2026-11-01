@@ -40,9 +40,17 @@ class EditorBenchmarks {
             compilationMode = CompilationMode.DEFAULT,
             startupMode = StartupMode.COLD,
             iterations = STARTUP_ITERATIONS,
-            setupBlock = { pressHome() },
+            // Every launch the same: no remembered file (another benchmark's
+            // 20 MB file would turn this into an open benchmark), so the app
+            // starts into a new, empty draft.
+            setupBlock = {
+                device.executeShellCommand("pm clear $PACKAGE")
+                pressHome()
+            },
         ) {
             startActivityAndWait()
+            // TTFD is only recorded if the trace is still running when the app reports drawn.
+            awaitEditable(UNTITLED)
         }
 
     /** Budget < 1 s: from the open request to the bound, editable buffer (`SSM:open`). */
@@ -164,6 +172,8 @@ class EditorBenchmarks {
         }
 
     private companion object {
+        /** A new draft's name in the top bar (app strings.xml `untitled`). */
+        const val UNTITLED = "Untitled"
         const val STARTUP_ITERATIONS = 10
         const val OPEN_ITERATIONS = 5
         const val TYPING_ITERATIONS = 3

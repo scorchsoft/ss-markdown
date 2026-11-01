@@ -58,9 +58,12 @@ internal fun MacrobenchmarkScope.openForEditing(file: CorpusFile) {
 }
 
 /** Waits until [file]'s name is in the top bar, which the editor shows once the buffer is bound. */
-internal fun MacrobenchmarkScope.awaitDocument(file: CorpusFile) {
-    val shown = device.wait(Until.hasObject(By.textContains(file.fileName.removeSuffix(".md"))), OPEN_TIMEOUT_MILLIS)
-    check(shown == true) { "${file.fileName} never appeared. On screen: ${screenTexts()}" }
+internal fun MacrobenchmarkScope.awaitDocument(file: CorpusFile) = awaitEditable(file.fileName.removeSuffix(".md"))
+
+/** Waits until a document called [name] is in the top bar. */
+internal fun MacrobenchmarkScope.awaitEditable(name: String) {
+    val shown = device.wait(Until.hasObject(By.textContains(name)), OPEN_TIMEOUT_MILLIS)
+    check(shown == true) { "$name never appeared. On screen: ${screenTexts()}" }
     device.waitForIdle()
 }
 

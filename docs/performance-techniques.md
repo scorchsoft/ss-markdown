@@ -26,7 +26,7 @@ where each idea came from, so a future reader can check the source.
 | Snapshot-vs-delta rule (delta > text; chain payload > 2× text; chain cap) | Mercurial `revlogutils/deltas.py` (GPL, the idea only); git pack depth 50 | `core/history` |
 | `onTrimMemory` RUNNING_* levels not delivered on API 34+ | AOSP `ComponentCallbacks2.java` | `MemoryGovernor` polls instead |
 | Renderer priority + `onRenderProcessGone` recovery that tells a crash from an OOM kill | Android WebView docs | `feature/preview` |
-| Baseline Profiles (`profileinstaller`), Macrobenchmark on a 10 MB fixture, JankStats, StrictMode, LeakCanary (debug only), Perfetto | Android tooling | StrictMode (penaltyLog) in debuggable builds today; library baseline profiles ship. Macrobenchmark, JankStats and LeakCanary are planned with the device run (`robustness.md` Part 3) |
+| Baseline Profiles (`profileinstaller`, `androidx.baselineprofile`), Macrobenchmark, StrictMode, LeakCanary, Perfetto | Android tooling | The app's profile is generated on CI's emulator (`:benchmark` `BaselineProfileGenerator`) and built into the perf job's hand-over APK; Macrobenchmark measures rubric #4 there (below); StrictMode is enforced by a seeded monkey run; LeakCanary (test APK only) checks every instrumented test. JankStats is not used: Macrobenchmark's `FrameTimingMetric` reads the same frame data from the trace |
 
 ## Host measurements (performance review fixes, 2026-11-01)
 
@@ -56,6 +56,44 @@ test, never a wall-clock threshold. The tokenizer rows come from
 | PERF-H whole-document definition scans while typing beside a `[^1]` citation | 1 per keystroke (3 regexes a line + a JSON hash) | 0; 1 only when a citation or definition changes | `definitions.test.ts` |
 | PERF-I budget for a 12 MB stream of unknown size | Normal (admitted as 0 bytes); an `OutOfMemoryError` mid-decode crashed the app | Lean, from the bytes that arrived; an `OutOfMemoryError` declines the file | `DocumentLoaderTest` |
 | CC-F the three wall-clock tests | < 1 s, < 2 s, < 10 s | ≤ 16 char reads a char; ≤ 3 lines tokenised and ≤ 1 outline rebuild per edit | `LineTokenizerTest`, `OutlineTest` |
+
+## Emulator measurements (CI, 2026-11-01): emulator, not device
+
+**These are emulator numbers, not device numbers.** CI's `perf` job runs
+`:benchmark`'s Macrobenchmarks on an API 34 x86_64 emulator (6 GB,
+`dalvik.vm.heapgrowthlimit` set to a Pixel 6a's 256m) against the
+benchmark build (release code, R8, not debuggable, the generated Baseline
+Profile installed). An emulator on a shared runner is noisy, and is
+neither faster nor slower than a phone in a predictable way, so the
+quality-bar budgets are **advisory** here; the job fails only on a >25%
+regression against `docs/perf/emulator-baseline.json`. The budgets are
+proved on a Pixel 6a-class phone (still to do). Medians of each run's
+iterations; frames pooled over iterations. Run 41361377483 (a1c059b),
+except TTFD (41358849555, ea23a79).
+
+| Measurement | Emulator | Budget (quality-bar §4) | How |
+|---|---|---|---|
+| Cold start, first frame (TTID) | 870 ms | — | `StartupTimingMetric`, 10 cold starts |
+| Cold start to an editable document (TTFD) | 878 ms | < 800 ms | `reportFullyDrawn` when a document is bound (`ReportDrawnWhen`) |
+| Open 1 MB | 254 ms | < 1 s | `SSM:open`, request to bound buffer, 5 cold opens through `content://` |
+| Open 20 MB | 662 ms | < 3 s | the same |
+| Keystroke to commit, 1 MB | 1.97 ms mean, 4.48 ms worst | < 16 ms | `SSM:commit` per key, 30 hardware keys × 3 |
+| Keystroke to commit, 20 MB | 2.38 ms mean, 8.69 ms worst | < 16 ms, flat with size | the same |
+| Typing frames (CPU), 1 MB / 20 MB | p50 5.4 / 5.1 ms, p99 9.0 / 10.8 ms | 60 fps | `FrameTimingMetric` |
+| Fling 20 MB, ~10 s | 4.9% janky (missed deadline), 0.23% over 32 ms; frame CPU p50 4.6, p90 7.0, p99 18.8 ms | 60 fps, no frame > 32 ms | `FrameTimingMetric`, 12 flings × 3 |
+| Preview refresh after typing, 50 KB (Split) | 17.7 ms mean, 19.8 ms worst | < 150 ms | `SSM:previewRefresh`, host edit to the page's `rendered` |
+
+Read with care:
+- Keystroke cost does not grow with the file: 1.97 → 2.38 ms mean from
+  1 MB to 20 MB (20× the text), and typing frames are flat.
+- Cold start to editable is over the 800 ms budget on this emulator, and a
+  phone run has not yet said whether it is on a phone. Treat it as the one
+  amber number.
+- The 20 MB fling has 0.23% of frames over 32 ms (about 4 of 1,722) on the
+  emulator, where the budget allows none. A phone run decides.
+- The Preview refresh is the page's own render after the host's edit; the
+  debounce before it, if any, is in the number because the edit is sent
+  as the key lands.
 
 ## Libraries
 

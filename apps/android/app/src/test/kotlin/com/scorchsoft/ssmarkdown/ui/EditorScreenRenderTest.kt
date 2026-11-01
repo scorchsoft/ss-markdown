@@ -115,7 +115,7 @@ class EditorScreenRenderTest(
     @Test
     fun `Split shows the preview slot placeholder`() {
         render(Samples.saved.copy(mode = ViewMode.Split))
-        rule.onNodeWithText("Preview arrives with the preview module").assertIsDisplayed()
+        rule.onNodeWithText("Preview draws here (a stand-in where no WebView runs)").assertIsDisplayed()
     }
 
     @Test

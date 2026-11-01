@@ -112,7 +112,8 @@ class ThemeEditorViewModel(
 
     private fun use() {
         val state = ui.value
-        val theme = state.theme
+        // Never replace a different theme that happens to share the name (SEC-L1).
+        val theme = library.withFreeName(state.theme, state.savedId)
         if (!library.save(theme)) {
             ui.update { it.copy(saveFailed = true) }
             return
@@ -120,7 +121,7 @@ class ThemeEditorViewModel(
         // A rename gives the theme a new id; the old file must not linger as a twin.
         state.savedId?.takeIf { it != theme.id }?.let(library::delete)
         settings.update { it.copy(previewThemeId = theme.id) }
-        ui.update { it.copy(savedId = theme.id, dirty = false, saveFailed = false) }
+        ui.update { it.copy(theme = theme, savedId = theme.id, dirty = false, saveFailed = false) }
         eventChannel.trySend(ThemeEditorEvent.Close)
     }
 

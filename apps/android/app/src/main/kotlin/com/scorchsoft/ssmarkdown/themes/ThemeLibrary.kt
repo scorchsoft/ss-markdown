@@ -51,10 +51,39 @@ class ThemeLibrary(
         return written
     }
 
+    /**
+     * [theme], renamed "<name> (2)", "(3)"… if another custom theme already
+     * has its id. A custom theme's id comes from its name, so an imported
+     * theme, a second copy or a rename that matched another theme's name
+     * would otherwise replace that theme silently on save (SEC-L1).
+     * [ownId] is the id [theme] is already stored under, if any: saving
+     * over itself is not a clash.
+     */
+    fun withFreeName(
+        theme: Theme,
+        ownId: String?,
+    ): Theme {
+        val taken = loaded().map { it.id }.toSet() - setOfNotNull(ownId)
+        if (theme.id !in taken) return theme
+        return generateSequence(2) { it + 1 }
+            .take(MAX_RENAME_TRIES)
+            .mapNotNull { renamed(theme, " ($it)") }
+            .firstOrNull { it.id !in taken } ?: theme
+    }
+
     /** Removes the custom theme [id]. */
     fun delete(id: String) {
         File(dir, "$id.json").delete()
         customs.value = loaded().filterNot { it.id == id }
+    }
+
+    /** [theme] with [suffix] on its name and the id that name gives, through the codec that derives it. */
+    private fun renamed(
+        theme: Theme,
+        suffix: String,
+    ): Theme? {
+        val name = theme.name.take(MAX_NAME_CHARS - suffix.length) + suffix
+        return (ThemeCodec.decode(ThemeCodec.encode(theme.copy(name = name))) as? ThemeDecodeResult.Decoded)?.theme
     }
 
     private fun loaded(): List<Theme> = customs.value ?: read().also { customs.value = it }
@@ -72,4 +101,12 @@ class ThemeLibrary(
                     }
                 (ThemeCodec.decode(text) as? ThemeDecodeResult.Decoded)?.theme
             }.sortedBy { it.name.lowercase() }
+
+    private companion object {
+        /** The codec's longest theme name. */
+        const val MAX_NAME_CHARS = 60
+
+        /** Far more same-named themes than anyone keeps; past it, saving replaces as before. */
+        const val MAX_RENAME_TRIES = 1_000
+    }
 }

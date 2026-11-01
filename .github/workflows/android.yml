@@ -85,6 +85,8 @@ jobs:
           manifest=$("$aapt2" dump xmltree --file AndroidManifest.xml "$apk")
           if grep -q 'android:debuggable.*=true' <<<"$manifest"; then echo "::error::hand-over APK is debuggable"; exit 1; fi
           if grep -q 'PreviewActivity' <<<"$manifest"; then echo "::error::hand-over APK ships PreviewActivity"; exit 1; fi
+          if grep -q 'PerfDocumentProvider' <<<"$manifest"; then echo "::error::hand-over APK ships the benchmark provider"; exit 1; fi
+          if unzip -l "$apk" | grep -qi leakcanary; then echo "::error::hand-over APK ships LeakCanary"; exit 1; fi
           for entry in assets/dexopt/baseline.prof assets/licences/Apache-2.0.txt assets/licences/vscode-piece-tree-MIT.txt; do
             unzip -l "$apk" "$entry" > /dev/null || { echo "::error::$entry missing from the hand-over APK"; exit 1; }
           done
@@ -221,4 +223,92 @@ jobs:
         with:
           name: device-test-reports
           path: apps/android/app/build/reports/androidTests/
+          retention-days: 14
+
+  # Rubric #4 and #11 evidence on an emulator (docs/performance-techniques.md,
+  # "Emulator measurements"). Its own job, so it never slows or shares a
+  # failure with the instrumented tests. An emulator is not a phone: the
+  # absolute budgets are advisory here and the gate is a >25% regression
+  # against docs/perf/emulator-baseline.json.
+  perf:
+    name: Emulator perf, Baseline Profile, monkey + StrictMode (API 34)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      # Compile first, so emulator minutes are spent only on measuring.
+      - name: Build benchmark, profile-generator and debug APKs
+        run: >-
+          gradle --no-daemon -p apps/android
+          :app:assembleBenchmarkRelease :app:assembleNonMinifiedRelease :app:assembleDebug
+          :benchmark:assembleBenchmarkRelease :benchmark:assembleNonMinifiedRelease
+
+      - name: Baseline Profile, Macrobenchmarks and monkey on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: default
+          # Real animations: the fling and typing frames are what a user sees.
+          disable-animations: false
+          script: bash apps/android/benchmark/ci/emulator-evidence.sh
+
+      - name: Performance report (advisory budgets, 25% regression gate)
+        if: always()
+        run: >-
+          python3 apps/android/benchmark/ci/perf_report.py
+          apps/android/benchmark/build/outputs/connected_android_test_additional_output
+          docs/perf/emulator-baseline.json
+          --summary "$GITHUB_STEP_SUMMARY"
+          --out apps/android/build/emulator-evidence/perf-results.json
+
+      - name: StrictMode violations in app code
+        if: always()
+        run: >-
+          python3 apps/android/benchmark/ci/strictmode_check.py
+          apps/android/build/emulator-evidence/logcat.txt
+          --summary "$GITHUB_STEP_SUMMARY"
+
+      # The generated profile, shipped: the hand-over build compiled with it,
+      # under the same checks as the `checks` job's hand-over.
+      - name: Hand-over APK with the generated Baseline Profile
+        if: always()
+        run: |
+          gradle --no-daemon -p apps/android -Pssmarkdown.minifyDebug=true :app:assembleDebug
+          apk=$(ls apps/android/app/build/outputs/apk/debug/*.apk)
+          aapt2=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2
+          manifest=$("$aapt2" dump xmltree --file AndroidManifest.xml "$apk")
+          if grep -q 'android:debuggable.*=true' <<<"$manifest"; then echo "::error::hand-over APK is debuggable"; exit 1; fi
+          if grep -q 'PerfDocumentProvider' <<<"$manifest"; then echo "::error::hand-over APK ships the benchmark provider"; exit 1; fi
+          unzip -l "$apk" assets/dexopt/baseline.prof > /dev/null || { echo "::error::baseline.prof missing"; exit 1; }
+          size=$(stat -c %s "$apk")
+          lines=$(wc -l < apps/android/app/src/main/generated/baselineProfiles/baseline-prof.txt || echo 0)
+          echo "### Hand-over APK with the generated profile: $size bytes; profile $lines rules" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload emulator evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emulator-evidence
+          path: |
+            apps/android/build/emulator-evidence/
+            apps/android/benchmark/build/outputs/connected_android_test_additional_output/
+            apps/android/app/src/main/generated/baselineProfiles/
+            apps/android/app/build/outputs/apk/debug/*.apk
           retention-days: 14

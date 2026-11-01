@@ -79,7 +79,8 @@ android {
                     // renamed or deleted (a stale shell.png, UX-24) cannot
                     // pass for current. Here, not in the test: the
                     // parameterised runner would run a @BeforeClass per theme.
-                    val shots = layout.buildDirectory.dir("screenshots").get().asFile
+                    val buildDir = layout.buildDirectory.asFile.get()
+                    val shots = buildDir.resolve("screenshots")
                     test.doFirst { shots.deleteRecursively() }
                 } else {
                     test.exclude("**/ScreenshotTest*")

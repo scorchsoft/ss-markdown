@@ -126,8 +126,8 @@ class ScreenshotTest(
     // activity's decor view does not contain (UX-24: the Display, Export
     // images and Mermaid shots used to show only the editor behind the
     // sheet). So every window the app has open is drawn, bottom to top, at
-    // its position on screen.
-    /** Writes `<theme>/<name>.png`; returns how many windows were drawn into it. */
+    // its position on screen. Writes `<theme>/<name>.png` and returns how
+    // many windows were drawn into it.
     private fun capture(name: String): Int {
         val decor = rule.activity.window.decorView
         check(decor.width > 0 && decor.height > 0) { "decor view not laid out" }

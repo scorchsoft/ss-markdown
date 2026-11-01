@@ -100,8 +100,11 @@ you uninstall the app. Your *files* are always plain Markdown you own.
 History is a safety net, not the record of truth.
 
 **Keeping storage in check:**
-- Storage is capped at 20 MB per file and 100 MB in total, adjustable
-  in Settings, with the usage shown there.
+- The default limits are generous: 1 GB in total and 100 MB per file,
+  adjustable or off. Normal use never gets near them, so nobody is
+  surprised by a missing version. Limits only ever thin old
+  intermediate versions, and every removal is logged on the Storage
+  screen.
 - Older versions thin out over time, like Time Machine.
 - History for files you haven't opened in 90 days is pruned first.
 - Pinned versions are kept forever.

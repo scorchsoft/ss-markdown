@@ -134,7 +134,7 @@ scored by walking these jobs on a device.
 | Keyboard text window | 32K chars around the selection |
 | Accessibility node text | ≤ 100K chars |
 | Heap admission | open normally ≤ 40% of free heap; lean ≤ 70%; else decline before loading |
-| History | ≤ 20 MB per file, ≤ 100 MB total (adjustable); chain ≤ 50; Mercurial 2× rule |
+| History | Default limits 100 MB per file and 1 GB total (adjustable or off); thinning only, never silent; chain ≤ 50; Mercurial 2× rule |
 | APK size (minified) | < 15 MB including the preview bundle |
 
 ## 5. How we score

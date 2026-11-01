@@ -161,8 +161,11 @@ history.
 **Retention (thinning, like Time Machine)**
 - Keep everything from the last 24 hours, then hourly for 7 days, then
   daily for 90 days, then weekly.
-- Each file is capped at 20 MB and the whole history at 100 MB (both
-  adjustable), with the oldest pruned first.
+- Each file is capped at 100 MB and the whole history at 1 GB by default
+  (both adjustable, including "No limit"). Limits only thin
+  intermediate versions, oldest first, and never touch the latest
+  version, the last 7 days, pins, drafts or journals. Every automatic
+  removal is logged and visible (ux-spec "Storage").
 - Pruning only ever removes from the old end, or collapses a run into
   its newest member re-stored as a keyframe, so chains never break.
 - **Pinned** versions (long-press → "Keep forever", optionally named) are

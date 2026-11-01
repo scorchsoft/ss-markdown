@@ -240,9 +240,44 @@ people that history exists.
 - **History by file.** Sorted largest first, or by last opened. Each row
   shows size, versions, pins and last opened, and its ⋯ offers Export
   history (.zip) · Clear history · Open history.
-- **Automatic:** a History limit (default 100 MB, with the per-file cap
-  20 MB) and "Forget history of files unused for" [Never (default) ·
-  90 days · 6 months · 1 year].
+- **Every clear asks first.** A confirmation dialog appears before any
+  clear (bulk, per-file or "all"). It says:
+  - exactly what will be deleted ("642 saved versions (18.4 MB) of 11
+    files");
+  - **"This can't be undone."**, highlighted;
+  - that the files themselves, pinned versions and drafts are kept.
+
+  An **"Export these versions first (.zip)"** checkbox is ticked by
+  default, so the button reads *Export and clear*. Nothing is deleted
+  until the export has finished and been verified. Unticking it changes
+  the button to *Clear permanently*. The cache clear is the exception:
+  it is rebuildable, so it needs only a simple confirm.
+- **Automatic limits: the rule is never to surprise anyone.**
+  - **History limit: 1 GB by default** (choices: 250 MB, 500 MB, 1 GB,
+    2 GB, 5 GB, No limit). Normal use never reaches it: 1,000 versions
+    of a typical document take about 1–3 MB.
+  - **Per-file cap: 100 MB** by default, applied with the same
+    protections.
+  - **"Forget history of files unused for": Never** by default.
+  - **What a limit may remove:** only *thinned intermediate versions,
+    oldest first.* It never removes:
+    - a file's latest version;
+    - anything from the last 7 days;
+    - pinned versions;
+    - drafts;
+    - recovery copies.
+  - **Nothing is removed silently.**
+    - The first time a limit starts thinning, a one-time, non-modal
+      notice appears: "History reached your 1 GB limit · older versions
+      are being thinned · Manage".
+    - Every automatic removal is listed in **Storage → Recent
+      clean-ups** (for example, "3 Nov · thinned 34 older versions of
+      handbook.md to stay under 1 GB").
+    - If the limit can't be met without breaking those protections, the
+      app stops thinning and says so; it doesn't delete more.
+  - **Low device storage** (under 500 MB free): a warning offers the
+    Storage screen. The app never deletes history to free device
+    space.
 - **Import history:** ⋮ on the Storage screen → Import history (.zip).
   This attaches the versions to the matching file by name and content
   fingerprint, or to a file you pick.

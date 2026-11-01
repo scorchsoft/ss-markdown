@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.preview.bridge
 
+import com.scorchsoft.ssmarkdown.preview.editing.FormatAction
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -34,6 +35,20 @@ class BridgeCodecTest {
         assertEquals(5, change.getInt("toLine"))
         assertEquals(2, change.getJSONArray("lines").length())
         assertTrue(!json.has("text"))
+    }
+
+    @Test
+    fun `edits carry character ops for rebasing, and format and select match the page's shapes`() {
+        val json = encoded(HostMessage.Edit(3, listOf(LineChange(0, 1, listOf("# a"))), listOf(TextEdit(0, 0, "# "))))
+        val op = json.getJSONArray("ops").getJSONObject(0)
+        assertEquals(0, op.getInt("from"))
+        assertEquals("# ", op.getString("insert"))
+        assertTrue(!encoded(HostMessage.Edit(3, emptyList())).has("ops"))
+        assertEquals(
+            """{"type":"format","action":"codeBlock"}""",
+            BridgeCodec.encode(HostMessage.Format(FormatAction.CODE_BLOCK)),
+        )
+        assertEquals("""{"type":"select","rev":4,"from":2,"to":6}""", BridgeCodec.encode(HostMessage.Select(4, 2, 6)))
     }
 
     @Test
@@ -80,9 +95,19 @@ class BridgeCodecTest {
             ),
         )
         assertEquals(
-            PageMessage.Selection(1, 5, setOf("bold", "link"), false),
-            BridgeCodec.decode("""{"type":"selection","from":1,"to":5,"marks":["bold","link"],"inTable":false}"""),
+            PageMessage.Selection(1, 5, setOf("bold", "link"), false, 7),
+            BridgeCodec.decode(
+                """{"type":"selection","from":1,"to":5,"marks":["bold","link"],"inTable":false,"baseRev":7}""",
+            ),
         )
+        assertEquals(
+            PageMessage.FormatRequest(PreviewFormatRequest(FormatAction.HEADING_2, 4, 9, 6, true)),
+            BridgeCodec.decode(
+                """{"type":"formatRequest","action":"heading2","from":4,"to":9,"baseRev":6,"inTable":true}""",
+            ),
+        )
+        assertEquals(PageMessage.Resync("gap"), BridgeCodec.decode("""{"type":"resync","reason":"gap"}"""))
+        assertEquals(PageMessage.EditRefused(8), BridgeCodec.decode("""{"type":"editRefused","line":8}"""))
         assertEquals(
             PageMessage.TaskToggle(2, 3, true),
             BridgeCodec.decode("""{"type":"taskToggle","baseRev":2,"offset":3,"checked":true}"""),
@@ -104,5 +129,8 @@ class BridgeCodecTest {
         assertNull(BridgeCodec.decode("""{"type":"launchMissiles"}"""))
         assertNull(BridgeCodec.decode("""{"type":"sourceEdit","baseRev":"x"}"""))
         assertNull(BridgeCodec.decode("""{"type":"openViewer","kind":"video","index":0,"line":1}"""))
+        assertNull(
+            BridgeCodec.decode("""{"type":"formatRequest","action":"blink","from":0,"to":1,"baseRev":1}"""),
+        )
     }
 }

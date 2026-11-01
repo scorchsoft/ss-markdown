@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.preview.bridge
 
+import com.scorchsoft.ssmarkdown.preview.editing.FormatAction
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -80,6 +81,11 @@ sealed interface TableOp {
 
 private fun kind(name: String): JSONObject = JSONObject().put("kind", name)
 
+private fun editsJson(edits: List<TextEdit>): JSONArray =
+    JSONArray().apply {
+        for (e in edits) put(JSONObject().put("from", e.from).put("to", e.to).put("insert", e.insert))
+    }
+
 /**
  * Messages from Kotlin to the page. Each one knows its own wire form, so the
  * codec needs no central `when` that grows with every message.
@@ -108,10 +114,16 @@ sealed interface HostMessage {
         }
     }
 
-    /** Line ranges that changed, applied in order; [rev] is the revision after them. */
+    /**
+     * Line ranges that changed, applied in order; [rev] is the revision after
+     * them. [ops] is the same change as character edits against revision
+     * `rev - 1`, which the page needs to rebase typing still in flight; build
+     * both with `PreviewEditSync.onHostEdits`.
+     */
     data class Edit(
         val rev: Int,
         val changes: List<LineChange>,
+        val ops: List<TextEdit>? = null,
     ) : HostMessage {
         override val type = "edit"
 
@@ -126,6 +138,31 @@ sealed interface HostMessage {
                 )
             }
             json.put("rev", rev).put("changes", array)
+            ops?.let { json.put("ops", editsJson(it)) }
+        }
+    }
+
+    /** A strip key in Preview: the page answers with a format request for its selection. */
+    data class Format(
+        val action: FormatAction,
+    ) : HostMessage {
+        override val type = "format"
+
+        override fun writeTo(json: JSONObject) {
+            json.put("action", action.wire)
+        }
+    }
+
+    /** Puts the page's selection at `[from, to)` in the text at revision [rev]. */
+    data class Select(
+        val rev: Int,
+        val from: Int,
+        val to: Int,
+    ) : HostMessage {
+        override val type = "select"
+
+        override fun writeTo(json: JSONObject) {
+            json.put("rev", rev).put("from", from).put("to", to)
         }
     }
 

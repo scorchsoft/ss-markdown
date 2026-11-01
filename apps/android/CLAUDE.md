@@ -87,3 +87,40 @@ sdk buys a second sandbox and doubles the run time.
   own downloads. Never commit that workaround.
 - **Fonts.** `SSType` uses the system sans and monospace until Inter and
   JetBrains Mono are bundled in iteration 2.
+
+## Preview bundle
+
+`feature/preview/web` is the page Preview runs: TypeScript built with esbuild
+into `feature/preview/src/main/assets/preview/`, which is committed so Gradle
+never needs Node. Its README is the map.
+
+```sh
+cd apps/android/feature/preview/web
+npm ci                          # exact versions from package-lock.json
+npm run build                   # rebuild the committed assets; commit them with src/
+npm test                        # tsc, ESLint + Prettier, Vitest unit, Playwright e2e
+npx vitest run --project unit   # pure logic only, seconds
+npx playwright install chromium # once per machine, for the e2e tests
+gradle -p apps/android :feature:preview:check   # Kotlin bridge, editing sync, formatter
+```
+
+Traps:
+
+- **The e2e tests drive the BUILT bundle.** Edit `src/`, then `npm run build`,
+  then test; otherwise you are testing yesterday's assets. Commit the rebuilt
+  assets in the same commit as the source.
+- **The edit protocol has two halves that must change together**:
+  `web/src/core/ot.ts` + `core/editSync.ts` and Kotlin's
+  `editing/TextTransform.kt` + `PreviewEditSync.kt`. Same algorithm, same tie
+  rule (host inserts first). Both have property tests; run both.
+- **Every revision reaches the page exactly once**, as `edit` or `ack`. A host
+  that applies a page edit must send the `ack` from `PreviewEditor`, and must
+  never apply `sourceEdit`s directly: they may predate a Code-pane change.
+  Use `PreviewEditor` for all of it.
+- **The e2e harness plays Kotlin** and auto-acks page edits. To test
+  concurrency, set `window.__autoAck = false` and send acks by hand.
+- **Never make a rendered character editable unless it is an exact run.** The
+  unit test `editSafety.test.ts` fails on any visible text in an editable
+  block that is neither in a `[data-s]` run nor `contenteditable="false"`.
+- **Bundle budget**: about 3.4 MB; `cytoscape` is stubbed (mindmap and
+  architecture diagrams show a named "not supported" box with Show source).

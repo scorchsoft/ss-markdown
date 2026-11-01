@@ -3,6 +3,7 @@ package com.scorchsoft.ssmarkdown.preview
 import com.scorchsoft.ssmarkdown.preview.bridge.Crumb
 import com.scorchsoft.ssmarkdown.preview.bridge.LinkTarget
 import com.scorchsoft.ssmarkdown.preview.bridge.MediaKind
+import com.scorchsoft.ssmarkdown.preview.bridge.PreviewFormatRequest
 import com.scorchsoft.ssmarkdown.preview.bridge.TextEdit
 
 /**
@@ -27,7 +28,7 @@ interface PreviewListener :
 
 /** Editing in Preview: text edits, selection state, formatting and tables. */
 interface PreviewEditingListener {
-    /** Edits typed in Preview, relative to [baseRev]; apply from last to first. */
+    /** Edits typed in Preview, relative to [baseRev]: hand them to `PreviewEditor.onPageEdits`, which rebases them. */
     fun onSourceEdits(
         baseRev: Int,
         edits: List<TextEdit>,
@@ -35,18 +36,26 @@ interface PreviewEditingListener {
 
     fun onEditingChanged(editing: Boolean) = Unit
 
+    /** The selection while editing, in the page's text at [baseRev]; see `PreviewEditor.formatState`. */
     fun onSelection(
         from: Int,
         to: Int,
         marks: Set<String>,
         inTable: Boolean,
+        baseRev: Int,
     ) = Unit
 
-    fun onFormatRequest(
-        action: String,
-        from: Int,
-        to: Int,
-    ) = Unit
+    /** A strip key or shortcut, with its source range: hand it to `PreviewEditor.onFormatRequest`. */
+    fun onFormatRequest(request: PreviewFormatRequest) = Unit
+
+    /** The page lost step with the host: hand it to `PreviewEditor.onResync`, which reloads it. */
+    fun onResync(reason: String) = Unit
+
+    /**
+     * A change in Preview could not be written back (typing into an emoji or
+     * raw HTML) and was undone on screen. Say so, and offer Code at [line].
+     */
+    fun onEditRefused(line: Int) = Unit
 
     fun onTableMenu(
         line: Int,

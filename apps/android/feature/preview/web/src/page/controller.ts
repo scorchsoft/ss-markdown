@@ -7,6 +7,7 @@
 import { collectDefinitions, type DocDefinitions } from "../core/definitions";
 import { contentHash } from "../core/hash";
 import { resplit, splitSections, type Section } from "../core/sections";
+import { EditSync } from "../core/editSync";
 import { SourceDoc, type LineChange, type SourceEdit } from "../core/sourceDoc";
 import type { HeadingInfo, RenderRequest, RenderResponse } from "../protocol";
 import { SectionView } from "./sectionView";
@@ -25,7 +26,8 @@ export interface ControllerHooks {
 
 export class RenderController {
     doc = new SourceDoc("");
-    rev = 0;
+    /** Revisions and edits in flight between the page and Kotlin. */
+    readonly sync = new EditSync();
     views: SectionView[] = [];
     /** The section being edited in place; its DOM is never replaced under the caret. */
     pinned: SectionView | null = null;
@@ -47,26 +49,37 @@ export class RenderController {
         worker.onmessage = (e: MessageEvent<RenderResponse>) => this.onRendered(e.data);
     }
 
+    /** The last revision Kotlin told us about. */
+    get rev(): number {
+        return this.sync.rev;
+    }
+
     load(text: string, rev: number): void {
         this.doc = new SourceDoc(text);
-        this.rev = rev;
+        this.sync.load(rev);
         this.refreshDefinitions(true);
         this.sections = splitSections(this.doc.lines);
         this.reconcile(true);
     }
 
-    /** Applies Kotlin's line changes, in order. */
-    applyHostEdit(changes: readonly LineChange[], rev: number): void {
+    /** Applies Kotlin's line changes, in order (the revision is already counted by [sync]). */
+    applyHostLines(changes: readonly LineChange[]): void {
         for (const change of changes) this.applyLineChange(change);
-        this.rev = rev;
         this.reconcile(false);
     }
 
     /**
-     * Applies edits made in Preview (non-overlapping, in pre-edit offsets) and
-     * returns them in the order they were applied, for Kotlin.
+     * Applies edits made in Preview, records them as in flight and returns the
+     * revision they are based on, to send with them.
      */
-    applyLocalEdits(edits: readonly SourceEdit[]): void {
+    applyLocalEdits(edits: readonly SourceEdit[]): number {
+        const baseRev = this.sync.local(edits);
+        this.applyEdits(edits);
+        return baseRev;
+    }
+
+    /** Applies non-overlapping character edits, all relative to the current text. */
+    applyEdits(edits: readonly SourceEdit[]): void {
         const ordered = [...edits].sort((a, b) => b.from - a.from);
         for (const edit of ordered) {
             const fromLine = this.doc.lineAt(edit.from);
@@ -78,7 +91,6 @@ export class RenderController {
             if (DEFINITION_HINT.test(before) || DEFINITION_HINT.test(change.lines.join("\n")))
                 this.refreshDefinitions(false);
         }
-        this.rev++;
         this.reconcile(false);
     }
 

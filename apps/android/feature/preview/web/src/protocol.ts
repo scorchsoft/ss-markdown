@@ -5,6 +5,12 @@
  *
  * No message ever carries the whole document after the first `load`: edits
  * travel as changed line ranges (docs/robustness.md, "Preview").
+ *
+ * Revisions: Kotlin numbers every change. Each revision reaches the page as
+ * exactly one `edit` (Kotlin's change) or `ack` (the page's oldest edit in
+ * flight, applied). Page edits carry `baseRev`, the last revision the page had
+ * seen; edits made concurrently on both sides are rebased, never rejected
+ * (core/editSync.ts and Kotlin's `PreviewEditSync`).
  */
 import type { LineChange, SourceEdit } from "./core/sourceDoc";
 import type { Align } from "./core/table";
@@ -47,8 +53,18 @@ export interface PreviewSettings {
 /** Kotlin -> page. */
 export type HostMessage =
     | { readonly type: "load"; readonly rev: number; readonly text: string; readonly anchorLine?: number }
-    | { readonly type: "edit"; readonly rev: number; readonly changes: readonly LineChange[] }
+    | {
+          readonly type: "edit";
+          readonly rev: number;
+          readonly changes: readonly LineChange[];
+          /** The same change as character edits against revision `rev - 1`, for rebasing. */
+          readonly ops?: readonly SourceEdit[];
+      }
     | { readonly type: "ack"; readonly rev: number }
+    /** A strip key: the page answers with a `formatRequest` for its current selection. */
+    | { readonly type: "format"; readonly action: FormatAction }
+    /** Puts the selection at source offsets, in the text at revision [rev]. */
+    | { readonly type: "select"; readonly rev: number; readonly from: number; readonly to: number }
     | { readonly type: "theme"; readonly theme: ThemeSpec; readonly dark: boolean }
     | { readonly type: "settings"; readonly settings: PreviewSettings }
     | { readonly type: "scrollToLine"; readonly line: number; readonly smooth?: boolean }
@@ -64,6 +80,32 @@ export type HostMessage =
       }
     | { readonly type: "preparePrint" }
     | { readonly type: "finishPrint" };
+
+/**
+ * Formatting actions Kotlin applies with core:markdown's EditCommand, in the
+ * document's own style. `heading0` makes a paragraph; `undo` and `redo` are
+ * passed to the host's history.
+ */
+export type FormatAction =
+    | "bold"
+    | "italic"
+    | "strike"
+    | "code"
+    | "link"
+    | "bullet"
+    | "numbered"
+    | "task"
+    | "quote"
+    | "codeBlock"
+    | "heading0"
+    | "heading1"
+    | "heading2"
+    | "heading3"
+    | "heading4"
+    | "heading5"
+    | "heading6"
+    | "undo"
+    | "redo";
 
 export type TableOp =
     | { readonly kind: "addRow" }
@@ -100,8 +142,25 @@ export type PageMessage =
           readonly to: number;
           readonly marks: readonly string[];
           readonly inTable: boolean;
+          /** The revision the offsets were taken at; sent only with no edits in flight. */
+          readonly baseRev: number;
       }
-    | { readonly type: "formatRequest"; readonly action: string; readonly from: number; readonly to: number }
+    | {
+          readonly type: "formatRequest";
+          readonly action: FormatAction;
+          readonly from: number;
+          readonly to: number;
+          /** Like an edit's: Kotlin maps the selection over its changes the page has not seen. */
+          readonly baseRev: number;
+          readonly inTable: boolean;
+      }
+    /** The page fell out of step with Kotlin; Kotlin answers with a `load` of its text. */
+    | { readonly type: "resync"; readonly reason: string }
+    /**
+     * A change the source map cannot write back (typing into an emoji, say) was
+     * undone on screen. Kotlin tells the user to use Code for that spot.
+     */
+    | { readonly type: "editRefused"; readonly line: number }
     | { readonly type: "editingChanged"; readonly editing: boolean }
     | { readonly type: "taskToggle"; readonly baseRev: number; readonly offset: number; readonly checked: boolean }
     | { readonly type: "linkTapped"; readonly href: string; readonly line: number }

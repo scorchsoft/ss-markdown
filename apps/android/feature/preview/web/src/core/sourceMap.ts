@@ -11,6 +11,12 @@
  * markup (emphasis markers, brackets, list markers, whitespace…). If letters
  * were skipped, the match may have landed in the wrong place (inside a URL,
  * say), and the run is marked inexact rather than risk editing the wrong bytes.
+ *
+ * Boundary rule: a run is also inexact when its edges sit against syntax that
+ * changes what its characters mean. `\*x` renders `*x`, and the `*` matches
+ * the source after the backslash; editing it would leave the backslash to
+ * escape something else. `&amp;` renders `&`, and a bare `&` run would end in
+ * the middle of the reference. Both are shown read-only instead.
  */
 export interface RunMatch {
     readonly from: number;
@@ -34,13 +40,28 @@ export function matchRun(source: string, cursor: number, content: string, limit 
     if (content.length === 0) return { from: cursor, to: cursor, exact: false };
     const at = source.indexOf(content, cursor);
     if (at >= 0 && at <= limit) {
-        return { from: at, to: at + content.length, exact: isMarkupOnly(source.slice(cursor, at)) };
+        const to = at + content.length;
+        return { from: at, to, exact: isMarkupOnly(source.slice(cursor, at)) && cleanEdges(source, at, to) };
     }
     for (let p = cursor; p <= Math.min(limit, source.length - 1); p++) {
         const end = matchEscapedAt(source, p, content);
         if (end >= 0) return { from: p, to: end, exact: false };
     }
     return null;
+}
+
+const ENTITY = /^&(?:#\d{1,7}|#[xX][\da-fA-F]{1,6}|[a-zA-Z][a-zA-Z\d]{1,31});/;
+
+/** True when source[from, to) can be edited without changing the meaning of the bytes around it. */
+export function cleanEdges(source: string, from: number, to: number): boolean {
+    if (from > 0 && source[from - 1] === "\\") return false;
+    if (source[to - 1] === "\\") return false;
+    const amp = source.lastIndexOf("&", to - 1);
+    if (amp >= from) {
+        const ref = ENTITY.exec(source.slice(amp, amp + 40));
+        if (ref && amp + ref[0].length > to) return false;
+    }
+    return true;
 }
 
 const ENTITIES: Readonly<Record<string, string>> = {

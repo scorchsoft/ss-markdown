@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.preview.bridge
 
+import com.scorchsoft.ssmarkdown.preview.editing.FormatAction
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -38,10 +39,12 @@ object BridgeCodec {
                     j.getInt("to"),
                     strings(j.getJSONArray("marks")),
                     j.getBoolean("inTable"),
+                    j.optInt("baseRev", 0),
                 )
             },
-            "formatRequest" to
-                { j -> PageMessage.FormatRequest(j.getString("action"), j.getInt("from"), j.getInt("to")) },
+            "formatRequest" to { j -> formatRequest(j) },
+            "resync" to { j -> PageMessage.Resync(j.optString("reason")) },
+            "editRefused" to { j -> PageMessage.EditRefused(j.getInt("line")) },
             "editingChanged" to { j -> PageMessage.EditingChanged(j.getBoolean("editing")) },
             "taskToggle" to
                 { j -> PageMessage.TaskToggle(j.getInt("baseRev"), j.getInt("offset"), j.getBoolean("checked")) },
@@ -57,6 +60,20 @@ object BridgeCodec {
             "printReady" to { _ -> PageMessage.PrintReady },
             "error" to { j -> PageMessage.Error(j.getString("message")) },
         )
+
+    /** An action this app does not know decodes as no message, never as a guess. */
+    private fun formatRequest(j: JSONObject): PageMessage {
+        val action = FormatAction.fromWire(j.getString("action")) ?: throw JSONException("unknown format action")
+        return PageMessage.FormatRequest(
+            PreviewFormatRequest(
+                action,
+                j.getInt("from"),
+                j.getInt("to"),
+                j.getInt("baseRev"),
+                j.optBoolean("inTable"),
+            ),
+        )
+    }
 
     private fun crumbs(array: JSONArray): List<Crumb> =
         List(array.length()) { i ->

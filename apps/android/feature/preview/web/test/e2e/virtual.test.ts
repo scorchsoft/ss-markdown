@@ -66,6 +66,8 @@ describe("large documents", () => {
             changes: [{ fromLine: 4, toLine: 5, lines: ["second, edited", "", "inserted"] }],
         });
         await waitForMessage(page, (m) => m.type === "rendered");
+        // Under load the edited sections can arrive in two batches: wait for the last.
+        await page.waitForFunction(() => document.querySelectorAll("section.sec.mounted").length === 5);
         const sections = await page.$$eval("section.sec", (els) =>
             els.map((e) => ({
                 mark: (e as HTMLElement).dataset.mark ?? null,

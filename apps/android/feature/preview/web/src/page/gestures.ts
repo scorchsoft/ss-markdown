@@ -14,7 +14,7 @@
 import type { PageMessage, PreviewSettings } from "../protocol";
 import type { RenderController } from "./controller";
 import type { Editor } from "./editing/editor";
-import type { MermaidRunner } from "./mermaidRunner";
+import { toggleDiagramSource, type MermaidRunner } from "./mermaidRunner";
 import { scrollToLine } from "./scrollSync";
 
 export const FLING_GUARD_MS = 500;
@@ -77,6 +77,11 @@ export class Gestures {
             post({ type: "editInCode", line: Number(section?.dataset.line ?? 0) + Number(chip.dataset.editRl ?? 0) });
             return true;
         }
+        const showSource = target.closest<HTMLElement>(".diagram-show-source");
+        if (showSource) {
+            toggleDiagramSource(showSource);
+            return true;
+        }
         const deferred = target.closest<HTMLElement>(".diagram-deferred");
         if (deferred) {
             deferred.querySelector("pre.diagram-source")?.removeAttribute("data-state");
@@ -132,9 +137,10 @@ export class Gestures {
         }
         const offset = controller.doc.lineStart(line) + m[1].length + 1;
         const checked = m[2] === " ";
-        post({ type: "taskToggle", baseRev: controller.rev, offset, checked });
-        // Applied locally too, as a one-character edit, so the page and Kotlin stay in step.
-        controller.applyLocalEdits([{ from: offset, to: offset + 1, insert: checked ? "x" : " " }]);
+        // Applied locally too, as a one-character edit in flight like any other, so the
+        // page and Kotlin stay in step even if Kotlin changes the text meanwhile.
+        const baseRev = controller.applyLocalEdits([{ from: offset, to: offset + 1, insert: checked ? "x" : " " }]);
+        post({ type: "taskToggle", baseRev, offset, checked });
     }
 
     private onLongPress(e: MouseEvent): void {

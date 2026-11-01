@@ -39,3 +39,21 @@ th.editing {
 .table-toolbar button:active {
     background: rgb(255 255 255 / 0.15);
 }
+
+/* A change Preview could not write back was undone: a brief, calm flash says so. */
+.edit-refused {
+    animation: edit-refused 600ms ease-out;
+}
+@keyframes edit-refused {
+    from {
+        background: var(--caution-bg);
+    }
+    to {
+        background: transparent;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .edit-refused {
+        animation: none;
+    }
+}

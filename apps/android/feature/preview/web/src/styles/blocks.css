@@ -132,7 +132,7 @@ th {
 .diagram-source {
     display: none;
 }
-.diagram-failed .diagram-source,
+.diagram-failed.diagram-source-shown .diagram-source,
 .diagram-deferred .diagram-source {
     display: block;
     text-align: left;
@@ -149,6 +149,17 @@ th {
     margin: 0 0 8px;
     text-align: left;
     font-size: 0.9em;
+}
+.diagram-show-source {
+    margin-left: 4px;
+    min-height: 32px;
+    padding: 4px 10px;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
 }
 .diagram-deferred::before {
     content: "Tap to draw this diagram";

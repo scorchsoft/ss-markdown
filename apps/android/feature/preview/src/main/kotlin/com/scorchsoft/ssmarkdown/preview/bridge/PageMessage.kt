@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.preview.bridge
 
 import com.scorchsoft.ssmarkdown.preview.PreviewListener
+import com.scorchsoft.ssmarkdown.preview.editing.FormatAction
 import java.util.Base64
 
 /** A splice of the source in UTF-16 offsets: `[from, to)` becomes [insert]. */
@@ -8,6 +9,18 @@ data class TextEdit(
     val from: Int,
     val to: Int,
     val insert: String,
+)
+
+/**
+ * A format asked for in Preview: [from] and [to] are source offsets the page's
+ * source map gave for the selection, in the page's text at [baseRev].
+ */
+data class PreviewFormatRequest(
+    val action: FormatAction,
+    val from: Int,
+    val to: Int,
+    val baseRev: Int,
+    val inTable: Boolean,
 )
 
 /** One heading in the breadcrumb ("where am I?"). */
@@ -57,8 +70,9 @@ sealed interface PageMessage {
 
     /**
      * Edits made in Preview. They do not overlap, are sorted by offset and are
-     * all relative to the document at [baseRev]: apply them from the last to
-     * the first. The document is then at `baseRev + 1`.
+     * all relative to the page's text: revision [baseRev] plus the page's own
+     * earlier edits. Changes the host made meanwhile may not be in it, so
+     * never apply these directly: `PreviewEditor.onPageEdits` rebases them.
      */
     data class SourceEdit(
         val baseRev: Int,
@@ -67,23 +81,42 @@ sealed interface PageMessage {
         override fun deliverTo(listener: PreviewListener) = listener.onSourceEdits(baseRev, edits)
     }
 
-    /** The selection while editing, so the strip can show B / I state. */
+    /**
+     * The selection while editing, so the strip can show B / I state. Offsets
+     * are in the text at [baseRev] (the page only reports with nothing in flight).
+     */
     data class Selection(
         val from: Int,
         val to: Int,
         val marks: Set<String>,
         val inTable: Boolean,
+        val baseRev: Int,
     ) : PageMessage {
-        override fun deliverTo(listener: PreviewListener) = listener.onSelection(from, to, marks, inTable)
+        override fun deliverTo(listener: PreviewListener) = listener.onSelection(from, to, marks, inTable, baseRev)
     }
 
-    /** A formatting shortcut pressed in Preview; Kotlin applies it in the document's style. */
+    /**
+     * A strip key or keyboard shortcut in Preview, with the selection's source
+     * range; `PreviewEditor` applies it in the document's style.
+     */
     data class FormatRequest(
-        val action: String,
-        val from: Int,
-        val to: Int,
+        val request: PreviewFormatRequest,
     ) : PageMessage {
-        override fun deliverTo(listener: PreviewListener) = listener.onFormatRequest(action, from, to)
+        override fun deliverTo(listener: PreviewListener) = listener.onFormatRequest(request)
+    }
+
+    /** The page fell out of step; answer with a fresh load of the host's text. */
+    data class Resync(
+        val reason: String,
+    ) : PageMessage {
+        override fun deliverTo(listener: PreviewListener) = listener.onResync(reason)
+    }
+
+    /** A change Preview could not write back was undone on screen; suggest Code for [line]. */
+    data class EditRefused(
+        val line: Int,
+    ) : PageMessage {
+        override fun deliverTo(listener: PreviewListener) = listener.onEditRefused(line)
     }
 
     data class EditingChanged(

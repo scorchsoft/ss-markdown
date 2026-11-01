@@ -52,6 +52,8 @@ const HOST_TYPES = new Set<string>([
     "load",
     "edit",
     "ack",
+    "format",
+    "select",
     "theme",
     "settings",
     "scrollToLine",

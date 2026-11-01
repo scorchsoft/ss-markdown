@@ -48,21 +48,43 @@ function skipLinkTail(src: string, cursor: number, markup: string): number {
     return close + 1;
 }
 
-/** Walks one inline token's children, assigning runs and advancing the cursor. */
+const VOID_TAG = /^<(?:area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr)\b/i;
+
+/** +1 for an inline HTML tag that opens an element, -1 for one that closes it, else 0. */
+export function htmlDepthChange(tag: string): number {
+    if (/^<\//.test(tag)) return -1;
+    if (!/^<[a-z]/i.test(tag) || VOID_TAG.test(tag) || /\/>$/.test(tag)) return 0;
+    return 1;
+}
+
+/**
+ * Walks one inline token's children, assigning runs and advancing the cursor.
+ *
+ * Text inside raw inline HTML (`<kbd>…</kbd>`) and inside autolinks
+ * (`<https://…>`, bare `www.…`) is located but never exact: the first is raw
+ * HTML, which Preview does not edit, and in the second the text *is* the URL.
+ */
 function mapInline(src: string, inline: Token, start: number, limit: number): number {
     let cursor = start;
+    let htmlDepth = 0;
+    let inAutolink = false;
     for (const child of inline.children ?? []) {
         switch (child.type) {
             case "text":
             case "code_inline": {
                 const m = matchRun(src, cursor, child.content, limit);
                 if (m) {
-                    (child.meta as RunMeta | null) = { ...(child.meta ?? {}), run: m };
+                    const run = htmlDepth > 0 || inAutolink ? { ...m, exact: false } : m;
+                    (child.meta as RunMeta | null) = { ...(child.meta ?? {}), run };
                     cursor = m.to;
                 }
                 break;
             }
+            case "link_open":
+                inAutolink = child.markup === "autolink" || child.markup === "linkify";
+                break;
             case "link_close":
+                inAutolink = false;
                 cursor = skipLinkTail(src, cursor, child.markup);
                 break;
             case "image": {
@@ -82,6 +104,7 @@ function mapInline(src: string, inline: Token, start: number, limit: number): nu
             }
             case "html_inline":
             case "math_inline": {
+                if (child.type === "html_inline") htmlDepth = Math.max(0, htmlDepth + htmlDepthChange(child.content));
                 const needle = child.type === "math_inline" ? `$${child.content}$` : child.content;
                 const at = src.indexOf(needle, cursor);
                 if (at >= 0) cursor = at + needle.length;

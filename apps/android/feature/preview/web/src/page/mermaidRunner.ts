@@ -39,6 +39,41 @@ export function checkDiagramCaps(source: string): string | null {
     return null;
 }
 
+/**
+ * Diagram types this build cannot draw: they need cytoscape, which the bundle
+ * leaves out for size (src/stubs/cytoscape.ts). Keyed by the keyword that
+ * opens the diagram.
+ */
+export const UNSUPPORTED_DIAGRAMS: Readonly<Record<string, string>> = {
+    mindmap: "Mindmap",
+    "architecture-beta": "Architecture",
+    architecture: "Architecture",
+};
+
+/** The keyword a Mermaid diagram opens with, past front matter, directives and comments. */
+export function diagramKeyword(source: string): string {
+    const lines = source.split("\n");
+    let i = 0;
+    if (lines[0]?.trim() === "---") {
+        i = 1;
+        while (i < lines.length && lines[i]?.trim() !== "---") i++;
+        i++;
+    }
+    for (; i < lines.length; i++) {
+        const line = (lines[i] ?? "").trim();
+        if (line === "" || line.startsWith("%%")) continue;
+        return line.split(/[\s:;{]/)[0]?.toLowerCase() ?? "";
+    }
+    return "";
+}
+
+/** The error for a diagram type this build cannot draw, or null. */
+export function unsupportedDiagram(source: string): string | null {
+    const name = UNSUPPORTED_DIAGRAMS[diagramKeyword(source)];
+    if (!name) return null;
+    return `${name} diagrams aren't supported in Preview yet (mindmap and architecture diagrams are left out). Every other Mermaid type draws as usual.`;
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     return new Promise<T>((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error(`Diagram took longer than ${ms / 1000} s to draw.`)), ms);
@@ -53,6 +88,15 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
             },
         );
     });
+}
+
+/** The "Show source" button in a failed diagram's error box: shows or hides its source. */
+export function toggleDiagramSource(button: HTMLElement): void {
+    const box = button.closest<HTMLElement>(".diagram");
+    if (!box) return;
+    const shown = box.classList.toggle("diagram-source-shown");
+    button.setAttribute("aria-expanded", String(shown));
+    button.textContent = shown ? "Hide source" : "Show source";
 }
 
 export class MermaidRunner {
@@ -125,7 +169,7 @@ export class MermaidRunner {
         const box = pre.parentElement;
         if (!box || !pre.isConnected) return;
         const source = pre.textContent ?? "";
-        const refused = checkDiagramCaps(source);
+        const refused = unsupportedDiagram(source) ?? checkDiagramCaps(source);
         if (refused) {
             this.fail(pre, box, refused);
             return;
@@ -155,7 +199,8 @@ export class MermaidRunner {
 
     private place(pre: HTMLElement, box: HTMLElement, svg: string): void {
         pre.dataset.state = "drawn";
-        box.classList.remove("diagram-deferred", "diagram-failed");
+        box.classList.remove("diagram-deferred", "diagram-failed", "diagram-source-shown");
+        box.querySelector(".diagram-error")?.remove();
         box.querySelector(".diagram-svg")?.remove();
         const holder = document.createElement("div");
         holder.className = "diagram-svg";
@@ -171,6 +216,13 @@ export class MermaidRunner {
         error.className = "diagram-error";
         error.setAttribute("role", "alert");
         error.textContent = `Couldn't draw this diagram: ${message.split("\n")[0] ?? ""}`;
+        const toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "diagram-show-source";
+        toggle.setAttribute("contenteditable", "false");
+        toggle.setAttribute("aria-expanded", "false");
+        toggle.textContent = "Show source";
+        error.append(" ", toggle);
         box.insertBefore(error, pre);
     }
 }

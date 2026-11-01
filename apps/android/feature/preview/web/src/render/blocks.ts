@@ -141,7 +141,21 @@ const htmlBlock: Rule = (tokens, idx) => {
     return isBalancedHtml(html) ? readOnlyBlock(token, "html", `<div class="raw-html">${html}</div>`) : html;
 };
 
-const htmlInline: Rule = (tokens, idx) => neutralizeUserHtml(tokens[idx]?.content ?? "");
+/**
+ * An inline HTML element is raw HTML, which Preview never edits: its opening
+ * tag is marked non-editable so no caret can land inside it. (Its text is
+ * already an inexact run; this also covers elements with no text at all.)
+ */
+export function lockInlineHtml(tag: string): string {
+    const html = neutralizeUserHtml(tag);
+    return /^<[a-z][a-z0-9-]*/i.test(html) ? html.replace(/^<[a-z][a-z0-9-]*/i, '$& contenteditable="false"') : html;
+}
+
+const htmlInline: Rule = (tokens, idx) => lockInlineHtml(tokens[idx]?.content ?? "");
+
+/** An emoji shortcode renders one picture character, not its source: read-only. */
+const emoji: Rule = (tokens, idx) =>
+    `<span class="emoji" contenteditable="false">${escape(tokens[idx]?.content ?? "")}</span>`;
 
 const frontMatter: Rule = (tokens, idx) => {
     const token = tokens[idx];
@@ -228,6 +242,7 @@ export function installBlockRules(md: MarkdownIt): void {
         code_block: codeBlock,
         html_block: htmlBlock,
         html_inline: htmlInline,
+        emoji,
         front_matter: frontMatter,
         math_inline: mathInline,
         math_block: mathBlock,

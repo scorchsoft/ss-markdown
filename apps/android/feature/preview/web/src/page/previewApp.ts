@@ -74,16 +74,23 @@ export class PreviewApp {
                 this.anchorLine = m.anchorLine ?? null;
                 this.controller.load(m.text, m.rev);
                 break;
-            case "edit": {
-                const caret = this.editor.beforeHostEdit();
-                this.renderStarted = performance.now();
-                this.controller.applyHostEdit(m.changes, m.rev);
-                if (caret !== null) this.editor.restoreCaret(caret);
+            case "edit":
+                this.hostEdit(m);
+                break;
+            case "ack": {
+                const problem = this.controller.sync.ack(m.rev);
+                if (problem) this.resync(problem);
                 break;
             }
-            case "ack":
-                this.controller.rev = m.rev;
+            case "format":
+                this.editor.format(m.action);
                 break;
+            case "select": {
+                const from = this.controller.sync.fromHost(m.from, m.rev);
+                const to = this.controller.sync.fromHost(m.to, m.rev);
+                if (from !== null && to !== null) this.editor.select(from, to);
+                break;
+            }
             case "theme":
                 applyTheme(document.documentElement, m.theme, m.dark);
                 this.mermaid.setTheme(m.dark, m.theme.name);
@@ -118,6 +125,36 @@ export class PreviewApp {
                 for (const v of this.controller.views) this.controller.virtualizer.update(v);
                 break;
         }
+    }
+
+    /**
+     * Kotlin's own change. Typing in progress is flushed first, so it is in
+     * flight and gets rebased over this change rather than lost; then the
+     * change (rebased over it) is applied and the selection moved over it.
+     */
+    private hostEdit(m: Extract<HostMessage, { type: "edit" }>): void {
+        const saved = this.editor.beforeHostEdit();
+        this.renderStarted = performance.now();
+        const outcome = this.controller.sync.host(m.rev, m.ops);
+        switch (outcome.kind) {
+            case "apply":
+                this.controller.applyEdits(outcome.edits);
+                this.editor.afterHostEdit(saved, outcome.edits);
+                break;
+            case "lines":
+                this.controller.applyHostLines(m.changes);
+                if (saved) this.editor.restoreCaret(saved.from);
+                break;
+            case "resync":
+                this.resync(outcome.reason);
+                break;
+        }
+    }
+
+    /** Out of step with Kotlin: ask for its text. Every edit made here has already been sent. */
+    private resync(reason: string): void {
+        this.editor.end();
+        this.bridge.post({ type: "resync", reason });
     }
 
     private applySettings(s: PreviewSettings): void {

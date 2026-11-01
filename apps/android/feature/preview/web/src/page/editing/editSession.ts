@@ -6,11 +6,13 @@
  * re-rendered with the caret restored by source offset.
  */
 import { runEdit } from "../../core/minimalEdit";
+import { mapOffset } from "../../core/ot";
 import { newlineInsert, type BlockKind } from "../../core/newline";
 import { escapeTyped } from "../../core/minimalEdit";
 import type { SourceEdit } from "../../core/sourceDoc";
 import type { SectionView } from "../sectionView";
 import { pointToSource, runText, sectionOffset, shiftRuns, snapshotRuns, type RunRecord } from "./runs";
+import { StrayGuard } from "./strayGuard";
 
 export const FLUSH_DELAY_MS = 150;
 
@@ -20,13 +22,17 @@ export interface SessionHost {
     isLineStart(offset: number): boolean;
     commit(edits: readonly SourceEdit[]): void;
     commitAndRerender(edits: readonly SourceEdit[], caret: number): void;
-    requestFormat(action: string, from: number, to: number): void;
+    /** A browser input type that formats (formatBold…) or steps history. */
+    requestFormat(inputType: string): void;
     nextCell(): void;
+    /** A change could not be written back: undo it on screen and say so. */
+    refuse(): void;
 }
 
 export class EditSession {
     private runs: Map<HTMLElement, RunRecord>;
     private timer: ReturnType<typeof setTimeout> | null = null;
+    private readonly guard: StrayGuard;
     private readonly onInput = (): void => this.schedule();
     private readonly onBeforeInput = (e: InputEvent): void => this.beforeInput(e);
     readonly startKey: string;
@@ -38,6 +44,12 @@ export class EditSession {
     ) {
         this.runs = snapshotRuns(block);
         this.startKey = view.key;
+        this.guard = new StrayGuard(block);
+    }
+
+    /** True while typed text has not been written back yet. */
+    get dirty(): boolean {
+        return this.timer !== null || this.guard.dirty;
     }
 
     get inTable(): boolean {
@@ -50,17 +62,23 @@ export class EditSession {
         this.block.addEventListener("input", this.onInput);
         this.block.addEventListener("beforeinput", this.onBeforeInput);
         this.block.focus({ preventScroll: true });
+        this.guard.start();
     }
 
     stop(): void {
         this.flush();
+        this.guard.stop();
         this.block.removeEventListener("input", this.onInput);
         this.block.removeEventListener("beforeinput", this.onBeforeInput);
         this.block.removeAttribute("contenteditable");
         this.block.classList.remove("editing");
     }
 
-    /** Writes back every run whose text changed since the last flush. */
+    /**
+     * Writes back every run whose text changed since the last flush, and
+     * anything typed next to a run (see StrayGuard). A change that cannot be
+     * written back is refused: the block is re-rendered from source.
+     */
     flush(): void {
         if (this.timer !== null) clearTimeout(this.timer);
         this.timer = null;
@@ -71,6 +89,15 @@ export class EditSession {
             const edit = runEdit(rec, runText(el), { inTable: this.inTable, atLineStart });
             if (edit) edits.push({ edit, el });
         }
+        const stray = this.guard.take();
+        if (stray.refused || stray.inserts.length > 0) {
+            this.settleStray(
+                edits.map((e) => e.edit),
+                stray.inserts,
+                stray.refused,
+            );
+            return;
+        }
         if (edits.length === 0) return;
         this.host.commit(edits.map((e) => e.edit));
         const section = this.view.el;
@@ -80,6 +107,42 @@ export class EditSession {
             shiftRuns(section, edit.to - base, delta, el);
         }
         this.runs = snapshotRuns(this.block);
+    }
+
+    /**
+     * Commits run edits plus mapped stray inserts, then re-renders, since the
+     * DOM no longer matches the runs. Refuses if anything was unmappable or
+     * two edits would claim one offset.
+     */
+    private settleStray(
+        runEdits: readonly SourceEdit[],
+        inserts: readonly { at: number; text: string }[],
+        refused: boolean,
+    ): void {
+        const all: SourceEdit[] = [...runEdits];
+        for (const ins of inserts) {
+            const clash = all.some((e) => e.from <= ins.at && ins.at <= e.to);
+            if (clash) refused = true;
+            else
+                all.push({
+                    from: ins.at,
+                    to: ins.at,
+                    insert: escapeTyped(ins.text, {
+                        inTable: this.inTable,
+                        atLineStart: this.host.isLineStart(ins.at),
+                    }),
+                });
+        }
+        if (refused) {
+            // Legitimate run edits still count; only the unmappable change is undone.
+            if (runEdits.length > 0) this.host.commit(runEdits);
+            this.host.refuse();
+            return;
+        }
+        const sorted = [...all].sort((a, b) => a.from - b.from);
+        const lastInsert = inserts[inserts.length - 1];
+        const caret = lastInsert ? mapOffset(lastInsert.at, sorted) : 0;
+        this.host.commitAndRerender(sorted, caret);
     }
 
     /** The selection as absolute source offsets, or null outside any run. */
@@ -103,8 +166,7 @@ export class EditSession {
         const type = e.inputType;
         if (type.startsWith("format") || type === "historyUndo" || type === "historyRedo") {
             e.preventDefault();
-            const r = this.selectionRange();
-            this.host.requestFormat(type, r?.from ?? 0, r?.to ?? 0);
+            this.host.requestFormat(type);
             return;
         }
         if (type === "insertParagraph" || type === "insertLineBreak") {
@@ -146,7 +208,11 @@ export class EditSession {
             from = r?.from ?? null;
             to = r?.to ?? null;
         }
-        if (from === null || to === null) return;
+        if (from === null || to === null) {
+            // Nowhere in the source to put it: say so rather than drop it quietly.
+            this.host.refuse();
+            return;
+        }
         const edit = { from: Math.min(from, to), to: Math.max(from, to), insert };
         if (edit.from === edit.to && insert.length === 0) return;
         this.host.commitAndRerender([edit], edit.from + insert.length);

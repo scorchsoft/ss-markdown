@@ -4,7 +4,8 @@
  * offset after a section re-renders.
  */
 import type { SourceEdit } from "../../core/sourceDoc";
-import type { PageMessage, TableOp } from "../../protocol";
+import { mapOffset } from "../../core/ot";
+import type { FormatAction, PageMessage, TableOp } from "../../protocol";
 import type { RenderController } from "../controller";
 import type { SectionView } from "../sectionView";
 import { EditSession, type SessionHost } from "./editSession";
@@ -26,6 +27,8 @@ export const EDITABLE_BLOCK = "p, h1, h2, h3, h4, h5, h6, li, td, th, dt, dd, pr
 export class Editor implements SessionHost {
     private session: EditSession | null = null;
     private pendingCaret: number | null = null;
+    /** The far end of a selection to restore with [pendingCaret]; null for a caret. */
+    private pendingEnd: number | null = null;
     private readonly toolbar: TableToolbar;
     private selectionTimer: ReturnType<typeof setTimeout> | null = null;
     /** Whether the table being edited was padded when its first cell was tapped. */
@@ -106,6 +109,17 @@ export class Editor implements SessionHost {
         const block = this.editableBlock(run) ?? run.closest<HTMLElement>(".placeholder");
         if (!block) return;
         const sel = window.getSelection();
+        const end = this.pendingEnd;
+        this.pendingEnd = null;
+        if (end !== null && sel && sel.rangeCount > 0) {
+            const start = sel.getRangeAt(0);
+            const startNode = start.startContainer;
+            const startOffset = start.startOffset;
+            if (placeCaret(view.el, end)) {
+                const far = sel.getRangeAt(0);
+                sel.setBaseAndExtent(startNode, startOffset, far.startContainer, far.startOffset);
+            }
+        }
         const anchor = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
         this.startSession(block, view);
         if (anchor) {
@@ -180,9 +194,8 @@ export class Editor implements SessionHost {
 
     commit(edits: readonly SourceEdit[]): void {
         if (edits.length === 0) return;
-        const baseRev = this.controller.rev;
         const sorted = [...edits].sort((a, b) => a.from - b.from);
-        this.controller.applyLocalEdits(sorted);
+        const baseRev = this.controller.applyLocalEdits(sorted);
         this.post({ type: "sourceEdit", baseRev, edits: sorted });
     }
 
@@ -193,21 +206,79 @@ export class Editor implements SessionHost {
         this.flushPendingCaret();
     }
 
-    requestFormat(action: string, from: number, to: number): void {
-        this.session?.flush();
-        this.post({ type: "formatRequest", action, from, to });
+    /** A formatting shortcut from the keyboard (`beforeinput` formatBold…). */
+    requestFormat(inputType: string): void {
+        const action = INPUT_FORMATS[inputType];
+        if (action) this.format(action);
     }
 
-    /** Before a Kotlin edit lands: flush typing and remember where the caret was. */
-    beforeHostEdit(): number | null {
-        if (!this.session) return null;
-        const caret = this.session.selectionRange()?.from ?? null;
+    /**
+     * A strip key or keyboard shortcut: flush typing, then ask Kotlin to apply
+     * [action] to the selection's source range. Kotlin answers with an edit
+     * and a `select` that puts the selection back.
+     */
+    format(action: FormatAction): void {
+        const session = this.session;
+        if (!session) return;
+        session.flush();
+        if (this.session !== session) return; // the flush re-rendered (a refused change)
+        const range = session.selectionRange();
+        if (!range) return;
+        this.post({
+            type: "formatRequest",
+            action,
+            from: range.from,
+            to: range.to,
+            baseRev: this.controller.rev,
+            inTable: session.inTable,
+        });
+    }
+
+    /** Kotlin's `select`, already mapped into the page's text: restore it after the re-render. */
+    select(from: number, to: number): void {
+        this.pendingCaret = from;
+        this.pendingEnd = to > from ? to : null;
+        this.flushPendingCaret();
+    }
+
+    /** Undoes an unmappable change on screen by re-rendering from source, and tells Kotlin. */
+    refuse(): void {
+        const session = this.session;
+        if (!session) return;
+        const line = Number(session.block.closest<HTMLElement>("[data-line]")?.dataset.line ?? session.view.startLine);
+        const caret = session.selectionRange()?.from ?? null;
+        const view = session.view;
         this.end();
-        return caret;
+        this.controller.refresh(view);
+        view.el.classList.add("edit-refused");
+        setTimeout(() => view.el.classList.remove("edit-refused"), 600);
+        this.post({ type: "editRefused", line });
+        // Restored when the re-render arrives, not into the DOM being replaced.
+        this.pendingCaret = caret;
+        this.pendingEnd = null;
+    }
+
+    /** Before a Kotlin edit lands: flush typing and remember where the selection was. */
+    beforeHostEdit(): { from: number; to: number } | null {
+        if (!this.session) return null;
+        this.session.flush();
+        const range = this.session?.selectionRange() ?? null;
+        this.end();
+        return range;
+    }
+
+    /** Puts back a selection saved by [beforeHostEdit], moved over Kotlin's [edits]. */
+    afterHostEdit(
+        saved: { from: number; to: number } | null,
+        edits: readonly { from: number; to: number; insert: string }[],
+    ): void {
+        if (!saved) return;
+        this.select(mapOffset(saved.from, edits, false), mapOffset(saved.to, edits));
     }
 
     restoreCaret(offset: number): void {
         this.pendingCaret = offset;
+        this.pendingEnd = null;
         this.flushPendingCaret();
     }
 
@@ -267,6 +338,11 @@ export class Editor implements SessionHost {
 
     private reportSelection(): void {
         const session = this.session;
+        if (session && (session.dirty || this.controller.sync.pending)) {
+            // Offsets are only meaningful to Kotlin once typing has reached it.
+            this.onSelectionChange();
+            return;
+        }
         const range = session?.selectionRange();
         if (!session || !range) return;
         const marks = new Set<string>();
@@ -279,9 +355,25 @@ export class Editor implements SessionHost {
             }
             node = node.parentNode;
         }
-        this.post({ type: "selection", from: range.from, to: range.to, marks: [...marks], inTable: session.inTable });
+        this.post({
+            type: "selection",
+            from: range.from,
+            to: range.to,
+            marks: [...marks],
+            inTable: session.inTable,
+            baseRev: this.controller.rev,
+        });
     }
 }
+
+/** Browser formatting input types and the actions they mean. */
+const INPUT_FORMATS: Readonly<Record<string, FormatAction>> = {
+    formatBold: "bold",
+    formatItalic: "italic",
+    formatStrikeThrough: "strike",
+    historyUndo: "undo",
+    historyRedo: "redo",
+};
 
 const MARKS: Readonly<Record<string, string>> = {
     STRONG: "bold",

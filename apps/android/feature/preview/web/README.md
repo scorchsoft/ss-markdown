@@ -66,6 +66,38 @@ and the caret comes back by source offset after the re-render. Raw HTML,
 footnote and reference definitions, front matter, maths and diagrams are
 read-only with an **Edit in Code** chip.
 
+Nothing typed is ever left on screen without reaching the source:
+
+- **Read-only inline runs.** Text inside raw inline HTML, autolinks and bare
+  URLs, emoji, and any run whose edge touches an escape or a character
+  reference (`\*x`, `&amp;`) is `contenteditable="false"`. A unit property
+  test checks every visible character in the corpus, and fuzzed inline
+  Markdown, is in an exact run or read-only.
+- **Stray guard** (`page/editing/strayGuard.ts`). An IME composition cannot
+  be cancelled in `beforeinput`, so a MutationObserver watches the block.
+  Text added at the edge of unmapped content goes to the neighbouring run's
+  edge; anything else (deleting an emoji, a run removed) is undone by
+  re-rendering from source and reported as `editRefused`. The Playwright test
+  `e2e/editSafety.test.ts` types, deletes and injects IME changes all over the
+  corpus and checks the screen always equals a fresh render of Kotlin's text.
+
+### Edits from both sides
+
+Kotlin numbers every change; each reaches the page once, as an `edit` or an
+`ack`. Preview edits are sent at once with `baseRev`, the last revision the
+page saw. If Kotlin changed the text meanwhile (Code pane, undo, a format),
+both sides rebase with the same operational transform (`core/ot.ts`, twin of
+Kotlin's `editing/TextTransform.kt`; host inserts win ties), so neither
+side's keystrokes are lost and nothing reloads. Only a revision gap makes the
+page send `resync`, and its edits have already reached Kotlin by then.
+
+### Formatting
+
+Strip keys arrive as `format`; the page flushes typing and answers
+`formatRequest` with the selection's source range. Kotlin's `PreviewEditor`
+runs core:markdown's `EditCommand` in the document's style, sends the minimal
+edits as an `edit`, then `select` to put the selection back.
+
 Tables are written back through `core/table.ts` in their own style: compact,
 spaced or padded. A padded table is re-padded, by display width, when the caret
 leaves the cell, and only the lines whose bytes change are sent.
@@ -83,8 +115,9 @@ only channel to the app is the one MessagePort; nothing is exposed to content.
 The bundle is about **3.4 MB** uncompressed, of which Mermaid is about 2.7 MB,
 loaded lazily only when a diagram is on screen. To stay inside the budget the
 build replaces `cytoscape` and its layouts (about 630 KB, used only by Mermaid's
-mindmap and architecture diagrams) with a stub; those two diagram types show an
-inline "couldn't draw" box with their source. KaTeX ships woff2 fonts only.
+mindmap and architecture diagrams) with a stub; those two diagram types are
+recognised before Mermaid runs and show an inline box naming them, with a
+**Show source** button. KaTeX ships woff2 fonts only.
 
 ## Dependencies
 

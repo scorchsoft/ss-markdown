@@ -183,3 +183,99 @@ describe("tables", () => {
         expect(await applySent(page, source)).toBe("| a | b |\n| --- | --: |\n| 1 | 2 |");
     });
 });
+
+describe("edits from both sides at once", () => {
+    it("rebases a Kotlin edit over typing in flight, with no reload and no lost keystroke", async () => {
+        const page = await openPreview(h);
+        const source = "Hello world\n\nSecond para.";
+        await loadMarkdown(page, source);
+        await page.evaluate(() => ((window as unknown as { __autoAck: boolean }).__autoAck = false));
+        await clearReceived(page);
+        await tapText(page, "Hello world", 0.99);
+        await page.keyboard.press("End");
+        await page.keyboard.type("XYZ");
+        const typed = (await waitForMessage(page, (m) => m.type === "sourceEdit")) as SourceEditMessage;
+        expect(typed.baseRev).toBe(1);
+
+        // Kotlin, meanwhile, made its own change (rev 2) before it saw the page's.
+        let kotlin = applyEdit(source, { from: 0, to: 0, insert: "# " });
+        await send(page, {
+            type: "edit",
+            rev: 2,
+            changes: [{ fromLine: 0, toLine: 1, lines: ["# Hello world"] }],
+            ops: [{ from: 0, to: 0, insert: "# " }],
+        });
+        // Kotlin rebases the page's edit over its own and acknowledges it as rev 3.
+        const rebased = typed.edits.map((e) => ({ ...e, from: e.from + 2, to: e.to + 2 }));
+        for (const e of [...rebased].reverse()) kotlin = applyEdit(kotlin, e);
+        await send(page, { type: "ack", rev: 3 });
+        await page.waitForSelector("h1 .editing, h1.editing");
+
+        await clearReceived(page);
+        await page.keyboard.type("Q");
+        const more = (await waitForMessage(page, (m) => m.type === "sourceEdit")) as SourceEdit;
+        expect(more.baseRev).toBe(3);
+        for (const e of [...more.edits].reverse()) kotlin = applyEdit(kotlin, e);
+        expect(kotlin).toBe("# Hello worldXYZQ\n\nSecond para.");
+        expect((await received(page)).some((m) => m.type === "resync")).toBe(false);
+        expect(await page.locator("h1").textContent()).toBe("Hello worldXYZQ");
+    });
+
+    it("asks for a resync, rather than guessing, when a revision is missing", async () => {
+        const page = await openPreview(h);
+        await loadMarkdown(page, "One.");
+        await clearReceived(page);
+        await send(page, { type: "edit", rev: 5, changes: [{ fromLine: 0, toLine: 1, lines: ["Two."] }] });
+        expect(await waitForMessage(page, (m) => m.type === "resync")).toMatchObject({ type: "resync" });
+    });
+});
+
+type SourceEdit = SourceEditMessage;
+
+describe("formatting from the strip", () => {
+    it("sends the selection's source range and restores the selection after Kotlin's edit", async () => {
+        const page = await openPreview(h);
+        const source = "Make this bold please.";
+        await loadMarkdown(page, source);
+        await tapText(page, "Make this", 0.3);
+        await waitForMessage(page, (m) => m.type === "editingChanged");
+        await page.evaluate(() => {
+            const node = document.querySelector(".editing [data-s]")?.firstChild as Text;
+            window.getSelection()?.setBaseAndExtent(node, 5, node, 9);
+        });
+        await clearReceived(page);
+        await send(page, { type: "format", action: "bold" });
+        const request = await waitForMessage(page, (m) => m.type === "formatRequest");
+        expect(request).toEqual({ type: "formatRequest", action: "bold", from: 5, to: 9, baseRev: 1, inTable: false });
+
+        // Kotlin runs EditCommand.ToggleInline(Bold) and answers with the minimal edits and the selection.
+        await send(page, {
+            type: "edit",
+            rev: 2,
+            changes: [{ fromLine: 0, toLine: 1, lines: ["Make **this** bold please."] }],
+            ops: [
+                { from: 5, to: 5, insert: "**" },
+                { from: 9, to: 9, insert: "**" },
+            ],
+        });
+        await send(page, { type: "select", rev: 2, from: 7, to: 11 });
+        await page.waitForSelector("p strong");
+        await page.waitForFunction(() => window.getSelection()?.toString() === "this");
+        expect(await page.locator(".editing").count()).toBe(1);
+    });
+
+    it("turns a keyboard shortcut into the same request", async () => {
+        const page = await openPreview(h);
+        await loadMarkdown(page, "Some words.");
+        await tapText(page, "Some words", 0.2);
+        await waitForMessage(page, (m) => m.type === "editingChanged");
+        await clearReceived(page);
+        await page.evaluate(() => {
+            const block = document.querySelector(".editing");
+            block?.dispatchEvent(
+                new InputEvent("beforeinput", { inputType: "formatItalic", bubbles: true, cancelable: true }),
+            );
+        });
+        expect(await waitForMessage(page, (m) => m.type === "formatRequest")).toMatchObject({ action: "italic" });
+    });
+});

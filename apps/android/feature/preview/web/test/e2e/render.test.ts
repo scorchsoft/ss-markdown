@@ -140,6 +140,22 @@ describe("rendering the corpus", () => {
         expect(await page.locator("p", { hasText: "Still here." }).count()).toBe(1);
     });
 
+    it("names unsupported diagram types and offers their source", async () => {
+        const page = await openPreview(h);
+        await loadMarkdown(page, "```mermaid\nmindmap\n  root\n    a\n```\n\nAfter.");
+        await diagramsSettled(page);
+        const error = page.locator(".diagram-error");
+        expect(await error.textContent()).toContain("Mindmap diagrams aren't supported in Preview yet");
+        const source = page.locator("pre.diagram-source");
+        expect(await source.isVisible()).toBe(false);
+        const button = page.locator(".diagram-show-source");
+        await button.click();
+        expect(await source.isVisible()).toBe(true);
+        expect(await button.getAttribute("aria-expanded")).toBe("true");
+        expect(await source.textContent()).toContain("root");
+        expect(pageErrors(page)).toEqual([]);
+    });
+
     it("exports a diagram as SVG and as a 2x PNG", async () => {
         const page = await openPreview(h);
         await loadMarkdown(page, "# D\n\n```mermaid\ngraph LR\n  A --> B\n```\n");

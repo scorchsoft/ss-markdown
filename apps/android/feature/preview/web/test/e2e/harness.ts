@@ -52,7 +52,12 @@ export async function startHarness(): Promise<Harness> {
     };
 }
 
-/** A page with the bridge connected. Messages from the page collect in `window.__received`. */
+/**
+ * A page with the bridge connected. Messages from the page collect in
+ * `window.__received`. Like Kotlin, the harness acknowledges every edit the
+ * page sends with the next revision; set `window.__autoAck = false` to hold
+ * acks back and play Kotlin by hand.
+ */
 export async function openPreview(h: Harness, viewport = { width: 412, height: 860 }): Promise<Page> {
     const page = await h.browser.newPage({ viewport });
     const errors: string[] = [];
@@ -60,11 +65,24 @@ export async function openPreview(h: Harness, viewport = { width: 412, height: 8
     (page as Page & { errors?: string[] }).errors = errors;
     await page.goto(h.base);
     await page.evaluate(() => {
-        const w = window as unknown as { __port: MessagePort; __received: unknown[] };
+        const w = window as unknown as {
+            __port: MessagePort;
+            __received: unknown[];
+            __rev: number;
+            __autoAck: boolean;
+        };
         const channel = new MessageChannel();
         w.__received = [];
         w.__port = channel.port1;
-        channel.port1.onmessage = (e) => w.__received.push(JSON.parse(String(e.data)));
+        w.__rev = 0;
+        w.__autoAck = true;
+        channel.port1.onmessage = (e) => {
+            const m = JSON.parse(String(e.data)) as { type: string };
+            w.__received.push(m);
+            if (w.__autoAck && (m.type === "sourceEdit" || m.type === "taskToggle")) {
+                channel.port1.postMessage(JSON.stringify({ type: "ack", rev: ++w.__rev }));
+            }
+        };
         window.postMessage("ssmd:init", "*", [channel.port2]);
     });
     await waitForMessage(page, (m) => m.type === "ready");
@@ -72,10 +90,11 @@ export async function openPreview(h: Harness, viewport = { width: 412, height: 8
 }
 
 export async function send(page: Page, message: HostMessage): Promise<void> {
-    await page.evaluate(
-        (m) => (window as unknown as { __port: MessagePort }).__port.postMessage(JSON.stringify(m)),
-        message,
-    );
+    await page.evaluate((m) => {
+        const w = window as unknown as { __port: MessagePort; __rev: number };
+        if (m.type === "load" || m.type === "edit") w.__rev = m.rev;
+        w.__port.postMessage(JSON.stringify(m));
+    }, message);
 }
 
 export async function received(page: Page): Promise<PageMessage[]> {

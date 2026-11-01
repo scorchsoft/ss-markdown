@@ -46,6 +46,11 @@ class OpenDocument internal constructor(
                 val owner = this@OpenDocument
                 owner.journal.beforeEdit(op, owner.base, owner.isDirty) { owner.document.snapshot() }
             }
+
+            override fun afterEdit(op: EditOp) {
+                val owner = this@OpenDocument
+                owner.journal.afterEdit(owner.document.text.length) { owner.document.snapshot() }
+            }
         }
 
     /** The live text. Replaced (never mutated behind your back) by a reload or a conflict resolution. */

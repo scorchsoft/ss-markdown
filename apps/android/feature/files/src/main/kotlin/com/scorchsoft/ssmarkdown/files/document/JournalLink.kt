@@ -54,6 +54,9 @@ internal class JournalLink(
     private var held = false
     private var lastRetryAt = Long.MIN_VALUE
 
+    /** Chars recorded since the run's last snapshot (or header): what replay must work through. */
+    private var journalledChars = 0L
+
     // ---- Journal-thread state. ----
 
     private var writer: JournalWriter? = null
@@ -110,7 +113,25 @@ internal class JournalLink(
             else -> Unit
         }
         val edit = PendingEdit(op.offset, frozen(op.deleted), frozen(op.inserted))
+        journalledChars += op.deleted.length + op.inserted.length
         executor.execute { guarded { append(edit) } }
+    }
+
+    /**
+     * Called after an op was applied, with the text's new length. When the
+     * run's ops outgrow the text (more than [COMPACT_RATIO] times it, and at
+     * least [COMPACT_MIN_CHARS]), the journal is replaced by one snapshot of
+     * [after], so replay stays fast and the file stays small however long
+     * the session (robustness §1, DS-11). It is the same atomic replace a
+     * save uses, queued after the op it follows.
+     */
+    fun afterEdit(
+        textLength: Int,
+        after: () -> Snapshot,
+    ) {
+        val base = journalBase ?: return
+        if (broken || journalledChars < COMPACT_MIN_CHARS || journalledChars < COMPACT_RATIO * textLength) return
+        begin(base, after(), replacing = base)
     }
 
     /**
@@ -171,6 +192,7 @@ internal class JournalLink(
         held = false
         journalBase = base
         broken = false
+        journalledChars = 0
         lastRetryAt = clock()
         executor.execute { guarded { start(base, text, replacing, setAside) } }
     }
@@ -285,6 +307,12 @@ internal class JournalLink(
 
     private companion object {
         const val DEFAULT_RETRY_MILLIS = 2_000L
+
+        /** Compaction waits for at least this much journalled text, so small files are never rewritten per key. */
+        const val COMPACT_MIN_CHARS = 1L shl 20
+
+        /** Compact once the journalled text is this many times the document. */
+        const val COMPACT_RATIO = 2L
 
         /** [text] safe to read later on another thread: snapshots and strings are; anything else is copied. */
         fun frozen(text: CharSequence): CharSequence = if (text is String || text is Snapshot) text else text.toString()

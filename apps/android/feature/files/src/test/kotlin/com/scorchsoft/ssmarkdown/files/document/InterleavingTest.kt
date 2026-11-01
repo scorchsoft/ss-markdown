@@ -338,6 +338,25 @@ class InterleavingTest {
         }
 
     @Test
+    fun `a journal that outgrows its text is compacted to one snapshot`() =
+        runTest {
+            val world = World()
+            val doc = world.opened()
+            val chunk = 100_000
+            doc.replace(0, 0, "a".repeat(chunk))
+            repeat(12) { round -> doc.replace(0, chunk, ('b' + round % 2).toString().repeat(chunk)) }
+            world.store.flushJournals()
+
+            val journal =
+                world.fixture.journals
+                    .fileFor(world.uri.value)
+                    .length()
+            // 2.5 MB of ops without compaction; with it, at most one snapshot plus under 1 MiB of ops.
+            assertTrue("journal bytes: $journal", journal < doc.document.text.length + (1L shl 20))
+            world.assertRecoversTo(doc.live())
+        }
+
+    @Test
     fun `undo and redo are journalled exactly`() =
         runTest {
             val world = World()

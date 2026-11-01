@@ -113,6 +113,26 @@ describe("tap to edit", () => {
         expect(m).toMatchObject({ offset: 3, checked: true });
     });
 
+    it("toggles a task from a tap 15 px off the checkbox: a 48 px hit area (UX-12)", async () => {
+        const page = await openPreview(h);
+        await loadMarkdown(page, "- [ ] open the box\n- [x] done");
+        await clearReceived(page);
+        const box = await page.locator("input.task-list-item-checkbox").first().boundingBox();
+        if (!box) throw new Error("no checkbox");
+        const cx = box.x + box.width / 2;
+        const cy = box.y + box.height / 2;
+        await page.mouse.click(cx + 15, cy + 6);
+        const m = await waitForMessage(page, (x) => x.type === "taskToggle");
+        expect(m).toMatchObject({ offset: 3, checked: true });
+        expect((await received(page)).some((x) => x.type === "editingChanged")).toBe(false);
+        // Far from the box, the text is still text: a tap starts editing (once the tick has re-rendered).
+        await page.waitForFunction(() => document.querySelector("input.task-list-item-checkbox[checked]") !== null);
+        // The re-render can nudge the scroll position, and a tap within the fling guard only stops a scroll.
+        await page.waitForTimeout(600);
+        await page.mouse.click(cx + 50, cy);
+        await waitForMessage(page, (x) => x.type === "editingChanged");
+    });
+
     it("routes links, heading long-press and Edit in Code to Kotlin", async () => {
         const page = await openPreview(h);
         await loadMarkdown(page, "# Head\n\nA [link](https://example.com).\n\n$$\nx^2\n$$\n");

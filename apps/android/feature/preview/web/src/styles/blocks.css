@@ -86,11 +86,18 @@ th {
     border-radius: 20px;
     padding: 6px 10px;
     min-height: 28px;
-    opacity: 0.85;
+}
+/* The chip stays small to keep the block readable, but its touch target is
+   48 px: an invisible box around it takes the tap (UX-21). */
+.edit-in-code::before {
+    content: "";
+    position: absolute;
+    inset: -10px -4px;
 }
 .footnote-def .edit-in-code,
 .ro-front-matter .edit-in-code {
-    position: static;
+    /* In flow, but still the box its 48 px ::before hit area hangs off. */
+    position: relative;
     margin-left: auto;
     order: 2;
 }

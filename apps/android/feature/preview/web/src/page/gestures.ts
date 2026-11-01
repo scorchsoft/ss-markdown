@@ -18,6 +18,12 @@ import { toggleDiagramSource, type MermaidRunner } from "./mermaidRunner";
 import { scrollToLine } from "./scrollSync";
 
 export const FLING_GUARD_MS = 500;
+/**
+ * Half the task checkbox's hit area: 48 dp in all, though the box is drawn at
+ * about 16 px (ux-spec, review 3: "Task checkboxes in Preview get a 48 dp hit
+ * area"). The page's viewport is device-width, so a CSS pixel is a dp.
+ */
+export const TASK_HIT_RADIUS = 24;
 const TASK_LINE = /^(\s*(?:>\s?)*\s*(?:[-+*]|\d{1,9}[.)])\s+)\[([ xX])\]/;
 
 type ViewerKind = "diagram" | "image" | "math";
@@ -39,6 +45,22 @@ function lineOf(el: Element): number {
 function viewerIndex(el: HTMLElement, kind: ViewerKind): number {
     const all = [...document.querySelectorAll<HTMLElement>(`[data-viewer="${kind}"]`)];
     return Math.max(0, all.indexOf(el));
+}
+
+/**
+ * The task checkbox a tap at ([x], [y]) means: the box itself, or the one on
+ * the same list item whose centre is within [TASK_HIT_RADIUS] (UX-12).
+ */
+export function taskCheckboxAt(target: Element, x: number, y: number): HTMLInputElement | null {
+    if (target instanceof HTMLInputElement && target.classList.contains("task-list-item-checkbox")) return target;
+    const item = target.closest(".task-list-item");
+    const box = item?.querySelector<HTMLInputElement>("input.task-list-item-checkbox");
+    if (!box || box.closest(".task-list-item") !== item) return null;
+    const r = box.getBoundingClientRect();
+    const near =
+        Math.abs(x - (r.left + r.width / 2)) <= TASK_HIT_RADIUS &&
+        Math.abs(y - (r.top + r.height / 2)) <= TASK_HIT_RADIUS;
+    return near ? box : null;
 }
 
 export class Gestures {
@@ -96,8 +118,9 @@ export class Gestures {
         }
         const link = target.closest<HTMLAnchorElement>("a[href]");
         if (link) return this.onLink(link);
-        if (target instanceof HTMLInputElement && target.classList.contains("task-list-item-checkbox")) {
-            this.toggleTask(target);
+        const task = taskCheckboxAt(target, e.clientX, e.clientY);
+        if (task) {
+            this.toggleTask(task);
             return true;
         }
         const settings = this.deps.settings();

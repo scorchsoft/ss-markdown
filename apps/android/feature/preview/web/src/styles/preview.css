@@ -143,11 +143,16 @@ hr {
     border-top: 1px solid var(--border);
     margin: 2em 0;
 }
+/* A quote is a tinted box, not an edge bar: the anti-goals ban one-sided
+   accent borders (docs/quality-bar.md; UX-22). */
 blockquote {
-    padding: 0 1em;
+    padding: 0.6em 1em;
     color: var(--muted);
-    border-left: 3px solid var(--border);
-    border-right: 3px solid transparent;
+    background: var(--code-bg);
+    border-radius: 8px;
+}
+blockquote > :last-child {
+    margin-bottom: 0;
 }
 ul,
 ol {

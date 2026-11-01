@@ -6,7 +6,7 @@ module holds real code; the map below says what each one has.
 ## Layout
 
 ```
-app/              MainActivity (edge to edge, handles its own config changes) and shell/
+app/              MainActivity, AppGraph, navigation and the screens (editor state machine, history, storage, settings, themes, licences)
 core/text         PURE JVM. Piece table, line index, graphemes, undo.        (piece tree, done: see core/text/NOTICE)
 core/markdown     PURE JVM. Tokenizer, block index, anchor maths, edit commands.  (done: tokenizer, outline, edit commands with fence-aware line commands and list renumbering)
 core/history      PURE JVM. Journal, keyframe+diff history, retention.        (done: journal (FORMAT.md), versions, export/import + export listing (VERSIONS-FORMAT.md))
@@ -18,7 +18,7 @@ feature/files     SAF, DocumentStore, save pipeline (backup, verify, timeout), t
 feature/fonts     Google Fonts download and cache
 build-logic/      ssmarkdown.* convention plugins (below)
 config/detekt/    detekt overrides; ktlint reads ../.editorconfig
-tools/            bootstrap-android-sdk.sh
+tools/            bootstrap-android-sdk.sh, fetch-fonts.sh, editor-bench (ADR 0001 benchmark, never shipped)
 ```
 
 Convention plugins (`build-logic/convention`):
@@ -30,6 +30,12 @@ Convention plugins (`build-logic/convention`):
 - `ssmarkdown.static-analysis` — ktlint, detekt and Android lint
   (`warningsAsErrors`), all in `check`. Applied by both of the above and
   by `:app` directly.
+- `ssmarkdown.coverage` — Kover on one core module, with `koverVerify`
+  (>= 90% lines, docs/engineering.md) in `check`. Applied by
+  `ssmarkdown.jvm.library` and by `core:ui`.
+- `ssmarkdown.coverage-report` — root only: the merged core report
+  (`koverHtmlReport`, `koverXmlReport` → `build/reports/kover/`) and the
+  same bar on the total.
 - `ssmarkdown.module-graph` — root only. `checkModuleGraph` (in `check`)
   fails if `core:*` depends on `feature:*`/`:app`, or a feature on
   another feature or `:app`.
@@ -40,18 +46,46 @@ No wrapper. Run from the REPO ROOT.
 
 ```sh
 export ANDROID_HOME=/root/android-sdk          # bootstrap: apps/android/tools/bootstrap-android-sdk.sh
-gradle -p apps/android check                   # graph, ktlint, detekt, lint, all unit tests
+gradle -p apps/android check                   # graph, ktlint, detekt, lint, all unit tests, core coverage gate
+gradle -p apps/android koverHtmlReport koverLog   # merged core coverage, per-module numbers
 gradle -p apps/android :core:text:test         # one pure module, host JVM, seconds
 gradle -p apps/android ktlintFormat            # fix formatting before committing
 gradle -p apps/android :app:assembleDebug
-gradle -p apps/android -Pssmarkdown.minifyDebug=true :app:assembleDebug   # hand-over build, through R8
+gradle -p apps/android -Pssmarkdown.minifyDebug=true :app:assembleDebug   # hand-over build (below)
 gradle -p apps/android -Pssmarkdown.screenshots=true :app:testDebugUnitTest --tests '*ScreenshotTest*'
 gradle -p apps/android :app:connectedDebugAndroidTest   # needs a device or emulator
 ```
 
 Screenshots land in `app/build/screenshots/{light,dark}/` (never
-committed). CI uploads them as the `screenshots` artifact and runs the
-instrumented tests on an API 34 emulator in a separate job.
+committed; the folder is emptied at the start of each screenshot run, so
+nothing stale survives). CI uploads them as the `screenshots` artifact and
+runs the instrumented tests on an API 34 emulator in a separate job.
+
+## The hand-over build
+
+`-Pssmarkdown.minifyDebug=true :app:assembleDebug` is the artefact handed
+to anyone. It is signed with the debug key but is otherwise a release
+build: **not debuggable** (a debuggable variant makes R8 run in debug
+mode, with no optimisation or renaming and no baseline profile), English
+resources only, and without ui-tooling's exported `PreviewActivity`.
+Measured 2026-11-01: **6.15 MB** (classes.dex 3.32 MB), down from 15.12 MB
+when it was debuggable. CI fails the build if it becomes debuggable again,
+ships `PreviewActivity`, or loses `baseline.prof` or the licence texts.
+
+- **Archive `mapping.txt` with every APK.** The build is obfuscated, so a
+  stack trace from it is unreadable without the mapping of that exact
+  build: `app/build/outputs/mapping/debug/mapping.txt`. CI uploads it in
+  the same artifact as the APK; a Drive hand-over puts it next to the APK.
+- **Keep rules.** `app/proguard-rules.pro` is empty on purpose and records
+  why (no reflection, no serialization library, no `@JavascriptInterface`).
+  Adding any of those means adding a precise keep rule and a test.
+- **App baseline profile: deferred to the device run.** Library profiles
+  ship today. Generating the app's own (cold start, open 1 MB, fling)
+  needs a `:baselineprofile` Macrobenchmark module run on a device or a
+  managed emulator, which this container cannot do; add it with the
+  device measurements for ADR 0001 (performance review PERF-20).
+- **APK size** is a guideline, not a hard limit (`docs/quality-bar.md` §4):
+  shrink only where nothing regresses, and record any deliberate rise.
 
 Tests run on debug only (root `build.gradle.kts` removes the release
 unit-test component). Robolectric is pinned to `sdk=34` in
@@ -73,9 +107,11 @@ sdk buys a second sandbox and doubles the run time.
   (`feature:editor -> feature:preview`) reach the graph check and get its
   message. `gradle -p apps/android checkModuleGraph` alone always gives
   the graph message.
-- **Screenshot capture** draws the decor view into a software bitmap.
+- **Screenshot capture** draws every open window's root view into a
+  software bitmap, so modal sheets (their own window) are in the shot.
   compose-test's `captureToImage()` deadlocks under Robolectric's paused
-  looper. `ComponentActivity` is registered in `app/src/debug/AndroidManifest.xml`
+  looper. Sheet shots use `sheet(...)`, which fails if only one window was
+  drawn. `ComponentActivity` is registered in `app/src/debug/AndroidManifest.xml`
   because the ui-test-manifest AAR is not merged into unit-test manifests.
 - **configChanges** in the manifest is the robustness.md §5a list. Do not
   trim it: losing `uiMode` or `fontScale` recreates the Activity on a
@@ -85,8 +121,11 @@ sdk buys a second sandbox and doubles the run time.
   mirror (`https://maven-central.storage-download.googleapis.com/maven2/`)
   and set `robolectric.dependency.repo.url` to the same for Robolectric's
   own downloads. Never commit that workaround.
-- **Fonts.** `SSType` uses the system sans and monospace until Inter and
-  JetBrains Mono are bundled in iteration 2.
+- **Fonts.** Inter, JetBrains Mono and four more families are bundled in
+  `feature/fonts` (OFL, subset to Latin; see NOTICE) and used by the Code
+  pane and Preview themes. The app chrome (`SSType`) still uses the system
+  sans and monospace; switching it to Inter is an open design decision,
+  not a missing step. Never drop a bundled family to save size.
 
 ## Preview bundle
 
@@ -122,5 +161,9 @@ Traps:
 - **Never make a rendered character editable unless it is an exact run.** The
   unit test `editSafety.test.ts` fails on any visible text in an editable
   block that is neither in a `[data-s]` run nor `contenteditable="false"`.
-- **Bundle budget**: about 3.4 MB; `cytoscape` is stubbed (mindmap and
+- **CI runs all of it** (`preview-web` job): typecheck, lint, unit, a
+  fresh build that must match the committed assets byte for byte, the
+  size budget, then Playwright e2e on Chromium.
+- **Bundle budget**: 3.5 MiB for the whole `assets/preview` folder, as
+  `build.mjs` reports it (3.43 MiB on 2026-11-01), enforced in CI; `cytoscape` is stubbed (mindmap and
   architecture diagrams show a named "not supported" box with Show source).

@@ -19,23 +19,28 @@ reasons behind every decision so far. Then:
 - `docs/engineering.md` — open-source code standards (Apache-2.0, showcase quality).
 - `docs/quality-bar.md` — the ten jobs, anti-goals, premium-feel spec, every budget, and how we score. If a feature can't point to a job here, it doesn't ship.
 - `docs/design-review-1.md` … `-4.md` — independent design reviews and how every finding was triaged.
+- `docs/adr/` — one short record per significant decision (engine, wrapper, DI, bundle, OT, history, fonts, module graph).
 - `docs/roadmap.md` — the six build iterations and what each must deliver.
 - `docs/rubric.md` — the definition of good. Score it at the end of
   every iteration.
 
 ## Status
 
-**Design is signed off** (iteration 0 is done). The build follows
-`docs/roadmap.md`. Iteration 1 covers the scaffold, `core/text` and the
-journal. The design canvas is the visual source of truth:
+**Feature-complete for the first release candidate, pending on-device
+verification.** Every module in the roadmap is built and tested on the
+host and in CI (editor, preview with tap-to-edit, history, folders,
+conflict merge, themes, fonts); the device budgets in
+`docs/quality-bar.md` §4 and ADR 0001 still need real-phone numbers.
+The design canvas is the visual source of truth:
 https://claude.ai/artifact/5Rjq5it6m3px6CNq1m4rLg
 
-## Planned layout
+## Layout
 
-The module map and code standards are in `docs/engineering.md`. In short:
-pure-JVM `core/*` (text, markdown, history, theme), `core/ui`, then
-`feature/*` (editor, preview, files), with a thin `app` on top.
-Dependencies point inwards only.
+The module map and code standards are in `docs/engineering.md`, and the
+working map is `apps/android/CLAUDE.md`. In short: pure-JVM `core/*`
+(text, markdown, history, theme), `core/ui`, then `feature/*` (editor,
+preview, files, fonts), with `app` on top. Dependencies point inwards
+only. The reasons for the big structural choices are in `docs/adr/`.
 
 ## Conventions
 
@@ -46,4 +51,6 @@ Dependencies point inwards only.
   Google Font. Never add analytics, ads or accounts.
 - Screens are pure `(state, callbacks)` composables, so every screen
   renders under Robolectric.
-- Build artefacts never go in git; hand-over APKs go to Drive.
+- Build artefacts never go in git; hand-over APKs go to Drive, each with
+  the `mapping.txt` of its build (the hand-over is obfuscated). The
+  command and what it guarantees are in `apps/android/CLAUDE.md`.

@@ -18,9 +18,19 @@ apps/android/
   feature/editor  MarkdownCodeView, InputConnection, gestures, a11y.
   feature/preview WebView host, bridge, viewer, print/export.
   feature/files   Storage Access Framework, DocumentStore, save pipeline, MemoryGovernor.
-  app             Wiring, navigation, settings screens. Thin.
-  assets/preview  JS/CSS bundle (TypeScript, built by a pinned toolchain).
+  feature/fonts   Bundled fonts, the Google Fonts catalogue and downloader, font import.
+  feature/preview/web   The Preview page: TypeScript, built by esbuild into
+                  feature/preview/src/main/assets/preview (committed; ADR 0004).
+  app             Wiring (AppGraph), navigation, and the screens with their
+                  view models and state machines.
+  tools/editor-bench   The ADR 0001 benchmark. Never shipped; nothing may depend on it.
 ```
+
+`app` is not thin: it holds every screen's state machine and view model,
+while the features are the engines underneath. That is a known trade-off
+(code-craft review CC-7), not the goal; pure reducers belong in a module
+when they are next reworked. The module graph and its rules are in
+[ADR 0010](adr/0010-module-graph.md).
 
 - **Dependencies point inwards.** `feature/*` depends on `core/*`, never
   the other way round, and features never depend on each other. The
@@ -32,7 +42,8 @@ apps/android/
   view models with injected `CoroutineDispatcher`s. Composables are pure
   `(state, onAction)` functions.
 - **Constructor injection, no DI framework.** A small `AppGraph` builds
-  everything. It's explicit, fast, and easy for newcomers to follow.
+  everything. It's explicit, fast, and easy for newcomers to follow
+  ([ADR 0003](adr/0003-no-di-framework.md)).
 - **Errors are values.** I/O returns `Result` or sealed outcomes
   (`SaveOutcome.Conflict`, `.PermissionLost`, `.StorageFull`, …).
   Exceptions are for programmer errors. Never use `!!` outside tests.
@@ -44,21 +55,25 @@ apps/android/
 
 - Kotlin official style. **ktlint + detekt** with zero warnings, plus
   Android lint with zero warnings. All three are enforced in CI.
-- **Explicit API mode** in `core/*`: every public declaration is
-  deliberate and has KDoc explaining *why*, not just *what*.
+- **Explicit API mode** in the pure-JVM core modules (text, markdown,
+  history, theme): every public declaration is deliberate. `core/ui` is
+  an Android module and is not in explicit API mode. Everywhere, public
+  API has KDoc explaining *why*, not just *what*.
 - Files ≤ 400 lines and functions ≤ 40 lines as guides, not dogma. A
-  longer one needs a reason a reviewer would accept.
+  longer one needs a reason a reviewer would accept. detekt enforces the
+  hard limits: its defaults (60-line `LongMethod`, 600-line
+  `LargeClass`) plus the overrides in `config/detekt/detekt.yml`.
 - Names say what things are. No `Manager` / `Helper` / `Util` grab-bags.
 - Comments explain decisions and traps, never restate code. Non-obvious
   choices link to an ADR or a section in `docs/`.
-- TypeScript in `assets/preview`: strict mode, ESLint and Prettier, unit
-  tests with Vitest, and Playwright for rendering.
+- TypeScript in `feature/preview/web`: strict mode, ESLint and Prettier,
+  unit tests with Vitest, and Playwright for rendering.
 
 ## Decisions
 
 - Every significant decision gets an **ADR** in `docs/adr/NNNN-title.md`
-  (context, options, decision, consequences). The first will be 0001,
-  the editor engine.
+  (context, options, decision, consequences). They start at 0001, the
+  editor engine.
 - `docs/product-journey.md` stays the human-readable story;
   ADRs are the precise record.
 
@@ -66,11 +81,11 @@ apps/android/
 
 | Layer | Tooling | Bar |
 |---|---|---|
-| `core/*` | JUnit + property tests (Kotest property or jqwik) | ≥ 90% line coverage; property tests for text, journal and history |
-| Screens | Robolectric + Compose UI tests + screenshot tests (Roborazzi) | Every screen in light, dark, 1.0× and 2.0× font, phone and tablet |
-| Preview bundle | Vitest + Playwright | Rendering corpus, security corpus, anchor mapping |
-| Device | Instrumented: kill test, rotation matrix, fault-injection provider | Run in CI on an emulator for every PR |
-| Performance | Macrobenchmark + Baseline Profiles | Budgets in `rubric.md` criterion 4; a regression over 10% fails the build |
+| `core/*` | JUnit + property tests (hand-rolled, seeded random loops with the seed in the failure message) | ≥ 90% line coverage per module, measured by Kover and gated in `check`; property tests for text, journal and history |
+| Screens | Robolectric + Compose UI tests + screenshots (our own harness: every window drawn into a software bitmap, `ScreenshotTest`) | Every screen and sheet in light and dark; 2.0× font for the editor. Phone only so far; tablet is planned |
+| Preview bundle | Vitest + Playwright (Chromium), in CI | Rendering corpus, security corpus, edit protocol, anchor mapping; the committed bundle must match a fresh build |
+| Device | Instrumented tests on an API 34 emulator | Run in CI on every push; the kill test, rotation matrix and fault-injection provider are planned |
+| Performance | Host benchmarks and `tools/editor-bench` today | **Planned:** Macrobenchmark and an app Baseline Profile with the device run (budgets in `rubric.md` criterion 4); no automated regression gate yet |
 
 Every bug fix starts with a failing test, and every new edge case gets a
 row in `docs/edge-cases.md`.
@@ -82,9 +97,12 @@ row in `docs/edge-cases.md`.
 - **No Google Play Services**, no analytics, no ads, no proprietary
   SDKs. The app must be buildable for F-Droid (reproducible builds are
   a goal).
-- Vendored JS libraries (markdown-it, mermaid, KaTeX, highlight.js,
-  DOMPurify) are pinned, their licences are collected into an in-app
-  "Open-source licences" screen, and they are updated by a script.
+- JS libraries (markdown-it, mermaid, KaTeX, highlight.js, DOMPurify)
+  are pinned exactly in `feature/preview/web/package-lock.json`. The
+  build collects their licences into `LICENSES.txt`, which the in-app
+  "Open-source licences" screen shows in full. They are updated by hand
+  (`npm install <pkg>@<version>`, rebuild, commit), and CI checks the
+  committed bundle matches.
 
 ## Repository hygiene for open source
 
@@ -93,7 +111,8 @@ row in `docs/edge-cases.md`.
 - `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` (Contributor Covenant),
   `SECURITY.md` (private disclosure), and issue and PR templates.
 - GitHub Actions: build, the test layers above, lint, and the
-  module-graph check, on every PR. Release builds are signed in CI from
-  secrets.
+  module-graph check, on every PR. Release builds will be signed in CI
+  from secrets once there is a release key; until then the hand-over is
+  debug-signed.
 - `CHANGELOG.md` (Keep a Changelog) and semantic versioning.
 - No secrets, keystores or personal data in the repo, ever.

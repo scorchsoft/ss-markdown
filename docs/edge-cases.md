@@ -138,7 +138,15 @@ any chosen I/O hop before the store resumes.
 | Low-RAM device (≤ 3 GB, `isLowRamDevice`) | Starts in the lean budget. | Emulator profile | planned |
 | Process death in the background | Journal restore; the UI comes back at the same file, view and position. | `am kill` test | planned |
 | Rotation, fold, resize, theme or font-scale change mid-anything | See `robustness.md` §5a. | Rotation matrix | planned |
-| System font scale 200% | Layouts reflow; chrome never truncates Save or Copy. | Screenshot tests at 1.0, 1.3 and 2.0 | planned |
+| System font scale 200% | Layouts reflow; chrome never truncates Save or Copy. Bars use height floors, not fixed heights; the header folds to one line above 1.5× (1.3× in landscape) and keeps a failed save on it (UX-7). Segments size to their labels and stack as radio rows when a label cannot fit (UX-8). | `AccessibilityRenderTest` (UX-7, UX-8), `SSSegmentedControlTest`; screenshots at 1.0 and 2.0 | tested |
+| Dark-mode error text below AA: the pill red is 3.2:1 as text (UX-4) | `needsYouText` token for error text and icons; the pill keeps `needsYou`. | `SSColorsContrastTest` (text pairs) | tested |
+| A toggle's pressed state shown by a 1.1:1 tint alone (UX-5) | Pressed strip keys get an ink ring all round (never a one-sided bar), ≥ 14:1. | `SSColorsContrastTest`, `StripScreenshotTest` | tested |
+| TalkBack in the Code pane: stops at the last visible line, silent edits and selections, no heading moves, no hint (UX-2) | Scrollable host with page scroll actions; text-changed and selection events (change only, capped); heading flags and Next/Previous heading actions; hint text; Set text. | `EditorAccessibilityTest` | handled (device TalkBack pass pending) |
+| Settings switches with no on/off for TalkBack (UX-3) | The row is `toggleable` with `Role.Switch`. | `AccessibilityRenderTest` | tested |
+| Unsaved marker read as "black circle" in the drawer and Navigator (UX-6) | A drawn dot labelled "Unsaved", merged into the row. | `AccessibilityRenderTest` | tested |
+| Landscape with the keyboard: the strip's Save says "Save" for drafts and failed saves, and the status line is hidden (UX-9) | The strip follows the Save-state table (`StripSave`) and carries the failure or read-only status. | `FormattingStripTest`, `AccessibilityRenderTest` | tested |
+| Undo message gone before a screen-reader user reaches it (UX-10) | The bar honours `getRecommendedTimeoutMillis`; with a screen reader, Undo stays ≥ 10 s. | `MessageTimeoutTest` | tested |
+| Navigation-bar inset taken out of the viewer filmstrip's fixed height (UX-11) | The inset is applied outside the strip's height. | `AccessibilityRenderTest` (dispatched 48 dp inset) | tested |
 | Tiny split-screen window (e.g. 300 dp high) | Split falls back to a single pane; bars stay. | Screenshot test | planned |
 | Clock or timezone change | History ordering uses a monotonic sequence number; times are display-only. | Unit test | planned |
 | App updated with an older journal or history format on disk | Versioned formats with migrations and tests. Unknown future versions are read-only, never deleted. | Migration tests | planned |

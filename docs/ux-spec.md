@@ -24,7 +24,7 @@ mockups agreed with Andrew win, and this file gets updated.
 
   | State | Looks like | Status line | Tap |
   |---|---|---|---|
-  | Clean (manual or autosave) | Ink check-in-circle, label "All saved" | "Saved · 2 min ago" / "Autosaved · just now" | Shows "All saved" |
+  | Clean (manual or autosave) | Muted check-in-circle, no visible label; its accessible name is "All saved" (review 3: the clean state should recede) | "Saved · 2 min ago" / "Autosaved · just now" | Shows "All saved" |
   | Unsaved | **Red** "Save" pill, text only | "Unsaved" (+ red dot by the name) | Saves |
   | Saving | Pill with a spinner, disabled | "Saving…" | — |
   | Untitled draft | Outline "Save as…" pill (not red: drafts are already safe) | "Draft · kept on this phone" | System picker, name prefilled from the first heading |
@@ -44,7 +44,11 @@ mockups agreed with Andrew win, and this file gets updated.
   long-pressing Copy.
 
 **Bottom bar (64 dp)**
-- A segmented Code | Split | Preview control, with icon and label.
+- A segmented Code | Split | Preview control: labels at normal sizes,
+  icons alone above 1.5× font scale and in the landscape bar, where the
+  labels stay as TalkBack names. (Icons beside labels were dropped as
+  busy chrome; UX-26.) Segments size to their labels and grow with the
+  font, and fall back to a vertical radio list when a label cannot fit.
 - A **zoom chip** ("120% ↺") floats in the **top-right corner of the
   pane it belongs to**, only when that pane's zoom differs from the
   default. In Split it is unambiguous which pane it resets. It is never

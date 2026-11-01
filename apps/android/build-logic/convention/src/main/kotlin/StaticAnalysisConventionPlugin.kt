@@ -55,7 +55,15 @@ class StaticAnalysisConventionPlugin : Plugin<Project> {
                 // These compare against the newest published versions over the
                 // network. Pins move deliberately, in the version catalogue,
                 // so they are advice, not build failures.
-                disable += setOf("GradleDependency", "AndroidGradlePluginVersion", "NewerVersionAvailable")
+                // OldTargetApi likewise depends on which SDK the machine has:
+                // CI's newer lint flagged targetSdk 36 when local lint did not.
+                // Raising targetSdk is a tested change, never a lint reflex.
+                disable += setOf(
+                    "GradleDependency",
+                    "AndroidGradlePluginVersion",
+                    "NewerVersionAvailable",
+                    "OldTargetApi",
+                )
             }
         }
     }

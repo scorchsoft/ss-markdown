@@ -9,6 +9,7 @@ and a quiet folder mode.
 principles ("features may be deep, chrome may not be busy") and the
 reasons behind every decision so far. Then:
 
+- `docs/how-it-works.md` — the user-facing explanation of the piece tree, the never-lose-work layers and where history lives.
 - `docs/ux-spec.md` — what each control does and when it appears.
 - `docs/robustness.md` — the never-lose-work and large-file contract.
   Required reading before touching files, saving or the editor.

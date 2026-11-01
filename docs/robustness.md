@@ -181,6 +181,19 @@ history.
   ⋮ or Settings), and deleted on uninstall. That's why export, Save as
   and pinning exist.
 
+**Where history lives.** History lives in private app storage,
+**never in sidecar files next to documents**. Storage Access
+Framework providers can't rename atomically, synced folders would
+create conflicts, it would pollute git repos and leak deleted text, and
+read-only sources would get no history. The full trade-off table is in
+`how-it-works.md`.
+- Additional retention rule: history for files not opened in 90 days
+  is pruned first.
+- *Export history* (a per-file `.zip`) and import are the way to move
+  history between devices.
+- An opt-in per-folder `.ssmarkdown/` store is deferred until after
+  1.0. The journal always stays in app storage.
+
 ### 3a. Save modes
 
 | Mode | Writes to the file | Default |

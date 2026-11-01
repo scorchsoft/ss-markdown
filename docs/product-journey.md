@@ -66,6 +66,7 @@ it that is always on screen is not.
 | Share-in | Share text into SS Markdown as a New note or "Append to…" a file, through the normal save pipeline | Capturing snippets into a running file is a daily job; doing it safely means no race with the editor. |
 | Current section | The title's status line becomes a live breadcrumb ("How we work › Code review") once you scroll past the first heading, and the header hairline doubles as a reading-position line. Back to top is the first row of the Navigator's Outline. | Andrew likes this pattern on andrewleeward.com. Putting it in the existing title keeps it at zero extra chrome. |
 | No side-stripe highlights | Selection and callouts use a filled tint plus weight or an icon, never a one-sided coloured border | Andrew: the one-sided border is an AI tell. |
+| Where history lives | Private app storage, with caps, 90-day pruning and Export/Import history. An opt-in per-folder `.ssmarkdown/` store is deferred until after 1.0. | Sidecar files are *less* robust on Android (no atomic rename through Storage Access Framework), conflict under Syncthing/Drive, pollute git repos, leak deleted text and fail for read-only files. Andrew raised the question; see `how-it-works.md`. |
 | Toolchain | Mirrors Measur3D's Android setup (AGP 8.13, Kotlin 2.3, Compose BOM 2026.06, no wrapper) | Already proven in this cloud container and on CI. |
 
 ## Iteration history

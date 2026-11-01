@@ -30,6 +30,7 @@ class BaselineProfileGenerator {
             disableKeyboards()
             try {
                 openForEditing(CorpusFile.Large)
+                selectMode("Code")
                 focusCodeAt(CODE_PANE_Y)
                 repeat(KEYSTROKES) { device.pressKeyCode(android.view.KeyEvent.KEYCODE_A) }
                 val x = device.displayWidth / 2

@@ -16,6 +16,8 @@ gradle_args=(--no-daemon --console=plain -p apps/android)
 pkg=com.scorchsoft.ssmarkdown
 
 adb shell settings put global package_verifier_enable 0 || true
+# The heap the admission rules see (the workflow sets a Pixel 6a-class 256 MB growth limit).
+echo "heap: growthlimit=$(adb shell getprop dalvik.vm.heapgrowthlimit) heapsize=$(adb shell getprop dalvik.vm.heapsize) ram=$(adb shell cat /proc/meminfo | head -1)"
 
 echo "::group::Baseline Profile"
 if ! gradle "${gradle_args[@]}" :app:generateBaselineProfile \

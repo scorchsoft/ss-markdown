@@ -291,6 +291,11 @@ jobs:
           target: default
           # Real animations: the fling and typing frames are what a user sees.
           disable-animations: false
+          # A Pixel 6a-class memory profile (6 GB, 256 MB per-app heap), the
+          # phone the budgets name. The AVD default heap is smaller, and the
+          # admission rules (robustness Part 2a) rightly decline 20 MB there.
+          ram-size: 6144M
+          heap-size: 256M
           script: bash apps/android/benchmark/ci/emulator-evidence.sh
 
       - name: Performance report (advisory budgets, 25% regression gate)

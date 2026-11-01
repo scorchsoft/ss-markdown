@@ -10,7 +10,6 @@ import androidx.benchmark.macro.TraceSectionMetric
 import androidx.benchmark.macro.TraceSectionMetric.Mode
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.uiautomator.By
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -89,6 +88,7 @@ class EditorBenchmarks {
                 resetApp(file)
                 disableKeyboards()
                 openForEditing(file)
+                selectMode("Code")
                 focusCodeAt(CODE_PANE_Y)
             },
         ) {
@@ -113,6 +113,7 @@ class EditorBenchmarks {
             setupBlock = {
                 resetApp(CorpusFile.Huge)
                 openForEditing(CorpusFile.Huge)
+                selectMode("Code")
             },
         ) {
             val x = device.displayWidth / 2
@@ -146,7 +147,7 @@ class EditorBenchmarks {
                 resetApp(CorpusFile.Small)
                 disableKeyboards()
                 openForEditing(CorpusFile.Small)
-                device.findObject(By.text("Split"))?.click() ?: error("no Split control")
+                selectMode("Split")
                 // The page's first load and render is not what is measured.
                 Thread.sleep(PREVIEW_LOAD_MILLIS)
                 focusCodeAt(SPLIT_CODE_PANE_Y)

@@ -84,6 +84,17 @@ internal fun MacrobenchmarkScope.restoreKeyboards() {
     device.executeShellCommand("ime reset")
 }
 
+/**
+ * Shows [mode] ("Code", "Split" or "Preview") with the bar's own control.
+ * A fresh install does not start in Code on every screen size, and a key
+ * typed while Preview shows never reaches the Code pane.
+ */
+internal fun MacrobenchmarkScope.selectMode(mode: String) {
+    val control = device.findObject(By.text(mode)) ?: error("no $mode control on screen")
+    control.click()
+    device.waitForIdle()
+}
+
 /** Taps the page area at [fractionY] of the screen height, which focuses the Code pane there. */
 internal fun MacrobenchmarkScope.focusCodeAt(fractionY: Float) {
     device.click(device.displayWidth / 2, (device.displayHeight * fractionY).toInt())

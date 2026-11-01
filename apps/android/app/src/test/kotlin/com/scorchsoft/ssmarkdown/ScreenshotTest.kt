@@ -2,9 +2,11 @@ package com.scorchsoft.ssmarkdown
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.core.graphics.withTranslation
 import com.scorchsoft.ssmarkdown.about.AboutScreen
 import com.scorchsoft.ssmarkdown.editor.EditorUiState
 import com.scorchsoft.ssmarkdown.editor.ViewMode
@@ -65,11 +67,11 @@ class ScreenshotTest(
 
     @Test fun viewer() = shot("viewer") { ViewerScreen(PreviewSamples.viewer, {}) }
 
-    @Test fun exportImages() = editor("export-images", PreviewSamples.exportSheet)
+    @Test fun exportImages() = sheet("export-images", PreviewSamples.exportSheet)
 
-    @Test fun mermaidSheet() = editor("mermaid-sheet", PreviewSamples.mermaidSheet)
+    @Test fun mermaidSheet() = sheet("mermaid-sheet", PreviewSamples.mermaidSheet)
 
-    @Test fun display() = editor("display", PreviewSamples.display)
+    @Test fun display() = sheet("display", PreviewSamples.display)
 
     @Test fun themeEditor() = shot("theme-editor") { ThemeEditorScreen(PreviewSamples.themeType, {}) }
 
@@ -88,31 +90,74 @@ class ScreenshotTest(
         state: EditorUiState,
     ) = shot(name) { EditorFor(state) }
 
+    /** An editor state with a modal sheet open: the sheet is its own window, and must be in the shot. */
+    private fun sheet(
+        name: String,
+        state: EditorUiState,
+    ) {
+        render { EditorFor(state) }
+        val windows = capture(name)
+        check(windows > 1) { "$name: the sheet's window was not captured" }
+    }
+
     private fun shot(
         name: String,
         fontScale: Float = 1f,
         content: @Composable () -> Unit,
     ) {
+        render(fontScale, content)
+        capture(name)
+    }
+
+    private fun render(
+        fontScale: Float = 1f,
+        content: @Composable () -> Unit,
+    ) {
         rule.setContent { Themed(dark, fontScale, content) }
         rule.waitForIdle()
-        capture(name)
     }
 
     // Robolectric's paused looper never services the frame-commit callback
     // that compose-test's captureToImage() waits on, so it deadlocks. Drawing
     // the decor view into a software bitmap works instead: the native
     // graphics runtime rasterises text and shapes for real.
-    private fun capture(name: String) {
-        val view = rule.activity.window.decorView
-        check(view.width > 0 && view.height > 0) { "decor view not laid out" }
-        val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
-        view.draw(Canvas(bitmap))
-        val dir = File("build/screenshots", if (dark) "dark" else "light").apply { mkdirs() }
+    //
+    // A modal sheet or dialog lives in a window of its own, which the
+    // activity's decor view does not contain (UX-24: the Display, Export
+    // images and Mermaid shots used to show only the editor behind the
+    // sheet). So every window the app has open is drawn, bottom to top, at
+    // its position on screen.
+    /** Writes `<theme>/<name>.png`; returns how many windows were drawn into it. */
+    private fun capture(name: String): Int {
+        val decor = rule.activity.window.decorView
+        check(decor.width > 0 && decor.height > 0) { "decor view not laid out" }
+        val bitmap = Bitmap.createBitmap(decor.width, decor.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val windows = rootViews().filter { it.isShown && it.width > 0 && it.height > 0 }
+        windows.forEach { root ->
+            val at = IntArray(2).also(root::getLocationOnScreen)
+            canvas.withTranslation(at[0].toFloat(), at[1].toFloat()) { root.draw(this) }
+        }
+        val dir = File(SCREENSHOTS, if (dark) "dark" else "light").apply { mkdirs() }
         File(dir, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, PNG_QUALITY, it) }
+        return windows.size
+    }
+
+    /**
+     * Every window's root view, in the order they were added (bottom to
+     * top). Android has no public API for this; WindowManagerGlobal keeps
+     * the list, and under Robolectric it is plain JVM reflection.
+     */
+    private fun rootViews(): List<View> {
+        val global = Class.forName("android.view.WindowManagerGlobal")
+        val instance = global.getMethod("getInstance").invoke(null)
+        val views = global.getDeclaredField("mViews").apply { isAccessible = true }.get(instance)
+        return (views as List<*>).filterIsInstance<View>()
     }
 
     companion object {
         private const val PNG_QUALITY = 100
+        private const val SCREENSHOTS = "build/screenshots"
 
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "dark={0}")

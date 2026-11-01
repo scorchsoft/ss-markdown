@@ -75,6 +75,12 @@ android {
                     // Native graphics draws through the real rasteriser; the
                     // hardware PixelCopy mode makes it render what a device would.
                     test.systemProperty("robolectric.pixelCopyRenderMode", "hardware")
+                    // Start from an empty folder, so a shot whose test was
+                    // renamed or deleted (a stale shell.png, UX-24) cannot
+                    // pass for current. Here, not in the test: the
+                    // parameterised runner would run a @BeforeClass per theme.
+                    val shots = layout.buildDirectory.dir("screenshots").get().asFile
+                    test.doFirst { shots.deleteRecursively() }
                 } else {
                     test.exclude("**/ScreenshotTest*")
                 }

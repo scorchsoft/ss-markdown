@@ -92,7 +92,7 @@ fun EditorScreen(
         val docked = maxWidth >= DockedWidth && state.folder != null
         val layout = ScreenLayout(landscape, docked, imeVisible, largeFont)
         Row(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))) {
-            if (docked && state.folder?.panelCollapsed == false) {
+            if (docked && !state.folder.panelCollapsed) {
                 FolderPanel(
                     state.folder,
                     { onAction(EditorAction.Folder(it)) },
@@ -221,9 +221,14 @@ private fun Drawer(
                 onAction(EditorAction.Folder(FolderAction.CloseDrawer))
             },
     ) {
-        FolderPanel(folder, {
-            onAction(EditorAction.Folder(it))
-        }, Modifier.width(DrawerWidth).statusBarsPadding().navigationBarsPadding())
+        // The panel swallows taps on its empty areas, so only the scrim closes the drawer.
+        val panel =
+            Modifier
+                .width(DrawerWidth)
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+                .statusBarsPadding()
+                .navigationBarsPadding()
+        FolderPanel(folder, { onAction(EditorAction.Folder(it)) }, panel)
     }
 }
 

@@ -1,0 +1,17 @@
+SS Markdown
+Copyright 2026 Scorchsoft Ltd (https://www.scorchsoft.com)
+
+This product is licensed under the Apache License, Version 2.0 (see
+LICENSE).
+
+This product includes software developed by third parties:
+
+- Portions of apps/android/core/text are a Kotlin port of the piece tree
+  text buffer from Visual Studio Code, Copyright (c) Microsoft
+  Corporation, licensed under the MIT License. Details and the full
+  licence text are in apps/android/core/text/NOTICE.
+
+Further third-party components bundled with the app (for example the
+Markdown preview libraries and fonts) are listed with their licences in
+the app's "Open-source licences" screen and in this file as they are
+added.

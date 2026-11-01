@@ -4,11 +4,14 @@ Design was signed off on 2026-11-01. Andrew delegated the decision to
 Claude's judgement against the design gate in `rubric.md`. Remaining
 polish is settled in build, against real code, not on paper.
 
-Every iteration ends with three things:
+Every iteration ends with these things:
 - a scored rubric row, with an independent reviewer plus our own score;
 - an updated `edge-cases.md` showing status changes;
 - **from iteration 2 on,** a minified APK on Drive (see CLAUDE.md
-  conventions).
+  conventions);
+- **from iteration 2 on,** refreshed light and dark screenshots in
+  `docs/screenshots/` from the harness, with the README updated to
+  show them.
 
 ## Iteration 1 — Foundations and the text engine
 

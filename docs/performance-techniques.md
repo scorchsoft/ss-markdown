@@ -28,6 +28,25 @@ where each idea came from, so a future reader can check the source.
 | Renderer priority + `onRenderProcessGone` recovery that tells a crash from an OOM kill | Android WebView docs | `feature/preview` |
 | Baseline Profiles (`profileinstaller`), Macrobenchmark on a 10 MB fixture, JankStats, StrictMode, LeakCanary (debug only), Perfetto | Android tooling | CI + `benchmark/` |
 
+## Host measurements (performance review fixes, 2026-11-01)
+
+Host JVM numbers, so a phone is several times slower; the point is the
+before/after ratio. Each fix has a count- or allocation-based regression
+test, never a wall-clock threshold. The tokenizer rows come from
+`TokenizerBenchmarkTest` (opt-in: `-Pssmarkdown.heavyTests=true`) on its
+20 MB, 1.42M-line corpus.
+
+| Finding | Before | After | Regression test |
+|---|---|---|---|
+| PERF-9 tokenizer heap, one fully tokenised cache | 139 MB retained, a `LineResult` per line | 27 MB retained (≈ 10 B a line of states, interned states, outline), 1,024 lines of tokens | `TokenizerMemoryTest` |
+| PERF-9 admission estimate for 20 MB | 58 MB (2.5× + 8 MB) | 138 MB (text 2×, index ½×, two tokenizers 2×, one transient copy 2×) | `MemoryGovernorTest` |
+| PERF-15 ten frames of 45 lines at line 585k, before the accurate pass | 5.5 ms first frame, 1.6 ms each later frame; ~23,000 line tokenisations | 95 line tokenisations in all; later frames are cache hits | `TokenizerMemoryTest` |
+| PERF-8 find per keystroke with the bar open (20 MB, no match) | 184 ms on the main thread, every key (review) | 0 on the main thread; one cancellable background search per 120 ms burst | `FindControllerTest` |
+| PERF-13 state emissions scrolling 1,000 lines in one section | 1,000 | ≤ 11 | `ScrollEmissionsTest` |
+| PERF-17 `LineVersions` per in-line keystroke at 1.46M lines | 1.46M ids copied (0.25 ms) | 0 | `EditorCacheWorkTest` |
+| PERF-17 `LineLayoutCache` per keystroke | 512 Pairs and boxed keys | < 256 bytes allocated | `EditorCacheWorkTest` |
+| PERF-18 height query at 1.46M lines | walk of up to 2,850 blocks, one object per call (0.35 ms a frame) | ≤ 12 Fenwick steps, no allocation | `EditorCacheWorkTest` |
+
 ## Libraries
 
 | Library | Licence | Verdict |

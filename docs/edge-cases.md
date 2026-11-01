@@ -79,6 +79,11 @@ any chosen I/O hop before the store resumes.
 | Code-block toggle between two fenced blocks | Unwrap uses the fence state, not "a fence-looking line is adjacent", so the text between two blocks is wrapped, never mistaken for a block | `FenceAwareEditTest` | tested |
 | Indent, outdent or delete an item in a numbered list | Every level is renumbered: the level an item leaves closes its gap, the level it joins continues, a new sublist starts at 1; `1. 1. 1.` lists and custom starts are kept; numbers in fences are never touched | `IndentEditTest`, `ListNumberingPropertyTest` | tested |
 | Many find matches in a huge file | Matches are sorted ranges; a frame finds the ones on screen by binary search, and edits move them | `FindHighlightsTest` | tested |
+| Typing with the find bar open on a 20 MB file (PERF-8) | Searches read a snapshot on a background dispatcher; a newer query or edit cancels the one in flight, even mid-scan; edits wait 120 ms so a burst costs one search; Replace waits for fresh matches; matches capped at 10,000 | `FindControllerTest`, `FindEngineTest` (cancelled scan stops within one poll) | tested |
+| Tokenizer memory on a 20 MB file (PERF-9) | Per line only block states (about 10 bytes, interned); tokens kept for ~1,024 drawn lines and re-derived exactly from stored states; the outline keeps none. 139 MB → 27 MB retained (host) | `TokenizerMemoryTest`, equivalence property test with 4- and 0-line caches | tested |
+| A jump to the middle of a huge file before colours converge (PERF-15) | Heuristic guesses are cached with the lines walked to reach them and dropped on edit: one walk per viewport, not per line per frame | `TokenizerMemoryTest` (≤ 95 lines for 10 frames of 45) | tested |
+| One 5 MB line in the outline (PERF-16) | Every tokenizer line source is capped at the 10k columns the tokenizer reads | `TokenizerMemoryTest` | tested |
+| Per-keystroke and per-frame cache work on 1.46M lines (PERF-17/18/19) | Line ids and layouts are not touched when no line moves; heights answer in O(log blocks) from Fenwick trees with no allocation; the renderer reuses one probe key. No-wrap horizontal panning still re-records visible lines (open) | `EditorCacheWorkTest` | tested |
 
 ## Storage and clean-up
 
@@ -134,7 +139,7 @@ any chosen I/O hop before the store resumes.
 
 | Case | Handling | Test | Status |
 |---|---|---|---|
-| Low memory / `onTrimMemory` | `MemoryGovernor` sheds caches in order; unsaved work untouched. | `am send-trim-memory` test | planned |
+| Low memory / `onTrimMemory` (PERF-9) | `SSMarkdownApplication.onTrimMemory` drives `MemoryGovernor`, which sheds the Code view's layouts, then its tokens, then clean hidden buffers; unsaved work untouched. Admission counts the text, index, both tokenizers and one transient copy for a recovery or conflict (DS-19). | `MemoryGovernorTest`, `MarkdownCodeViewTest` (trim then redraw); `am send-trim-memory` on a device still planned | handled |
 | Low-RAM device (≤ 3 GB, `isLowRamDevice`) | Starts in the lean budget. | Emulator profile | planned |
 | Process death in the background | Journal restore; the UI comes back at the same file, view and position. | `am kill` test | planned |
 | Rotation, fold, resize, theme or font-scale change mid-anything | See `robustness.md` §5a. | Rotation matrix | planned |
@@ -150,6 +155,9 @@ any chosen I/O hop before the store resumes.
 | Tiny split-screen window (e.g. 300 dp high) | Split falls back to a single pane; bars stay. | Screenshot test | planned |
 | Clock or timezone change | History ordering uses a monotonic sequence number; times are display-only. | Unit test | planned |
 | App updated with an older journal or history format on disk | Versioned formats with migrations and tests. Unknown future versions are read-only, never deleted. | Migration tests | planned |
+| Recovery, conflict or History compare on a 20 MB file (PERF-22) | Whole-text Strings and diffs are built from immutable snapshots on io or compute, never on the main thread | `OffMainCopiesTest` | tested |
+| An exported multi-MB PNG arriving over the Preview bridge (PERF-23) | Messages over 64k chars decode on the preview-encode thread; later messages wait their turn | `OrderedDecoderTest` | tested |
+| Scrolling recomposes the whole editor screen (PERF-13) | The root never observes the anchor; the breadcrumb and reading line emit only when what is drawn changes | `ScrollEmissionsTest` (≤ 11 emissions for 1,000 lines) | tested |
 | Large clipboard or share (> about 1 MB) | Sent as a content URI (see `robustness.md` §5). | Instrumented test | planned |
 
 ## Build and release

@@ -20,7 +20,7 @@ counts as one.
 | J4 | **Get my work back after a crash or a dead battery** | Reopen the app | 0 taps to see "Recovered unsaved changes"; ≤ 1 s of typing lost | A blank editor; a silent restore over a newer file |
 | J5 | **Another app changed the file while I had edits** | Reopen → sheet → Merge my edits → resolve 1 overlap → Save | Never loses either side; 3–4 taps | Our old text overwriting the new file; the old undo stack reaching into new content |
 | J6 | **Export every diagram for a slide deck** | ⋮ → Export images… → Export | 3 taps to separate files in Downloads (the default); ZIP adds the folder picker once, then it's remembered | Saving each one by hand; blurry PNGs (2× default) |
-| J7 | **Tidy several files in a folder, then save them all** | ≡ → file → edit → ≡ → file → edit → Save all | One tap to save everything; conflicted files are skipped and listed | Losing which files are unsaved; Save all overwriting an outside change |
+| J7 | **Tidy several files in a folder, then save them all** | ≡ → file → edit → ≡ → file → edit → Save all | Save all is 1 tap on tablets (docked panel) and 2 on phones (≡ → Save all, or long-press Save → Save all). Conflicted files are skipped and listed | Losing which files are unsaved; Save all overwriting an outside change |
 | J8 | **Read a long doc in bed, in the dark, at a larger size** | Open → Preview (remembered) → pinch | Pinch reflows text smoothly; no white flash; the size is remembered | Bitmap-scaled blur; a white flash on load; the zoom resetting next time |
 | J9 | **Capture a snippet from Chrome into my notes file** | Share → SS Markdown → Append to notes.md | 2–3 taps; I stay in Chrome; a toast confirms | Opening the full app; racing the editor; appending to a stale copy |
 | J10 | **Copy one section into a chat or email** | Long-press the heading → Copy section | 2 taps; exact Markdown, or rich text on request | Copying the whole file; smart quotes inside code |
@@ -67,7 +67,7 @@ scored by walking these jobs on a device.
   with a visible message.
 
 **Typography and spacing**
-- UI: Inter (bundled) at 12 / 13 / 15 / 18 / 26 sp.
+- UI: Inter (bundled) at 11 (captions: line numbers, badges) / 12 / 13 / 15 / 18 / 26 sp.
 - Code: JetBrains Mono 12.5 sp, line height 1.6.
 - Preview body: 15 px at 1.6 line height, ~75 characters per line
   maximum in Fluid mode on wide screens.
@@ -90,6 +90,13 @@ scored by walking these jobs on a device.
   - **Info** — blue (`#1D5DBF` on `#EAF1FC`): recovery, notes and alerts.
   - **Caution** — amber (`#5C4300` on `#FFF4DA`): changed in another app,
     Big-file mode, contrast warnings.
+  - **Highlight** — yellow (`#FFF1B8`, current `#F5C542` with an ink
+    outline): find matches only.
+  - **Diff** — removed text is grey with a strike-through, added text is
+    info blue. Never red, because red means "needs you".
+  - **Code** — syntax colours *inside fenced code blocks* come from the
+    preview theme's code palette (highlight.js). Markdown syntax markers
+    in the editor stay ink.
   - **Ink** — everything else that needs emphasis: syntax markers,
     checkboxes, toggles, sliders, the caret, the current table cell and
     handles, pins.

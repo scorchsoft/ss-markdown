@@ -41,8 +41,11 @@ mockups agreed with Andrew win, and this file gets updated.
 
 **Bottom bar (64 dp)**
 - A segmented Code | Split | Preview control, with icon and label.
-- A zoom chip ("120% ↺") sits at the right edge only when the focused
-  pane's zoom differs from the default. Tapping it resets the zoom.
+- A **zoom chip** ("120% ↺") floats in the **top-right corner of the
+  pane it belongs to**, only when that pane's zoom differs from the
+  default. In Split it is unambiguous which pane it resets. It is never
+  in the bottom bar, which has no room for it. Tapping it resets the
+  zoom.
 - While the keyboard is up, the bar is replaced by the formatting strip.
   It is **always one row**.
   - It holds H, B, I, list, task, code, link, indent and undo, and
@@ -136,8 +139,9 @@ instead (see "File changed outside the app").
 
 ## Find & replace (⋮ → Find & replace, or Ctrl+F)
 
-The find bar temporarily takes the header's place; close it with ✕ or
-Back.
+The find bar slides in **under** the header, so the title, the unsaved
+dot and Save stay visible while you replace. Close it with ✕ or Back.
+The Replace row opens with a "⇄ Replace" toggle at the end of row 1.
 - **Row 1:** the query, "3 of 12", and previous / next.
 - **Row 2** (only after "Replace" is opened): the replacement, Replace,
   and All.
@@ -168,6 +172,37 @@ Save all, and errors. Everything else that needs emphasis uses **ink**:
 syntax markers, checkboxes, toggles, sliders, the caret, the current
 table cell, and pins. Text selection uses the system selection colour.
 Never put a one-sided coloured border on anything.
+
+## More decisions from review 3
+
+- **Strip discoverability:** the scrolling part of the strip is sized so
+  the last visible key is cut at about half, plus an edge fade, so it
+  obviously scrolls. Order: H B I list task code link indent table
+  quote redo outdent. Undo and `{ }` are pinned on the right.
+- **Split divider:** 48 dp invisible touch area around the 14 dp
+  handle, plus TalkBack actions "Make top larger / smaller". Task
+  checkboxes in Preview get a 48 dp hit area.
+- **Copy doesn't jump:** the Save slot reserves the width of the "Save"
+  pill in every state, so Copy never moves.
+- **Clean tick:** muted ink (`#636369`). It *is* the Save button in its
+  clean state, so it's present in autosave too.
+- **Share-in button label** follows the choice: "Append" or "Create
+  note".
+- **Leaving:** Home or Recents never prompt, because the journal
+  protects everything. After the app is swiped away from Recents, the
+  recovery banner says "SS Markdown was closed before you saved", not
+  "closed unexpectedly". Dismissing the conflict sheet keeps your edits
+  open, leaves autosave paused, and leaves the "Changed in another app ·
+  Review" banner in place.
+- **Mermaid sheet:** "Save as PNG" uses the scale chosen in Export images
+  (default 2×).
+- **Non-Markdown files** (`.txt`) are muted in file lists: they open in
+  Code only, with no Preview.
+- **Editor accessibility:** `MarkdownCodeView` exposes visible lines as
+  a virtual accessibility tree, with cursor movement by character, word,
+  line and heading. Preview editing relies on the WebView's own
+  `contenteditable` accessibility, and the keyboard matrix includes
+  TalkBack.
 
 ## Glossary
 
@@ -241,6 +276,10 @@ separate Recent menu.
   files.
 - **Files tab:** recent files (pinned files first), then the folder tree
   when a folder is open, with unsaved dots.
+- Every outline row has a **⋯** (the visible twin of long-press). Every
+  file and draft row has a ⋯ for Rename · Duplicate · Delete.
+- The Navigator opens **below the header**, so the title, the unsaved
+  dot and Save stay visible.
 - **Long-press a heading** here or in Preview to get:
   - Copy section (Markdown)
   - Copy section as rich text
@@ -345,10 +384,26 @@ the keyboard opens, and the block under edit gets a faint tint.
   (Heading 1–3, Paragraph, Quote, Code block), then B, I, inline code,
   link, list, insert table, and undo. Toggles show their state, so Bold
   is pressed when the cursor is in bold text.
-- **Edits are scoped to one block.** When the cursor leaves a block,
-  only that block is turned back into Markdown and spliced into its
-  source lines. Every other line of the file stays byte-for-byte as it
-  was, so editing in Preview never reformats a hand-written document.
+- **Edits never rewrite bytes you didn't touch, even inside the block.**
+  - The renderer emits an **inline source map**: every text run in the
+    page knows its exact source offsets.
+  - A text change in Preview (typing, deleting, pasting plain text) maps
+    to a **minimal source edit** at those offsets. Fixing a typo changes
+    only those characters.
+  - Formatting actions (bold, heading level, list toggles) insert or
+    remove markers using **the document's own style**, detected per
+    file: `*` vs `_`, `-` vs `+` vs `*` bullets, `1.` vs `1)`, hard break
+    style. Only the touched node is re-serialised.
+  - Constructs that can't round-trip safely are shown as **non-editable
+    in Preview**, with a small "Edit in Code" chip: raw HTML, footnote
+    and reference definitions, front matter, maths and diagrams. Tapping
+    the chip switches to Code at that line.
+  - Edits apply to the source **as they happen**, debounced at about
+    150 ms. They are never held until the cursor leaves the block, so
+    rotation, a crash or switching view never loses a Preview edit.
+- **Reading guard:** a tap within 500 ms of a scroll or fling never
+  starts editing. While editing in Preview, the strip shows a **Done**
+  key that closes the keyboard and returns you to reading.
 - Links: tapping shows the *Open · Edit link* chip (Gestures, rule 3).
 - Diagrams, maths and images are not text, so tapping them opens the
   viewer instead of a cursor.
@@ -357,7 +412,10 @@ the keyboard opens, and the block under edit gets a faint tint.
 
 ### Tables
 
-Tapping a cell puts the cursor in it, and a dark table toolbar appears
+Prev/Next cell keys are 48 dp. Each column and row handle has a 48 dp
+touch area and TalkBack actions (move left/right/up/down, delete), with
+⋯ in the table toolbar as the visible twin. Tapping a cell puts the
+cursor in it, and a dark table toolbar appears
 above the table:
 - **+ Row** and **+ Column** insert after the current cell.
 - Align left / centre / right applies to the current column.

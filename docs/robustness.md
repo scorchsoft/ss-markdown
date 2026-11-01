@@ -236,7 +236,7 @@ views, which is the classic way an Android editor loses text. Our rules:
    it; they hold no state of their own.
 2. **The same view instance moves; it is never rebuilt.** The editor and
    the WebView are hosted with `movableContentOf`, so moving between
-   split layouts keeps the same `EditText` and `WebView`, along with
+   split layouts keeps the same `MarkdownCodeView` and `WebView`, along with
    their cursor, selection, scroll, undo and keyboard connection.
 3. **Avoid recreation where it's safe.** The manifest handles
    `orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|density|uiMode|fontScale`
@@ -247,7 +247,8 @@ views, which is the classic way an Android editor loses text. Our rules:
    keyboard's in-progress word is committed (`finishComposingText`), and
    any half-done Preview block edit (an uncommitted `contenteditable`
    change or a table cell) is turned back into Markdown immediately.
-   Preview edits also flush on every change, never only when the cursor
+   Preview edits apply to the source as they happen (debounced about
+   150 ms; see ux-spec "Editing in Preview"), never only when the cursor
    leaves the block.
 5. **Dialogs and sheets** (find & replace text, the theme editor,
    unsaved prompts) keep their inputs in saved state, so a rotation

@@ -41,6 +41,9 @@ internal object StripIcons {
     val cursorLeft by lazy { icon("M19 12H5", "M11 6l-6 6 6 6") }
     val cursorRight by lazy { icon("M5 12h14", "M13 6l6 6-6 6") }
     val done by lazy { icon("M5 12l5 5L20 7") }
+    val prevCell by lazy { icon("M14 6l-6 6 6 6", "M20 6v12") }
+    val nextCell by lazy { icon("M10 6l6 6-6 6", "M4 6v12") }
+    val more by lazy { icon(dot(5f, 12f), dot(12f, 12f), dot(19f, 12f)) }
     val saved by lazy { icon("M5 12l5 5L20 7") }
 
     private const val ROUNDED_SQUARE = "M7 4h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z"

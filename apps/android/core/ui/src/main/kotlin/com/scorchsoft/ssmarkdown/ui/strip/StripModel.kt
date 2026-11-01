@@ -37,6 +37,36 @@ enum class StripKey(
     Undo(R.string.strip_undo),
     Symbols(R.string.strip_symbols),
     Done(R.string.strip_done),
+
+    /** Table mode: moves the caret to the previous cell. */
+    PrevCell(R.string.strip_prev_cell),
+
+    /** Table mode: moves the caret to the next cell; on the last cell the editor adds a row. */
+    NextCell(R.string.strip_next_cell),
+
+    /** Table mode: opens the row and column actions ([TableAction]). */
+    TableMenu(R.string.strip_table_menu),
+}
+
+/**
+ * The row and column actions behind the table-mode overflow key, in menu
+ * order (docs/ux-spec.md, "Tables": insert after and before, move, delete).
+ * The editor applies them to the table the caret is in.
+ */
+enum class TableAction(
+    @param:StringRes val label: Int,
+) {
+    AddRowBelow(R.string.table_add_row_below),
+    AddRowAbove(R.string.table_add_row_above),
+    AddColumnRight(R.string.table_add_column_right),
+    AddColumnLeft(R.string.table_add_column_left),
+    MoveRowUp(R.string.table_move_row_up),
+    MoveRowDown(R.string.table_move_row_down),
+    MoveColumnLeft(R.string.table_move_column_left),
+    MoveColumnRight(R.string.table_move_column_right),
+    DeleteRow(R.string.table_delete_row),
+    DeleteColumn(R.string.table_delete_column),
+    DeleteTable(R.string.table_delete_table),
 }
 
 /** A key on the symbols page: the [text] it types and what TalkBack calls it. */
@@ -67,6 +97,11 @@ data class FormattingStripState(
     val canRedo: Boolean = false,
     /** Set in landscape with the keyboard up; null in portrait, where the header carries these. */
     val document: StripDocument? = null,
+    /**
+     * The caret is in a table. The strip's right end becomes ‹ Prev cell /
+     * Next cell ›, with the row and column actions behind ⋯.
+     */
+    val inTable: Boolean = false,
 )
 
 /**
@@ -121,6 +156,18 @@ object StripLayout {
         )
 
     fun scrollingKeys(mode: StripMode): List<StripKey> = if (mode == StripMode.Code) codeKeys else previewKeys
+
+    /**
+     * Table mode's keys, pinned just before Undo so they never scroll away:
+     * ⋯ (row and column actions), then ‹ Prev cell and Next cell ›, each a
+     * full 48 dp key. Empty outside a table or on the symbols page.
+     */
+    fun tableKeys(state: FormattingStripState): List<StripKey> =
+        if (state.inTable && state.page == StripPage.Formatting) {
+            listOf(StripKey.TableMenu, StripKey.PrevCell, StripKey.NextCell)
+        } else {
+            emptyList()
+        }
 
     /** The keys pinned at the right end: Undo, then `{ }` in Code or Done in Preview. */
     fun pinnedKeys(mode: StripMode): List<StripKey> =

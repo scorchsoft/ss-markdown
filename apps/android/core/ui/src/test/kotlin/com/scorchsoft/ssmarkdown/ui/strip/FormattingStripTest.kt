@@ -1,14 +1,17 @@
 package com.scorchsoft.ssmarkdown.ui.strip
 
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.core.ui.SSMarkdownTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -30,6 +33,7 @@ class FormattingStripTest {
     private val symbols = mutableListOf<String>()
     private val steps = mutableListOf<CursorStep>()
     private var saves = 0
+    private val actions = mutableListOf<TableAction>()
 
     private fun show(state: FormattingStripState) =
         rule.setContent {
@@ -40,6 +44,7 @@ class FormattingStripTest {
                     onSymbol = { symbols += it },
                     onCursor = { steps += it },
                     onSave = { saves++ },
+                    onTableAction = { actions += it },
                 )
             }
         }
@@ -140,6 +145,39 @@ class FormattingStripTest {
         show(FormattingStripState(document = StripDocument("release.md", isDirty = false)))
         node("Unsaved").assertDoesNotExist()
         node("Saved").assertExists()
+    }
+
+    @Test
+    fun tableModePinsPrevAndNextCellAsFullSizeKeys() {
+        show(FormattingStripState(canUndo = true, inTable = true))
+        node("Previous cell").assertIsEnabled().assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
+        node("Next cell").assertWidthIsAtLeast(48.dp).performClick()
+        node("Previous cell").performClick()
+        assertEquals(listOf(StripKey.NextCell, StripKey.PrevCell), keys)
+        // Undo stays pinned beside them, and the formatting keys still scroll.
+        node("Undo").assertExists()
+        node("Bold").assertExists()
+    }
+
+    @Test
+    fun tableActionsLiveBehindTheOverflowKey() {
+        show(FormattingStripState(inTable = true))
+        rule.onNodeWithText("Delete row").assertDoesNotExist()
+        node("Table actions").performClick()
+        rule.onNodeWithText("Add column right").assertExists()
+        rule.onNodeWithText("Delete row").performClick()
+        assertEquals(listOf(TableAction.DeleteRow), actions)
+        // The menu closes after a choice, and ⋯ itself is not an edit key.
+        rule.onNodeWithText("Add column right").assertDoesNotExist()
+        assertTrue(keys.isEmpty())
+    }
+
+    @Test
+    fun outsideATableThereAreNoCellKeys() {
+        show(FormattingStripState())
+        node("Previous cell").assertDoesNotExist()
+        node("Next cell").assertDoesNotExist()
+        node("Table actions").assertDoesNotExist()
     }
 
     private companion object {

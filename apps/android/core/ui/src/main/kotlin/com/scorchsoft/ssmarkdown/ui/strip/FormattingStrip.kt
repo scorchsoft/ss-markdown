@@ -38,7 +38,10 @@ private val FadeWidth = 24.dp
  * visible key is cut at about half, and an edge fade marks the cut.
  * Undo and `{ }` (Code) or Undo and Done (Preview) are pinned at the
  * right. In landscape the filename, unsaved dot and Save ride along,
- * because the header has stepped aside.
+ * because the header has stepped aside. With the caret in a table, ⋯,
+ * ‹ Prev cell and Next cell › are pinned before Undo ([StripLayout.tableKeys]);
+ * Prev and Next come back through [onKey], the ⋯ menu's choices through
+ * [onTableAction].
  *
  * Stateless: [state] in, callbacks out. The editor runs each key's
  * command, flips [FormattingStripState.page] with [StripPaging], and
@@ -52,6 +55,7 @@ fun FormattingStrip(
     onCursor: (CursorStep) -> Unit,
     modifier: Modifier = Modifier,
     onSave: () -> Unit = {},
+    onTableAction: (TableAction) -> Unit = {},
 ) {
     val colors = SS.colors
     val toolbarLabel = stringResource(StripLabels.toolbar)
@@ -72,6 +76,7 @@ fun FormattingStrip(
         BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxHeight()) {
             ScrollingKeys(state, maxWidth, onKey, onSymbol, onCursor)
         }
+        TableKeys(StripLayout.tableKeys(state), onKey, onTableAction)
         StripKeyButton(StripKey.Undo, pressed = false, enabled = state.canUndo) { onKey(StripKey.Undo) }
         if (state.mode == StripMode.Code) {
             SymbolsToggleKey(state.page == StripPage.Symbols) { onKey(StripKey.Symbols) }

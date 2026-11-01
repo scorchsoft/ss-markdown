@@ -19,6 +19,23 @@ class StripLayoutTest {
     }
 
     @Test
+    fun tableKeysAppearOnlyInATableOnTheFormattingPage() {
+        assertEquals(emptyList<StripKey>(), StripLayout.tableKeys(FormattingStripState()))
+        assertEquals(
+            listOf(StripKey.TableMenu, StripKey.PrevCell, StripKey.NextCell),
+            StripLayout.tableKeys(FormattingStripState(inTable = true)),
+        )
+        assertEquals(
+            listOf(StripKey.TableMenu, StripKey.PrevCell, StripKey.NextCell),
+            StripLayout.tableKeys(FormattingStripState(mode = StripMode.Preview, inTable = true)),
+        )
+        assertEquals(
+            emptyList<StripKey>(),
+            StripLayout.tableKeys(FormattingStripState(inTable = true, page = StripPage.Symbols)),
+        )
+    }
+
+    @Test
     fun symbolsFollowTheSpecOrder() =
         assertEquals("` [ ] ( ) # * > | - = !", StripLayout.symbols.joinToString(" ") { it.text })
 

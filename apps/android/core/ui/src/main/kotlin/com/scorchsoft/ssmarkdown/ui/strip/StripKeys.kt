@@ -127,20 +127,25 @@ private fun KeyGlyph(
     }
 }
 
-private fun iconFor(key: StripKey): ImageVector =
-    when (key) {
-        StripKey.BulletList -> StripIcons.bulletList
-        StripKey.Task -> StripIcons.task
-        StripKey.Code -> StripIcons.code
-        StripKey.Link -> StripIcons.link
-        StripKey.Indent -> StripIcons.indent
-        StripKey.Outdent -> StripIcons.outdent
-        StripKey.Table -> StripIcons.table
-        StripKey.Quote -> StripIcons.quote
-        StripKey.Undo -> StripIcons.undo
-        StripKey.Redo -> StripIcons.redo
-        else -> StripIcons.done
-    }
+/** The line icon for each key that has one; keys drawn as letters are absent, and anything else shows Done's tick. */
+private val keyIcons: Map<StripKey, () -> ImageVector> =
+    mapOf(
+        StripKey.BulletList to { StripIcons.bulletList },
+        StripKey.Task to { StripIcons.task },
+        StripKey.Code to { StripIcons.code },
+        StripKey.Link to { StripIcons.link },
+        StripKey.Indent to { StripIcons.indent },
+        StripKey.Outdent to { StripIcons.outdent },
+        StripKey.Table to { StripIcons.table },
+        StripKey.Quote to { StripIcons.quote },
+        StripKey.Undo to { StripIcons.undo },
+        StripKey.Redo to { StripIcons.redo },
+        StripKey.PrevCell to { StripIcons.prevCell },
+        StripKey.NextCell to { StripIcons.nextCell },
+        StripKey.TableMenu to { StripIcons.more },
+    )
+
+private fun iconFor(key: StripKey): ImageVector = keyIcons[key]?.invoke() ?: StripIcons.done
 
 /**
  * The pinned `{ }` key. It is outlined so it reads as a page switch, and

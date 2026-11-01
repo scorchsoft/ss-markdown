@@ -43,12 +43,21 @@ class StripScreenshotTest(
         )
 
     @Test
+    fun table() =
+        capture(
+            "strip-table",
+            FormattingStripState(canUndo = true, inTable = true),
+            FormattingStripState(mode = StripMode.Preview, canUndo = true, inTable = true),
+        )
+
+    @Test
     @Config(qualifiers = "w844dp-h240dp-land-420dpi")
     fun landscape() =
         capture(
             "strip-landscape",
             FormattingStripState(canUndo = true, document = StripDocument("release-notes.md", isDirty = true)),
             FormattingStripState(canUndo = true, document = StripDocument("release-notes.md", isDirty = false)),
+            FormattingStripState(canUndo = true, inTable = true, document = StripDocument("budget.md", isDirty = true)),
         )
 
     private fun capture(

@@ -65,13 +65,25 @@ class IncrementalEquivalencePropertyTest {
 
     @Test
     fun `incremental tokens equal a full re-tokenise after random edits`() {
-        for (seed in 0 until seeds) runSeed(seed.toLong())
+        for (seed in 0 until seeds) runSeed(seed.toLong(), IncrementalTokenizer.DEFAULT_TOKEN_CACHE_LINES)
     }
 
-    private fun runSeed(seed: Long) {
+    @Test
+    fun `a token cache smaller than the document changes no token (PERF-9)`() {
+        // Four lines collide and evict constantly; none keeps every token re-derived from stored states.
+        for (seed in 0 until seeds) {
+            runSeed(seed.toLong(), cacheLines = 4)
+            runSeed(seed.toLong(), cacheLines = 0)
+        }
+    }
+
+    private fun runSeed(
+        seed: Long,
+        cacheLines: Int,
+    ) {
         val random = Random(seed)
         val doc = TestDoc(List(1 + random.nextInt(40)) { fragments[random.nextInt(fragments.size)] }.joinToString("\n"))
-        val cache = IncrementalTokenizer(doc)
+        val cache = IncrementalTokenizer(doc, tokenCacheLines = cacheLines)
         repeat(1 + random.nextInt(25)) {
             randomEdit(random, doc, cache)
             when (random.nextInt(4)) {

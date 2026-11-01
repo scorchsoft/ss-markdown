@@ -10,7 +10,9 @@ import com.scorchsoft.ssmarkdown.text.PieceTree
  * "Copy section", kept current from the editor's line changes.
  *
  * It owns its own [IncrementalTokenizer] over the live tree (the editor's
- * colouring cache is private to the view). Work happens only in
+ * colouring cache is private to the view, and absent in Preview). It keeps
+ * block states only, about ten bytes a line, and no tokens: the outline
+ * never draws (performance review PERF-9). Work happens only in
  * [advance], which the host calls from idle frames with a small budget,
  * so a 10k-heading file never blocks a keystroke (quality-bar §4: ≤ 8 ms
  * of main-thread tokenising per frame).
@@ -18,7 +20,7 @@ import com.scorchsoft.ssmarkdown.text.PieceTree
 class OutlineTracker(
     private val tree: PieceTree,
 ) {
-    private val tokenizer = IncrementalTokenizer(tree.asLineSource())
+    private val tokenizer = IncrementalTokenizer(tree.asLineSource(), tokenCacheLines = 0)
 
     /** Bumped whenever the visible outline may have changed, so Compose state can key on it. */
     var revision: Int = 0
@@ -61,6 +63,9 @@ class OutlineTracker(
 
     /** The line range of the section headed on [headingLine], or null. */
     fun sectionRange(headingLine: Int): IntRange? = tokenizer.outline.sectionRange(headingLine)
+
+    /** What the outline keeps alive, for the memory governor's accounting. */
+    fun retainedBytesEstimate(): Long = tokenizer.retainedBytesEstimate()
 
     /** Lines in the tree, for the reading-position line. */
     val lineCount: Int get() = tree.lineCount

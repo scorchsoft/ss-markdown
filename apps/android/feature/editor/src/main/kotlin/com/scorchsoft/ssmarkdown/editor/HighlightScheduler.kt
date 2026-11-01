@@ -4,8 +4,8 @@ import android.view.Choreographer
 import com.scorchsoft.ssmarkdown.markdown.IncrementalTokenizer
 import com.scorchsoft.ssmarkdown.markdown.LineResult
 import com.scorchsoft.ssmarkdown.markdown.LineSource
-import com.scorchsoft.ssmarkdown.markdown.LineTokenizer
 import com.scorchsoft.ssmarkdown.markdown.NanoClock
+import com.scorchsoft.ssmarkdown.markdown.asLineSource
 import com.scorchsoft.ssmarkdown.text.PieceTree
 
 /**
@@ -56,6 +56,13 @@ class HighlightScheduler(
         tokenizer = IncrementalTokenizer(cappedSource(newText))
         visible = 0..0
     }
+
+    /**
+     * The memory governor's "tokenizer cache" step: drops every cached
+     * token. Per-line states stay, so the next frame re-tokenises only the
+     * lines it draws.
+     */
+    fun trimCache() = tokenizer.trimCache()
 
     /** Follows an edit, in the session's terms. */
     fun onEdit(change: LineChange) {
@@ -115,15 +122,6 @@ class HighlightScheduler(
          * Lines as the tokenizer sees them: cut at the tokenised prefix, so
          * a 5 MB line never becomes a 5 MB string just to colour 10,000 chars.
          */
-        fun cappedSource(text: PieceTree): LineSource =
-            object : LineSource {
-                override val lineCount: Int get() = text.lineCount
-
-                override fun lineText(line: Int): CharSequence {
-                    val start = text.lineStartOffset(line)
-                    val end = minOf(text.lineEndOffset(line), start + LineTokenizer.MAX_TOKENIZED_COLUMNS)
-                    return text.getText(start, end)
-                }
-            }
+        fun cappedSource(text: PieceTree): LineSource = text.asLineSource()
     }
 }

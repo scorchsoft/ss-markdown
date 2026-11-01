@@ -30,10 +30,51 @@ class TokenizerBenchmarkTest {
                 "${cache.outline.size} headings",
         )
 
+        retained(doc)
+        jumpFrames(doc)
         typing(doc, cache, paragraphsOnly = true)
         typing(doc, cache, paragraphsOnly = false)
         fenceAtTop(doc, cache, "```", "a ``` fence (closed by the corpus's next fence)")
         fenceAtTop(doc, cache, "~~~~", "a ~~~~ fence nothing closes (worst case)")
+    }
+
+    /** Heap kept alive by one fully tokenised cache (PERF-9): measured, then the cache's own estimate. */
+    private fun retained(doc: TestDoc) {
+        val before = usedHeap()
+        val cache = fullyTokenized(doc)
+        val after = usedHeap()
+        println(
+            "retained by one full tokenise: ${(after - before) / 1_048_576} MB measured, " +
+                "${cache.retainedBytesEstimate() / 1_048_576} MB estimated, ${cache.cachedLines} lines of tokens held",
+        )
+    }
+
+    /** Ten frames of 45 visible lines at line 585k before the accurate pass gets there (PERF-15). */
+    private fun jumpFrames(doc: TestDoc) {
+        val cache = IncrementalTokenizer(doc)
+        cache.tokenizeUntil(VIEWPORT, BUDGET_NS)
+        val first = minOf(JUMP_LINE, doc.lineCount - JUMP_VISIBLE)
+        val frameNs = LongArray(JUMP_FRAMES)
+        for (frame in 0 until JUMP_FRAMES) {
+            frameNs[frame] = timed { for (line in first until first + JUMP_VISIBLE) cache.resultAt(line) }
+        }
+        println(
+            "after a jump: first frame ${frameNs[0] / 1_000} µs, later frames ${frameNs
+                .drop(
+                    1,
+                ).average()
+                .toLong() / 1_000} µs, " +
+                "${cache.linesTokenizedForDisplay} lines tokenised in $JUMP_FRAMES frames",
+        )
+    }
+
+    private fun usedHeap(): Long {
+        val runtime = Runtime.getRuntime()
+        repeat(3) {
+            System.gc()
+            Thread.sleep(50)
+        }
+        return runtime.totalMemory() - runtime.freeMemory()
     }
 
     /** Inserts one char per edit and re-tokenises to the viewport below it, as the editor does per keystroke. */
@@ -122,5 +163,8 @@ class TokenizerBenchmarkTest {
         const val VIEWPORT = 60
         const val BUDGET_NS = 8_000_000L
         const val MS = 1_000_000L
+        const val JUMP_LINE = 585_000
+        const val JUMP_VISIBLE = 45
+        const val JUMP_FRAMES = 10
     }
 }

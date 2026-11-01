@@ -17,20 +17,31 @@ public interface LineSource {
     public fun lineText(line: Int): CharSequence
 }
 
-/** The live tree's lines. [PieceTree.lineContent] caches the last line, which the tokenizer often re-reads. */
+/**
+ * The live tree's lines, cut at [LineTokenizer.MAX_TOKENIZED_COLUMNS]: the
+ * tokenizer never reads further, so a 5 MB line costs a 10k-char copy
+ * rather than a 5 MB string each time it is re-read (performance review
+ * PERF-16).
+ */
 public fun PieceTree.asLineSource(): LineSource =
     object : LineSource {
         override val lineCount: Int get() = this@asLineSource.lineCount
 
-        override fun lineText(line: Int): CharSequence = lineContent(line)
+        override fun lineText(line: Int): CharSequence {
+            val start = lineStartOffset(line)
+            return getText(start, minOf(lineEndOffset(line), start + LineTokenizer.MAX_TOKENIZED_COLUMNS))
+        }
     }
 
-/** A snapshot's lines, for tokenising off the main thread. */
+/** A snapshot's lines, for tokenising off the main thread; cut like the tree's. */
 public fun Snapshot.asLineSource(): LineSource =
     object : LineSource {
         override val lineCount: Int get() = this@asLineSource.lineCount
 
-        override fun lineText(line: Int): CharSequence = lineContent(line)
+        override fun lineText(line: Int): CharSequence {
+            val start = lineStartOffset(line)
+            return subSequence(start, minOf(lineEndOffset(line), start + LineTokenizer.MAX_TOKENIZED_COLUMNS))
+        }
     }
 
 /**

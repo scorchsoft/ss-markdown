@@ -5,18 +5,30 @@ package com.scorchsoft.ssmarkdown.markdown
  * time budget: the Code pane's syntax-highlighting cache
  * (docs/robustness.md, "Lazy, with a time budget").
  *
- * For each line it keeps the [LineResult], the state the line was
- * tokenised from and the [LineRole] it was read with. Lines before the
- * first *pending mark* are accurate. An edit ([invalidate]) drops the
- * edited lines' results and places a mark; [tokenizeUntil] and
- * [continueInIdle] work forward from the first mark and **stop as soon as a
- * line's new end state equals the start state the next line was tokenised
- * from** (VS Code's `textModelTokens`). Typing in a paragraph therefore
- * re-tokenises one line, while opening a fence on line 0 of a 200k-line
- * file re-tokenises the viewport within the budget and the rest in idle
- * slices. Lines not reached yet are answered by [tokenizeHeuristically]:
- * their last tokens if the text is unchanged, otherwise a guess from the
- * nearest known state, corrected when the accurate pass arrives.
+ * For each line it keeps only what the incremental pass needs: the state
+ * the line was tokenised from, the state it ended in, the [LineRole] it was
+ * read with and the role it asked of the line above. That is about ten
+ * bytes a line, whatever the line holds. The tokens themselves live in a
+ * small direct-mapped cache of [tokenCacheLines] lines (the viewport and a
+ * margin), and a line that falls out is re-tokenised from its stored start
+ * state when it is next drawn: one line, exact, a few microseconds
+ * (CodeMirror keeps states and drops tokens the same way). Before this, a
+ * 20 MB file held about 121 MB of tokens per tokenizer (performance review
+ * PERF-9).
+ *
+ * Lines before the first *pending mark* are accurate. An edit
+ * ([invalidate]) drops the edited lines' states and places a mark;
+ * [tokenizeUntil] and [continueInIdle] work forward from the first mark and
+ * **stop as soon as a line's new end state equals the start state the next
+ * line was tokenised from** (VS Code's `textModelTokens`). Typing in a
+ * paragraph therefore re-tokenises one line, while opening a fence on line
+ * 0 of a 200k-line file re-tokenises the viewport within the budget and the
+ * rest in idle slices. Lines not reached yet are answered by
+ * [tokenizeHeuristically]: their last tokens if the text is unchanged,
+ * otherwise a guess from the nearest known state, corrected when the
+ * accurate pass arrives. Guesses are cached too, so a viewport far below
+ * the accurate frontier costs one walk, not one walk per line per frame
+ * (PERF-15).
  *
  * The two non-local rules are handled here. A setext underline or table
  * delimiter row restyles the line above it, so whenever a line's
@@ -27,11 +39,15 @@ package com.scorchsoft.ssmarkdown.markdown
  *
  * Not thread-safe, and it starts no threads: the caller schedules the
  * slices (CodeMirror's model) and confines the cache to one thread.
+ *
+ * @param tokenCacheLines lines whose tokens are kept, rounded up to a power
+ *   of two; 0 keeps none (the outline, which never draws).
  */
 @Suppress("TooManyFunctions") // The cache's whole contract: edits, budgeted passes, lookups and stats.
 public class IncrementalTokenizer(
     private val source: LineSource,
     private val tokenizer: LineTokenizer = LineTokenizer(),
+    tokenCacheLines: Int = DEFAULT_TOKEN_CACHE_LINES,
 ) {
     /** Headings, for the outline, breadcrumb and Copy section. */
     public val outline: Outline = Outline()
@@ -51,11 +67,28 @@ public class IncrementalTokenizer(
     public var linesTokenized: Long = 0
         private set
 
-    private var results = arrayOfNulls<LineResult>(lineCount)
+    /**
+     * Lines tokenised to answer [resultAt] or [tokenizeHeuristically]
+     * rather than by the accurate pass: cache misses and guesses. A
+     * statistic for the bounded-work tests of PERF-15.
+     */
+    public var linesTokenizedForDisplay: Long = 0
+        private set
+
     private var starts = arrayOfNulls<LineState>(lineCount)
+    private var ends = arrayOfNulls<LineState>(lineCount)
     private var roles = ByteArray(lineCount)
+    private var aboveRoles = ByteArray(lineCount)
     private val marks = SortedMarks()
     private val guesser = LineTokenizer()
+    private val cache = TokenCache(tokenCacheLines)
+
+    /**
+     * One shared instance per distinct state. A paragraph's first line ends
+     * in a fresh "paragraph open" state, so without this a document holds
+     * one state object per block: 25 MB of duplicates in a 20 MB file.
+     */
+    private val interned = HashMap<LineState, LineState>()
 
     init {
         marks.add(0)
@@ -70,6 +103,25 @@ public class IncrementalTokenizer(
 
     /** True if [line]'s tokens are final for the current text. */
     public fun isAccurate(line: Int): Boolean = line < accurateLineCount
+
+    /** Lines whose tokens are held right now; never more than the cache's capacity. */
+    public val cachedLines: Int get() = cache.size
+
+    /**
+     * Roughly what this cache keeps alive, in bytes: the per-line arrays at
+     * their current capacity plus the cached tokens. For the memory
+     * governor's accounting and the PERF-9 regression test.
+     */
+    public fun retainedBytesEstimate(): Long = starts.size.toLong() * BYTES_PER_LINE + cache.retainedBytesEstimate()
+
+    /**
+     * Drops every cached token (the memory governor's "tokenizer cache"
+     * step). States are kept, so nothing is re-tokenised beyond the lines
+     * drawn next.
+     */
+    public fun trimCache() {
+        cache.clear()
+    }
 
     /**
      * Records an edit: old lines `[fromLine, fromLine + linesRemoved)` were
@@ -89,6 +141,7 @@ public class IncrementalTokenizer(
         }
         val newCount = lineCount - linesRemoved + linesInserted
         replaceRange(fromLine, linesRemoved, linesInserted, newCount)
+        cache.onEdit(fromLine, linesRemoved, linesInserted)
         outline.replaceLines(fromLine, linesRemoved, linesInserted)
         references.replaceLines(fromLine, linesRemoved, linesInserted)
         marks.replaceLines(fromLine, linesRemoved, linesInserted)
@@ -136,32 +189,60 @@ public class IncrementalTokenizer(
 
     /** The best tokens for [line] now: accurate if reached, otherwise [tokenizeHeuristically]. */
     public fun resultAt(line: Int): LineResult {
-        val cached = results[line]
-        return if (cached != null && isAccurate(line)) cached else tokenizeHeuristically(line)
+        if (!isAccurate(line)) return tokenizeHeuristically(line)
+        val slot = cache.slotOf(line)
+        if (slot >= 0 && !cache.isGuess(slot)) return cache.resultIn(slot)
+        val result = retokenize(line, checkNotNull(starts[line]))
+        cache.put(line, result, guess = false)
+        return result
     }
 
     /**
      * Tokens for a line the accurate pass has not reached. Its previous
      * tokens are reused while its text is unchanged; otherwise it is
      * tokenised from the nearest earlier line with a known state (at most
-     * [HEURISTIC_LOOKBACK] lines back). Nothing is stored: the accurate
-     * pass replaces the guess when it arrives.
+     * [HEURISTIC_LOOKBACK] lines back). Nothing is stored in the per-line
+     * state: the accurate pass replaces the guess when it arrives. The
+     * guess and the lines walked to reach it are cached, so the next line
+     * down, or the same line next frame, costs nothing.
      */
     public fun tokenizeHeuristically(line: Int): LineResult {
-        results[line]?.let { return it }
+        val slot = cache.slotOf(line)
+        if (slot >= 0) return cache.resultIn(slot)
+        starts[line]?.let { start ->
+            // The text is unchanged since this line was tokenised from [start]: the same tokens, re-derived.
+            return retokenize(line, start).also { cache.put(line, it, guess = true) }
+        }
         var known = line - 1
-        while (known >= 0 && line - known <= HEURISTIC_LOOKBACK && results[known] == null) known--
+        while (known >= 0 && line - known <= HEURISTIC_LOOKBACK && knownEnd(known) == null) known--
         var state =
             when {
                 known < 0 -> LineState.DOCUMENT_START
-                else -> results[known]?.endState ?: LineState.NORMAL
+                else -> knownEnd(known) ?: LineState.NORMAL
             }
         var result: LineResult? = null
         for (i in known + 1..line) {
             result = guesser.tokenize(source.lineText(i), state)
+            linesTokenizedForDisplay++
+            cache.put(i, result, guess = true)
             state = result.endState
         }
         return checkNotNull(result)
+    }
+
+    /** The end state of [line] if anything (a stored pass or a cached guess) knows it. */
+    private fun knownEnd(line: Int): LineState? {
+        ends[line]?.let { return it }
+        val slot = cache.slotOf(line)
+        return if (slot >= 0) cache.resultIn(slot).endState else null
+    }
+
+    private fun retokenize(
+        line: Int,
+        start: LineState,
+    ): LineResult {
+        linesTokenizedForDisplay++
+        return guesser.tokenize(source.lineText(line), start, LineRole.entries[roles[line].toInt()])
     }
 
     private fun run(
@@ -181,23 +262,23 @@ public class IncrementalTokenizer(
 
     /** Tokenises the first pending line, then either converges or moves the mark to the next line. */
     private fun step(line: Int) {
-        val start = if (line == 0) LineState.DOCUMENT_START else checkNotNull(results[line - 1]).endState
+        val start = if (line == 0) LineState.DOCUMENT_START else checkNotNull(ends[line - 1])
         val role = LineRole.entries[roles[line].toInt()]
         val result = store(line, start, role)
         fixLineAbove(line, result)
         val next = line + 1
-        val nextResult = if (next < lineCount) results[next] else null
         when {
             next >= lineCount -> {
                 marks.removeFirst()
             }
 
-            nextResult != null && starts[next] == result.endState -> {
+            starts[next] != null && starts[next] == result.endState -> {
                 // Converged: everything up to the next mark was computed from this same state.
                 marks.removeFirst()
-                if (nextResult.previousLineRole != role) {
-                    roles[line] = nextResult.previousLineRole.ordinal.toByte()
-                    store(line, start, nextResult.previousLineRole)
+                val asked = LineRole.entries[aboveRoles[next].toInt()]
+                if (asked != role) {
+                    roles[line] = asked.ordinal.toByte()
+                    store(line, start, asked)
                 }
             }
 
@@ -225,13 +306,22 @@ public class IncrementalTokenizer(
         val text = source.lineText(line)
         val result = tokenizer.tokenize(text, start, role)
         linesTokenized++
-        results[line] = result
         starts[line] = start
+        ends[line] = intern(result.endState)
         roles[line] = role.ordinal.toByte()
+        aboveRoles[line] = result.previousLineRole.ordinal.toByte()
+        cache.put(line, result, guess = false)
         val heading = result.kind == LineKind.HEADING
         outline.set(line, result.headingLevel, if (heading) Outline.headingText(text, result.tokens) else null)
         references.set(line, result.definedLabel)
         return result
+    }
+
+    private fun intern(state: LineState): LineState {
+        interned[state]?.let { return it }
+        // Fence info strings are user text: past the cap, a hostile document just shares less.
+        if (interned.size < MAX_INTERNED_STATES) interned[state] = state
+        return state
     }
 
     private fun replaceRange(
@@ -240,21 +330,23 @@ public class IncrementalTokenizer(
         inserted: Int,
         newCount: Int,
     ) {
-        if (newCount > results.size) {
-            val capacity = maxOf(newCount, results.size + results.size / 2)
-            results = results.copyOf(capacity)
+        if (newCount > starts.size) {
+            val capacity = maxOf(newCount, starts.size + starts.size / 2)
             starts = starts.copyOf(capacity)
+            ends = ends.copyOf(capacity)
             roles = roles.copyOf(capacity)
+            aboveRoles = aboveRoles.copyOf(capacity)
         }
         val tail = lineCount - from - removed
         // A change within lines (the common keystroke) moves nothing; skip copying a million-entry tail onto itself.
         if (removed != inserted) shiftTail(from, removed, inserted, tail)
-        results.fill(null, from, from + inserted)
         starts.fill(null, from, from + inserted)
+        ends.fill(null, from, from + inserted)
         roles.fill(AS_IS, from, from + inserted)
+        aboveRoles.fill(AS_IS, from, from + inserted)
         if (newCount < lineCount) {
-            results.fill(null, newCount, lineCount)
             starts.fill(null, newCount, lineCount)
+            ends.fill(null, newCount, lineCount)
         }
     }
 
@@ -264,9 +356,10 @@ public class IncrementalTokenizer(
         inserted: Int,
         tail: Int,
     ) {
-        System.arraycopy(results, from + removed, results, from + inserted, tail)
         System.arraycopy(starts, from + removed, starts, from + inserted, tail)
+        System.arraycopy(ends, from + removed, ends, from + inserted, tail)
         System.arraycopy(roles, from + removed, roles, from + inserted, tail)
+        System.arraycopy(aboveRoles, from + removed, aboveRoles, from + inserted, tail)
     }
 
     /** Tuning shared with the editor. */
@@ -274,7 +367,113 @@ public class IncrementalTokenizer(
         /** How far back [tokenizeHeuristically] looks for a known state before guessing a plain one. */
         public const val HEURISTIC_LOOKBACK: Int = 50
 
+        /** Lines of tokens the editor keeps: several screens, so scrolling back re-tokenises nothing. */
+        public const val DEFAULT_TOKEN_CACHE_LINES: Int = 1024
+
+        /**
+         * Per-line cost of the state arrays: two references (4 bytes each on
+         * ART and a compressed-oops JVM) and two role bytes. The states
+         * themselves are shared: most lines end in the state they started in.
+         */
+        public const val BYTES_PER_LINE: Int = 10
+
         private const val AS_IS: Byte = 0
+        private const val MAX_INTERNED_STATES = 4_096
+    }
+}
+
+/**
+ * The tokens of a few recently drawn lines, direct-mapped by line number:
+ * a viewport is a run of consecutive lines, so it never collides with
+ * itself, and a lookup is one array read. Entries are either accurate or
+ * guesses; an edit drops the guesses (the states they came from may have
+ * changed) and the entries of the lines it touched or shifted.
+ */
+private class TokenCache(
+    lines: Int,
+) {
+    private val capacity = if (lines <= 0) 0 else Integer.highestOneBit(lines - 1).shl(1).coerceAtLeast(1)
+    private val mask = capacity - 1
+    private val keys = IntArray(capacity) { EMPTY }
+    private val results = arrayOfNulls<LineResult>(capacity)
+    private val guesses = BooleanArray(capacity)
+
+    var size: Int = 0
+        private set
+
+    /** The slot holding [line], or -1. */
+    fun slotOf(line: Int): Int {
+        if (capacity == 0) return -1
+        val slot = line and mask
+        return if (keys[slot] == line) slot else -1
+    }
+
+    fun resultIn(slot: Int): LineResult = checkNotNull(results[slot])
+
+    fun isGuess(slot: Int): Boolean = guesses[slot]
+
+    fun put(
+        line: Int,
+        result: LineResult,
+        guess: Boolean,
+    ) {
+        if (capacity == 0) return
+        val slot = line and mask
+        if (keys[slot] == EMPTY) size++
+        keys[slot] = line
+        results[slot] = result
+        guesses[slot] = guess
+    }
+
+    /**
+     * Lines `[from, from + removed)` became [inserted] lines. Entries for
+     * those lines go, and so does every entry below them if the line count
+     * changed (their keys moved); entries above stay unless they were
+     * guesses. O(capacity), a thousand array reads per keystroke.
+     */
+    fun onEdit(
+        from: Int,
+        removed: Int,
+        inserted: Int,
+    ) {
+        val shifted = removed != inserted
+        val touchedEnd = from + maxOf(removed, inserted)
+        for (slot in 0 until capacity) {
+            val line = keys[slot]
+            if (line == EMPTY) continue
+            val touched = line >= from && (shifted || line < touchedEnd)
+            if (touched || guesses[slot]) drop(slot)
+        }
+    }
+
+    fun clear() {
+        for (slot in 0 until capacity) if (keys[slot] != EMPTY) drop(slot)
+    }
+
+    fun retainedBytesEstimate(): Long {
+        var bytes = capacity.toLong() * SLOT_BYTES
+        for (slot in 0 until capacity) {
+            val result = results[slot] ?: continue
+            bytes += RESULT_BYTES + result.tokens.size.toLong() * Long.SIZE_BYTES
+        }
+        return bytes
+    }
+
+    private fun drop(slot: Int) {
+        keys[slot] = EMPTY
+        results[slot] = null
+        guesses[slot] = false
+        size--
+    }
+
+    private companion object {
+        const val EMPTY = -1
+
+        /** A key, a reference and a flag. */
+        const val SLOT_BYTES = 9
+
+        /** A [LineResult] and its token array's header. */
+        const val RESULT_BYTES = 56
     }
 }
 

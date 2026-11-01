@@ -9,6 +9,8 @@
 import type { SectionView } from "./sectionView";
 
 export const MAX_PAGE_PX = 7_000_000;
+/** Relative change in spacer scale worth rewriting every spacer for. */
+const SCALE_TOLERANCE = 0.01;
 
 export class Virtualizer {
     private readonly observer: IntersectionObserver;
@@ -46,7 +48,12 @@ export class Virtualizer {
         return this.all || this.visible.has(view);
     }
 
-    /** Recomputes the spacer scale so the page never exceeds [MAX_PAGE_PX]. */
+    /**
+     * Recomputes the spacer scale so the page never exceeds [MAX_PAGE_PX].
+     * Spacer heights are rewritten only when the scale moves by more than
+     * 1%: on an ordinary document the scale is 1 and an edit writes nothing
+     * to the thousands of spacers (PERF-11).
+     */
     rescale(views: readonly SectionView[]): void {
         let mounted = 0;
         let spacers = 0;
@@ -55,7 +62,9 @@ export class Virtualizer {
             else spacers += v.height;
         }
         const room = Math.max(MAX_PAGE_PX - mounted, MAX_PAGE_PX / 10);
-        this.scale = spacers > room ? room / spacers : 1;
+        const scale = spacers > room ? room / spacers : 1;
+        if (Math.abs(scale - this.scale) <= this.scale * SCALE_TOLERANCE) return;
+        this.scale = scale;
         for (const v of views) if (!v.mounted) v.el.style.height = `${Math.max(1, v.height * this.scale)}px`;
     }
 

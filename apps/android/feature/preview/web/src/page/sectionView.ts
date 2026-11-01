@@ -14,22 +14,54 @@ import { sanitizeSection } from "./sanitize";
 /** An unmeasured section is estimated at this many pixels per source line. */
 const ESTIMATED_LINE_PX = 26;
 
+/**
+ * What a section needs from its controller: offsets from the document's line
+ * index, and the set of mounted sections, the only ones whose DOM attributes
+ * are kept current. A spacer's attributes are written when it mounts, so an
+ * edit never touches the DOM of the thousands of sections far away (PERF-11).
+ */
+export interface SectionHost {
+    lineStart(line: number): number;
+    readonly mounted: Set<SectionView>;
+}
+
+const VIEWS = new WeakMap<Element, SectionView>();
+
+/** The view that owns a `<section>` element, for code that starts from the DOM. */
+export function viewOfElement(el: Element): SectionView | undefined {
+    return VIEWS.get(el);
+}
+
 export class SectionView {
     readonly el: HTMLElement;
     html: string | null = null;
     headings: readonly HeadingInfo[] = [];
     measured: number | null = null;
     mounted = false;
+    /** The key changed (document-wide definitions did) but the old HTML is still shown until the new arrives. */
+    stale = false;
 
     constructor(
         public key: string,
+        /** The section text's hash, without the definitions part of [key]. */
+        public hash: string,
         public startLine: number,
         public endLine: number,
-        public startOffset: number,
+        private readonly host: SectionHost,
     ) {
         this.el = document.createElement("section");
         this.el.className = "sec";
-        this.updateAttrs();
+        VIEWS.set(this.el, this);
+    }
+
+    /** Offset of the section's first character, from the document's line index. */
+    get startOffset(): number {
+        return this.host.lineStart(this.startLine);
+    }
+
+    /** True while the worker owes this section HTML for its current key. */
+    get needsRender(): boolean {
+        return this.html === null || this.stale;
     }
 
     /** Estimated or measured height in CSS pixels. */
@@ -37,13 +69,29 @@ export class SectionView {
         return this.measured ?? Math.max(1, this.endLine - this.startLine) * ESTIMATED_LINE_PX;
     }
 
-    moveTo(startLine: number, endLine: number, startOffset: number): void {
+    moveTo(startLine: number, endLine: number): void {
         const moved = startLine !== this.startLine;
         this.startLine = startLine;
         this.endLine = endLine;
-        this.startOffset = startOffset;
-        this.updateAttrs();
-        if (moved && this.mounted) this.relabelLines();
+        if (this.mounted) {
+            this.updateAttrs();
+            if (moved) this.relabelLines();
+        }
+    }
+
+    /** Moves the section by [delta] lines; its text is unchanged. */
+    shift(delta: number): void {
+        if (delta !== 0) this.moveTo(this.startLine + delta, this.endLine + delta);
+    }
+
+    /** Rewrites the DOM attributes of a mounted section whose offset may have moved. */
+    syncAttrs(): void {
+        if (this.mounted) this.updateAttrs();
+    }
+
+    /** The section left the document. */
+    dispose(): void {
+        this.host.mounted.delete(this);
     }
 
     /** Puts the rendered HTML into the DOM. Returns false if it has not been rendered yet. */
@@ -54,6 +102,8 @@ export class SectionView {
         this.el.style.height = "";
         this.el.classList.add("mounted");
         this.mounted = true;
+        this.host.mounted.add(this);
+        this.updateAttrs();
         this.relabelLines();
         return true;
     }
@@ -66,6 +116,7 @@ export class SectionView {
             this.el.replaceChildren();
             this.el.classList.remove("mounted");
             this.mounted = false;
+            this.host.mounted.delete(this);
         }
         this.el.style.height = `${Math.max(1, this.height * scale)}px`;
     }
@@ -73,6 +124,7 @@ export class SectionView {
     /** New HTML for this section. A mounted section swaps its content in place. */
     setHtml(html: string, headings: readonly HeadingInfo[]): void {
         this.html = html;
+        this.stale = false;
         this.headings = headings;
         if (this.mounted) {
             this.mounted = false;
@@ -82,9 +134,12 @@ export class SectionView {
 
     private updateAttrs(): void {
         const d = this.el.dataset;
-        d.line = String(this.startLine);
-        d.lineEnd = String(this.endLine);
-        d.offset = String(this.startOffset);
+        const line = String(this.startLine);
+        const end = String(this.endLine);
+        const offset = String(this.startOffset);
+        if (d.line !== line) d.line = line;
+        if (d.lineEnd !== end) d.lineEnd = end;
+        if (d.offset !== offset) d.offset = offset;
         this.el.style.setProperty("contain-intrinsic-size", `auto ${Math.round(this.height)}px`);
     }
 

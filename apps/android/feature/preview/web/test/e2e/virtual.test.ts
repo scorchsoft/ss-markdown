@@ -4,6 +4,7 @@ import {
     clearReceived,
     loadMarkdown,
     openPreview,
+    pageErrors,
     received,
     send,
     startHarness,
@@ -95,5 +96,31 @@ describe("large documents", () => {
         await loadMarkdown(page, lines.join("\n"));
         const height = await page.evaluate(() => document.documentElement.scrollHeight);
         expect(height).toBeLessThanOrEqual(7_100_000);
+    });
+
+    it("renders 15k sections in the background in linear time (PERF-10)", async () => {
+        const page = await openPreview(h);
+        const parts: string[] = [];
+        for (let i = 0; i < 15_000; i++) parts.push(i % 100 === 0 ? `## Part ${i / 100}` : `Para ${i}.`);
+        await loadMarkdown(page, parts.join("\n\n"));
+        await clearReceived(page);
+        await send(page, { type: "scrollToLine", line: 29_800 });
+        // The last heading's crumb needs the background pass to have reached the end: about 6 s
+        // of 16 ms ticks. The old walk re-filtered every remaining section on every tick, which
+        // is quadratic per tick and took far longer than the timeout here.
+        await waitForMessage(page, (m) => m.type === "topLine" && m.crumbs.at(-1)?.text === "Part 149", 20_000);
+    });
+
+    it("takes a 250k-line paste from Kotlin without breaking the page (PERF-11)", async () => {
+        const page = await openPreview(h);
+        await loadMarkdown(page, "# Top\n\nfirst\n\nlast");
+        const pasted = Array.from({ length: 250_000 }, (_, i) => (i % 5 === 4 ? "" : `pasted ${i}`));
+        await clearReceived(page);
+        await send(page, { type: "edit", rev: 2, changes: [{ fromLine: 3, toLine: 3, lines: pasted }] });
+        await waitForMessage(page, (m) => m.type === "rendered");
+        expect(pageErrors(page)).toEqual([]);
+        expect((await received(page)).some((m) => m.type === "resync" || m.type === "error")).toBe(false);
+        await send(page, { type: "scrollToLine", line: 250_003 });
+        await page.waitForFunction(() => [...document.querySelectorAll("p")].some((p) => p.textContent === "last"));
     });
 });

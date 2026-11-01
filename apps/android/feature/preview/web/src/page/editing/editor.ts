@@ -95,7 +95,8 @@ export class Editor implements SessionHost {
     onRendered(views: readonly SectionView[]): void {
         const offset = this.pendingCaret;
         if (offset === null) return;
-        const view = views.find((v) => v.startOffset <= offset && offset <= this.endOffset(v));
+        const target = this.controller.viewAtOffset(offset);
+        const view = target && views.includes(target) ? target : null;
         if (!view || !view.mounted) return;
         this.pendingCaret = null;
         let run = placeCaret(view.el, offset);
@@ -285,17 +286,11 @@ export class Editor implements SessionHost {
     private flushPendingCaret(): void {
         const offset = this.pendingCaret;
         if (offset === null) return;
-        const view = this.controller.views.find((v) => v.startOffset <= offset && offset <= this.endOffset(v));
+        const view = this.controller.viewAtOffset(offset);
         if (view?.mounted && view.html !== null && !view.el.querySelector(".editing")) {
             // The section may already be current (e.g. a caret move between cells).
             this.onRendered([view]);
         }
-    }
-
-    private endOffset(view: SectionView): number {
-        const doc = this.controller.doc;
-        const last = Math.max(view.startLine, view.endLine - 1);
-        return doc.lineStart(last) + (doc.lines[last]?.length ?? 0);
     }
 
     private viewOf(block: HTMLElement): SectionView | null {

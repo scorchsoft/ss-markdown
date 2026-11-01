@@ -3,9 +3,11 @@
  * source offsets, and how to put the caret at a source offset.
  *
  * Offsets in the DOM are relative to their section (`data-s`, `data-e`); the
- * section element carries its own start offset (`data-offset`). Everything
+ * section's start offset comes from its view (`data-offset` mirrors it). Everything
  * here returns absolute offsets into the whole source.
  */
+import { viewOfElement } from "../sectionView";
+
 export interface RunRecord {
     from: number;
     to: number;
@@ -20,8 +22,9 @@ export function sectionOf(node: Node): HTMLElement | null {
     return el?.closest<HTMLElement>("section.sec") ?? null;
 }
 
+/** The section's start offset: from its view's line index, or `data-offset` for a bare element. */
 export function sectionOffset(section: HTMLElement): number {
-    return Number(section.dataset.offset ?? 0);
+    return viewOfElement(section)?.startOffset ?? Number(section.dataset.offset ?? 0);
 }
 
 export function runText(el: HTMLElement): string {

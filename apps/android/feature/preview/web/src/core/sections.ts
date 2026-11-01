@@ -150,12 +150,62 @@ export function splitSections(lines: readonly string[]): Section[] {
 }
 
 /**
+ * How a re-split changes the section list: sections `[first, end)` of the old
+ * list are replaced by [fresh], and every old section from [end] on moves by
+ * [delta] lines (same text, same hash).
+ */
+export interface Resplit {
+    readonly first: number;
+    readonly end: number;
+    readonly fresh: readonly Section[];
+    readonly delta: number;
+}
+
+/**
  * Re-splits after lines [fromLine, oldToLine) were replaced by lines
  * [fromLine, newToLine). Scanning restarts at the section that held the edit
  * and stops at the first boundary past the edit that matches an old boundary
  * (shifted by the line delta), so a keystroke costs one or two sections, not
- * the whole document. The result always equals a full [splitSections].
+ * the whole document. Old boundaries are found by binary search, so the cost
+ * does not grow with the number of sections after the edit (PERF-11).
+ * Applying the result ([applyResplit]) always equals a full [splitSections].
  */
+export function resplitRange(
+    old: readonly Section[],
+    lines: readonly string[],
+    fromLine: number,
+    oldToLine: number,
+    newToLine: number,
+): Resplit {
+    const delta = newToLine - oldToLine;
+    // The section holding the edit, then one back: the edit may have joined it to the previous one.
+    let first = Math.max(0, upperBound(old, 0, fromLine) - 1);
+    if (first > 0) first--;
+    const startLine = old[first]?.startLine ?? 0;
+    // Old sections that start at or after the edited range may be resumed, shifted by delta.
+    const resumable = lowerBound(old, first + 1, oldToLine);
+    let end = old.length;
+    const fresh = scan(lines, startLine, (boundary) => {
+        if (boundary <= newToLine) return false;
+        const idx = lowerBound(old, resumable, boundary - delta);
+        if (old[idx]?.startLine !== boundary - delta) return false;
+        end = idx;
+        return true;
+    });
+    return { first, end, fresh, delta };
+}
+
+/** The new section list a [Resplit] describes. */
+export function applyResplit(old: readonly Section[], r: Resplit): Section[] {
+    const tail = old.slice(r.end).map((sec) => ({
+        startLine: sec.startLine + r.delta,
+        endLine: sec.endLine + r.delta,
+        hash: sec.hash,
+    }));
+    return [...old.slice(0, r.first), ...r.fresh, ...tail];
+}
+
+/** [applyResplit] of [resplitRange]: the whole new list, for callers that keep plain sections. */
 export function resplit(
     old: readonly Section[],
     lines: readonly string[],
@@ -163,31 +213,29 @@ export function resplit(
     oldToLine: number,
     newToLine: number,
 ): Section[] {
-    const delta = newToLine - oldToLine;
-    // A front-matter edit or an edit in the first section restarts from the top.
-    let first = 0;
-    while (first + 1 < old.length && (old[first + 1]?.startLine ?? 0) <= fromLine) first++;
-    // Step back one: the edit may have joined this section to the previous one.
-    if (first > 0) first--;
-    const startLine = old[first]?.startLine ?? 0;
-    const oldStarts = new Map<number, number>();
-    for (let i = first + 1; i < old.length; i++) {
-        const st = old[i]?.startLine ?? 0;
-        if (st >= oldToLine) oldStarts.set(st + delta, i);
+    return applyResplit(old, resplitRange(old, lines, fromLine, oldToLine, newToLine));
+}
+
+/** The first index at or after [from] whose section starts at or after [line]. */
+function lowerBound(sections: readonly Section[], from: number, line: number): number {
+    let lo = from;
+    let hi = sections.length;
+    while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if ((sections[mid]?.startLine ?? 0) < line) lo = mid + 1;
+        else hi = mid;
     }
-    let resumeAt = -1;
-    const fresh = scan(lines, startLine, (boundary) => {
-        if (boundary <= newToLine) return false;
-        const idx = oldStarts.get(boundary);
-        if (idx === undefined) return false;
-        resumeAt = idx;
-        return true;
-    });
-    if (resumeAt < 0) return [...old.slice(0, first), ...fresh];
-    const tail = old.slice(resumeAt).map((sec) => ({
-        startLine: sec.startLine + delta,
-        endLine: sec.endLine + delta,
-        hash: sec.hash,
-    }));
-    return [...old.slice(0, first), ...fresh, ...tail];
+    return lo;
+}
+
+/** The first index at or after [from] whose section starts after [line]. */
+function upperBound(sections: readonly Section[], from: number, line: number): number {
+    let lo = from;
+    let hi = sections.length;
+    while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if ((sections[mid]?.startLine ?? 0) <= line) lo = mid + 1;
+        else hi = mid;
+    }
+    return lo;
 }

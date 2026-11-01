@@ -309,13 +309,13 @@ class HistoryViewModel(
 
     private fun compare(id: VersionId) {
         val document = key ?: return
-        val current =
+        val snapshot =
             editor.active
                 ?.text
-                ?.snapshot()
-                ?.toString() ?: return
+                ?.snapshot() ?: return
         deps.scope.launch {
-            val old = withContext(io) { versions.textOf(document, id) }
+            // The current text is copied off the main thread, with the version's (PERF-22).
+            val (old, current) = withContext(io) { versions.textOf(document, id) to snapshot.toString() }
             if (old == null) {
                 ui.update { it.copy(versionDamaged = true) }
                 return@launch

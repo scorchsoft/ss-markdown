@@ -7,6 +7,7 @@ import com.scorchsoft.ssmarkdown.files.document.ResolveOutcome
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.text.EditOp
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Getting work back after a crash (ux-spec "Recovery"; quality-bar J4):
@@ -66,10 +67,13 @@ class RecoveryController(
     /** "Compare": the file on disk against the restored edits. */
     fun compare() {
         val doc = host.active ?: return
-        val mine = doc.text.snapshot().toString()
+        val mine = doc.text.snapshot()
+        val name = doc.open.displayName.orEmpty()
         deps.scope.launch {
             val disk = deps.diskReader.read(doc.open.uri.value) ?: return@launch host.message(MessageKind.ActionFailed)
-            val compare = CompareUiState.of(doc.open.displayName.orEmpty(), CompareOrigin.Recovery, disk, mine)
+            // The copy and the diff run off the main thread; the snapshot is immutable (PERF-22).
+            val compare =
+                withContext(deps.compute) { CompareUiState.of(name, CompareOrigin.Recovery, disk, mine.toString()) }
             (host as? EditorViewModel)?.conflicts?.showCompare(compare)
         }
     }
@@ -91,7 +95,7 @@ class RecoveryController(
         host.update { it.copy(banner = null) }
         deps.scope.launch {
             if (deps.store.discardEdits(doc.open.uri) == ResolveOutcome.Resolved) {
-                discarded = kept.toString()
+                discarded = withContext(deps.compute) { kept.toString() }
                 host.rebind()
                 val historyOn = deps.settings.settings.value.history.recording
                 host.message(

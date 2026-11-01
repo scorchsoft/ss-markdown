@@ -104,7 +104,8 @@ internal class DocumentOpener(
         val baseDocument =
             withContext(context.io) { context.readBaseText(uri, journalBase) }
                 ?: return kept(uri, loaded, null, "file changed and no base copy to replay onto", readOnly = false)
-        val baseText = baseDocument.text.toString()
+        // Full-text copies are built off the main thread: 40 MB of chars for a 20 MB file (PERF-22).
+        val baseText = withContext(context.io) { baseDocument.text.toString() }
         val mine =
             when (
                 val replay =
@@ -127,7 +128,8 @@ internal class DocumentOpener(
                 LoadResult.Loaded(baseDocument, journalBase, loaded.metadata, loaded.readOnly, loaded.budget),
                 dirty = true,
             )
-        entry.conflict = ConflictState(baseText, loaded.document.text.toString(), loaded.fingerprint, recovered = true)
+        val theirs = withContext(context.io) { loaded.document.text.toString() }
+        entry.conflict = ConflictState(baseText, theirs, loaded.fingerprint, recovered = true)
         entry.journal.adopt()
         entry.journal.resume(journalBase, entry.document.snapshot(), replacing = journalBase)
         return OpenOutcome.Opened(entry, Recovery.Conflicted(context.journalTimes[uri] ?: 0))

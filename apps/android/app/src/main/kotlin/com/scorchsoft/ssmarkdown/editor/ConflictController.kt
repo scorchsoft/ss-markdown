@@ -126,14 +126,16 @@ class ConflictController(
         val doc = host.active ?: return
         val conflict = doc.open.conflict ?: return
         host.update { it.copy(overlay = null) }
-        showCompare(
-            CompareUiState.of(
-                doc.open.displayName.orEmpty(),
-                CompareOrigin.Conflict,
-                conflict.theirs,
-                doc.text.snapshot().toString(),
-            ),
-        )
+        val mine = doc.text.snapshot()
+        val name = doc.open.displayName.orEmpty()
+        // The copy and the diff run off the main thread; the snapshot is immutable (PERF-22).
+        host.deps.scope.launch {
+            val state =
+                withContext(host.deps.compute) {
+                    CompareUiState.of(name, CompareOrigin.Conflict, conflict.theirs, mine.toString())
+                }
+            showCompare(state)
+        }
     }
 
     /** Shows [state] on the Compare screen (also used by recovery and History). */

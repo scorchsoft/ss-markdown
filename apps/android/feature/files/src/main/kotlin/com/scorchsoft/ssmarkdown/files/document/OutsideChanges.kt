@@ -69,14 +69,12 @@ internal class OutsideChanges(
         }
         if (entry.isDirty) {
             staged.abandon() // The old copy is the merge base.
-            val base = withContext(context.io) { context.readBaseText(entry.uri, entry.base) }
-            entry.conflict =
-                ConflictState(
-                    base?.text?.toString(),
-                    loaded.document.text.toString(),
-                    loaded.fingerprint,
-                    recovered = false,
-                )
+            // The copies are built on io, not the main thread: 40 MB of chars each for a 20 MB file (PERF-22).
+            val (base, theirs) =
+                withContext(context.io) {
+                    context.readBaseText(entry.uri, entry.base)?.text?.toString() to loaded.document.text.toString()
+                }
+            entry.conflict = ConflictState(base, theirs, loaded.fingerprint, recovered = false)
             context.notify(DocumentEvent.ConflictDetected(entry.uri))
             return OutsideChange.Conflicted
         }
@@ -184,8 +182,8 @@ internal class OutsideChanges(
         }
         if (!loaded.fingerprint.matches(conflict.theirsFingerprint)) {
             staged.abandon()
-            entry.conflict =
-                ConflictState(conflict.base, loaded.document.text.toString(), loaded.fingerprint, conflict.recovered)
+            val theirs = withContext(context.io) { loaded.document.text.toString() }
+            entry.conflict = ConflictState(conflict.base, theirs, loaded.fingerprint, conflict.recovered)
             context.notify(DocumentEvent.ConflictDetected(entry.uri))
             return ResolveOutcome.ChangedAgain
         }

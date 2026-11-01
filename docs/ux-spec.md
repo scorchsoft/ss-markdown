@@ -210,6 +210,52 @@ Never put a one-sided coloured border on anything.
   `contenteditable` accessibility, and the keyboard matrix includes
   TalkBack.
 
+## Storage (Settings → Storage and history)
+
+One screen that answers "why is this app using space?" and reminds
+people that history exists.
+- **Breakdown.** The total, plus a bar and a list:
+  - Version history (n files);
+  - Downloaded fonts;
+  - Diagram and preview cache;
+  - Drafts;
+  - Recovery copies of unsaved work;
+  - the app itself.
+
+  Sizes are measured off the main thread and cached; the screen shows
+  the last known values at once and refreshes them.
+- **Free up space** (each clear first says exactly what it removes and
+  offers **Export first**):
+  - **History of files not opened in** [30 days · 90 days · 6 months ·
+    1 year] → Clear. It shows the file count and the space it frees.
+  - **Versions older than** [1 month · 6 months · 1 year] → Clear,
+    across all files. The latest version of every file is always kept.
+  - **Diagram and preview cache** → Clear. Safe; it rebuilds when
+    needed.
+  - **All version history** → Clear… A confirmation asks about pinned
+    versions (kept by default).
+- **Never touched by any clean-up:** pinned versions (unless chosen),
+  **drafts**, and **recovery copies of unsaved work**. Drafts are
+  deleted individually from the Navigator's Drafts list.
+- **History by file.** Sorted largest first, or by last opened. Each row
+  shows size, versions, pins and last opened, and its ⋯ offers Export
+  history (.zip) · Clear history · Open history.
+- **Automatic:** a History limit (default 100 MB, with the per-file cap
+  20 MB) and "Forget history of files unused for" [Never (default) ·
+  90 days · 6 months · 1 year].
+- **Import history:** ⋮ on the Storage screen → Import history (.zip).
+  This attaches the versions to the matching file by name and content
+  fingerprint, or to a file you pick.
+- **Explaining Android's buttons** (an info note on this screen):
+  - Android's *Clear cache* only removes the diagram/preview cache, and
+    is safe.
+  - Android's *Clear storage* deletes everything on this screen,
+    **including drafts and unsaved recovery copies**, and resets
+    settings. Markdown files themselves are never touched.
+  - To make that true, the diagram and preview cache lives in the
+    app's `cacheDir`, while history, journal, drafts and fonts live in
+    `filesDir`/`noBackupFilesDir`.
+
 ## Glossary
 
 - **Unsaved** — has edits not yet written to the file.

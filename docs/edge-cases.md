@@ -39,6 +39,16 @@ is green in CI).
 | Paste of 50 MB | Chunked insert off the main thread with progress; undoable as one step; admission control applies. | Instrumented test | planned |
 | Undo across a Preview edit | The Preview round-trip is applied as one piece-table operation and lands on the same undo stack. | Unit test | planned |
 
+## Storage and clean-up
+
+| Case | Handling | Test | Status |
+|---|---|---|---|
+| User runs Android "Clear cache" | Only the diagram/preview cache lives in `cacheDir`; history, drafts and journals are in `filesDir`, so nothing of value is lost | Instrumented test (clear cacheDir, then relaunch) | planned |
+| A clean-up runs while a file is open with unsaved edits | Bulk clears skip files with open dirty buffers and never touch journals or drafts | Unit test | planned |
+| A clean-up is interrupted (app killed mid-clear) | History deletions are per-file atomic (index rewritten with AtomicFile), so no file's history is left half-deleted | Kill test | planned |
+| Import a history zip for a file that has changed since it was exported | Versions attach as a separate branch; the current file is never modified by an import | Unit test | planned |
+| Journal disk-space preallocation, and quarantine retention | Reserve journal space up front; quarantine is pruned after 30 days and capped at 20 MB | Unit test | planned |
+
 ## Share-in and Navigator
 
 | Case | Handling | Test | Status |

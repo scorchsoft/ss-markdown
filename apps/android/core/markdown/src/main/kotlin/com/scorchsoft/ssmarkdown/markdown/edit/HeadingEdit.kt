@@ -25,10 +25,11 @@ internal object HeadingEdit {
         text: CharSequence,
         selection: TextSelection,
         level: Int,
+        fences: FenceStates = FenceStates.NONE,
     ): EditResult {
         require(level in 0..MAX_LEVEL) { "heading level $level is not 0..$MAX_LEVEL" }
         val builder = EditBuilder(text)
-        for (line in TextLines.targetLines(text, selection)) {
+        for (line in TextLines.proseLines(text, selection, fences)) {
             // Inside a blockquote the heading goes after the `> `.
             val base = line.start + LinePrefix.parse(line.content).quoteEnd
             val (_, prefixEnd) = parse(text.subSequence(base, line.end).toString())
@@ -42,10 +43,13 @@ internal object HeadingEdit {
     fun cycle(
         text: CharSequence,
         selection: TextSelection,
+        fences: FenceStates = FenceStates.NONE,
     ): EditResult {
-        val first = TextLines.targetLines(text, selection).first().content
+        val first =
+            TextLines.proseLines(text, selection, fences).firstOrNull()?.content
+                ?: return EditResult.unchanged(selection)
         val (level, _) = parse(first.substring(LinePrefix.parse(first).quoteEnd))
         val next = if (level >= CYCLE_MAX_LEVEL) 0 else level + 1
-        return set(text, selection, next)
+        return set(text, selection, next, fences)
     }
 }

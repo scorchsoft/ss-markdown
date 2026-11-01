@@ -89,4 +89,14 @@ internal object TextLines {
         val lines = linesIn(text, selection)
         return lines.filterNot { it.isBlank }.ifEmpty { lines.take(1) }
     }
+
+    /**
+     * [targetLines] without the lines of fenced code: a heading or list
+     * toggle never rewrites code. Empty when every target line is code.
+     */
+    fun proseLines(
+        text: CharSequence,
+        selection: TextSelection,
+        fences: FenceStates,
+    ): List<LineSpan> = targetLines(text, selection).filterNot { fences.roleAt(it.start).isCode }
 }

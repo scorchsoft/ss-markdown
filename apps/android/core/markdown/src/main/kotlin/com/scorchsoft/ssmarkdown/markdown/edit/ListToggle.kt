@@ -12,8 +12,10 @@ internal object ListToggle {
         selection: TextSelection,
         style: DocumentStyle,
         kind: ListKind,
+        fences: FenceStates = FenceStates.NONE,
     ): EditResult {
-        val lines = TextLines.targetLines(text, selection)
+        val lines = TextLines.proseLines(text, selection, fences)
+        if (lines.isEmpty()) return EditResult.unchanged(selection)
         val prefixes = lines.map { LinePrefix.parse(it.content) }
         val builder = EditBuilder(text)
         if (prefixes.all { it.isKind(kind) }) {

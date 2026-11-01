@@ -15,10 +15,27 @@ internal object ListContinuation {
         text: CharSequence,
         selection: TextSelection,
         style: DocumentStyle,
+        fences: FenceStates = FenceStates.NONE,
     ): EditResult {
         val line = TextLines.lineAt(text, selection.start)
         val column = selection.start - line.start
         val p = LinePrefix.parse(line.content)
+        if (fences.roleAt(line.start).isCode) {
+            // `- ` in code is code: keep the quote and indentation, never continue a "list".
+            val keep = if (column >= p.indentEnd) p.quote + p.indent else ""
+            return newline(text, selection, keep)
+        }
+        return prose(text, selection, style, line, p)
+    }
+
+    private fun prose(
+        text: CharSequence,
+        selection: TextSelection,
+        style: DocumentStyle,
+        line: LineSpan,
+        p: LinePrefix,
+    ): EditResult {
+        val column = selection.start - line.start
         val endsOnLine = selection.end <= line.end
         val emptyItem = selection.isCaret && p.content.isBlank() && column >= p.contentStart
         return when {
@@ -84,7 +101,7 @@ internal object ListContinuation {
         p: LinePrefix,
         style: DocumentStyle,
     ): EditResult {
-        if (p.indent.isNotEmpty()) return IndentEdit.outdent(text, selection, style)
+        if (p.indent.isNotEmpty()) return IndentEdit.outdent(text, selection, style, FenceStates.NONE)
         return replace(text, line.start + p.quoteEnd, line.end, "")
     }
 

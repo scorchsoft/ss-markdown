@@ -1,9 +1,11 @@
 package com.scorchsoft.ssmarkdown.markdown.edit
 
 /**
- * Wraps the selected lines in a fenced code block, or unwraps them when
- * they already are one: either the fences sit just outside the selection,
- * or the selection starts and ends on them.
+ * Wraps the selected lines in a fenced code block, or unwraps the block
+ * the selection is in. "In a block" is the tokenizer's fence state
+ * ([FenceStates]), not "a fence-looking line is adjacent": between two
+ * blocks, the closing fence above and the opening fence below are not a
+ * block, and a caret anywhere in a long block unwraps that block.
  */
 internal object CodeBlockToggle {
     private const val MIN_FENCE = 3
@@ -12,33 +14,67 @@ internal object CodeBlockToggle {
         text: CharSequence,
         selection: TextSelection,
         style: DocumentStyle,
+        fences: FenceStates = FenceStates.scan(text),
     ): EditResult {
         val lines = TextLines.linesIn(text, selection)
+        val block = enclosingBlock(text, lines.first(), fences)
+        if (block == null || block.close?.let { lines.last().start > it.start } == true) {
+            return wrap(text, selection, lines, style)
+        }
         val builder = EditBuilder(text)
-        val first = lines.first()
-        val last = lines.last()
-        val above = TextLines.previous(text, first)
-        val below = TextLines.next(text, last)
+        val close = block.close
         when {
-            lines.size == 2 && closes(first, last) -> {
-                builder.delete(first.start, last.end)
+            close == null && block.open.end >= text.length -> {
+                builder.delete(maxOf(0, block.open.start - 1), block.open.end)
             }
 
-            lines.size > 2 && closes(first, last) -> {
-                builder.delete(last.start - 1, last.end)
-                builder.delete(first.start, lines[1].start)
+            close == null -> {
+                builder.delete(block.open.start, block.open.end + 1)
             }
 
-            above != null && below != null && closes(above, below) -> {
-                builder.delete(last.end, below.end)
-                builder.delete(above.start, first.start)
+            close.start == block.open.end + 1 -> {
+                builder.delete(block.open.start, close.end)
             }
 
             else -> {
-                return wrap(text, selection, lines, style)
+                builder.delete(close.start - 1, close.end)
+                builder.delete(block.open.start, block.open.end + 1)
             }
         }
         return builder.buildMapping(selection, caretSticksAfter = false)
+    }
+
+    /** A fenced block's fence lines; [close] is null for a block left open to the end of the text. */
+    private class Block(
+        val open: LineSpan,
+        val close: LineSpan?,
+    )
+
+    /** The fenced block holding [line], found by walking to its fences, or null when [line] is not code. */
+    private fun enclosingBlock(
+        text: CharSequence,
+        line: LineSpan,
+        fences: FenceStates,
+    ): Block? {
+        var open: LineSpan? = line
+        var role = fences.roleAt(line.start)
+        while (role == FenceRole.INSIDE || role == FenceRole.CLOSING_FENCE) {
+            open = open?.let { TextLines.previous(text, it) }
+            role = open?.let { fences.roleAt(it.start) } ?: FenceRole.OUTSIDE
+        }
+        val opener = open?.takeIf { role == FenceRole.OPENING_FENCE }
+        return opener?.let { Block(it, closerOf(text, it, fences)) }
+    }
+
+    /** The fence closing the block [open] opens, or null when it runs to the end of the text. */
+    private fun closerOf(
+        text: CharSequence,
+        open: LineSpan,
+        fences: FenceStates,
+    ): LineSpan? {
+        var close = TextLines.next(text, open)
+        while (close != null && fences.roleAt(close.start) == FenceRole.INSIDE) close = TextLines.next(text, close)
+        return close?.takeIf { fences.roleAt(it.start) == FenceRole.CLOSING_FENCE }
     }
 
     private fun wrap(
@@ -78,23 +114,5 @@ internal object CodeBlockToggle {
             }
         }
         return c.toString().repeat(maxOf(MIN_FENCE, longest + 1))
-    }
-
-    /** True when [open] is an opening fence that [close] closes. */
-    private fun closes(
-        open: LineSpan,
-        close: LineSpan,
-    ): Boolean {
-        val opener = fenceRun(open.content)
-        val closer = fenceRun(close.content)
-        val matches = opener != null && closer != null && closer[0] == opener[0] && closer.length >= opener.length
-        return matches && close.content.trim().length == closer?.length
-    }
-
-    private fun fenceRun(line: String): String? {
-        val trimmed = line.trimStart(' ')
-        val run = trimmed.takeWhile { it == trimmed.firstOrNull() }
-        val indented = line.length - trimmed.length > MIN_FENCE
-        return run.takeIf { !indented && run.length >= MIN_FENCE && run[0] in "`~" }
     }
 }

@@ -14,34 +14,78 @@ internal object IndentEdit {
         text: CharSequence,
         selection: TextSelection,
         style: DocumentStyle,
+        fences: FenceStates = FenceStates.NONE,
     ): EditResult {
-        val builder = EditBuilder(text)
+        val added = HashMap<Int, String>()
         for (line in TextLines.targetLines(text, selection)) {
             val p = LinePrefix.parse(line.content)
-            val unit =
+            added[line.start] =
                 when {
                     style.indentUnit == "\t" -> "\t"
                     p.isListItem -> " ".repeat(nestingWidth(text, line, p))
                     else -> style.indentUnit
                 }
-            builder.insert(line.start + p.quoteEnd, unit)
         }
-        return builder.buildMapping(selection)
+        return reindent(text, selection, fences) { line, p -> added[line.start]?.let { it + p.indent } }
     }
 
     fun outdent(
         text: CharSequence,
         selection: TextSelection,
         style: DocumentStyle,
+        fences: FenceStates = FenceStates.NONE,
     ): EditResult {
-        val builder = EditBuilder(text)
+        val removed = HashMap<Int, Int>()
         for (line in TextLines.targetLines(text, selection)) {
-            val p = LinePrefix.parse(line.content)
-            val remove = outdentWidth(text, line, p, style)
-            if (remove > 0) builder.delete(line.start + p.quoteEnd, line.start + p.quoteEnd + remove)
+            val remove = outdentWidth(text, line, LinePrefix.parse(line.content), style)
+            if (remove > 0) removed[line.start] = remove
+        }
+        return reindent(text, selection, fences) { line, p -> removed[line.start]?.let { p.indent.substring(it) } }
+    }
+
+    /**
+     * Gives each target line the indent [newIndent] returns (null: unchanged)
+     * and renumbers the ordered lists the move reshapes, in one edit per line:
+     * a moved item's indent and number are written together, so the two
+     * never collide at the same offset.
+     */
+    private fun reindent(
+        text: CharSequence,
+        selection: TextSelection,
+        fences: FenceStates,
+        newIndent: (LineSpan, LinePrefix) -> String?,
+    ): EditResult {
+        val targets = TextLines.targetLines(text, selection)
+        val rows =
+            ListNumbering.region(text, targets.first(), targets.last(), fences) { line, p ->
+                newIndent(line, p)?.let { indentWidth(it) } ?: p.indentWidth
+            }
+        val numbers = ListNumbering.changes(rows, targets.first().start)
+        val builder = EditBuilder(text)
+        for (row in rows) {
+            val line = row.span
+            val p = row.prefix
+            val indent = newIndent(line, p)
+            val number = numbers[line.start]
+            when {
+                indent != null && number != null -> {
+                    val marker = p.line.substring(p.markerEnd - 1, p.markerEnd)
+                    builder.replace(line.start + p.quoteEnd, line.start + p.markerEnd, "$indent$number$marker")
+                }
+
+                indent != null -> {
+                    builder.replace(line.start + p.quoteEnd, line.start + p.indentEnd, indent)
+                }
+
+                number != null -> {
+                    ListNumbering.writeNumber(builder, line, p, number)
+                }
+            }
         }
         return builder.buildMapping(selection)
     }
+
+    private fun indentWidth(indent: String): Int = indent.sumOf { if (it == '\t') LinePrefix.TAB_WIDTH else 1 }
 
     /** Chars of leading indentation one outdent removes from [line]. */
     internal fun outdentWidth(

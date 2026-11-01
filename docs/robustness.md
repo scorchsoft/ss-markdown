@@ -197,6 +197,14 @@ read-only sources would get no history. The full trade-off table is in
 - An opt-in per-folder `.ssmarkdown/` store is deferred until after
   1.0. The journal always stays in app storage.
 
+**History can be switched off** (Settings → Storage and history).
+Off means no versions are recorded. The recovery journal stays on
+regardless, and so does the per-document merge base: the base is kept
+alongside the journal while edits are unsaved, so three-way merge still
+works. Restore, Compare-with-version and Reload checkpoints are
+unavailable while history is off, and the UI says so where they would
+appear.
+
 ### 3a. Save modes
 
 | Mode | Writes to the file | Default |

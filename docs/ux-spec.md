@@ -240,6 +240,25 @@ people that history exists.
 - **History by file.** Sorted largest first, or by last opened. Each row
   shows size, versions, pins and last opened, and its ⋯ offers Export
   history (.zip) · Clear history · Open history.
+- **Keep version history** (on by default) is the top row of the
+  Automatic section.
+  - **Off** means no new versions are recorded and History shows "Version
+    history is off · Turn on".
+  - **Turning it off asks** whether to keep the existing history, delete
+    it, or export and then delete it. Deleting gets the same
+    are-you-sure dialog as the clears.
+  - **What stays on regardless:**
+    - **Crash recovery** (the journal). It's tiny, deleted after each
+      verified save, and is the core never-lose-work promise, so it isn't
+      tied to this toggle.
+    - **The base copy of each open file**, held only while that file has
+      unsaved edits, so the conflict sheet can still offer Merge.
+  - History uses storage, not running memory. The app's memory use comes
+    from open documents.
+- **About** (Settings → About) shows the version, "Made by Scorchsoft"
+  (scorchsoft.com), the Apache 2.0 licence and a plain-language
+  disclaimer: "Provided as is, without warranty of any kind. Keep your
+  own backups of anything important."
 - **Every clear asks first.** A confirmation dialog appears before any
   clear (bulk, per-file or "all"). It says:
   - exactly what will be deleted ("642 saved versions (18.4 MB) of 11

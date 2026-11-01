@@ -92,6 +92,15 @@ Issues and pull requests are welcome. Please read
 [docs/engineering.md](docs/engineering.md) first: the code is held to a
 high bar, and every bug fix starts with a failing test.
 
+## Disclaimer
+
+SS Markdown is provided **"as is", without warranty of any kind**,
+express or implied. The authors and Scorchsoft accept no liability for
+any loss or damage arising from its use, including loss of data.
+Although the app is built to protect your work, please keep your own
+backups of anything important. The full terms are in sections 7 and 8
+of the [Apache License 2.0](LICENSE).
+
 ## Licence
 
 Copyright 2026 [Scorchsoft Ltd](https://www.scorchsoft.com). Licensed

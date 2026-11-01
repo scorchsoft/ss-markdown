@@ -2,12 +2,18 @@ package com.scorchsoft.ssmarkdown.editor
 
 import com.scorchsoft.ssmarkdown.document.ActiveDocument
 import com.scorchsoft.ssmarkdown.document.ActiveDocumentListener
+import com.scorchsoft.ssmarkdown.editor.preview.EditorPreviewHost
+import com.scorchsoft.ssmarkdown.editor.preview.PreviewSession
+import com.scorchsoft.ssmarkdown.editor.preview.ScrollLink
 import com.scorchsoft.ssmarkdown.files.document.CheckReason
 import com.scorchsoft.ssmarkdown.files.document.DocumentEvent
 import com.scorchsoft.ssmarkdown.files.document.OpenDocument
 import com.scorchsoft.ssmarkdown.files.document.OpenOutcome
 import com.scorchsoft.ssmarkdown.files.memory.Budget
 import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
+import com.scorchsoft.ssmarkdown.media.ImageExports
+import com.scorchsoft.ssmarkdown.media.MediaController
+import com.scorchsoft.ssmarkdown.media.ViewerViewModel
 import com.scorchsoft.ssmarkdown.settings.LocationLabel
 import com.scorchsoft.ssmarkdown.settings.OnLaunch
 import com.scorchsoft.ssmarkdown.settings.RecentFile
@@ -66,6 +72,12 @@ class EditorViewModel(
     val navigator = NavigatorController(this)
     val folder = FolderController(this)
     val views = ViewMemory(this)
+    val previewHost = EditorPreviewHost(this)
+    override val preview = PreviewSession(previewHost)
+    val media = MediaController(this)
+    val imageExports = ImageExports(this, media)
+    val viewer = ViewerViewModel(media, deps.scope, ::emit)
+    val scrollLink = ScrollLink()
 
     override val active: ActiveDocument? get() = activeFlow.value
     override val state: EditorUiState get() = ui.value
@@ -129,7 +141,8 @@ class EditorViewModel(
     fun attach(view: MarkdownCodeView) {
         val doc = active ?: return
         doc.attach(view)
-        views.applyPendingTo(doc)
+        // A file's remembered position wins once; after that the Code pane lands on the shared anchor.
+        if (!views.applyPendingTo(doc)) doc.surface.scrollToLine(anchorFlow.value)
     }
 
     /** The Code view left the composition. */
@@ -250,6 +263,7 @@ class EditorViewModel(
         }
         val document = ActiveDocument(open, this)
         activeFlow.value = document
+        preview.bind(document)
         val uri = open.uri.value
         val meta = meta(uri)
         val settings = deps.settings.settings.value
@@ -327,9 +341,26 @@ class EditorViewModel(
         end: Int,
     ) = strip.onSelectionChanged(start, end)
 
-    override fun onAnchorLineChanged(line: Int) {
+    override fun onAnchorLineChanged(line: Int) = onPaneTopLine(Pane.Code, line)
+
+    /**
+     * [pane] scrolled so [line] is at its top. Only the leading pane moves
+     * the anchor and the breadcrumb; in Split, with "Scroll panes together"
+     * on, the other pane follows (ux-spec "Position continuity").
+     */
+    fun onPaneTopLine(
+        pane: Pane,
+        line: Int,
+    ) {
+        val linked = deps.settings.settings.value.scrollPanesTogether
+        val follow = scrollLink.onTopLine(pane, ui.value.mode, linked) as? ScrollLink.Follow.Anchor ?: return
         anchorFlow.value = line
         updateBreadcrumb()
+        when (follow.follower) {
+            Pane.Preview -> preview.scrollTo(line)
+            Pane.Code -> active?.surface?.scrollToLine(line)
+            null -> Unit
+        }
     }
 
     override fun onZoomChanged(
@@ -361,6 +392,7 @@ class EditorViewModel(
     fun jumpToLine(line: Int) {
         anchorFlow.value = line
         active?.surface?.scrollToLine(line)
+        preview.scrollTo(line)
         updateBreadcrumb()
     }
 

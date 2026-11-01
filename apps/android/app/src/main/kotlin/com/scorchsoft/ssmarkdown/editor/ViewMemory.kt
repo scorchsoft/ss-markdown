@@ -24,9 +24,9 @@ class ViewMemory(
         return saved
     }
 
-    /** Puts the remembered selection on [document] (once) and scrolls to the remembered line. */
-    fun applyPendingTo(document: ActiveDocument) {
-        val saved = pending?.takeIf { pendingFor === document } ?: return
+    /** Puts the remembered selection on [document] (once) and scrolls to the remembered line; false if none. */
+    fun applyPendingTo(document: ActiveDocument): Boolean {
+        val saved = pending?.takeIf { pendingFor === document } ?: return false
         pending = null
         pendingFor = null
         val length = document.text.text.length
@@ -34,6 +34,7 @@ class ViewMemory(
         val end = saved.selectionEnd.coerceIn(0, length)
         document.surface.select(minOf(start, end), maxOf(start, end))
         document.surface.scrollToLine(saved.anchorLine)
+        return true
     }
 
     /** Stores how the document on screen looks now. */

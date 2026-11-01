@@ -2,7 +2,10 @@ package com.scorchsoft.ssmarkdown.editor
 
 import com.scorchsoft.ssmarkdown.find.FindAction
 import com.scorchsoft.ssmarkdown.folder.FolderAction
+import com.scorchsoft.ssmarkdown.media.ExportImagesAction
+import com.scorchsoft.ssmarkdown.media.MediaMenuAction
 import com.scorchsoft.ssmarkdown.navigator.NavigatorAction
+import com.scorchsoft.ssmarkdown.preview.bridge.TableOp
 import com.scorchsoft.ssmarkdown.settings.Appearance
 import com.scorchsoft.ssmarkdown.ui.strip.CursorStep
 import com.scorchsoft.ssmarkdown.ui.strip.StripKey
@@ -152,6 +155,50 @@ sealed interface EditorAction {
     /** A Navigator action. */
     data class Navigator(
         val action: NavigatorAction,
+    ) : EditorAction
+
+    /** A finger went down on [pane]: in Split it now leads the scrolling. */
+    data class PaneTouched(
+        val pane: Pane,
+    ) : EditorAction
+
+    /** The link chip's Open. */
+    data object OpenLink : EditorAction
+
+    /** The link chip's Edit link: Code, at the link's line. */
+    data object EditLink : EditorAction
+
+    /** A row of the Mermaid sheet. */
+    data class MediaMenu(
+        val action: MediaMenuAction,
+    ) : EditorAction
+
+    /** An Export images sheet action. */
+    data class ExportImages(
+        val action: ExportImagesAction,
+    ) : EditorAction
+
+    /** A table ⋯ sheet row. */
+    data class Table(
+        val op: TableOp,
+    ) : EditorAction
+
+    /** "Preview paused · Retry". */
+    data object RetryPreview : EditorAction
+
+    /** Preview wrapping: Fluid, or the A4 page. */
+    data class SetPageMode(
+        val pageMode: Boolean,
+    ) : EditorAction
+
+    /** Display → Preview theme. */
+    data class SetPreviewTheme(
+        val id: String,
+    ) : EditorAction
+
+    /** Display → Edit theme… for the theme with [id] (a built-in starts a custom copy). */
+    data class EditTheme(
+        val id: String,
     ) : EditorAction
 
     /** A folder drawer action. */

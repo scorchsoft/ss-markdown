@@ -32,7 +32,7 @@ class ViewMemoryTest {
         first.vm.openDocument(uri)
         first.vm.onAction(EditorAction.SelectMode(ViewMode.Preview))
         first.vm.onAction(EditorAction.StepZoom(Pane.Preview, 2))
-        first.vm.onAnchorLineChanged(40)
+        first.vm.onPaneTopLine(Pane.Preview, 40)
         first.vm.active
             ?.surface
             ?.select(12, 15)

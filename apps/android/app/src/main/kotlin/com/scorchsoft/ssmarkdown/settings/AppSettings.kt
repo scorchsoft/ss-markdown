@@ -25,6 +25,9 @@ enum class Appearance { System, Light, Dark }
  * @property autosaveOverrides "Autosave this file" choices, by document URI; absent means "use the default".
  * @property recentFiles most recent first; Navigator → Files and Share → Append to.
  * @property lastFile the document reopened on launch, if any.
+ * @property previewThemeId the preview theme (Display → Preview theme): a built-in or custom theme's id.
+ * @property previewPageMode Preview wrapping: false is Fluid, true is A4 page.
+ * @property export Export images' remembered choices.
  */
 data class AppSettings(
     val openWith: OpenWith = OpenWith.LastUsed,
@@ -42,6 +45,9 @@ data class AppSettings(
     val recentFiles: List<RecentFile> = emptyList(),
     val lastFile: String? = null,
     val share: ShareDefaults = ShareDefaults(),
+    val previewThemeId: String = "clean",
+    val previewPageMode: Boolean = false,
+    val export: ExportDefaults = ExportDefaults(),
 ) {
     /** Whether [uri] autosaves: drafts always do; otherwise its override, else the global mode. */
     fun autosaves(
@@ -98,6 +104,25 @@ data class ShareDefaults(
     val lastTarget: String? = null,
     val position: AppendPosition = AppendPosition.Bottom,
     val prefix: AppendPrefix = AppendPrefix.None,
+)
+
+/** Export images → Diagrams as. */
+enum class DiagramFormat { Png, Svg, Both }
+
+/** Export images → Save as. */
+enum class ExportDestination { SeparateFiles, Zip }
+
+/**
+ * Export images' remembered choices (ux-spec "Export images"). The PNG
+ * scale is also what the Mermaid sheet's Save as PNG uses.
+ *
+ * @property zipFolder the folder the last ZIP went to, offered first next time.
+ */
+data class ExportDefaults(
+    val format: DiagramFormat = DiagramFormat.Png,
+    val scale: Int = 2,
+    val destination: ExportDestination = ExportDestination.SeparateFiles,
+    val zipFolder: String? = null,
 )
 
 /** The choices Storage offers for "History limit" and the per-file cap, in order. */

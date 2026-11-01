@@ -30,7 +30,6 @@ import com.scorchsoft.ssmarkdown.editor.EditorUiState
 import com.scorchsoft.ssmarkdown.editor.MessageKind
 import com.scorchsoft.ssmarkdown.editor.TooLargeInfo
 import com.scorchsoft.ssmarkdown.editor.UserMessage
-import com.scorchsoft.ssmarkdown.settings.Appearance
 import kotlinx.coroutines.delay
 
 private val MessageShape = RoundedCornerShape(18.dp)
@@ -40,7 +39,7 @@ private const val MESSAGE_MILLIS = 3_000L
 @Composable
 fun EditorOverlays(
     state: EditorUiState,
-    appearance: Appearance,
+    display: DisplayFacts,
     onAction: (EditorAction) -> Unit,
     themeControls: @Composable () -> Unit,
 ) {
@@ -59,11 +58,27 @@ fun EditorOverlays(
         }
 
         EditorOverlay.Display -> {
-            DisplaySheet(state, appearance, onAction, themeControls)
+            DisplaySheet(state, display, onAction, themeControls)
         }
 
         is EditorOverlay.SectionMenu -> {
             SectionMenuSheet(overlay, onAction)
+        }
+
+        is EditorOverlay.LinkChip -> {
+            LinkChipSheet(overlay, onAction)
+        }
+
+        is EditorOverlay.MediaMenu -> {
+            MediaMenuSheet(overlay, onAction)
+        }
+
+        is EditorOverlay.TableMenu -> {
+            TableMenuSheet(onAction)
+        }
+
+        is EditorOverlay.ExportImages -> {
+            ExportImagesSheet(overlay.state, onAction)
         }
 
         EditorOverlay.BigFileInfo -> {
@@ -137,6 +152,14 @@ private fun messageText(message: UserMessage): String =
         MessageKind.PreviewPending -> stringResource(R.string.msg_preview_pending)
         MessageKind.AutosaveThisFileOn -> stringResource(R.string.msg_autosave_file_on)
         MessageKind.AutosaveThisFileOff -> stringResource(R.string.msg_autosave_file_off)
+        MessageKind.PreviewRestarted -> stringResource(R.string.msg_preview_restarted)
+        MessageKind.EditRefused -> stringResource(R.string.msg_edit_refused)
+        MessageKind.LinkBlocked -> stringResource(R.string.msg_link_blocked)
+        MessageKind.ImagesExported -> stringResource(R.string.msg_images_exported, message.argument)
+        MessageKind.ImagesExportFailed -> stringResource(R.string.msg_images_failed)
+        MessageKind.ImageSaved -> stringResource(R.string.msg_image_saved, message.argument)
+        MessageKind.ImageCopied -> stringResource(R.string.msg_image_copied)
+        MessageKind.NothingToExport -> stringResource(R.string.msg_nothing_to_export)
     }
 
 /** "This 180 MB file needs about 400 MB, and this phone allows 256 MB" in place of the editor. */

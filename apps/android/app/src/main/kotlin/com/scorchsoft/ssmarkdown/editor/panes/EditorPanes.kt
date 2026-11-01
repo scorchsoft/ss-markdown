@@ -2,6 +2,8 @@ package com.scorchsoft.ssmarkdown.editor.panes
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
@@ -23,10 +25,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -119,7 +124,7 @@ private fun CodeWithChip(
     code: @Composable (Modifier) -> Unit,
     modifier: Modifier,
 ) {
-    Box(modifier) {
+    Box(modifier.reportTouches(remember(onAction) { { onAction(EditorAction.PaneTouched(Pane.Code)) } })) {
         code(Modifier.fillMaxSize())
         if (state.showCodeZoomChip) {
             ZoomChip(state.codeZoom, {
@@ -190,6 +195,15 @@ private fun Split(
         DividerTouchArea(orientation, total, fraction, setFraction)
     }
 }
+
+/** Reports the first finger on a pane without consuming anything: in Split, that pane now leads. */
+private fun Modifier.reportTouches(onTouched: () -> Unit): Modifier =
+    pointerInput(onTouched) {
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            onTouched()
+        }
+    }
 
 /** The visible 14 dp band with its grip. */
 @Composable

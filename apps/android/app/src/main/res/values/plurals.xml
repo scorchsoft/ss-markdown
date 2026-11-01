@@ -136,4 +136,16 @@
         <item quantity="one">%1$s · %2$d version</item>
         <item quantity="other">%1$s · %2$d versions</item>
     </plurals>
+    <plurals name="export_found">
+        <item quantity="one">%1$d found in this file · %2$d diagrams, %3$d pictures</item>
+        <item quantity="other">%1$d found in this file · %2$d diagrams, %3$d pictures</item>
+    </plurals>
+    <plurals name="export_go">
+        <item quantity="one">Export %1$d image</item>
+        <item quantity="other">Export %1$d images</item>
+    </plurals>
+    <plurals name="font_google_detail">
+        <item quantity="one">%1$s · %2$d style · %3$d KB</item>
+        <item quantity="other">%1$s · %2$d styles · %3$d KB</item>
+    </plurals>
 </resources>

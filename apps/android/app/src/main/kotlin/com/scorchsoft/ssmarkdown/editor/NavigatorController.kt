@@ -120,7 +120,9 @@ class NavigatorController(
         val text = sectionText(line) ?: return
         host.update { it.copy(overlay = null) }
         if (richText) {
-            host.emit(EditorEvent.ShareText(text, richText = true))
+            val range = host.active?.outline?.sectionRange(line) ?: return
+            host.emit(EditorEvent.CopyRichText(text, range.first, range.last + 1))
+            host.message(MessageKind.CopiedRichText)
         } else {
             host.emit(EditorEvent.CopyText(text))
             host.message(MessageKind.SectionCopied)

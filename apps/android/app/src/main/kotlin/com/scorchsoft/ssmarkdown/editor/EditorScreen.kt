@@ -40,6 +40,7 @@ import com.scorchsoft.ssmarkdown.editor.chrome.ModeBar
 import com.scorchsoft.ssmarkdown.editor.chrome.TopBar
 import com.scorchsoft.ssmarkdown.editor.panes.EditorPanes
 import com.scorchsoft.ssmarkdown.editor.panes.PreviewHostState
+import com.scorchsoft.ssmarkdown.editor.sheets.DisplayFacts
 import com.scorchsoft.ssmarkdown.editor.sheets.EditorOverlays
 import com.scorchsoft.ssmarkdown.editor.sheets.MessageBar
 import com.scorchsoft.ssmarkdown.editor.sheets.ThemeControlsPlaceholder
@@ -82,6 +83,7 @@ fun EditorScreen(
     appearance: Appearance,
     modifier: Modifier = Modifier,
     themeControls: @Composable () -> Unit = { ThemeControlsPlaceholder() },
+    display: DisplayFacts = DisplayFacts(appearance),
 ) {
     val imeVisible = WindowInsets.isImeVisible
     LaunchedEffect(imeVisible) { onAction(EditorAction.ImeVisibilityChanged(imeVisible)) }
@@ -104,7 +106,7 @@ fun EditorScreen(
         }
         if (!docked) Drawer(state, onAction)
     }
-    EditorOverlays(state, appearance, onAction, themeControls)
+    EditorOverlays(state, display, onAction, themeControls)
 }
 
 /** The layout facts every part of the screen agrees on. */
@@ -174,7 +176,7 @@ private fun Footer(
         layout.imeVisible -> {
             val strip =
                 state.strip.copy(
-                    mode = if (state.mode == ViewMode.Preview) StripMode.Preview else StripMode.Code,
+                    mode = if (state.previewTyping) StripMode.Preview else StripMode.Code,
                     canUndo = state.canUndo || state.strip.canUndo,
                     document = if (layout.landscape) StripDocument(state.title, state.isDirty) else null,
                 )

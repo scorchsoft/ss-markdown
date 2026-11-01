@@ -25,6 +25,15 @@ sealed interface AppScreen {
 
     /** ComparePhone: one scrolling diff with a Changes / File's / Mine toggle. */
     data object Compare : AppScreen
+
+    /** The full-screen image and diagram viewer. */
+    data object Viewer : AppScreen
+
+    /** The custom theme editor. */
+    data object ThemeEditor : AppScreen
+
+    /** Choose a font, for the theme editor. */
+    data object FontPicker : AppScreen
 }
 
 /**

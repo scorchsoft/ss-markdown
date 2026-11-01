@@ -163,15 +163,16 @@ class SaveController(
         }
     }
 
-    /** Copy (all, as Markdown) — or "Copy as rich text", which shares until Preview renders HTML. */
+    /** Copy (all, as Markdown) — or "Copy as rich text": the Markdown plus the preview's HTML. */
     fun copyAll(richText: Boolean) {
         val doc = host.active ?: return
         doc.surface.flushComposing()
         host.update { it.copy(overlay = null) }
         val text = doc.text.snapshot()
         when {
-            richText -> {
-                host.emit(EditorEvent.ShareText(text, richText = true))
+            richText && text.length <= CLIPBOARD_LIMIT_CHARS -> {
+                host.emit(EditorEvent.CopyRichText(text, 0, doc.text.text.lineCount))
+                host.message(MessageKind.CopiedRichText)
             }
 
             text.length > CLIPBOARD_LIMIT_CHARS -> {

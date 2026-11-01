@@ -35,6 +35,7 @@ class PreferencesSettingsStore(
 }
 
 /** The JSON shape of [AppSettings]. Pure, so the round trip is unit tested. */
+@Suppress("TooManyFunctions") // An encode and a decode per nested type.
 internal object SettingsJson {
     fun encode(s: AppSettings): JSONObject =
         JSONObject()
@@ -53,6 +54,9 @@ internal object SettingsJson {
             .put("recent", JSONArray(s.recentFiles.map(::encodeRecent)))
             .put("lastFile", s.lastFile)
             .put("share", encodeShare(s.share))
+            .put("previewTheme", s.previewThemeId)
+            .put("pageMode", s.previewPageMode)
+            .put("export", encodeExport(s.export))
 
     fun decode(o: JSONObject): AppSettings {
         val d = AppSettings()
@@ -72,6 +76,9 @@ internal object SettingsJson {
             recentFiles = o.optJSONArray("recent")?.let(::decodeRecents).orEmpty(),
             lastFile = o.optString("lastFile").takeIf { it.isNotEmpty() && o.has("lastFile") && !o.isNull("lastFile") },
             share = o.optJSONObject("share")?.let(::decodeShare) ?: d.share,
+            previewThemeId = o.optString("previewTheme").ifEmpty { d.previewThemeId },
+            previewPageMode = o.optBoolean("pageMode", d.previewPageMode),
+            export = o.optJSONObject("export")?.let(::decodeExport) ?: d.export,
         )
     }
 
@@ -134,10 +141,28 @@ internal object SettingsJson {
             prefix = enumOr(o.optString("prefix"), AppendPrefix.None),
         )
 
+    private fun encodeExport(e: ExportDefaults) =
+        JSONObject()
+            .put("format", e.format.name)
+            .put("scale", e.scale)
+            .put("destination", e.destination.name)
+            .put("zipFolder", e.zipFolder)
+
+    private fun decodeExport(o: JSONObject): ExportDefaults {
+        val d = ExportDefaults()
+        return ExportDefaults(
+            format = enumOr(o.optString("format"), d.format),
+            scale = o.optInt("scale", d.scale).coerceIn(1, MAX_SCALE),
+            destination = enumOr(o.optString("destination"), d.destination),
+            zipFolder = o.optString("zipFolder").takeIf { it.isNotEmpty() && !o.isNull("zipFolder") },
+        )
+    }
+
     private inline fun <reified E : Enum<E>> enumOr(
         name: String,
         fallback: E,
     ): E = enumValues<E>().firstOrNull { it.name == name } ?: fallback
 
     private const val NO_LIMIT = -1L
+    private const val MAX_SCALE = 3
 }

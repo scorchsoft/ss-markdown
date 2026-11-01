@@ -27,17 +27,24 @@ import com.scorchsoft.ssmarkdown.files.save.BaseCopyStore
 import com.scorchsoft.ssmarkdown.files.storage.StorageAccountant
 import com.scorchsoft.ssmarkdown.files.storage.StorageLayout
 import com.scorchsoft.ssmarkdown.folder.SafFolderSource
+import com.scorchsoft.ssmarkdown.fontpicker.FontPickerViewModel
+import com.scorchsoft.ssmarkdown.fonts.AndroidFonts
+import com.scorchsoft.ssmarkdown.fonts.FontRepository
 import com.scorchsoft.ssmarkdown.history.HistoryViewModel
 import com.scorchsoft.ssmarkdown.history.journal.JournalStore
 import com.scorchsoft.ssmarkdown.history.versions.VersionStore
+import com.scorchsoft.ssmarkdown.media.DocumentPictures
 import com.scorchsoft.ssmarkdown.nav.ScreenStack
 import com.scorchsoft.ssmarkdown.platform.ExitReasons
 import com.scorchsoft.ssmarkdown.platform.HandlerFlushScheduler
+import com.scorchsoft.ssmarkdown.platform.MediaActions
 import com.scorchsoft.ssmarkdown.settings.PersistedSettingsRepository
 import com.scorchsoft.ssmarkdown.settings.PreferencesSettingsStore
 import com.scorchsoft.ssmarkdown.settings.SettingsRepository
 import com.scorchsoft.ssmarkdown.storage.StorageDependencies
 import com.scorchsoft.ssmarkdown.storage.StorageViewModel
+import com.scorchsoft.ssmarkdown.themes.ThemeEditorViewModel
+import com.scorchsoft.ssmarkdown.themes.ThemeLibrary
 import com.scorchsoft.ssmarkdown.viewstate.JsonViewStateStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -168,7 +175,38 @@ class AppGraph(
                 scope = mainScope,
                 io = io,
                 viewStates = JsonViewStateStore(File(app.filesDir, "view-state.json")),
+                pictures = pictures,
             ),
         ).also { autosave.start() }
+    }
+
+    /** Pictures next to the open document, inside the folder the user granted. */
+    private val pictures =
+        DocumentPictures(
+            resolver,
+            documentUri = {
+                editor.active
+                    ?.open
+                    ?.uri
+                    ?.value
+            },
+            treeUri = { editor.state.folder?.treeUri },
+        )
+
+    /** Downloads, ZIPs, sharing and the clipboard for exported images and rich text. */
+    val media = MediaActions(app, io)
+
+    /** The preview themes: built-ins plus custom JSON files. */
+    val themes = ThemeLibrary(File(app.filesDir, "themes"))
+
+    /** Bundled, downloaded and imported fonts; built on first use (the catalogue is parsed then). */
+    val fonts: FontRepository by lazy { AndroidFonts.repository(app) }
+
+    /** The theme editor. */
+    val themeEditor: ThemeEditorViewModel by lazy { ThemeEditorViewModel(themes, settings) }
+
+    /** The font picker; a chosen font goes to the theme editor. */
+    val fontPicker: FontPickerViewModel by lazy {
+        FontPickerViewModel({ fonts }, mainScope, io, onChosen = themeEditor::onFontChosen)
     }
 }

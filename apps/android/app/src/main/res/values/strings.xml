@@ -209,10 +209,6 @@
     <string name="appearance_system">System</string>
     <string name="appearance_light">Light</string>
     <string name="appearance_dark">Dark</string>
-    <string name="display_text_size">Text size · this file</string>
-    <string name="display_code_size">Code</string>
-    <string name="display_preview_size">Preview</string>
-    <string name="display_reset">Reset</string>
     <string name="display_wrap">Line wrapping · Code</string>
     <string name="wrap_on">Wrap</string>
     <string name="wrap_off">No wrap</string>

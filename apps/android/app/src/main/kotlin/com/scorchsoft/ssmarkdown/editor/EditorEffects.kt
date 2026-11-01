@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.editor
 
+import com.scorchsoft.ssmarkdown.editor.preview.PreviewEffects
 import com.scorchsoft.ssmarkdown.nav.AppScreen
 
 /**
@@ -17,6 +18,9 @@ internal object EditorEffects {
         when (action) {
             is EditorAction.SelectMode -> {
                 vm.rememberView { it.copy(mode = action.mode) }.also { vm.emit(EditorEvent.Tick) }
+                // The pane coming into view lands on the anchor (the Code pane does so as it attaches).
+                if (action.mode != ViewMode.Code) vm.preview.scrollTo(vm.anchorLine.value)
+                if (action.mode != ViewMode.Split) vm.update { it.copy(preview = it.preview.copy(editing = false)) }
             }
 
             EditorAction.CopyTapped -> {
@@ -128,7 +132,7 @@ internal object EditorEffects {
             }
 
             else -> {
-                Unit
+                PreviewEffects.run(vm, action, before)
             }
         }
     }
@@ -146,9 +150,10 @@ internal object EditorEffects {
             MenuItem.SaveAs -> vm.saves.saveAs()
             MenuItem.FindReplace -> vm.onAction(EditorAction.Find(com.scorchsoft.ssmarkdown.find.FindAction.Open))
             MenuItem.VersionHistory -> vm.emit(EditorEvent.Open(AppScreen.History))
-            MenuItem.ExportPdf, MenuItem.ExportImages -> vm.message(MessageKind.PreviewPending)
+            MenuItem.ExportPdf -> PreviewEffects.exportPdf(vm)
+            MenuItem.ExportImages -> vm.imageExports.openExport()
             MenuItem.Share -> vm.saves.share(richText = false)
-            MenuItem.CopyRichText -> vm.saves.copyAll(richText = true)
+            MenuItem.CopyRichText -> PreviewEffects.copyAllRich(vm)
             MenuItem.Display -> vm.update { it.copy(overlay = EditorOverlay.Display) }
             MenuItem.Settings -> vm.emit(EditorEvent.Open(AppScreen.Settings))
             MenuItem.Copy -> vm.saves.copyAll(richText = false)

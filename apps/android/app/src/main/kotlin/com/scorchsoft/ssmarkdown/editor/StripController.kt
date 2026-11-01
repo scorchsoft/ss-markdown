@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.editor
 
+import com.scorchsoft.ssmarkdown.editor.preview.PreviewStripKeys
 import com.scorchsoft.ssmarkdown.markdown.edit.EditCommand
 import com.scorchsoft.ssmarkdown.markdown.edit.FormatState
 import com.scorchsoft.ssmarkdown.markdown.edit.InlineFormat
@@ -21,6 +22,10 @@ class StripController(
     /** A strip key was tapped. Paging was applied by the reducer already. */
     fun onKey(key: StripKey) {
         val doc = host.active ?: return
+        if (host.state.previewTyping) {
+            onPreviewKey(key)
+            return
+        }
         val surface = doc.surface
         when (key) {
             StripKey.Undo -> surface.undo()
@@ -31,6 +36,22 @@ class StripController(
         }
         host.refresh()
         refreshPressed()
+    }
+
+    /**
+     * A strip key while Preview has the caret (ux-spec "Editing in Preview"):
+     * formats go to the page, which answers with its selection's source
+     * range; Undo is the document's own history; Done goes back to reading.
+     */
+    private fun onPreviewKey(key: StripKey) {
+        val surface = host.active?.surface ?: return
+        when (key) {
+            StripKey.Undo -> surface.undo()
+            StripKey.Redo -> surface.redo()
+            StripKey.Done -> host.preview.endEditing().also { host.emit(EditorEvent.HideKeyboard) }
+            else -> PreviewStripKeys.actionFor(key, host.state.preview.inHeading)?.let(host.preview::format)
+        }
+        host.refresh()
     }
 
     /** A symbols-page key: types [text] over the selection. The page stays (no hidden lock). */

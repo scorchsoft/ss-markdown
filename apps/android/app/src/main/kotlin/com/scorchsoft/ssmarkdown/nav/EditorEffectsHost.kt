@@ -19,6 +19,7 @@ import com.scorchsoft.ssmarkdown.editor.EditorEvent
 import com.scorchsoft.ssmarkdown.editor.PendingLeave
 import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.files.saf.MarkdownFiles
+import com.scorchsoft.ssmarkdown.media.ExportFile
 import com.scorchsoft.ssmarkdown.platform.PlatformActions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -31,9 +32,11 @@ private class PendingPick {
     var exportText: String? = null
     var zip: File? = null
     var importForHistory = false
+    var images: List<ExportFile>? = null
 }
 
 /** The system pickers, each wired to where its answer goes. */
+@Suppress("LongParameterList") // One launcher per picker; built in one place.
 private class Pickers(
     val saveAs: ManagedActivityResultLauncher<String, Uri?>,
     val openFile: ManagedActivityResultLauncher<Array<String>, Uri?>,
@@ -41,6 +44,7 @@ private class Pickers(
     val exportText: ManagedActivityResultLauncher<String, Uri?>,
     val saveZip: ManagedActivityResultLauncher<String, Uri?>,
     val importZip: ManagedActivityResultLauncher<Array<String>, Uri?>,
+    val imagesZip: ManagedActivityResultLauncher<ZipWithStartFolder.Request, Uri?>,
 )
 
 /** The views an effect may act on. */
@@ -106,6 +110,16 @@ private fun rememberPickers(
                 val file = pending.zip.also { pending.zip = null }
                 // Only once the copy has landed is the app-private export removed; until then it stays safe.
                 if (uri != null && file != null) scope.launch { if (platform.copyFile(file, uri)) file.delete() }
+            },
+        imagesZip =
+            rememberLauncherForActivityResult(ZipWithStartFolder()) { uri ->
+                val files = pending.images.also { pending.images = null }
+                if (uri != null && files != null) {
+                    scope.launch {
+                        val ok = graph.media.writeZip(uri, files)
+                        onZipWritten(graph, uri, ok)
+                    }
+                }
             },
         importZip =
             rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -198,6 +212,15 @@ private suspend fun onEditorEvent(
 
         EditorEvent.Finish -> {
             targets.activity?.finish()
+        }
+
+        is EditorEvent.SaveZip -> {
+            pending.images = event.files
+            pickers.imagesZip.launch(ZipWithStartFolder.Request("${event.docName}-images.zip", event.initialFolder))
+        }
+
+        else -> {
+            onPreviewEvent(event, graph, platform)
         }
     }
 }

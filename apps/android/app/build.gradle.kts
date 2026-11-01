@@ -78,10 +78,12 @@ dependencies {
     implementation(project(":core:text"))
     implementation(project(":core:markdown"))
     implementation(project(":core:history"))
+    implementation(project(":core:theme"))
     implementation(project(":core:ui"))
     implementation(project(":feature:editor"))
     implementation(project(":feature:preview"))
     implementation(project(":feature:files"))
+    implementation(project(":feature:fonts"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

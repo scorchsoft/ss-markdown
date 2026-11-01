@@ -18,6 +18,7 @@ import com.scorchsoft.ssmarkdown.files.saf.IntentFields
 import com.scorchsoft.ssmarkdown.files.saf.from
 import com.scorchsoft.ssmarkdown.nav.AppRoot
 import com.scorchsoft.ssmarkdown.platform.PlatformActions
+import com.scorchsoft.ssmarkdown.preview.PreviewView
 import com.scorchsoft.ssmarkdown.settings.Appearance
 import com.scorchsoft.ssmarkdown.ui.TickingNow
 import java.io.IOException
@@ -31,6 +32,15 @@ import java.io.IOException
  */
 class MainActivity : ComponentActivity() {
     private val graph: AppGraph get() = (application as SSMarkdownApplication).graph
+
+    /**
+     * The one Preview WebView, owned by this Activity: it handles its own
+     * configuration changes, so the view survives rotation and folding and
+     * is placed wherever the Preview pane is (robustness §5a, rule 2).
+     * Created on first use; nothing starts a WebView until Preview shows.
+     */
+    val previewView: PreviewView by lazy { PreviewView(this) }
+    private var previewCreated = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -47,7 +57,19 @@ class MainActivity : ComponentActivity() {
                     Appearance.Dark -> true
                 }
             SSMarkdownTheme(darkTheme = dark) {
-                TickingNow(graph.clock) { AppRoot(graph, platform, versionName(), licences) }
+                TickingNow(graph.clock) {
+                    AppRoot(
+                        graph,
+                        platform,
+                        versionName(),
+                        licences,
+                        previewView =
+                            previewView.also {
+                                previewCreated =
+                                    true
+                            },
+                    )
+                }
             }
         }
     }
@@ -60,6 +82,14 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         graph.editor.onResume()
+    }
+
+    override fun onDestroy() {
+        if (previewCreated) {
+            graph.editor.preview.detach(previewView)
+            previewView.release()
+        }
+        super.onDestroy()
     }
 
     override fun onPause() {

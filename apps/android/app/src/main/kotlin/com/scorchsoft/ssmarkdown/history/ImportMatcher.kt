@@ -2,6 +2,7 @@ package com.scorchsoft.ssmarkdown.history
 
 import com.scorchsoft.ssmarkdown.history.versions.ExportedDocument
 import java.security.MessageDigest
+import java.util.Locale
 
 /** Where an imported history should go. */
 sealed interface ImportMatch {
@@ -49,5 +50,5 @@ object ImportMatcher {
         MessageDigest
             .getInstance("SHA-256")
             .digest(text.toString().toByteArray(Charsets.UTF_8))
-            .joinToString("") { "%02x".format(it) }
+            .joinToString("") { "%02x".format(Locale.ROOT, it) }
 }

@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.editor
 
+import com.scorchsoft.ssmarkdown.media.ExportFile
 import com.scorchsoft.ssmarkdown.nav.AppScreen
 
 /**
@@ -58,4 +59,52 @@ sealed interface EditorEvent {
 
     /** Leave the app. */
     data object Finish : EditorEvent
+
+    /**
+     * "Copy as rich text": [text] as Markdown plus the preview's rendering of
+     * source lines `[fromLine, toLine)` as HTML, when the preview can give it.
+     */
+    data class CopyRichText(
+        val text: CharSequence,
+        val fromLine: Int,
+        val toLine: Int,
+    ) : EditorEvent
+
+    /** Opens a web, mail or phone link in another app, after the user tapped Open on the chip. */
+    data class OpenLink(
+        val url: String,
+    ) : EditorEvent
+
+    /** Export images, separate files: `Downloads/SS Markdown/<folder>/`. */
+    class SaveToDownloads(
+        val folder: String,
+        val files: List<ExportFile>,
+    ) : EditorEvent
+
+    /** Export images as one ZIP, through the system picker, starting in [initialFolder] when remembered. */
+    class SaveZip(
+        val docName: String,
+        val files: List<ExportFile>,
+        val initialFolder: String?,
+    ) : EditorEvent
+
+    /** "Share instead", or Share from the viewer and the Mermaid sheet. */
+    class ShareFiles(
+        val files: List<ExportFile>,
+    ) : EditorEvent
+
+    /** The Mermaid sheet's Copy image. */
+    class CopyImage(
+        val file: ExportFile,
+    ) : EditorEvent
+
+    /** Display → Edit theme: the theme editor, on a copy of [themeId] when it is a built-in. */
+    data class EditTheme(
+        val themeId: String,
+    ) : EditorEvent
+
+    /** ⋮ → Export PDF: the system print dialog for the preview, named [jobName]. */
+    data class Print(
+        val jobName: String,
+    ) : EditorEvent
 }

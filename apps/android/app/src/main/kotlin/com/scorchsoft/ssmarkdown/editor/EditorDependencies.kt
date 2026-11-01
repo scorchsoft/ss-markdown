@@ -3,11 +3,13 @@ package com.scorchsoft.ssmarkdown.editor
 import com.scorchsoft.ssmarkdown.document.ActiveDocument
 import com.scorchsoft.ssmarkdown.document.DiskReader
 import com.scorchsoft.ssmarkdown.document.VersionHistoryHook
+import com.scorchsoft.ssmarkdown.editor.preview.PreviewSession
 import com.scorchsoft.ssmarkdown.files.document.AutosaveScheduler
 import com.scorchsoft.ssmarkdown.files.document.DocumentStore
 import com.scorchsoft.ssmarkdown.files.drafts.DraftStore
 import com.scorchsoft.ssmarkdown.folder.FolderSource
 import com.scorchsoft.ssmarkdown.history.versions.VersionStore
+import com.scorchsoft.ssmarkdown.media.PictureSource
 import com.scorchsoft.ssmarkdown.settings.SettingsRepository
 import com.scorchsoft.ssmarkdown.viewstate.InMemoryViewStates
 import com.scorchsoft.ssmarkdown.viewstate.ViewStateStore
@@ -24,6 +26,7 @@ import kotlinx.coroutines.CoroutineScope
  * @property scope the main-thread scope the store and its callers live on.
  * @property io where blocking file-system calls run.
  * @property viewStates each file's mode, zoom, selection and scroll, kept across restarts (R7).
+ * @property pictures pictures next to the document, for the viewer and Export images.
  */
 data class EditorDependencies(
     val store: DocumentStore,
@@ -40,6 +43,7 @@ data class EditorDependencies(
     val scope: CoroutineScope,
     val io: CoroutineDispatcher,
     val viewStates: ViewStateStore = InMemoryViewStates(),
+    val pictures: PictureSource = PictureSource { null },
 )
 
 /**
@@ -76,6 +80,9 @@ interface EditorHost {
 
     /** The current screen state. */
     val state: EditorUiState
+
+    /** The Preview's session: the strip and find drive the page through it. */
+    val preview: PreviewSession
 
     /** Changes the screen state. */
     fun update(change: (EditorUiState) -> EditorUiState)

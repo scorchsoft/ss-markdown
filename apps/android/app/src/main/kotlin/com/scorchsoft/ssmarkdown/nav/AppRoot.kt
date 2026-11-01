@@ -21,18 +21,26 @@ import com.scorchsoft.ssmarkdown.editor.EditorAction
 import com.scorchsoft.ssmarkdown.editor.EditorScreen
 import com.scorchsoft.ssmarkdown.editor.EditorViewModel
 import com.scorchsoft.ssmarkdown.editor.Pane
+import com.scorchsoft.ssmarkdown.editor.ViewMode
 import com.scorchsoft.ssmarkdown.editor.panes.CodePaneHost
 import com.scorchsoft.ssmarkdown.editor.panes.PreviewHostState
+import com.scorchsoft.ssmarkdown.editor.panes.PreviewPaneHost
 import com.scorchsoft.ssmarkdown.editor.panes.PreviewPlaceholder
+import com.scorchsoft.ssmarkdown.editor.preview.PreviewSession
+import com.scorchsoft.ssmarkdown.editor.sheets.DisplayFacts
 import com.scorchsoft.ssmarkdown.history.HistoryScreen
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.navigator.NavigatorAction
 import com.scorchsoft.ssmarkdown.platform.PlatformActions
+import com.scorchsoft.ssmarkdown.preview.PreviewView
 import com.scorchsoft.ssmarkdown.settings.SettingsAction
 import com.scorchsoft.ssmarkdown.settings.SettingsReducer
 import com.scorchsoft.ssmarkdown.settings.SettingsScreen
 import com.scorchsoft.ssmarkdown.storage.StorageScreen
 import com.scorchsoft.ssmarkdown.text.EditOp
+import com.scorchsoft.ssmarkdown.themes.ThemeControls
+import com.scorchsoft.ssmarkdown.themes.isDark
+import com.scorchsoft.ssmarkdown.themes.rememberPreviewLook
 
 /**
  * The app's composition: the editor always, with any other screen drawn
@@ -40,7 +48,8 @@ import com.scorchsoft.ssmarkdown.text.EditOp
  * the WebView) survives a visit to Settings or History with its cursor,
  * scroll and keyboard state intact.
  *
- * @param previewPane the Preview slot; `feature/preview` replaces the placeholder here.
+ * @param previewView the Activity's one Preview WebView; null draws a stand-in (tests without a WebView).
+ * @param previewPane overrides the Preview slot entirely, for tests.
  */
 @Composable
 fun AppRoot(
@@ -48,111 +57,80 @@ fun AppRoot(
     platform: PlatformActions,
     versionName: String,
     licences: List<Licence>,
-    previewPane: @Composable (PreviewHostState) -> Unit = { PreviewPlaceholder(it) },
+    previewView: PreviewView? = null,
+    previewPane: (@Composable (PreviewHostState) -> Unit)? = null,
 ) {
     val screens by graph.screens.screens.collectAsState()
-    Box(Modifier.fillMaxSize()) {
-        EditorRoute(graph, previewPane)
-        when (screens.last()) {
-            AppScreen.Editor -> {
-                Unit
-            }
-
-            AppScreen.Settings -> {
-                SettingsRoute(graph)
-            }
-
-            AppScreen.Storage -> {
-                StorageRoute(graph)
-            }
-
-            AppScreen.History -> {
-                HistoryRoute(graph)
-            }
-
-            AppScreen.About -> {
-                AboutScreen(versionName, platform::openSite, {
-                    graph.screens.push(AppScreen.Licences)
-                }, { graph.screens.pop() })
-            }
-
-            AppScreen.Licences -> {
-                LicencesScreen(licences, { graph.screens.pop() })
-            }
-
-            AppScreen.Merge -> {
-                MergeRoute(graph.editor, graph.screens)
-            }
-
-            AppScreen.Compare -> {
-                CompareRoute(graph.editor, graph.screens)
-            }
+    // Remembered once: EditorPanes hosts this with movableContentOf, so its identity must never change.
+    val pane =
+        remember(previewView, previewPane) {
+            previewPane ?: previewView?.let { view -> previewPaneFor(view, graph.editor.preview) }
+                ?: { PreviewPlaceholder(it) }
         }
+    Box(Modifier.fillMaxSize()) {
+        EditorRoute(graph, pane)
+        ScreenOver(screens.last(), graph, platform, versionName, licences)
         if (screens.size > 1) BackHandler { graph.screens.pop() }
     }
     EditorEffectsHost(graph, platform)
 }
 
+/** Whatever screen is on top of the editor, drawn over it. */
 @Composable
-private fun EditorRoute(
+private fun ScreenOver(
+    screen: AppScreen,
     graph: AppGraph,
-    previewPane: @Composable (PreviewHostState) -> Unit,
+    platform: PlatformActions,
+    versionName: String,
+    licences: List<Licence>,
 ) {
-    val vm = graph.editor
-    val state by vm.uiState.collectAsState()
-    val active by vm.activeDocument.collectAsState()
-    val anchor by vm.anchorLine.collectAsState()
-    val settings by graph.settings.settings.collectAsState()
-    // Remembered once: EditorPanes hosts this with movableContentOf, so its identity must never change.
-    val codePane = remember(vm) { codePaneFor(vm) }
-    val preview =
-        PreviewHostState(
-            document = active?.text,
-            version = active?.text?.version ?: 0,
-            anchorLine = anchor,
-            zoomPercent = state.previewZoom,
-            tapToEdit = settings.tapToEditPreview,
-            onAnchorLineChanged = vm::onAnchorLineChanged,
-            onZoomChanged = {
-                percent,
-                pinching,
-                ->
-                vm.onAction(EditorAction.ZoomChanged(Pane.Preview, percent, pinching))
-            },
-            onEdit = { start, end, text -> previewEdit(vm, start, end, text) },
-            onHeadingLongPress = { vm.onAction(EditorAction.Navigator(NavigatorAction.HeadingMenu(it))) },
-        )
-    EditorScreen(
-        state = state,
-        onAction = vm::onAction,
-        codePane = codePane,
-        previewPane = previewPane,
-        previewState = preview,
-        appearance = settings.appearance,
-    )
-}
+    when (screen) {
+        AppScreen.Editor -> {
+            Unit
+        }
 
-private fun codePaneFor(vm: EditorViewModel): @Composable (Modifier) -> Unit =
-    { modifier ->
-        val active by vm.activeDocument.collectAsState()
-        val state by vm.uiState.collectAsState()
-        CodePaneHost(active, state.codeWrap, state.codeZoom, vm::attach, vm::detach, modifier)
+        AppScreen.Settings -> {
+            SettingsRoute(graph)
+        }
+
+        AppScreen.Storage -> {
+            StorageRoute(graph)
+        }
+
+        AppScreen.History -> {
+            HistoryRoute(graph)
+        }
+
+        AppScreen.About -> {
+            AboutScreen(versionName, platform::openSite, {
+                graph.screens.push(AppScreen.Licences)
+            }, { graph.screens.pop() })
+        }
+
+        AppScreen.Licences -> {
+            LicencesScreen(licences, { graph.screens.pop() })
+        }
+
+        AppScreen.Merge -> {
+            MergeRoute(graph.editor, graph.screens)
+        }
+
+        AppScreen.Compare -> {
+            CompareRoute(graph.editor, graph.screens)
+        }
+
+        AppScreen.Viewer -> {
+            ViewerRoute(graph)
+        }
+
+        AppScreen.ThemeEditor -> {
+            ThemeEditorRoute(graph, platform)
+        }
+
+        AppScreen.FontPicker -> {
+            FontPickerRoute(graph)
+        }
     }
-
-/** A Preview edit becomes a minimal source change through the editor surface (one undo step). */
-private fun previewEdit(
-    vm: EditorViewModel,
-    start: Int,
-    end: Int,
-    text: String,
-) {
-    val doc = vm.active ?: return
-    val snapshot = doc.text.snapshot()
-    if (end > snapshot.length || start > end) return
-    doc.surface.apply(
-        listOf(EditOp(start, snapshot.subSequence(start, end), text)),
-        TextSelection.caret(start + text.length),
-    )
 }
 
 @Composable

@@ -14,7 +14,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
+import com.scorchsoft.ssmarkdown.preview.RendererState
 import com.scorchsoft.ssmarkdown.text.TextDocument
+import com.scorchsoft.ssmarkdown.themes.PreviewLook
 
 /**
  * Everything the Preview pane needs from the editor, for the
@@ -35,6 +37,13 @@ import com.scorchsoft.ssmarkdown.text.TextDocument
  * @property onZoomChanged a pinch: [Int] percent, and whether fingers are still down.
  * @property onEdit a Preview edit as a minimal source change: `(start, end, replacement)`.
  * @property onHeadingLongPress long-press on a heading: its source line (the section menu, J10).
+ * @property look the preview theme as the page draws it; null until themes have loaded.
+ * @property pageMode Display → Preview wrapping: the A4 page instead of Fluid.
+ * @property readOnly the file refuses edits, so the page must too.
+ * @property renderer running, restarted, or paused with Retry.
+ * @property onTouched a finger went down on the pane: in Split, it now leads the scrolling.
+ * @property onRetry "Preview paused · Retry".
+ * @property onShowCode "Preview paused · Use Code".
  */
 @Suppress("LongParameterList") // A state holder: every field is something the Preview needs.
 @Stable
@@ -48,11 +57,18 @@ class PreviewHostState(
     val onZoomChanged: (Int, Boolean) -> Unit,
     val onEdit: (Int, Int, String) -> Unit,
     val onHeadingLongPress: (Int) -> Unit,
+    val look: PreviewLook? = null,
+    val pageMode: Boolean = false,
+    val readOnly: Boolean = false,
+    val renderer: RendererState = RendererState.RUNNING,
+    val onTouched: () -> Unit = {},
+    val onRetry: () -> Unit = {},
+    val onShowCode: () -> Unit = {},
 )
 
 /**
- * The temporary Preview pane until `feature/preview` is integrated. It
- * says so plainly rather than pretending to render.
+ * A stand-in Preview pane, for tests and screenshots that run without a
+ * WebView. It says so plainly rather than pretending to render.
  */
 @Composable
 fun PreviewPlaceholder(

@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Preview, viewer, export, themes and fonts. Tone: docs/brand. -->
+<resources>
+    <!-- Preview pane -->
+    <string name="preview_paused">Preview paused</string>
+    <string name="preview_paused_body">This document stopped the preview twice in a minute. Your text is safe, and Code still works.</string>
+    <string name="preview_retry">Retry</string>
+    <string name="preview_use_code">Use Code</string>
+    <string name="msg_preview_restarted">Preview restarted · your place is kept</string>
+    <string name="msg_edit_refused">That part can\'t be edited in Preview · use Code</string>
+
+    <!-- Links -->
+    <string name="link_open">Open</string>
+    <string name="link_edit">Edit link</string>
+    <string name="link_blocked">This link can\'t be opened from here.</string>
+    <string name="msg_link_blocked">That link can\'t be opened</string>
+
+    <!-- Mermaid sheet -->
+    <string name="media_kind_diagram">Diagram</string>
+    <string name="media_kind_picture">Picture</string>
+    <string name="media_view">View full screen</string>
+    <string name="media_view_hint">Pinch to zoom</string>
+    <string name="media_save_png">Save as PNG</string>
+    <string name="media_save_png_hint">%1$d× (set in Export images)</string>
+    <string name="media_save_svg">Save as SVG</string>
+    <string name="media_copy">Copy image</string>
+    <string name="media_share">Share…</string>
+    <string name="media_source">Show source in Code</string>
+    <string name="msg_image_copied">Image copied</string>
+    <string name="msg_image_saved">Saved %1$s</string>
+
+    <!-- Tables -->
+    <string name="table_title">Table</string>
+    <string name="table_add_row">Add row below</string>
+    <string name="table_add_column">Add column to the right</string>
+    <string name="table_row_up">Move row up</string>
+    <string name="table_row_down">Move row down</string>
+    <string name="table_column_left">Move column left</string>
+    <string name="table_column_right">Move column right</string>
+    <string name="table_align_left">Align column left</string>
+    <string name="table_align_center">Centre column</string>
+    <string name="table_align_right">Align column right</string>
+    <string name="table_delete_row">Delete row</string>
+    <string name="table_delete_column">Delete column</string>
+
+    <!-- Viewer -->
+    <string name="viewer_title">%1$s · %2$d of %3$d</string>
+    <string name="viewer_diagram">Diagram</string>
+    <string name="viewer_picture">Picture</string>
+    <string name="viewer_save">Save</string>
+    <string name="viewer_share">Share</string>
+    <string name="viewer_fit">Fit</string>
+    <string name="viewer_loading">Drawing…</string>
+    <string name="viewer_failed">This image couldn\'t be shown. Pictures on the web aren\'t fetched; the app works offline.</string>
+
+    <!-- Export images -->
+    <string name="export_title">Export images</string>
+    <string name="export_include">Include</string>
+    <string name="export_select_none">Select none</string>
+    <string name="export_select_all">Select all</string>
+    <string name="export_diagrams_as">Diagrams as</string>
+    <string name="export_png">PNG</string>
+    <string name="export_svg">SVG</string>
+    <string name="export_both">Both</string>
+    <string name="export_scale">%1$d×</string>
+    <string name="export_pictures_note">Pictures keep their original format and size.</string>
+    <string name="export_save_as">Save as</string>
+    <string name="export_separate">Separate files · default</string>
+    <string name="export_separate_hint">Downloads/SS Markdown/%1$s/, numbered in order</string>
+    <string name="export_zip">One ZIP file</string>
+    <string name="export_zip_hint">%1$s-images.zip · you choose where it goes (remembered)</string>
+    <string name="export_share">Share instead</string>
+    <string name="msg_images_exported">Saved to Downloads/SS Markdown/%1$s</string>
+    <string name="msg_images_failed">Couldn\'t export the images</string>
+    <string name="msg_nothing_to_export">No diagrams or pictures in this file</string>
+
+    <!-- Display -->
+    <string name="display_preview_theme">Preview theme</string>
+    <string name="display_edit_theme">Edit theme…</string>
+    <string name="display_text_size_file">Text size · this file</string>
+    <string name="display_code_size_sp">Code · %1$s sp</string>
+    <string name="display_preview_size_px">Preview · %1$s px</string>
+    <string name="display_reset_default">Reset to your default (Settings)</string>
+    <string name="wrap_fluid">Fluid</string>
+    <string name="wrap_a4">A4 page</string>
+
+    <!-- Theme editor -->
+    <string name="theme_chip_sample">Aa</string>
+    <string name="theme_import">Import</string>
+    <string name="theme_export">Export</string>
+    <string name="theme_based_on">Custom · based on %1$s</string>
+    <string name="theme_details">Dismiss</string>
+    <string name="theme_ok">OK</string>
+    <string name="theme_save_failed">Couldn\'t save the theme. Nothing else changed.</string>
+    <string name="theme_tab_type">Type</string>
+    <string name="theme_tab_colours">Colours</string>
+    <string name="theme_tab_spacing">Spacing</string>
+    <string name="theme_tab_json">JSON</string>
+    <string name="theme_font_body">Body font</string>
+    <string name="theme_font_heading">Heading font</string>
+    <string name="theme_font_code">Code font (inside preview)</string>
+    <string name="theme_same_as_body">Same as body</string>
+    <string name="theme_css">Advanced CSS</string>
+    <string name="theme_css_detail">Extra rules added after the theme</string>
+    <string name="theme_css_empty">Empty</string>
+    <string name="theme_css_set">Set</string>
+    <string name="theme_contrast">Contrast</string>
+    <string name="theme_fix_contrast">Fix it</string>
+    <string name="theme_base_size">Base size</string>
+    <string name="theme_px">%1$d px</string>
+    <string name="theme_heading_scale">Heading scale</string>
+    <string name="theme_line_height">Line height</string>
+    <string name="theme_duplicate">Duplicate</string>
+    <string name="theme_use">Use this theme</string>
+    <string name="theme_sample_heading">Heading</string>
+    <string name="theme_sample_body">Body text with</string>
+    <string name="theme_sample_link">a link</string>
+    <string name="theme_sample_code">let x = 1</string>
+
+    <!-- Font picker -->
+    <string name="font_title">Choose a font</string>
+    <string name="font_for">%1$s · %2$s theme</string>
+    <string name="font_search">Search Google Fonts</string>
+    <string name="font_all">All</string>
+    <string name="font_serif">Serif</string>
+    <string name="font_sans">Sans</string>
+    <string name="font_mono">Mono</string>
+    <string name="font_display">Display</string>
+    <string name="font_handwriting">Handwriting</string>
+    <string name="font_on_phone">On this phone</string>
+    <string name="font_google">Google Fonts</string>
+    <string name="font_built_in">Built in</string>
+    <string name="font_downloaded">Google Fonts · kept on this phone</string>
+    <string name="font_imported">Imported</string>
+    <string name="font_current">in use</string>
+    <string name="font_get">Get</string>
+    <string name="font_ok">OK</string>
+    <string name="font_download_note">Downloaded once over the internet, then kept on this phone and works offline. This is the only thing SS Markdown ever downloads.</string>
+    <string name="font_import">Or import a .ttf / .otf</string>
+</resources>

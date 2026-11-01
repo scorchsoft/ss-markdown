@@ -71,8 +71,14 @@ scored by walking these jobs on a device.
 - Code: JetBrains Mono 12.5 sp, line height 1.6.
 - Preview body: 15 px at 1.6 line height, ~75 characters per line
   maximum in Fluid mode on wide screens.
-- A 4 dp spacing grid; touch targets ≥ 48 dp (≥ 44 dp for strip keys,
-  with 48 dp hit areas).
+- A 4 dp spacing grid. **Touch targets** (tokens):
+  - icon buttons 48×48 dp;
+  - pills 40 dp tall with 48 dp hit areas;
+  - segmented controls 44 dp;
+  - strip and symbol keys 48×48 dp (the strip scrolls; never shrink the
+    keys);
+  - list rows ≥ 44 dp (48 dp for primary rows);
+  - chips 40 dp.
 
 **Colour**
 - Neutral surfaces. Scorchsoft red means **"needs you"**: the unsaved
@@ -87,7 +93,7 @@ scored by walking these jobs on a device.
 - **Error:** an inline message beside the thing that failed, plus a way
   out (Retry / Save as / Show source). Never a dead-end dialog.
 - **Read-only:** a badge in the status line plus "Save as…".
-- **Large file / lean mode:** a quiet chip in the status line that
+- **Big-file mode:** a quiet chip in the status line that
   explains on tap.
 
 **Sound:** none, ever.

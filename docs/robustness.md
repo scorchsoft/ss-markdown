@@ -25,9 +25,10 @@ Each layer assumes every layer above it has failed.
   opening another file). Worst case, you lose the last second of typing.
 - Every so often the journal is compacted into a full snapshot plus a
   fresh operation list, so replay stays fast.
-- On launch, a journal that wasn't cleanly closed brings up "Recovered
-  unsaved changes from 14:02", with Compare / Restore / Discard. Nothing
-  is ever discarded silently.
+- On launch, edits from a journal that wasn't cleanly closed are
+  **restored automatically**. A non-modal banner (ux-spec "Recovery")
+  offers Got it / Compare / Discard edits. Discarding records a History
+  checkpoint and can be undone. Nothing is ever discarded silently.
 - **Document text never goes into `onSaveInstanceState`.** The Bundle
   limit is about 1 MB, and going over it crashes the app with
   `TransactionTooLargeException`. Process death is handled by the
@@ -92,7 +93,7 @@ hash is always taken before a save.
 | Our state | What we do |
 |---|---|
 | No unsaved edits | Silently load the file as it is now. Record a history entry "Changed outside SS Markdown". Map the cursor and scroll through the diff so you stay near the same place. **Discard the old undo stack**, because undoing into stale content would bring old text back. |
-| Unsaved edits (open now, or recovered from the journal) | **Never auto-apply.** Show the file as it is now, plus the "changed since your unsaved edits" sheet with these choices: **Merge my edits** (a three-way merge), **Compare side by side**, **Keep the file as it is** (your edits stay in History), or **Use my version…** (behind a confirmation; the disk version is recorded in history first). Autosave is paused until you choose. |
+| Unsaved edits (open now, or recovered from the journal) | **Never auto-apply.** Show the file as it is now, plus the "changed since your unsaved edits" sheet (the only conflict surface; in-session banners just open it) with these choices: **Merge my edits** (a three-way merge), **Compare side by side**, **Keep the file as it is** (your edits stay in History), or **Use my version…** (behind a confirmation; the disk version is recorded in history first). Autosave is paused until you choose. |
 | File deleted or moved | Your text is kept. Offer **Save as / Recreate**. |
 
 **Three-way merge (the "Merge my edits" choice)**

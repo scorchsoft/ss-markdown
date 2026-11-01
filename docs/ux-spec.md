@@ -18,11 +18,16 @@ mockups agreed with Andrew win, and this file gets updated.
   Long-pressing it gives "Copy as rich text".
 - **Save** is always visible:
   - Clean: a muted outline icon.
-  - Unsaved: a red filled "Save" pill.
-  - Untitled: "Save as…".
+  - Unsaved: a red filled "Save" pill (text only, 40 dp tall, 48 dp hit
+    area).
+  - Clean: a check-in-circle labelled "All saved" (tapping it shows "All
+    saved").
+  - Untitled, or read-only with edits: a red "Save as…" pill.
+  - **Long-press Save** opens Save as… · Autosave this file (on/off).
   - A brief toast confirms each save with the destination.
-- **⋮** opens: New · Open file · Open folder · Save as · Find &
-  replace · Export PDF · Export images · Share · Version history · Display · Settings.
+- **⋮** opens: New · Open file · Open folder · Save as │ Find & replace ·
+  Version history │ Export… (PDF · Images · Section) · Share │ Display ·
+  Settings.
 
 **Bottom bar (64 dp)**
 - A segmented Code | Split | Preview control, with icon and label.
@@ -34,9 +39,16 @@ mockups agreed with Andrew win, and this file gets updated.
     scrolls horizontally to reveal table, quote, redo and outdent.
   - **In Code view**, a `{ }` key is pinned at the right end. It flips
     the strip to a **symbols page**: `` ` `` `[` `]` `(` `)` `#` `*` `>`
-    `|` `-` `=` `!` and ← → cursor nudges (hold to repeat).
-  - After one insert the strip flips back to formatting. Long-pressing
-    `{ }` locks the symbols page until it's tapped again.
+    `|` `-` `=` `!` and ← → cursor keys (arrows with shafts, hold to
+    repeat). Keys are 48×48 dp and the page scrolls.
+  - The symbols page stays while you keep tapping symbols, and flips back
+    to formatting as soon as you type a letter or tap `{ }`. There is no
+    hidden lock.
+  - **Landscape with the keyboard up:** the header steps aside. The strip
+    then carries the filename, the unsaved dot and the Save pill, so Save
+    is always reachable.
+  - **Font scale above 1.5×:** the mode switcher goes icon-only (labels
+    kept for TalkBack), Copy moves into ⋮, and Save never moves.
   - In Preview the strip shows formatting only, since there is no raw
     syntax to type.
   - Rationale: progressive disclosure keeps the strip calm. Code-heavy
@@ -63,13 +75,106 @@ shared by Code and Preview, and updates as headings scroll past the top.
   document"), and Ctrl+Home works on hardware keyboards.
 - No third bar and no floating button: the existing title does the job.
 
+## Gestures in Preview (precedence, top wins)
+
+1. A tap that **stops a fling** only stops the scroll; it never edits.
+2. Tap on a **diagram, image or maths block** → the viewer.
+3. Tap on a **link** → a small chip, *Open · Edit link*. With "Tap to
+   edit" off, a tap opens the link directly.
+4. Tap on a **task checkbox** → toggles it (one character changes).
+5. Tap on **text** → caret and keyboard (if "Tap to edit" is on).
+6. **Long-press text** → native selection. When the selection starts in
+   a heading, the selection toolbar adds **Section…** (Copy section ·
+   Copy as rich text · Select section · Export section). It never
+   replaces native selection.
+7. **Pinch** → this file's preview text size. **Double-tap a block** →
+   jumps to its source line in Code.
+
+## Recovery (reopening after a crash)
+
+Unsaved edits are restored automatically and the editor is usable at
+once. A non-modal banner under the header reads "Your unsaved edits are
+back", followed by when it happened and "The file on disk hasn't been
+touched", with three buttons:
+- **Got it** (dismisses the banner).
+- **Compare** (a diff against the file on disk).
+- **Discard edits**. This records a History checkpoint and shows a
+  snackbar, "Edits discarded · kept in History · Undo".
+
+If the file on disk changed meanwhile, the conflict sheet appears
+instead (see "File changed outside the app").
+
+## Find & replace (⋮ → Find & replace, or Ctrl+F)
+
+The find bar temporarily takes the header's place; close it with ✕ or
+Back.
+- **Row 1:** the query, "3 of 12", and previous / next.
+- **Row 2** (only after "Replace" is opened): the replacement, Replace,
+  and All.
+- **Options:** Match case · Whole word · `.*` (regex).
+- Matches are highlighted, and the current match has a stronger fill
+  and an outline.
+- **Replace all is one undo step** and records a History checkpoint.
+- In Preview, matches highlight in the rendered text, and replacing maps
+  back to the source.
+
+## Text size: one model
+
+- **Pinch** and the **Display sheet stepper** both set *this file's* size
+  for the pane you're in.
+- **Settings → Default zoom** sets the size new files start at.
+- The **zoom chip** appears when this file differs from the default, and
+  tapping it resets.
+- The copy says "This file" and "New files" so the difference is
+  explicit.
+
+## Colour rule
+
+Red means **"needs you"**: the unsaved dot, the Save / Save as… pill,
+Save all, and errors. Everything else that needs emphasis uses **ink**:
+syntax markers, checkboxes, toggles, sliders, the caret, the current
+table cell, and pins. Text selection uses the system selection colour.
+Never put a one-sided coloured border on anything.
+
+## Glossary
+
+- **Unsaved** — has edits not yet written to the file.
+- **Draft** — an untitled document kept on the phone.
+- **Recovered** — edits restored from the journal after a crash.
+- **Big-file mode** — reduced extras for a large file (previously "lean
+  mode").
+- **Changed in another app** — the file on disk differs from what we
+  loaded.
+- **Navigator** — the sheet opened by tapping the title.
+- **Formatting strip** — the one-row bar above the keyboard.
+
+## Specified, mockup to follow
+
+- **Compare side by side on a phone.** A single scrolling diff (as in
+  History) with a "Theirs / Mine" toggle. Side-by-side is tablet only.
+- **Tablet Navigator.** A 420 dp popover under the title.
+- **Keyboard-shortcut help** (Ctrl+/). A sheet listing every shortcut.
+- **Split with the keyboard up in portrait.** The preview pane collapses
+  to a 1-line breadcrumb strip until the keyboard closes. Editing gets
+  the space.
+- **Export maths blocks toggle.** In Export images → Include, there's a
+  "Maths blocks" switch, off by default.
+
 ## Navigator (tap the title)
 
 One sheet answers "where am I, and where can I go?". It replaces the
 separate Recent menu.
 
-- It opens by tapping the title, swiping in from the right edge, or
-  pressing Ctrl+K / Ctrl+P. On tablets it is a popover under the title.
+- It opens by tapping the title or pressing Ctrl+K / Ctrl+P. There is no
+  edge swipe, because gesture navigation owns both edges for Back. On
+  tablets it is a 420 dp popover under the title.
+- The search field **autofocuses with the keyboard up**. The sheet sits
+  above the keyboard, so the outline stays visible under the field. Back
+  or a swipe down closes the keyboard and shows the full outline.
+- Matching is **word-start and contiguous only** ("sav" matches "Save
+  flow" and "savings-plan.md", never "re*s*e*a*rch-o*v*erview"). Results
+  are ranked headings, then recent files, then folder files. The Ctrl K
+  hint shows only when a hardware keyboard is attached.
 - **Search field on top (the quick switcher).** It fuzzy-matches as you
   type across three groups, in this order:
   - headings in this file;
@@ -108,8 +213,12 @@ app:
     race the editor.
   - If the target is read-only or conflicted, the sheet says so and
     offers New note.
-- Once done, the sheet shows a toast with an **Open** action, and you
-  stay in the app you shared from.
+- Once done, the **sheet itself** shows "Added to <file> · Open" for
+  about 1.5 s, then closes, leaving you in the app you shared from.
+  (Toasts on Android 12+ can't carry actions.)
+- The sheet also offers **Cancel** and an **Another file…** row (the
+  system picker) for targets that aren't recent.
+- Prefix options are *none* (default) or *a date heading*.
 
 ## Display sheet (⋮ → Display)
 

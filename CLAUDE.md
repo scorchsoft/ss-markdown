@@ -17,6 +17,7 @@ reasons behind every decision so far. Then:
 - `docs/edge-cases.md` — every known hostile case, how it's handled, and its test. Add a row for every new bug.
 - `docs/engineering.md` — open-source code standards (Apache-2.0, showcase quality).
 - `docs/quality-bar.md` — the ten jobs, anti-goals, premium-feel spec, every budget, and how we score. If a feature can't point to a job here, it doesn't ship.
+- `docs/design-review-1.md` — the first independent design review and how every finding was triaged.
 - `docs/rubric.md` — the definition of good. Score it at the end of
   every iteration.
 

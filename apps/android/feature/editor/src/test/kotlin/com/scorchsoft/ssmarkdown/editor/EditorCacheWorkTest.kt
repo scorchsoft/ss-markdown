@@ -40,6 +40,25 @@ class EditorCacheWorkTest {
     }
 
     @Test
+    fun `a run of line breaks in one place moves at most one id each (PERF-E)`() {
+        val versions = LineVersions(HUGE_LINES)
+        versions.onEdit(LineChange(firstLine = 10, removedBreaks = 0, addedBreaks = 1))
+        val first = versions.shiftedEntries
+        val before = (0 until 20).map { versions[HUGE_LINES - it] }
+        var line = 11
+        repeat(KEYS) { versions.onEdit(LineChange(firstLine = line++, removedBreaks = 0, addedBreaks = 1)) }
+        // Before: every break copied the tail, 1.46M ids, so 1,000 breaks moved 1.46 billion.
+        assertTrue("${versions.shiftedEntries - first} ids moved", versions.shiftedEntries - first <= KEYS)
+        assertEquals(HUGE_LINES + 1 + KEYS, versions.lineCount)
+        // The tail kept its ids: its drawings are still valid.
+        assertEquals(before, (0 until 20).map { versions[HUGE_LINES + KEYS - it] })
+        // Joining lines back moves the gap with it, and still renews only the touched line.
+        val untouched = versions[5]
+        versions.onEdit(LineChange(firstLine = 3, removedBreaks = 1, addedBreaks = 0))
+        assertEquals(untouched, versions[4])
+    }
+
+    @Test
     fun `typing inside a line rebuilds no layout map (PERF-17)`() {
         val cache = LineLayoutCache()
         val layout = LineLayout(4, 0, "line".toCharArray(), FloatArray(5) { it * 10f }, 10f)

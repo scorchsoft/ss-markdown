@@ -7,28 +7,40 @@ import com.scorchsoft.ssmarkdown.markdown.LineResult
  * edits elsewhere: an edit renews the ids of the lines it touched and
  * only shifts the rest (the "line ID + edit version" key of
  * docs/robustness.md, "Editor view").
+ *
+ * The ids sit in a gap buffer whose spare room follows the last edit
+ * (performance review PERF-E): a run of line breaks in one place moves
+ * nothing after the first, where a flat array moved the whole tail, 1.4M
+ * ids, on every Enter near the top of a 20 MB file.
  */
 internal class LineVersions(
     lineCount: Int = 1,
 ) {
-    private var ids = IntArray(maxOf(lineCount, 1)) { it }
     private var size = maxOf(lineCount, 1)
     private var nextId = size
+    private var ids = IntArray(size + INITIAL_GAP) { it }
+    private var gapStart = size
+    private var gapLength = INITIAL_GAP
 
     /** The id of [line]'s current content. */
-    operator fun get(line: Int): Int = ids[line]
+    operator fun get(line: Int): Int = ids[if (line < gapStart) line else line + gapLength]
 
     val lineCount: Int get() = size
 
-    /** Entries moved by edits so far; a same-line-count edit moves none (PERF-17). */
+    /**
+     * Entries moved by edits so far: none for a same-line-count edit
+     * (PERF-17), none after the first for a run of breaks in one place (PERF-E).
+     */
     var shiftedEntries: Long = 0
         private set
 
     /** Starts over for a document of [lineCount] lines; every old id is retired. */
     fun reset(lineCount: Int) {
         size = maxOf(lineCount, 1)
-        ids = IntArray(size) { nextId + it }
+        ids = IntArray(size + INITIAL_GAP) { nextId + it }
         nextId += size
+        gapStart = size
+        gapLength = INITIAL_GAP
     }
 
     /** Follows [change]: its lines get fresh ids, lines below shift. */
@@ -36,18 +48,48 @@ internal class LineVersions(
         val first = change.firstLine.coerceIn(0, size - 1)
         val removed = (change.removedBreaks + 1).coerceAtMost(size - first)
         val added = change.addedBreaks + 1
-        val newSize = size - removed + added
-        val out = if (newSize <= ids.size) ids else IntArray(maxOf(newSize, ids.size * 2))
-        // A keystroke inside a line moves nothing: skip copying a million-entry tail onto itself.
-        if (out !== ids || added != removed) {
-            val tail = size - first - removed
-            System.arraycopy(ids, first + removed, out, first + added, tail)
-            shiftedEntries += tail
+        if (added == removed) {
+            // A keystroke inside a line moves nothing.
+            for (line in first until first + added) ids[slot(line)] = nextId++
+            return
         }
-        if (out !== ids) System.arraycopy(ids, 0, out, 0, first)
-        for (i in first until first + added) out[i] = nextId++
+        moveGapTo(first + removed)
+        gapStart = first
+        gapLength += removed
+        size -= removed
+        if (added > gapLength) grow(added)
+        for (at in gapStart until gapStart + added) ids[at] = nextId++
+        gapStart += added
+        gapLength -= added
+        size += added
+    }
+
+    private fun slot(line: Int): Int = if (line < gapStart) line else line + gapLength
+
+    private fun moveGapTo(line: Int) {
+        if (line < gapStart) {
+            System.arraycopy(ids, line, ids, line + gapLength, gapStart - line)
+            shiftedEntries += gapStart - line
+        } else if (line > gapStart) {
+            System.arraycopy(ids, gapStart + gapLength, ids, gapStart, line - gapStart)
+            shiftedEntries += line - gapStart
+        }
+        gapStart = line
+    }
+
+    private fun grow(needed: Int) {
+        val newGap = maxOf(needed, size / GROWTH_DIVISOR, INITIAL_GAP)
+        val out = IntArray(size + newGap)
+        val tail = ids.size - gapStart - gapLength
+        System.arraycopy(ids, 0, out, 0, gapStart)
+        System.arraycopy(ids, gapStart + gapLength, out, gapStart + newGap, tail)
         ids = out
-        size = newSize
+        gapLength = newGap
+    }
+
+    private companion object {
+        const val INITIAL_GAP = 256
+        const val GROWTH_DIVISOR = 8
     }
 }
 

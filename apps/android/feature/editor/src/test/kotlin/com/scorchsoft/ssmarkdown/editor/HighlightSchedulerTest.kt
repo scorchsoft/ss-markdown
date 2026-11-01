@@ -64,4 +64,46 @@ class HighlightSchedulerTest {
         pump()
         assertEquals(LineKind.CODE, scheduler.resultAt(2).kind)
     }
+
+    @Test
+    fun `an idle slice and the pre-draw pass share one 8 ms frame budget (PERF-D)`() {
+        val text = PieceTree.of("```\n" + "code\n".repeat(2_000))
+        scheduler.reset(text)
+        scheduler.prepare(0..0)
+        // A new frame: its idle slice runs first, then the draw asks for the visible lines.
+        now += HighlightScheduler.FRAME_NANOS
+        val spentBefore = scheduler.nanosSpent
+        val linesBefore = scheduler.tokens.linesTokenized
+        queued.removeFirst()()
+        scheduler.prepare(0..1_500)
+        val spent = scheduler.nanosSpent - spentBefore
+        val lines = scheduler.tokens.linesTokenized - linesBefore
+        // Before: a 4 ms slice plus a full 8 ms pre-draw pass, 12 lines at 1 ms each.
+        assertTrue("$spent ns in one frame", spent <= HighlightScheduler.MAIN_BUDGET_NANOS + ONE_LINE)
+        assertTrue("$lines lines in one frame", lines in 1..MAX_LINES_PER_FRAME)
+        // The next frame has the whole budget again.
+        now += HighlightScheduler.FRAME_NANOS
+        val nextBefore = scheduler.tokens.linesTokenized
+        scheduler.prepare(0..1_500)
+        assertTrue(scheduler.tokens.linesTokenized - nextBefore >= MAX_LINES_PER_FRAME - 1)
+    }
+
+    @Test
+    fun `a pre-draw pass that used the whole budget pushes the idle slice to the next frame (PERF-D)`() {
+        val text = PieceTree.of("```\n" + "code\n".repeat(2_000))
+        scheduler.reset(text)
+        scheduler.prepare(0..1_500)
+        val lines = scheduler.tokens.linesTokenized
+        queued.removeFirst()()
+        assertEquals("no slice work in a spent frame", lines, scheduler.tokens.linesTokenized)
+        assertEquals("the slice is queued again", 1, queued.size)
+    }
+
+    private companion object {
+        /** The fake clock's cost of one line, plus the read that measures it. */
+        const val ONE_LINE = 2_000_000L
+
+        /** 8 ms at 1 ms a line. */
+        const val MAX_LINES_PER_FRAME = 8L
+    }
 }

@@ -13,13 +13,22 @@ import com.scorchsoft.ssmarkdown.text.PieceTree
  * (robustness.md, "Lazy, with a time budget"):
  *
  * - Before each frame, [prepare] tokenises accurately up to the last
- *   visible line for at most [MAIN_BUDGET_NANOS] (8 ms).
+ *   visible line within what is left of the frame's budget.
  * - Whatever is left, up to about [LOOKAHEAD_CHARS] past the viewport,
- *   continues in [IDLE_BUDGET_NANOS] slices, one per Choreographer frame,
- *   until the pass converges; [onRepaint] is called whenever a slice made
- *   visible lines accurate, so their guessed colours are corrected.
+ *   continues in slices of at most [IDLE_BUDGET_NANOS], one per
+ *   Choreographer frame, until the pass converges; [onRepaint] is called
+ *   whenever a slice made visible lines accurate, so their guessed
+ *   colours are corrected.
  * - Lines the pass has not reached are drawn with heuristic tokens
  *   ([IncrementalTokenizer.tokenizeHeuristically]).
+ *
+ * Both passes draw on **one** [FrameBudget] of [MAIN_BUDGET_NANOS] (8 ms,
+ * quality-bar §4) per frame. An idle slice runs in the frame's animation
+ * callbacks, before the draw that calls [prepare], so before this they
+ * could add up to 12 ms in one frame (performance review PERF-D). The
+ * outline, the other tokenizer, runs on a background snapshot and spends
+ * nothing here. [prepare] always tokenises at least one line, so the
+ * visible lines always make progress, even when the slice used the budget.
  *
  * Main thread only, like the document.
  */
@@ -46,6 +55,10 @@ class HighlightScheduler(
     private var tokenizer = IncrementalTokenizer(cappedSource(text))
     private var visible = 0..0
     private var sliceQueued = false
+    private val budget = FrameBudget(clock, MAIN_BUDGET_NANOS, FRAME_NANOS)
+
+    /** Main-thread tokenising charged so far, both passes: the PERF-D regression statistic. */
+    val nanosSpent: Long get() = budget.totalSpent
 
     /** The tokenizer, for the outline and tests. */
     val tokens: IncrementalTokenizer get() = tokenizer
@@ -76,7 +89,10 @@ class HighlightScheduler(
      */
     fun prepare(lines: IntRange): Boolean {
         visible = lines
-        val done = tokenizer.tokenizeUntil(lines.last, MAIN_BUDGET_NANOS, clock)
+        val allowance = budget.remaining()
+        val started = clock.nanoTime()
+        val done = tokenizer.tokenizeUntil(lines.last, allowance, clock)
+        budget.charge(clock.nanoTime() - started)
         if (!tokenizer.isAccurate(lookaheadLimit())) queueSlice()
         return done
     }
@@ -95,7 +111,15 @@ class HighlightScheduler(
         if (tokenizer.lineCount != text.lineCount) return // A reset or edit is mid-flight; the next prepare() requeues.
         val visibleWasAccurate = tokenizer.isAccurate(visible.last)
         val limit = lookaheadLimit()
-        val done = tokenizer.continueInIdle(IDLE_BUDGET_NANOS, clock, limit)
+        val allowance = minOf(budget.remaining(), IDLE_BUDGET_NANOS)
+        if (allowance <= 0) {
+            // This frame's 8 ms went on the visible lines: try again next frame.
+            queueSlice()
+            return
+        }
+        val started = clock.nanoTime()
+        val done = tokenizer.continueInIdle(allowance, clock, limit)
+        budget.charge(clock.nanoTime() - started)
         if (!visibleWasAccurate && tokenizer.isAccurate(visible.last)) onRepaint()
         if (!done) queueSlice()
     }
@@ -109,11 +133,14 @@ class HighlightScheduler(
 
     /** Budgets from robustness.md. */
     companion object {
-        /** Main-thread budget before a frame. */
+        /** Main-thread tokenising per frame, both passes together (quality-bar §4). */
         const val MAIN_BUDGET_NANOS: Long = 8_000_000
 
-        /** One idle slice: half a 120 Hz frame, so scrolling stays smooth while colours converge. */
+        /** One idle slice at most: half a 120 Hz frame, so scrolling stays smooth while colours converge. */
         const val IDLE_BUDGET_NANOS: Long = 4_000_000
+
+        /** The window one budget covers: a 60 Hz frame, the slowest display we draw for. */
+        const val FRAME_NANOS: Long = 16_666_667
 
         /** Idle tokenising stops this many chars past the viewport. */
         const val LOOKAHEAD_CHARS: Long = 100_000
@@ -123,5 +150,44 @@ class HighlightScheduler(
          * a 5 MB line never becomes a 5 MB string just to colour 10,000 chars.
          */
         fun cappedSource(text: PieceTree): LineSource = text.asLineSource()
+    }
+}
+
+/**
+ * The main thread's tokenising allowance for one frame, shared by every
+ * pass that spends it (performance review PERF-D). A window opens at the
+ * first spend and lasts [frameNanos]; within it, the passes together get
+ * [perFrameNanos]. Clock-based rather than tied to a vsync timestamp, so
+ * it is the same code on a device and on the host, and any [frameNanos]
+ * window holds at most one budget of work plus one line.
+ */
+internal class FrameBudget(
+    private val clock: NanoClock,
+    private val perFrameNanos: Long,
+    private val frameNanos: Long,
+) {
+    private var windowStart = 0L
+    private var windowOpen = false
+    private var spent = 0L
+
+    /** Everything ever charged, for tests. */
+    var totalSpent: Long = 0
+        private set
+
+    /** What is left of this frame's allowance; a new window starts with all of it. */
+    fun remaining(): Long {
+        val now = clock.nanoTime()
+        if (!windowOpen || now - windowStart >= frameNanos) {
+            windowOpen = true
+            windowStart = now
+            spent = 0
+        }
+        return (perFrameNanos - spent).coerceAtLeast(0)
+    }
+
+    /** Records [nanos] of work against the current window. */
+    fun charge(nanos: Long) {
+        spent += nanos
+        totalSpent += nanos
     }
 }

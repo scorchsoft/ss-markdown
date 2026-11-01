@@ -1,0 +1,19 @@
+# Architecture decision records
+
+One short record per significant decision: context, options, decision,
+consequences. `docs/product-journey.md` is the story; these are the precise
+record. Add the next number for a new decision, and supersede an old record
+rather than rewriting it.
+
+| ADR | Decision |
+|---|---|
+| [0001](0001-editor-engine.md) | The editor engine: our own virtualised `MarkdownCodeView` (provisional until device numbers) |
+| [0002](0002-no-gradle-wrapper.md) | No Gradle wrapper |
+| [0003](0003-no-di-framework.md) | Constructor injection and one `AppGraph`, no DI framework |
+| [0004](0004-committed-preview-bundle.md) | The Preview's web bundle is committed |
+| [0005](0005-edit-sync-protocol.md) | Preview editing syncs with operational transform |
+| [0006](0006-history-in-app-storage.md) | Version history lives in private app storage |
+| [0007](0007-webview-preview.md) | Preview renders in a WebView with markdown-it |
+| [0008](0008-piece-tree.md) | The text model is a piece tree ported from VS Code |
+| [0009](0009-font-bundling.md) | Which fonts ship in the APK |
+| [0010](0010-module-graph.md) | The module graph and its rules |

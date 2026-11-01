@@ -61,7 +61,6 @@ is green in CI).
 | Very large embedded image | Decoded with downsampling to display size, counted against the memory budget. | Corpus test | planned |
 | Hundreds of diagrams in one file | Rendered only while their blocks are mounted; SVG cache byte budget. | Benchmark corpus | planned |
 | Dark mode white flash when the WebView loads | The WebView background is set to the theme colour before first paint. The page CSS is inlined in the shell. | Screenshot test | planned |
-
 | Print/PDF sizes drifting with screen zoom or theme base size | The print stylesheet uses fixed pt/mm units (11 pt body, 20 mm margins) and ignores screen zoom; dark themes print light | Playwright print-to-PDF size test | planned |
 
 ## Device and system

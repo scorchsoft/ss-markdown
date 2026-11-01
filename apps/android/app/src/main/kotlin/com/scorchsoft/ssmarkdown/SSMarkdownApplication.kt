@@ -3,6 +3,7 @@ package com.scorchsoft.ssmarkdown
 import android.app.Application
 import android.content.pm.ApplicationInfo
 import android.os.StrictMode
+import com.scorchsoft.ssmarkdown.platform.AppDirs
 
 /**
  * Holds the [AppGraph] for the life of the process. The graph is built on
@@ -16,15 +17,20 @@ class SSMarkdownApplication : Application() {
     val graph: AppGraph by lazyGraph
 
     /**
-     * Starts reading the settings file now: the platform loads a
-     * preferences file on its own thread from the first
-     * `getSharedPreferences`, so by the time the graph's first read needs
-     * it the main thread no longer waits on the disk (PERF-21).
+     * Starts reading the settings file now, so by the time the graph's
+     * first read needs it the main thread no longer waits on the disk
+     * (PERF-21). On a thread of its own: `getSharedPreferences` itself
+     * checks and creates the preferences directory, and the app's private
+     * directories are created here too ([AppDirs]), which CI's StrictMode
+     * monkey run caught on the main thread.
      */
     override fun onCreate() {
         super.onCreate()
         if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) enableStrictMode()
-        getSharedPreferences(SETTINGS_PREFERENCES, MODE_PRIVATE)
+        Thread({
+            AppDirs.ensure(this)
+            getSharedPreferences(SETTINGS_PREFERENCES, MODE_PRIVATE)
+        }, "ss-warm-up").start()
     }
 
     /**

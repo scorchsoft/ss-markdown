@@ -20,7 +20,8 @@ internal class DocumentOpener(
         // Journal files are only ever touched on the journal thread, so this waits for any queued
         // work on this document (a close that is still ending its journal) before looking.
         val hasJournal = context.journalThread.call { context.journals.fileFor(uri.value).exists() }
-        val staged = context.baseCopies.stage(uri)
+        // Staging creates the base-copy directory: disk work, never on the caller's (main) thread.
+        val staged = withContext(context.io) { context.baseCopies.stage(uri) }
         val loaded = withContext(context.io) { context.loader.load(uri, staged) }
         if (loaded !is LoadResult.Loaded) {
             staged.abandon()

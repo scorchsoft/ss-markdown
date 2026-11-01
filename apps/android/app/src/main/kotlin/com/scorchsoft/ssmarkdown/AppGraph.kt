@@ -35,6 +35,7 @@ import com.scorchsoft.ssmarkdown.history.journal.JournalStore
 import com.scorchsoft.ssmarkdown.history.versions.VersionStore
 import com.scorchsoft.ssmarkdown.media.DocumentPictures
 import com.scorchsoft.ssmarkdown.nav.ScreenStack
+import com.scorchsoft.ssmarkdown.platform.AppDirs
 import com.scorchsoft.ssmarkdown.platform.ExitReasons
 import com.scorchsoft.ssmarkdown.platform.MediaActions
 import com.scorchsoft.ssmarkdown.platform.OpenTokens
@@ -93,8 +94,11 @@ class AppGraph(
     /** The store and autosave are owned by the main thread. */
     val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
+    /** The private directories, as paths: the graph is built on the main thread (see [AppDirs]). */
+    val dirs = AppDirs.of(app)
+
     /** Where each kind of app data lives (ux-spec "Explaining Android's buttons"). */
-    val layout = StorageLayout(app.filesDir, app.noBackupFilesDir, app.cacheDir)
+    val layout = StorageLayout(dirs.files, dirs.noBackup, dirs.cache)
 
     val settings: SettingsRepository =
         PersistedSettingsRepository(
@@ -127,7 +131,7 @@ class AppGraph(
             AndroidMemorySource(
                 app.getSystemService(ActivityManager::class.java),
                 app.getSystemService(StorageManager::class.java),
-                app.filesDir,
+                dirs.files,
             ),
         )
 
@@ -165,7 +169,7 @@ class AppGraph(
     val screens = ScreenStack()
 
     /** Where history exports wait until the user picks a place for them. */
-    val exportsDir = File(app.filesDir, "exports")
+    val exportsDir = File(dirs.files, "exports")
 
     /** The Storage screen's view model. */
     val storage: StorageViewModel by lazy {
@@ -206,7 +210,7 @@ class AppGraph(
                 lastExitWasSwipe = exitReasons::lastExitWasUserSwipe,
                 scope = mainScope,
                 io = io,
-                viewStates = JsonViewStateStore(File(app.filesDir, "view-state.json"), ioScope),
+                viewStates = JsonViewStateStore(File(dirs.files, "view-state.json"), ioScope),
                 pictures = pictures,
                 memory = governor,
             ),
@@ -247,10 +251,10 @@ class AppGraph(
     val media = MediaActions(app, io)
 
     /** The preview themes: built-ins plus custom JSON files. */
-    val themes = ThemeLibrary(File(app.filesDir, "themes"), io, ioScope)
+    val themes = ThemeLibrary(File(dirs.files, "themes"), io, ioScope)
 
     /** Bundled, downloaded and imported fonts; built on first use (the catalogue is parsed then). */
-    val fonts: FontRepository by lazy { AndroidFonts.repository(app) }
+    val fonts: FontRepository by lazy { AndroidFonts.repository(app, dirs.files) }
 
     /** The theme editor. */
     val themeEditor: ThemeEditorViewModel by lazy { ThemeEditorViewModel(themes, settings, mainScope) }

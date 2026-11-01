@@ -22,11 +22,19 @@ object AndroidFonts {
     /** The installed-fonts directory under [Context.getFilesDir]. */
     const val DIRECTORY: String = "fonts"
 
-    /** Builds the app's repository. Cheap: nothing is read until first use. */
-    fun repository(context: Context): FontRepository {
+    /**
+     * Builds the app's repository. Cheap: nothing is read until first use.
+     * [filesDir] is the app's files directory, passed in because
+     * `Context.getFilesDir` checks the disk on every call and this is built
+     * on the main thread.
+     */
+    fun repository(
+        context: Context,
+        filesDir: File,
+    ): FontRepository {
         val app = context.applicationContext
         val assets = app.assets
-        val store = FontStore(File(app.filesDir, DIRECTORY))
+        val store = FontStore(File(filesDir, DIRECTORY))
         return FontRepository(
             store = store,
             downloader = FontDownloader(UrlConnectionTransport(), store, Clock.SYSTEM),

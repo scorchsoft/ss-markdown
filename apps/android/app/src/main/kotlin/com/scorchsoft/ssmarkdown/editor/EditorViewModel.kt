@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * The editor screen's view model: one [EditorUiState], one action entry
@@ -294,17 +295,19 @@ class EditorViewModel(
      * do nothing, or show that typing again as if it were new.
      */
     override fun newDraft() {
-        val reusable =
-            deps.drafts
-                .list()
-                .firstOrNull { it.sizeBytes == 0L && deps.store[it.uri]?.isDirty != true }
-                ?.uri
-        val uri = reusable ?: deps.drafts.create()
-        if (uri == null) {
-            message(MessageKind.ActionFailed)
-            return
+        // Listing and creating draft files is disk work, so it runs on the I/O
+        // dispatcher; the store is read back on the main thread (StrictMode in
+        // CI's monkey run caught it on the main thread).
+        deps.scope.launch {
+            val drafts = withContext(deps.io) { deps.drafts.list() }
+            val reusable = drafts.firstOrNull { it.sizeBytes == 0L && deps.store[it.uri]?.isDirty != true }?.uri
+            val uri = reusable ?: withContext(deps.io) { deps.drafts.create() }
+            if (uri == null) {
+                message(MessageKind.ActionFailed)
+                return@launch
+            }
+            openDocument(uri.value)
         }
-        openDocument(uri.value)
     }
 
     /**

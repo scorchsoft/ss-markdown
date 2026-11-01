@@ -48,7 +48,7 @@ class MainActivity : ComponentActivity() {
         PreviewView(this).apply {
             // Relative pictures (`![](img/a.png)`) through the folder grant, and the theme's installed fonts.
             resourceResolver = graph.pictures
-            fontDirectory = File(filesDir, AndroidFonts.DIRECTORY)
+            fontDirectory = File(graph.dirs.files, AndroidFonts.DIRECTORY)
             backgroundExecutor = graph.previewEncoder
         }
     }

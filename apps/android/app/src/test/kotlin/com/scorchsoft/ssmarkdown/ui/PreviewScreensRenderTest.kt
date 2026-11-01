@@ -76,6 +76,16 @@ class PreviewScreensRenderTest(
     }
 
     @Test
+    fun linkChipWithTapToEditOff() {
+        val actions = ArrayList<EditorAction>()
+        rule.setContent { Themed(dark) { EditorFor(PreviewSamples.linkChipReadOnly) { actions += it } } }
+        rule.onNodeWithText("Open").assertIsDisplayed()
+        rule.onNodeWithText("Edit link").assertDoesNotExist()
+        rule.onNodeWithText("Copy link").performClick()
+        assertTrue(EditorAction.CopyLink in actions)
+    }
+
+    @Test
     fun tableMenu() {
         rule.setContent { Themed(dark) { EditorFor(PreviewSamples.tableMenu) } }
         rule.onNodeWithText("Add row below").assertIsDisplayed()

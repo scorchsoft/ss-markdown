@@ -172,6 +172,9 @@ sealed interface EditorAction {
     /** The link chip's Edit link: Code, at the link's line. */
     data object EditLink : EditorAction
 
+    /** The link chip's Copy link: the address to the clipboard, nothing opened. */
+    data object CopyLink : EditorAction
+
     /** A row of the Mermaid sheet. */
     data class MediaMenu(
         val action: MediaMenuAction,

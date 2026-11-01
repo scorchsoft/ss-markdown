@@ -11,7 +11,10 @@ import com.scorchsoft.ssmarkdown.preview.bridge.MediaKind
 import com.scorchsoft.ssmarkdown.preview.bridge.TableAlign
 import com.scorchsoft.ssmarkdown.preview.bridge.TableOp
 
-/** Gestures rule 3: the link chip, Open · Edit link. A blocked link says so instead of opening. */
+/**
+ * Gestures rule 3: the link chip, Open · Copy link · Edit link. A blocked
+ * link says so instead of opening; Edit link only when Preview is editable.
+ */
 @Composable
 fun LinkChipSheet(
     chip: EditorOverlay.LinkChip,
@@ -29,7 +32,12 @@ fun LinkChipSheet(
         if (target != LinkTarget.Blocked) {
             SheetButton(stringResource(R.string.link_open), Emphasis.Ink, { onAction(EditorAction.OpenLink) })
         }
-        SheetButton(stringResource(R.string.link_edit), Emphasis.Outline, { onAction(EditorAction.EditLink) })
+        if (target is LinkTarget.External) {
+            SheetButton(stringResource(R.string.link_copy), Emphasis.Outline, { onAction(EditorAction.CopyLink) })
+        }
+        if (chip.canEdit) {
+            SheetButton(stringResource(R.string.link_edit), Emphasis.Outline, { onAction(EditorAction.EditLink) })
+        }
     }
 }
 

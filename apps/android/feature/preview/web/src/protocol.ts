@@ -39,7 +39,7 @@ export interface ThemeSpec {
 }
 
 export interface PreviewSettings {
-    /** "Tap to edit in Preview"; off makes Preview read-only and links open on tap. */
+    /** "Tap to edit in Preview"; off makes Preview read-only (links still ask first, in Kotlin's chip). */
     readonly tapToEdit: boolean;
     /** A4 page mode: the print stylesheet at true scale. */
     readonly pageMode: boolean;

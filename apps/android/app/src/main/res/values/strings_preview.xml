@@ -12,8 +12,10 @@
     <!-- Links -->
     <string name="link_open">Open</string>
     <string name="link_edit">Edit link</string>
+    <string name="link_copy">Copy link</string>
     <string name="link_blocked">This link can\'t be opened from here.</string>
     <string name="msg_link_blocked">That link can\'t be opened</string>
+    <string name="msg_link_copied">Link copied</string>
 
     <!-- Mermaid sheet -->
     <string name="media_kind_diagram">Diagram</string>

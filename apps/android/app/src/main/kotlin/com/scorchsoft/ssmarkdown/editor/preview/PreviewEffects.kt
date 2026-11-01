@@ -26,16 +26,8 @@ internal object PreviewEffects {
                 vm.scrollLink.touched(action.pane)
             }
 
-            EditorAction.OpenLink -> {
-                (before.overlay as? EditorOverlay.LinkChip)?.let { vm.previewHost.open(it.target) }
-            }
-
-            EditorAction.EditLink -> {
-                (before.overlay as? EditorOverlay.LinkChip)?.let {
-                    vm.previewHost.showInCode(
-                        it.line,
-                    )
-                }
+            EditorAction.OpenLink, EditorAction.CopyLink, EditorAction.EditLink -> {
+                (before.overlay as? EditorOverlay.LinkChip)?.let { vm.previewHost.onChip(action, it) }
             }
 
             is EditorAction.MediaMenu -> {
@@ -75,7 +67,7 @@ internal object PreviewEffects {
                 Unit
             }
         }
-        if (action is EditorAction.OpenLink || action is EditorAction.EditLink || action is EditorAction.Table) {
+        if (action in chipActions || action is EditorAction.Table) {
             vm.update { it.copy(overlay = null) }
         }
     }
@@ -92,4 +84,7 @@ internal object PreviewEffects {
 
     /** ⋮ → Copy as rich text. */
     fun copyAllRich(vm: EditorViewModel) = vm.saves.copyAll(richText = true)
+
+    /** The link chip's buttons; each closes the chip. */
+    private val chipActions = setOf(EditorAction.OpenLink, EditorAction.CopyLink, EditorAction.EditLink)
 }

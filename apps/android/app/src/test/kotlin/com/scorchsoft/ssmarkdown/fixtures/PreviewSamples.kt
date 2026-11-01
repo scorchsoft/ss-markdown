@@ -51,6 +51,10 @@ object PreviewSamples {
             overlay = EditorOverlay.LinkChip(LinkTarget.External("https://www.scorchsoft.com"), 3),
         )
 
+    /** "Tap to edit" off: the chip still asks first, without Edit link (SEC-7). */
+    val linkChipReadOnly =
+        linkChip.copy(overlay = EditorOverlay.LinkChip(LinkTarget.External("https://www.scorchsoft.com"), 3, false))
+
     val display = Samples.zoomed.copy(overlay = EditorOverlay.Display)
 
     val tableMenu = Samples.saved.copy(mode = ViewMode.Preview, overlay = EditorOverlay.TableMenu(8))

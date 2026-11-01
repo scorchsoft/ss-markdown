@@ -194,6 +194,7 @@ private fun messageText(message: UserMessage): String =
         MessageKind.PreviewRestarted -> stringResource(R.string.msg_preview_restarted)
         MessageKind.EditRefused -> stringResource(R.string.msg_edit_refused)
         MessageKind.LinkBlocked -> stringResource(R.string.msg_link_blocked)
+        MessageKind.LinkCopied -> stringResource(R.string.msg_link_copied)
         MessageKind.ImagesExported -> stringResource(R.string.msg_images_exported, message.argument)
         MessageKind.ImagesExportFailed -> stringResource(R.string.msg_images_failed)
         MessageKind.ImageSaved -> stringResource(R.string.msg_image_saved, message.argument)

@@ -34,7 +34,7 @@ import com.scorchsoft.ssmarkdown.themes.PreviewLook
  *   function, read when the pane lands, not a value: passing the value made the screen's root
  *   observe the anchor and recompose on every frame of a fling (PERF-13).
  * @property zoomPercent this file's Preview zoom; 100 % is the theme's base size.
- * @property tapToEdit "Tap to edit in Preview"; off makes Preview read-only and links open on tap.
+ * @property tapToEdit "Tap to edit in Preview"; off makes Preview read-only (links still show the chip).
  * @property onAnchorLineChanged the pane scrolled: the new top source line.
  * @property onZoomChanged a pinch: [Int] percent, and whether fingers are still down.
  * @property onEdit a Preview edit as a minimal source change: `(start, end, replacement)`.

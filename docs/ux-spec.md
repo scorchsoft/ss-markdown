@@ -118,8 +118,10 @@ layout budget assumes them:
 
 1. A tap that **stops a fling** only stops the scroll; it never edits.
 2. Tap on a **diagram, image or maths block** → the viewer.
-3. Tap on a **link** → a small chip, *Open · Edit link*. With "Tap to
-   edit" off, a tap opens the link directly.
+3. Tap on a **link** → a small chip, *Open · Copy link · Edit link*.
+   With "Tap to edit" off the chip still appears for a web, mail or
+   phone link, as *Open · Copy link*: a tap never launches another app
+   by itself (security review SEC-7).
 4. Tap on a **task checkbox** → toggles it (one character changes).
 5. Tap on **text** → caret and keyboard (if "Tap to edit" is on).
 6. **Long-press a heading** → the section menu directly (Copy section ·
@@ -516,7 +518,7 @@ the keyboard opens, and the block under edit gets a faint tint.
 - **Reading guard:** a tap within 500 ms of a scroll or fling never
   starts editing. While editing in Preview, the strip shows a **Done**
   key that closes the keyboard and returns you to reading.
-- Links: tapping shows the *Open · Edit link* chip (Gestures, rule 3).
+- Links: tapping shows the *Open · Copy link · Edit link* chip (Gestures, rule 3).
 - Diagrams, maths and images are not text, so tapping them opens the
   viewer instead of a cursor.
 - A setting, "Tap to edit in Preview", is on by default; turn it off for
@@ -649,8 +651,8 @@ Fonts family names, downloaded on first use and cached. The editor
 - Saving: write to the file "When I tap Save" (default) or "Autosave"
   (see `robustness.md` §3a), version history (on, storage cap, clear).
 - Split view: scroll panes together.
-- Preview: "Tap to edit" (on by default; off = Preview is read-only,
-  and tapping a link opens it directly).
+- Preview: "Tap to edit" (on by default; off = Preview is read-only;
+  tapping a link still shows the *Open · Copy link* chip).
 - Themes: manage custom themes.
 
 ## Version history (⋮ → Version history)

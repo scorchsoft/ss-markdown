@@ -75,7 +75,7 @@ interface PreviewEditingListener {
 
 /** Taps and long-presses on content: links, headings, media, and exports. */
 interface PreviewContentListener {
-    /** Show the Open · Edit link chip, or open directly when tap-to-edit is off. */
+    /** Show the link chip (Open · Copy link, plus Edit link when tap-to-edit is on); never open directly (SEC-7). */
     fun onLinkTapped(
         target: LinkTarget,
         line: Int,

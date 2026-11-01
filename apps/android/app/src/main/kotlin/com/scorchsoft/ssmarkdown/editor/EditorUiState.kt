@@ -177,10 +177,15 @@ sealed interface EditorOverlay {
         val nextHeading: String?,
     ) : EditorOverlay
 
-    /** Gestures rule 3: Open · Edit link, for a link tapped in Preview. */
+    /**
+     * Gestures rule 3: Open · Copy link · Edit link, for a link tapped in
+     * Preview. An external link always asks first, even with "Tap to edit"
+     * off (SEC-7); [canEdit] is false then, and Edit link is not offered.
+     */
     data class LinkChip(
         val target: LinkTarget,
         val line: Int,
+        val canEdit: Boolean = true,
     ) : EditorOverlay
 
     /** Long-press on a diagram or picture (ux-spec "Mermaid"). */
@@ -269,6 +274,7 @@ enum class MessageKind {
     PreviewRestarted,
     EditRefused,
     LinkBlocked,
+    LinkCopied,
     ImagesExported,
     ImagesExportFailed,
     ImageSaved,

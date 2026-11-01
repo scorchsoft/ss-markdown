@@ -86,12 +86,38 @@ class EditorPreviewHost(
         }
     }
 
-    /** The link chip's Open, or a tap with "Tap to edit" off. */
+    /** The link chip's Open, or a tap on a link inside the document (a relative one) with "Tap to edit" off. */
     fun open(target: LinkTarget) {
         when (target) {
             is LinkTarget.External -> vm.emit(EditorEvent.OpenLink(target.url))
             is LinkTarget.Relative -> openRelative(target.path)
             LinkTarget.Blocked -> vm.message(MessageKind.LinkBlocked)
+        }
+    }
+
+    /** A button on the link [chip]: Open, Copy link (nothing is opened) or Edit link. */
+    fun onChip(
+        action: EditorAction,
+        chip: EditorOverlay.LinkChip,
+    ) {
+        when (action) {
+            EditorAction.OpenLink -> {
+                open(chip.target)
+            }
+
+            EditorAction.CopyLink -> {
+                val target = chip.target as? LinkTarget.External ?: return
+                vm.emit(EditorEvent.CopyText(target.url))
+                vm.message(MessageKind.LinkCopied)
+            }
+
+            EditorAction.EditLink -> {
+                showInCode(chip.line)
+            }
+
+            else -> {
+                Unit
+            }
         }
     }
 
@@ -105,8 +131,10 @@ class EditorPreviewHost(
         target: LinkTarget,
         line: Int,
     ) {
-        if (vm.deps.settings.settings.value.tapToEditPreview) {
-            vm.update { it.copy(overlay = EditorOverlay.LinkChip(target, line)) }
+        val canEdit = vm.deps.settings.settings.value.tapToEditPreview
+        // An external link always asks first (SEC-7): one tap on rendered text never launches another app.
+        if (canEdit || target is LinkTarget.External) {
+            vm.update { it.copy(overlay = EditorOverlay.LinkChip(target, line, canEdit)) }
         } else {
             open(target)
         }

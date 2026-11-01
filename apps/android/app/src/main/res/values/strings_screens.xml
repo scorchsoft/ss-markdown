@@ -36,7 +36,7 @@
     <string name="settings_history_off">Off</string>
     <string name="settings_preview_split">Preview and split</string>
     <string name="settings_tap_to_edit">Tap to edit in Preview</string>
-    <string name="settings_tap_to_edit_hint">Off: Preview is read-only and links open on tap</string>
+    <string name="settings_tap_to_edit_hint">Off: Preview is read-only; links still ask before opening</string>
     <string name="settings_scroll_together">Scroll panes together</string>
     <string name="settings_themes">Themes</string>
     <string name="settings_custom_themes">Custom themes</string>

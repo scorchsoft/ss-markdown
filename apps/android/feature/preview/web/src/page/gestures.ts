@@ -4,7 +4,7 @@
  *
  * 1. A tap within 500 ms of a scroll or fling only stops the scroll.
  * 2. Diagram, image or maths -> the viewer.
- * 3. Link -> Kotlin shows the Open · Edit link chip (or opens it when tap-to-edit is off).
+ * 3. Link -> Kotlin shows the link chip (Open · Copy link · Edit link), even when tap-to-edit is off.
  * 4. Task checkbox -> toggle (one character changes).
  * 5. Text -> caret and keyboard, when tap-to-edit is on.
  * 6. Long-press a heading -> the section menu. 7. Other long-presses stay native.

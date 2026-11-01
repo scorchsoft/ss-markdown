@@ -60,6 +60,10 @@ it that is always on screen is not.
 | Editor engine | **Virtualised by requirement.** Our own `MarkdownCodeView` on a piece-table text model (`core/text`). It is benchmarked in iteration 1 against `EditText` and Sora Editor (LGPL-2.1), and the result is recorded in ADR 0001. | `EditText` lays out the whole document, which is exactly what makes other editors lag. Andrew wants very big files to feel the same as small ones. Owning the view also keeps the codebase Apache-clean and showcase quality. |
 | Memory | A `MemoryGovernor` reads the heap ceiling, available RAM and trim signals; admission control runs before loading; under pressure we shed caches first; we survive WebView renderer death | Out-of-memory crashes are avoidable when you read the numbers Android gives you. |
 | Open source | Apache-2.0, built as a showcase of Scorchsoft's craft. Standards are in `docs/engineering.md`. | The code carries the brand's reputation. |
+| Preview editing default | Always editable on tap; Settings → Preview → "Tap to edit" turns it off | Andrew: editing shouldn't need an Edit button, but it must be controllable. |
+| Symbol keys | A pinned `{ }` key flips the one-row strip to a symbols page (Code view only), then flips back after one insert | One row always (R8); symbols one tap away instead of two in the keyboard layer; no extra chrome at rest. |
+| Navigator | Tapping the title opens one sheet: quick switcher + Outline + Files. Long-press a heading to copy a section. | Covers outline jump, quick switch and copy-section without adding a single visible button. |
+| Share-in | Share text into SS Markdown as a New note or "Append to…" a file, through the normal save pipeline | Capturing snippets into a running file is a daily job; doing it safely means no race with the editor. |
 | Toolchain | Mirrors Measur3D's Android setup (AGP 8.13, Kotlin 2.3, Compose BOM 2026.06, no wrapper) | Already proven in this cloud container and on CI. |
 
 ## Iteration history

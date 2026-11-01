@@ -39,6 +39,17 @@ is green in CI).
 | Paste of 50 MB | Chunked insert off the main thread with progress; undoable as one step; admission control applies. | Instrumented test | planned |
 | Undo across a Preview edit | The Preview round-trip is applied as one piece-table operation and lands on the same undo stack. | Unit test | planned |
 
+## Share-in and Navigator
+
+| Case | Handling | Test | Status |
+|---|---|---|---|
+| Append to a file open in the app with unsaved edits | Insert into that buffer (marked unsaved), never write the file underneath it. | Instrumented test | planned |
+| Append to a file changed outside the app since last seen | Fingerprint check; the append applies to the current disk version (not our stale copy) and is recorded in history. | Outside-change scenarios | planned |
+| Append to a read-only, conflicted, missing or huge file | The sheet explains and offers New note; admission control applies to huge targets. | Instrumented test | planned |
+| Shared payload above the Binder limit, or shared as a stream URI | Read from the URI as a stream; size is checked before buffering. | Instrumented test | planned |
+| Outline of a file with 10k+ headings | Built from the block index incrementally; the list is virtualised. | Benchmark corpus | planned |
+| Setext headings and headings inside code fences | The outline uses the same tokenizer state, so `#` inside a fence is never a heading. | Corpus test | planned |
+
 ## Rendering and preview
 
 | Case | Handling | Test | Status |

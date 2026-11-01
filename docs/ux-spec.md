@@ -11,9 +11,9 @@ mockups agreed with Andrew win, and this file gets updated.
   - "Unsaved changes"
   - "Saved · 2 min ago"
   - "Draft · kept on this phone"
-- Tapping the title opens Recent files. When a folder is open, a `≡`
-  button sits at the left and opens the folder drawer (it is docked on
-  tablets).
+- Tapping the title opens the **Navigator** (see below). When a folder
+  is open, a `≡` button sits at the left and opens the folder drawer (it
+  is docked on tablets).
 - **Copy** is always visible and copies the whole document as Markdown.
   Long-pressing it gives "Copy as rich text".
 - **Save** is always visible:
@@ -21,16 +21,75 @@ mockups agreed with Andrew win, and this file gets updated.
   - Unsaved: a red filled "Save" pill.
   - Untitled: "Save as…".
   - A brief toast confirms each save with the destination.
-- **⋮** opens: New · Open file · Open folder · Recent · Save as · Find &
+- **⋮** opens: New · Open file · Open folder · Save as · Find &
   replace · Export PDF · Export images · Share · Version history · Display · Settings.
 
 **Bottom bar (64 dp)**
 - A segmented Code | Split | Preview control, with icon and label.
 - A zoom chip ("120% ↺") sits at the right edge only when the focused
   pane's zoom differs from the default. Tapping it resets the zoom.
-- While the keyboard is up, the bar is replaced by the formatting strip:
-  H, B, I, list, task, code, link, indent, undo. It scrolls horizontally
-  to reveal table, quote, redo and outdent.
+- While the keyboard is up, the bar is replaced by the formatting strip.
+  It is **always one row**.
+  - It holds H, B, I, list, task, code, link, indent and undo, and
+    scrolls horizontally to reveal table, quote, redo and outdent.
+  - **In Code view**, a `{ }` key is pinned at the right end. It flips
+    the strip to a **symbols page**: `` ` `` `[` `]` `(` `)` `#` `*` `>`
+    `|` `-` `=` `!` and ← → cursor nudges (hold to repeat).
+  - After one insert the strip flips back to formatting. Long-pressing
+    `{ }` locks the symbols page until it's tapped again.
+  - In Preview the strip shows formatting only, since there is no raw
+    syntax to type.
+  - Rationale: progressive disclosure keeps the strip calm. Code-heavy
+    typing loses the keyboard's two-tap trip to its symbol layer, and
+    every key stays ≥ 44 dp.
+
+## Navigator (tap the title)
+
+One sheet answers "where am I, and where can I go?". It replaces the
+separate Recent menu.
+
+- It opens by tapping the title, swiping in from the right edge, or
+  pressing Ctrl+K / Ctrl+P. On tablets it is a popover under the title.
+- **Search field on top (the quick switcher).** It fuzzy-matches as you
+  type across three groups, in this order:
+  - headings in this file;
+  - recent files;
+  - files in the open folder.
+  Enter or a tap jumps to the result. An empty query shows the tabs.
+- **Outline tab** (the default when a file has headings): an indented
+  heading tree. The current section is highlighted. Tapping a heading
+  jumps there in the current view (Code or Preview). The outline is
+  built incrementally from the block index, so it's cheap even for huge
+  files.
+- **Files tab:** recent files (pinned files first), then the folder tree
+  when a folder is open, with unsaved dots.
+- **Long-press a heading** here or in Preview to get:
+  - Copy section (Markdown)
+  - Copy section as rich text
+  - Select section
+  - Export section…
+  A section runs from the heading to the next heading of the same or a
+  higher level.
+
+## Share into SS Markdown
+
+SS Markdown is a share target for text (`text/plain`, `text/markdown`)
+and for `.md` files. Sharing text opens a small sheet over the sending
+app:
+- **New note** — an untitled draft containing the text.
+- **Append to…** — recent and pinned files, newest first.
+  - Options: Bottom (default) or Top; a prefix of none, `- `, or a
+    `### <date time>` heading.
+  - The last-used target and options are remembered.
+- Appending runs through the normal save pipeline: fingerprint check,
+  backup, verify, and a history entry ("Appended from Chrome").
+  - If the target has unsaved edits open in the app, the text is added
+    to that buffer instead. It is then marked unsaved, so it can never
+    race the editor.
+  - If the target is read-only or conflicted, the sheet says so and
+    offers New note.
+- Once done, the sheet shows a toast with an **Open** action, and you
+  stay in the app you shared from.
 
 ## Display sheet (⋮ → Display)
 
@@ -88,7 +147,7 @@ set in Settings.
 - Dirty files show a dot. Collapsed folders show "n unsaved".
 - A "n files unsaved · Save all" row exists only while n > 0.
 - Several dirty buffers are held in memory, with no tabs. The drawer and
-  Recent are the switchers.
+  the Navigator are the switchers.
 
 ## Editing in Preview
 
@@ -206,7 +265,8 @@ Fonts family names, downloaded on first use and cached. The editor
 - Saving: write to the file "When I tap Save" (default) or "Autosave"
   (see `robustness.md` §3a), version history (on, storage cap, clear).
 - Split view: scroll panes together.
-- Preview: tap to edit (on by default).
+- Preview: "Tap to edit" (on by default; off = Preview is read-only,
+  and tapping a link opens it directly).
 - Themes: manage custom themes.
 
 ## Version history (⋮ → Version history)

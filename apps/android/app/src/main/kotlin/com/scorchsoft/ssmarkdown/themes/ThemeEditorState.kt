@@ -140,7 +140,11 @@ object ThemeEditorReducer {
     fun start(
         theme: Theme,
         savedId: String?,
-    ): ThemeEditorUiState = settle(ThemeEditorUiState(savedId = savedId), theme, dirty = false)
+    ): ThemeEditorUiState {
+        // Through the codec once, so a fresh copy gets its custom id and every field is normalised.
+        val normalised = (ThemeCodec.decode(ThemeCodec.encode(theme)) as? ThemeDecodeResult.Decoded)?.theme ?: theme
+        return settle(ThemeEditorUiState(savedId = savedId), normalised, dirty = false)
+    }
 
     /** A custom copy of [source], named "<name> copy" and based on its base (or itself, for a built-in). */
     fun copyOf(source: Theme): Theme = source.copy(name = "${source.name} copy", base = source.base ?: source.id)

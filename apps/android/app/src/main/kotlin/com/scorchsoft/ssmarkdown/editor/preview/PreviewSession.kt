@@ -43,6 +43,7 @@ class PreviewSession(
     var view: PreviewView? = null
         private set
 
+    private var sender: ((HostMessage) -> Unit)? = null
     private var editor: PreviewEditor? = null
     private var bound: ActiveDocument? = null
     private var applyingPageEdit = false
@@ -64,6 +65,7 @@ class PreviewSession(
     fun attach(target: PreviewView) {
         if (view === target) return
         view = target
+        sender = target::send
         target.listener = this
         target.documentSource =
             DocumentSource { editor?.documentSource?.snapshot() ?: DocumentSnapshot("", 0) }
@@ -76,6 +78,16 @@ class PreviewSession(
         target.listener = null
         target.documentSource = null
         view = null
+        sender = null
+    }
+
+    /**
+     * Connects a page that is not a [PreviewView]: the tests' recording
+     * page, which hears exactly what a WebView would.
+     */
+    internal fun attachPage(send: (HostMessage) -> Unit) {
+        sender = send
+        open()
     }
 
     /** Scrolls the page so [line] is at the top. */
@@ -91,11 +103,11 @@ class PreviewSession(
 
     /** Sends [message] to the page, if one is attached. */
     fun send(message: HostMessage) {
-        view?.send(message)
+        sender?.invoke(message)
     }
 
     private fun open() {
-        if (view == null) return
+        if (sender == null) return
         editor?.open(host.anchorLine)
     }
 
@@ -106,7 +118,7 @@ class PreviewSession(
     ) {
         val target = editor
         val doc = bound
-        val listening = !applyingPageEdit && view != null
+        val listening = !applyingPageEdit && sender != null
         if (target == null || doc == null || !listening) return
         val single = ops.singleOrNull()
         val edit =

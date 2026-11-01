@@ -9,6 +9,7 @@ import com.scorchsoft.ssmarkdown.editor.ViewMode
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.text.EditOp
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertSame
 import org.junit.Rule
 import org.junit.Test
@@ -96,6 +97,43 @@ class RotationTest {
             }
             rule.waitForIdle()
             assertEquals(true, activeText().endsWith("Modes survive\n"))
+        }
+    }
+
+    /**
+     * Split hosts the Preview with movableContentOf, and the Activity owns
+     * the one PreviewView: rotating (top/bottom ↔ side by side) moves the
+     * same view, still attached to the session, and the text survives.
+     */
+    @Test
+    fun rotatingInSplitKeepsTheSamePreviewView() {
+        rule.waitUntil(TIMEOUT_MILLIS) {
+            rule.activity
+                .graph()
+                .editor.active != null
+        }
+        typeIntoActive("Split survives\n")
+        instrumentation.runOnMainSync {
+            rule.activity
+                .graph()
+                .editor
+                .onAction(EditorAction.SelectMode(ViewMode.Split))
+        }
+        rule.waitForIdle()
+        val view = rule.activity.previewView
+        val orientations = listOf(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE, ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+        orientations.forEach { orientation ->
+            instrumentation.runOnMainSync { rule.activity.requestedOrientation = orientation }
+            rule.waitForIdle()
+            assertSame(view, rule.activity.previewView)
+            assertSame(
+                view,
+                rule.activity
+                    .graph()
+                    .editor.preview.view,
+            )
+            assertNotNull(view.parent)
+            assertEquals(true, activeText().endsWith("Split survives\n"))
         }
     }
 

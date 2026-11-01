@@ -8,11 +8,15 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import com.scorchsoft.ssmarkdown.about.AboutScreen
 import com.scorchsoft.ssmarkdown.editor.EditorUiState
 import com.scorchsoft.ssmarkdown.editor.ViewMode
+import com.scorchsoft.ssmarkdown.fixtures.PreviewSamples
 import com.scorchsoft.ssmarkdown.fixtures.Samples
+import com.scorchsoft.ssmarkdown.fontpicker.FontPickerScreen
+import com.scorchsoft.ssmarkdown.media.ViewerScreen
 import com.scorchsoft.ssmarkdown.settings.AppSettings
 import com.scorchsoft.ssmarkdown.settings.SettingsScreen
 import com.scorchsoft.ssmarkdown.storage.StorageScreen
 import com.scorchsoft.ssmarkdown.storage.StorageUiState
+import com.scorchsoft.ssmarkdown.themes.ThemeEditorScreen
 import com.scorchsoft.ssmarkdown.ui.EditorFor
 import com.scorchsoft.ssmarkdown.ui.Themed
 import org.junit.Rule
@@ -54,6 +58,24 @@ class ScreenshotTest(
     @Test fun editorSplit() = editor("editor-split", Samples.zoomed.copy(mode = ViewMode.Split))
 
     @Test fun editorLargeFont() = shot("editor-font-200", fontScale = 2f) { EditorFor(Samples.unsaved) }
+
+    @Test fun preview() = editor("preview", Samples.saved.copy(mode = ViewMode.Preview))
+
+    @Test fun splitPortrait() = editor("split-portrait", Samples.saved.copy(mode = ViewMode.Split))
+
+    @Test fun viewer() = shot("viewer") { ViewerScreen(PreviewSamples.viewer, {}) }
+
+    @Test fun exportImages() = editor("export-images", PreviewSamples.exportSheet)
+
+    @Test fun mermaidSheet() = editor("mermaid-sheet", PreviewSamples.mermaidSheet)
+
+    @Test fun display() = editor("display", PreviewSamples.display)
+
+    @Test fun themeEditor() = shot("theme-editor") { ThemeEditorScreen(PreviewSamples.themeType, {}) }
+
+    @Test fun themeEditorColours() = shot("theme-editor-colours") { ThemeEditorScreen(PreviewSamples.themeColours, {}) }
+
+    @Test fun fontPicker() = shot("font-picker") { FontPickerScreen(PreviewSamples.fonts, {}) }
 
     @Test fun settings() = shot("settings") { SettingsScreen(AppSettings(), "48.2 MB", {}) }
 

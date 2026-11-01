@@ -15,13 +15,15 @@ data class LineChange(
 
 /**
  * The editing state behind the code view: a [TextDocument] plus selection
- * and the keyboard's composing region, and every edit the keyboard or a
- * hardware key can make. It has no Android dependency, so the
+ * and the keyboard's composing region, and every edit the keyboard, a
+ * hardware key or the host can make. It has no Android dependency, so the
  * `InputConnection` semantics are tested here on the host JVM, and
  * [CodeInputConnection] stays a thin adapter.
  *
  * Offsets are UTF-16 chars into the document, as the `InputConnection`
- * API counts them.
+ * API counts them. The selection has a direction: the [anchor] stays put
+ * and the [caret] (the focus) moves, so Shift+arrows and handle drags
+ * extend from the right end.
  *
  * ### Batch edits
  * Keyboards wrap several calls in `beginBatchEdit`/`endBatchEdit`. Batches
@@ -29,7 +31,9 @@ data class LineChange(
  * selection, through [Listener.onSelectionSettled], so the keyboard hears
  * about the cursor once per gesture, not once per call (robustness.md).
  *
- * Owned by the main thread, like the document.
+ * Hard keys, caret movement and the keyboard's reads live beside this class
+ * (`SessionKeys.kt`, `SessionReads.kt`, `SessionHistory.kt`) so that each
+ * file stays one idea. Owned by the main thread, like the document.
  */
 @Suppress("TooManyFunctions") // One small method per InputConnection verb; splitting them would scatter one contract.
 class EditingSession(
@@ -52,8 +56,12 @@ class EditingSession(
     var selectionStart: Int = 0
         private set
 
-    /** Selection end, which is where the caret is drawn. */
+    /** Selection end (≥ [selectionStart]). */
     var selectionEnd: Int = 0
+        private set
+
+    /** True when the caret is at [selectionStart], i.e. the selection was extended backwards. */
+    var caretAtStart: Boolean = false
         private set
 
     /** Start of the keyboard's composing (underlined) region, or -1 when there is none. */
@@ -67,21 +75,34 @@ class EditingSession(
     /** Set by the view; null in tests that only check text. */
     var listener: Listener? = null
 
-    private val graphemes = GraphemeBoundaries()
+    /** Grapheme maths for the keys in `SessionKeys.kt`; one per session because it holds a BreakIterator. */
+    internal val graphemes = GraphemeBoundaries()
+
     private var batchDepth = 0
     private var selectionDirty = false
 
-    /** The caret offset (the selection's end). */
-    val caret: Int get() = selectionEnd
+    /** The caret offset: the moving end of the selection. */
+    val caret: Int get() = if (caretAtStart) selectionStart else selectionEnd
+
+    /** The fixed end of the selection; equal to [caret] when nothing is selected. */
+    val anchor: Int get() = if (caretAtStart) selectionEnd else selectionStart
+
+    /** True when some text is selected. */
+    val hasSelection: Boolean get() = selectionStart != selectionEnd
 
     /** True when a composing region is active. */
     val isComposing: Boolean get() = composingStart != NONE
 
+    /** True while a keyboard batch is open. */
+    val inBatch: Boolean get() = batchDepth > 0
+
     /** Swaps in a new document with the caret at its start; the view then restarts input. */
     fun reset(newDocument: TextDocument) {
         document = newDocument
+        batchDepth = 0
         selectionStart = 0
         selectionEnd = 0
+        caretAtStart = false
         clearComposing()
         notifySelection()
     }
@@ -113,7 +134,7 @@ class EditingSession(
         newCursorPosition: Int,
     ) {
         val (start, end) = replacementRange()
-        val inserted = replace(start, end, text)
+        val inserted = replaceRange(start, end, text)
         clearComposing()
         placeCursor(start, start + inserted, newCursorPosition)
     }
@@ -124,7 +145,7 @@ class EditingSession(
         newCursorPosition: Int,
     ) {
         val (start, end) = replacementRange()
-        val inserted = replace(start, end, text)
+        val inserted = replaceRange(start, end, text)
         if (inserted == 0) clearComposing() else setComposing(start, start + inserted)
         placeCursor(start, start + inserted, newCursorPosition)
     }
@@ -159,20 +180,26 @@ class EditingSession(
         val text = document.text
         var afterEnd = clamp(selectionEnd + after.coerceAtLeast(0))
         if (afterEnd < text.length && afterEnd > 0 && text[afterEnd].isLowSurrogate()) afterEnd++
-        if (afterEnd > selectionEnd) replace(selectionEnd, afterEnd, "")
+        if (afterEnd > selectionEnd) replaceRange(selectionEnd, afterEnd, "")
         var beforeStart = clamp(selectionStart - before.coerceAtLeast(0))
         if (beforeStart in 1 until selectionStart && text[beforeStart].isLowSurrogate()) beforeStart--
-        if (beforeStart < selectionStart) replace(beforeStart, selectionStart, "")
+        if (beforeStart < selectionStart) replaceRange(beforeStart, selectionStart, "")
         notifySelection()
     }
 
-    /** Moves the selection; the keyboard calls this, and so does a tap. */
+    /**
+     * Moves the selection. As in `InputConnection.setSelection`, [end] is
+     * where the caret goes, so `start > end` is a backwards selection.
+     */
     fun setSelection(
         start: Int,
         end: Int,
     ) {
-        selectionStart = clamp(minOf(start, end))
-        selectionEnd = clamp(maxOf(start, end))
+        val a = clamp(start)
+        val b = clamp(end)
+        selectionStart = minOf(a, b)
+        selectionEnd = maxOf(a, b)
+        caretAtStart = b < a
         notifySelection()
     }
 
@@ -183,94 +210,53 @@ class EditingSession(
         setSelection(offset, offset)
     }
 
-    // ------------------------------------------------------------ hard keys
-
-    /** Enter: a line break in place of the selection. */
-    fun pressEnter(): Unit = commitText("\n", 1)
-
-    /** Backspace: deletes the selection, or the grapheme before the caret. */
-    fun pressBackspace() {
+    /** Keeps the [anchor] and moves the caret to [focus]: Shift+arrows and handle drags. */
+    fun extendSelection(focus: Int) {
         clearComposing()
-        if (selectionStart != selectionEnd) {
-            commitText("", 1)
-        } else if (caret > 0) {
-            val start = graphemes.previous(document.text, caret)
-            replace(start, caret, "")
-            notifySelection()
-        }
+        document.breakTypingRun()
+        setSelection(anchor, focus)
     }
 
-    /** Forward delete: deletes the selection, or the grapheme after the caret. */
-    fun pressForwardDelete() {
+    /** Selects the whole document. */
+    fun selectAll() {
         clearComposing()
-        if (selectionStart != selectionEnd) {
-            commitText("", 1)
-        } else if (caret < document.text.length) {
-            replace(caret, graphemes.next(document.text, caret), "")
-            notifySelection()
-        }
-    }
-
-    /** Left/right arrow: one grapheme, collapsing any selection. */
-    fun moveCaretByGrapheme(forward: Boolean) {
-        val text = document.text
-        val target = if (forward) graphemes.next(text, caret) else graphemes.previous(text, caret)
-        moveCaretTo(target)
-    }
-
-    /** Up/down arrow: the same column on the neighbouring line, clamped to its length. */
-    fun moveCaretByLine(delta: Int) {
-        val text = document.text
-        val position = text.positionAt(caret)
-        val line = (position.line + delta).coerceIn(0, text.lineCount - 1)
-        moveCaretTo(text.offsetAt(line, position.column))
-    }
-
-    // ------------------------------------------------------ keyboard reads
-
-    /** Up to [n] chars before the selection, capped at [MAX_IME_WINDOW]. */
-    fun textBeforeCursor(n: Int): CharSequence {
-        val count = n.coerceIn(0, MAX_IME_WINDOW)
-        return document.text.getText((selectionStart - count).coerceAtLeast(0), selectionStart)
-    }
-
-    /** Up to [n] chars after the selection, capped at [MAX_IME_WINDOW]. */
-    fun textAfterCursor(n: Int): CharSequence {
-        val count = n.coerceIn(0, MAX_IME_WINDOW)
-        return document.text.getText(selectionEnd, clamp(selectionEnd + count))
-    }
-
-    /** The selected text, or null when the selection is empty; never more than [MAX_IME_WINDOW] chars. */
-    fun selectedText(): CharSequence? {
-        if (selectionStart == selectionEnd) return null
-        return document.text.getText(selectionStart, minOf(selectionEnd, selectionStart + MAX_IME_WINDOW))
+        setSelection(0, document.text.length)
     }
 
     /**
-     * A window of at most [maxChars] (capped at [MAX_IME_WINDOW]) centred on
-     * the selection: what `getExtractedText` and the surrounding-text APIs
-     * hand the keyboard. Handing over more makes select-all an ANR.
+     * An edit from outside the keyboard (a toolbar command, a Preview
+     * round-trip, paste): commits any composition first so the keyboard's
+     * word is never lost or doubled (robustness.md §5a.4), replaces
+     * `[start, end)` with [text] and selects `[selectStart, selectEnd)`
+     * afterwards (defaults: a caret after the inserted text).
      */
-    fun textWindow(maxChars: Int = MAX_IME_WINDOW): TextWindow {
-        val budget = maxChars.coerceIn(0, MAX_IME_WINDOW)
-        val length = document.text.length
-        val centre = (selectionStart + selectionEnd) / 2
-        val start = (centre - budget / 2).coerceIn(0, (length - budget).coerceAtLeast(0))
-        val end = minOf(length, start + budget)
-        return TextWindow(start, document.text.getText(start, end))
+    fun applyEdit(
+        start: Int,
+        end: Int,
+        text: CharSequence,
+        selectStart: Int = NONE,
+        selectEnd: Int = NONE,
+    ) {
+        finishComposingText()
+        val from = clamp(minOf(start, end))
+        val inserted = replaceRange(from, clamp(maxOf(start, end)), text)
+        val caretAfter = from + inserted
+        val newStart = if (selectStart == NONE) caretAfter else selectStart
+        val newEnd = if (selectEnd == NONE) newStart else selectEnd
+        setSelection(newStart, newEnd)
     }
 
     // --------------------------------------------------------------- core
 
     /**
-     * Replaces `[start, end)` with [text] in the document and moves the
+     * Replaces `[start, end)` with [rawText] in the document and moves the
      * selection and composing region the way the text moved. The single
      * place that edits, so the line-change report is always right. Returns
      * the length actually inserted: CRLF and lone CR arrive as one `'\n'`,
      * as the document stores them, so offsets after it are computed on
      * that, not on what the keyboard sent.
      */
-    private fun replace(
+    internal fun replaceRange(
         start: Int,
         end: Int,
         rawText: CharSequence,
@@ -291,6 +277,21 @@ class EditingSession(
         }
         listener?.onTextChanged(LineChange(firstLine, removed, added))
         return text.length
+    }
+
+    /** Tells the listener about lines changed behind the session's back (undo, redo), then the selection. */
+    internal fun reportExternalChange(
+        change: LineChange,
+        caretAfter: Int,
+    ) {
+        clearComposing()
+        listener?.onTextChanged(change)
+        setSelection(caretAfter, caretAfter)
+    }
+
+    internal fun clearComposing() {
+        composingStart = NONE
+        composingEnd = NONE
     }
 
     private fun normalizeBreaks(text: CharSequence): CharSequence =
@@ -325,10 +326,7 @@ class EditingSession(
             } else {
                 insertedStart + newCursorPosition
             }
-        val offset = clamp(target)
-        selectionStart = offset
-        selectionEnd = offset
-        notifySelection()
+        setSelection(target, target)
     }
 
     private fun setComposing(
@@ -339,12 +337,7 @@ class EditingSession(
         composingEnd = end
     }
 
-    private fun clearComposing() {
-        composingStart = NONE
-        composingEnd = NONE
-    }
-
-    private fun notifySelection() {
+    internal fun notifySelection() {
         if (batchDepth > 0) {
             selectionDirty = true
         } else {
@@ -353,7 +346,7 @@ class EditingSession(
         }
     }
 
-    private fun clamp(offset: Int): Int = offset.coerceIn(0, document.text.length)
+    internal fun clamp(offset: Int): Int = offset.coerceIn(0, document.text.length)
 
     /** Limits shared with the keyboard adapter. */
     companion object {

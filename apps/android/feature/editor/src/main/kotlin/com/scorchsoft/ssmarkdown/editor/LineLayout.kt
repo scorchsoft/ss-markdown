@@ -16,11 +16,11 @@ package com.scorchsoft.ssmarkdown.editor
  */
 class LineLayout(
     /** Length of the whole line in chars, without its break. */
-    val lineLength: Int,
+    override val lineLength: Int,
     /** Column of [chars]`[0]` within the line. */
     val windowStart: Int,
     /** The window's chars, tabs included (they are drawn as gaps). */
-    val chars: CharArray,
+    override val chars: CharArray,
     /**
      * `positions[i]` is the x of the boundary before `chars[i]`, relative to
      * the line's left edge; `positions[count]` is the window's right edge.
@@ -28,7 +28,7 @@ class LineLayout(
     private val positions: FloatArray,
     /** The estimate used outside the window: one monospace cell. */
     private val charWidth: Float,
-) {
+) : LineRows {
     /** Chars in the window. */
     val count: Int get() = chars.size
 
@@ -39,14 +39,34 @@ class LineLayout(
     val isComplete: Boolean get() = windowStart == 0 && count == lineLength
 
     /** The line's width in px: measured when complete, else the window plus estimates either side. */
-    val width: Float get() = xOf(lineLength)
+    override val width: Float get() = xOf(lineLength)
+
+    override val rowCount: Int get() = 1
+
+    override val charsStart: Int get() = windowStart
+
+    override fun rowStart(row: Int): Int = 0
+
+    override fun rowEnd(row: Int): Int = lineLength
+
+    override fun rowOf(column: Int): Int = 0
+
+    override fun columnAt(
+        row: Int,
+        x: Float,
+    ): Int = columnAt(x)
+
+    override fun xInRow(
+        row: Int,
+        column: Int,
+    ): Float = xOf(column)
 
     init {
         require(positions.size == chars.size + 1) { "need one position per boundary" }
     }
 
     /** The x of the boundary before [column] (0..[lineLength]). */
-    fun xOf(column: Int): Float =
+    override fun xOf(column: Int): Float =
         when {
             column <= windowStart -> column * charWidth
             column >= windowEnd -> positions[count] + (column - windowEnd) * charWidth

@@ -31,7 +31,7 @@ class LineLayoutCache(
     private class Entry(
         var version: Long,
         val windowKey: Int,
-        val layout: LineLayout,
+        val layout: LineRows,
     )
 
     // Access-ordered LinkedHashMap: iteration order is least recently used first.
@@ -42,15 +42,15 @@ class LineLayoutCache(
 
     /**
      * The layout of [line] at document [version] for the window that was
-     * requested as [windowKey], or null. The key is the *requested* window
-     * start; the layout's own start may sit one char earlier so as not to
-     * split a surrogate pair.
+     * requested as [windowKey], or null. In No-wrap mode the key is the *requested* window
+     * start (the layout's own start may sit one char earlier so as not to
+     * split a surrogate pair); in Wrap mode it is the wrap width in px.
      */
     fun get(
         line: Int,
         version: Long,
         windowKey: Int,
-    ): LineLayout? {
+    ): LineRows? {
         val entry = entries[line] ?: return null
         return entry.layout.takeIf { entry.version == version && entry.windowKey == windowKey }
     }
@@ -60,7 +60,7 @@ class LineLayoutCache(
         line: Int,
         version: Long,
         windowKey: Int,
-        layout: LineLayout,
+        layout: LineRows,
     ) {
         entries[line] = Entry(version, windowKey, layout)
         if (entries.size > capacity) {

@@ -1,18 +1,21 @@
 package com.scorchsoft.ssmarkdown.editor
 
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.PointF
 import android.graphics.Rect
 import android.graphics.Typeface
-import android.os.Build
-import android.text.InputType
 import android.util.AttributeSet
 import android.util.TypedValue
-import android.view.GestureDetector
+import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewTreeObserver
+import android.view.accessibility.AccessibilityManager
+import android.view.accessibility.AccessibilityNodeProvider
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
@@ -22,32 +25,29 @@ import com.scorchsoft.ssmarkdown.text.TextDocument
 import kotlin.math.roundToInt
 
 /**
- * The Code pane: a virtualised, monospace, No-wrap text view over a
- * [TextDocument] (docs/robustness.md, "Editor view").
+ * The Code pane: a virtualised, syntax-coloured, monospace text view over a
+ * [TextDocument] (docs/robustness.md, "Editor view"). It owns no text: the
+ * document belongs to the host's store, and this view is bound to it with
+ * [setDocument].
  *
- * **This is the editor-engine spike** (ADR 0001). It proves the shape the
- * real view will grow from, and is benchmarked against `EditText` and
- * Sora Editor by `:tools:editor-bench`:
+ * - Draws only the visible rows; lays out lines lazily through a cache
+ *   keyed by line + edit version ([EditorGeometry]). Long lines are
+ *   windowed (No wrap) or measured up to 10,000 chars (Wrap).
+ * - **Wrap mode** ([wrap]) keeps a [HeightMap] of measured lines and
+ *   estimated gaps, and anchors the scroll so measuring never moves what
+ *   is on screen; switching modes keeps the top line.
+ * - Colours come from the incremental Markdown tokenizer within an 8 ms
+ *   budget per frame, continued in idle slices ([HighlightScheduler]).
+ * - Selection: long-press and double-tap select a word, teardrop handles
+ *   with the magnifier, the floating Cut/Copy/Paste/Select all toolbar,
+ *   Shift+arrows and the Ctrl shortcuts ([KeyCommands]).
+ * - Accessibility: an editable node with a 100K window and a virtual node
+ *   per visible line ([EditorAccessibility]).
+ * - Pinch changes the font size, never a bitmap scale ([zoomPercent]).
  *
- * - Draws only the visible lines; lays out at most a few margin lines per
- *   frame ahead of the scroll direction ([Viewport.renderLines]).
- * - Fixed line height, so scroll height and line lookup are arithmetic.
- * - Long lines are windowed: only ~2,000 chars around the viewport are
- *   measured and drawn ([LineWindow]); the rest is estimated.
- * - Per-line layouts are cached by line identity + edit version
- *   ([LineLayoutCache]).
- * - Vertical and horizontal drag and fling through [OverScroller].
- * - A caret, tap-to-place, and a keyboard connection ([CodeInputConnection])
- *   good enough to type with Gboard, including composition.
- *
- * Not yet (later iterations): selection handles, the text-action toolbar,
- * highlighting, Wrap mode, `RenderNode` per line, accessibility nodes,
- * scrollbars and fast scroll.
- *
- * Everything that is maths rather than drawing lives in pure classes
- * ([Viewport], [LineLayout], [EditingSession]) with their own tests.
+ * Host it from Compose with [com.scorchsoft.ssmarkdown.editor.compose.MarkdownEditor].
  */
-@Suppress("TooManyFunctions") // A View's contract is wide: draw, touch, keys, IME, scroll. Each piece is small.
+@Suppress("TooManyFunctions") // A View's contract is wide: draw, touch, keys, IME, scroll, a11y. Each piece is small.
 class MarkdownCodeView
     @JvmOverloads
     constructor(
@@ -55,83 +55,172 @@ class MarkdownCodeView
         attrs: AttributeSet? = null,
     ) : View(context, attrs),
         EditingSession.Listener {
-        /** The editing state; the benchmark and the future view model drive it directly. */
+        /** The editing state: selection, composition and every edit. Hosts may read it; edit through [applyEdit]. */
         val session: EditingSession = EditingSession(TextDocument(PieceTree.empty()))
+
+        /** Receives selection, edit, anchor and zoom changes. */
+        var listener: EditorListener? = null
 
         private val textPaint =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 typeface = Typeface.MONOSPACE
-                textSize =
-                    TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, DEFAULT_TEXT_SP, resources.displayMetrics)
+                textSize = spToPx(ZoomModel.BASE_SP)
             }
-        private val gutterPaint = Paint(textPaint).apply { textAlign = Paint.Align.RIGHT }
-        private val fillPaint = Paint()
         private val measurer = LineMeasurer(textPaint)
-        private val cache = LineLayoutCache()
+        private val geometry = EditorGeometry(measurer, { session.document.text }, { session.document.version })
+        private val highlight = HighlightScheduler(onRepaint = ::invalidate)
+        private val renderer = EditorRenderer(geometry, session, highlight, textPaint)
+        private val commands = CommandRunner(this, geometry)
+        private val selectionUi = SelectionUi(this, commands)
+        private val touch = TouchController(this)
+        private val keys = KeyRouter(session, commands) { listener }
+        private val accessibility = EditorAccessibility(this)
+        private val zoom = ZoomModel()
         private val scroller = OverScroller(context)
-        private val gestures = GestureDetector(context, GestureListener())
         private val inputMethods: InputMethodManager? = context.getSystemService(InputMethodManager::class.java)
-        private val density = resources.displayMetrics.density
-        private val lineNumberChars = CharArray(MAX_LINE_NUMBER_DIGITS)
+        private val a11yManager: AccessibilityManager? = context.getSystemService(AccessibilityManager::class.java)
+        private val frame = FrameMetrics(resources.displayMetrics.density)
+        private val words = WordFinder()
 
-        private var palette = EditorPalette.forContext(context)
-        private var viewport = Viewport(1)
-        private var baseline = 0f
-        private var gutterWidth = 0
         private var direction = ScrollDirection.IDLE
-        private var widestVisibleLine = 0f
-        private var caretVisible = true
-        private var tapped = false
+        private var lastAnchorLine = -1
+        private var lastCaretLine = 0
+        private var widestVisibleRow = 0f
 
         private val blink =
             object : Runnable {
                 override fun run() {
-                    caretVisible = !caretVisible
+                    frame.caretVisible = !frame.caretVisible
                     invalidate()
                     postDelayed(this, BLINK_MILLIS)
                 }
+            }
+
+        private val preDraw =
+            ViewTreeObserver.OnPreDrawListener {
+                prepareFrame()
+                true
             }
 
         init {
             isFocusable = true
             isFocusableInTouchMode = true
             session.listener = this
+            applyTheme(EditorTheme.forContext(context))
             onMetricsChanged()
         }
 
-        /** The document shown. Setting it resets caret and scroll and restarts the keyboard. */
-        var document: TextDocument
-            get() = session.document
+        /**
+         * The colours. Until a host sets one, the view follows the context's
+         * light or dark mode, including across a `uiMode` change.
+         */
+        var theme: EditorTheme
+            get() = renderer.styles.theme
             set(value) {
-                session.reset(value)
-                cache.clear()
-                scroller.forceFinished(true)
-                scrollTo(0, 0)
-                onMetricsChanged()
-                inputMethods?.restartInput(this)
-                invalidate()
+                themeFollowsSystem = false
+                applyTheme(value)
             }
 
-        /** Text size in px. Changing it re-measures everything. */
+        private var themeFollowsSystem = true
+
+        private fun applyTheme(value: EditorTheme) {
+            renderer.styles = SyntaxStyles(value)
+            invalidate()
+        }
+
+        /** The document shown. Assigning it is [setDocument]. */
+        @set:JvmName("bindDocument")
+        var document: TextDocument
+            get() = session.document
+            set(value) = setDocument(value)
+
+        /**
+         * Binds the view to [document]: caret and scroll go to the start, the
+         * caches start over, and the keyboard is restarted, which is the one
+         * time it is (robustness.md: `restartInput` only on outside replacement).
+         */
+        fun setDocument(document: TextDocument) {
+            session.reset(document)
+            highlight.reset(document.text)
+            scroller.forceFinished(true)
+            scrollTo(0, 0)
+            onMetricsChanged()
+            relayout(line = 0, viewY = 0f)
+            inputMethods?.restartInput(this)
+            invalidate()
+        }
+
+        /** Wrap mode: rows break at the text column's width. Switching keeps the top line in place. */
+        var wrap: Boolean = false
+            set(value) {
+                if (field == value) return
+                field = value
+                relayout(anchorLine, 0f)
+            }
+
+        /** Text size in px. Prefer [zoomPercent]; this exists for benchmarks and tests. */
         var textSizePx: Float
             get() = textPaint.textSize
             set(value) {
                 textPaint.textSize = value
-                gutterPaint.textSize = value
-                measurer.onPaintChanged()
-                cache.clear()
-                onMetricsChanged()
-                invalidate()
+                onFontChanged(anchorLine, 0f)
             }
 
-        /** Fixed height of every line, in px. */
-        val lineHeight: Int get() = viewport.lineHeight
+        /** Zoom as a percentage of Code's 100 % (12.5 sp); the host restores it per file. */
+        var zoomPercent: Int
+            get() = zoom.percent
+            set(value) {
+                if (zoom.set(value)) applyZoom(viewY = 0f)
+            }
+
+        /** The source line at the top of the pane: the position anchor shared with Preview. */
+        val anchorLine: Int get() = geometry.heights.lineAt(scrollY.toLong())
+
+        /** Height of one text row, in px. */
+        val lineHeight: Int get() = geometry.heights.rowHeight
+
+        /** Height of one text row, in px (the same as [lineHeight], named for wrapped rows). */
+        val rowHeight: Int get() = geometry.heights.rowHeight
 
         /** Width of one monospace cell, in px. */
         val charWidth: Float get() = measurer.charWidth
 
         /** Left edge of the text column, in view px (gutter plus its gap). */
-        val textLeft: Int get() = gutterWidth + gap()
+        val textLeft: Int get() = frame.textLeft
+
+        /** Scrolls so [line] is at the top of the pane. */
+        fun scrollToLine(line: Int) {
+            scroller.forceFinished(true)
+            placeLine(line, viewY = 0f)
+        }
+
+        /**
+         * Commits the keyboard's in-progress word. Hosts call this before any
+         * layout change, toolbar command or save (robustness.md §5a.4).
+         */
+        fun requestFlushComposing() {
+            session.finishComposingText()
+        }
+
+        /**
+         * An edit from outside the keyboard (toolbar, Preview round-trip):
+         * flushes composition, replaces `[start, end)` with [text] as one undo
+         * step, then selects `[selectStart, selectEnd)` (default: a caret after it).
+         */
+        fun applyEdit(
+            start: Int,
+            end: Int,
+            text: CharSequence,
+            selectStart: Int = EditingSession.NONE,
+            selectEnd: Int = EditingSession.NONE,
+        ) {
+            session.document.beginEditGroup()
+            try {
+                session.applyEdit(start, end, text, selectStart, selectEnd)
+            } finally {
+                session.document.endEditGroup()
+            }
+        }
 
         /** Places the caret at [offset], ends any composition and scrolls it into view. */
         fun setCaret(offset: Int) {
@@ -140,253 +229,239 @@ class MarkdownCodeView
 
         /** Starts a vertical fling, as a finger would; the benchmark uses this for scripted scrolling. */
         fun fling(velocityY: Int) {
-            scroller.fling(scrollX, scrollY, 0, velocityY, 0, maxScrollX(), 0, maxScrollY())
-            postInvalidateOnAnimation()
+            startFling(0, velocityY)
         }
-
-        // ------------------------------------------------------------ maths
 
         /** The document offset under view point ([x], [y]), as a tap would place the caret. */
         fun offsetAt(
             x: Float,
             y: Float,
-        ): Int {
-            val text = session.document.text
-            val line = viewport.lineAt(scrollY.toLong() + y.toLong(), text.lineCount)
-            val column = layoutFor(text, line).columnAt(x + scrollX - textLeft)
-            return text.lineStartOffset(line) + column
-        }
+        ): Int = offsetAtView(x, y)
 
-        /** The caret's x in view px, for [offset]; the inverse of [offsetAt] along a line. */
-        fun xForOffset(offset: Int): Float {
-            val text = session.document.text
-            val position = text.positionAt(offset)
-            return textLeft - scrollX + layoutFor(text, position.line).xOf(position.column)
-        }
+        /** The caret's x in view px, for [offset]; the inverse of [offsetAt] along a row. */
+        fun xForOffset(offset: Int): Float = pointInView(offset).x
 
-        /** Top of the line holding [offset], in view px. */
-        fun yForOffset(offset: Int): Float {
-            val line =
-                session.document.text
-                    .positionAt(offset)
-                    .line
-            return (viewport.lineTop(line) - scrollY).toFloat()
-        }
+        /** Top of the row holding [offset], in view px. */
+        fun yForOffset(offset: Int): Float = pointInView(offset).y
+
+        // ------------------------------------------------------- internal API
+
+        internal val handles: SelectionHandles get() = selectionUi.handles
 
         /** Lines currently laid out; lets tests prove drawing stays proportional to the screen. */
-        internal fun cachedLineCount(): Int = cache.size
+        internal fun cachedLineCount(): Int = geometry.cachedLineCount
 
-        private fun onMetricsChanged() {
-            val metrics = textPaint.fontMetricsInt
-            val glyphHeight = metrics.descent - metrics.ascent
-            val lineHeight = (glyphHeight * LINE_SPACING).roundToInt().coerceAtLeast(1)
-            viewport = Viewport(lineHeight)
-            baseline = (lineHeight - glyphHeight) / 2f - metrics.ascent
-            val digits =
-                session.document.text.lineCount
-                    .toString()
-                    .length
-                    .coerceAtLeast(MIN_GUTTER_DIGITS)
-            gutterWidth = (digits * measurer.charWidth).roundToInt() + 2 * gap()
+        internal fun offsetAtView(
+            x: Float,
+            y: Float,
+        ): Int = geometry.offsetAt(x - textLeft + horizontalScroll(), scrollY.toLong() + y.toLong())
+
+        /** Where [offset] is drawn: x at the caret, y at the top of its row, in view px. */
+        internal fun pointInView(offset: Int): PointF {
+            val point = geometry.locate(offset.coerceIn(0, session.document.text.length))
+            return PointF(textLeft - horizontalScroll() + point.x, (point.top - scrollY).toFloat())
         }
 
-        private fun gap(): Int = (GAP_DP * density).roundToInt()
+        internal fun caretPointInView(): PointF? = pointInView(session.caret).takeIf { it.y in 0f..height.toFloat() }
 
-        private fun textWidth(): Int = (width - textLeft).coerceAtLeast(0)
+        internal fun handlePoint(kind: HandleKind): PointF? = selectionUi.handlePoint(kind)
 
-        private fun maxScrollY(): Int = viewport.maxScrollY(session.document.text.lineCount, height)
+        internal fun visibleLineRange(): IntRange = geometry.heights.visibleLines(scrollY, height)
 
-        private fun maxScrollX(): Int = (widestVisibleLine + gap() - textWidth()).roundToInt().coerceAtLeast(0)
-
-        /** The column at the middle of the viewport, which picks every long line's window. */
-        private fun centreColumn(): Int = ((scrollX + textWidth() / 2) / measurer.charWidth.coerceAtLeast(1f)).toInt()
-
-        private fun layoutFor(
-            text: PieceTree,
+        /** Fills [out] with [line]'s bounds in view px; returns true if any of it is on screen. */
+        internal fun lineBoundsInView(
             line: Int,
-        ): LineLayout {
-            val windowKey = LineWindow.startFor(text.lineLength(line), centreColumn())
-            val version = session.document.version
-            return cache.get(line, version, windowKey)
-                ?: measurer.measure(text, line, windowKey).also { cache.put(line, version, windowKey, it) }
+            out: Rect,
+        ): Boolean {
+            val top = (geometry.heights.lineTop(line) - scrollY).toInt()
+            out.set(textLeft, top, width, top + geometry.heights.heightOf(line))
+            return out.bottom > 0 && out.top < height
         }
 
-        private fun cachedLayout(
-            text: PieceTree,
-            line: Int,
-        ): LineLayout? =
-            cache.get(line, session.document.version, LineWindow.startFor(text.lineLength(line), centreColumn()))
+        internal fun runCommand(command: EditorCommand): Boolean = commands.run(command)
 
-        // ---------------------------------------------------------- drawing
+        internal fun showTextActions() = selectionUi.showToolbar()
 
-        override fun onDraw(canvas: Canvas) {
-            val text = session.document.text
-            val visible = viewport.visibleLines(scrollY, height, text.lineCount)
-            prefetchMargin(text, visible)
-            // View.draw has translated by the scroll; work in view coordinates instead.
-            canvas.save()
-            canvas.translate(scrollX.toFloat(), scrollY.toFloat())
-            canvas.drawColor(palette.background)
-            canvas.save()
-            canvas.clipRect(gutterWidth, 0, width, height)
-            widestVisibleLine = 0f
-            for (line in visible) drawLine(canvas, text, line)
-            drawComposingUnderline(canvas, text, visible)
-            drawCaret(canvas, text, visible)
-            canvas.restore()
-            drawGutter(canvas, visible)
-            canvas.restore()
-        }
+        internal fun hideTextActions() = selectionUi.hideToolbar()
 
-        private fun drawLine(
-            canvas: Canvas,
-            text: PieceTree,
-            line: Int,
-        ) {
-            val layout = layoutFor(text, line)
-            widestVisibleLine = maxOf(widestVisibleLine, layout.width)
-            val y = (viewport.lineTop(line) - scrollY) + baseline
-            // Only the columns on screen are drawn, even inside a 2,000-char window.
-            val from = (layout.columnAt(scrollX.toFloat()) - 1).coerceIn(layout.windowStart, layout.windowEnd)
-            val to = (layout.columnAt((scrollX + textWidth()).toFloat()) + 1).coerceIn(from, layout.windowEnd)
-            textPaint.color = palette.text
-            var runStart = from
-            for (column in from..to) {
-                val atTab = column < to && layout.chars[column - layout.windowStart] == '\t'
-                if (column == to || atTab) {
-                    drawRun(canvas, layout, runStart, column, y)
-                    runStart = column + 1
-                }
-            }
-        }
-
-        private fun drawRun(
-            canvas: Canvas,
-            layout: LineLayout,
-            from: Int,
-            to: Int,
+        internal fun onTap(
+            x: Float,
             y: Float,
         ) {
-            val x = textLeft - scrollX + layout.xOf(from)
-            var start = from - layout.windowStart
-            val end = to - layout.windowStart
-            // A run cut at the screen edge may start on the second half of a pair.
-            if (start in 1 until end && layout.chars[start].isLowSurrogate()) start--
-            if (end <= start) return
-            canvas.drawTextRun(layout.chars, start, end - start, start, end - start, x, y, false, textPaint)
+            selectionUi.hideToolbar()
+            session.moveCaretTo(offsetAtView(x, y))
+            selectionUi.setInsertionHandle(true)
         }
 
-        private fun drawCaret(
-            canvas: Canvas,
-            text: PieceTree,
-            visible: IntRange,
+        internal fun selectWordAt(
+            x: Float,
+            y: Float,
         ) {
-            if (!caretVisible || !hasFocus()) return
-            val position = text.positionAt(session.caret)
-            if (position.line !in visible) return
-            val x = xForOffset(session.caret)
-            val top = (viewport.lineTop(position.line) - scrollY).toFloat()
-            fillPaint.color = palette.caret
-            canvas.drawRect(x, top, x + CARET_WIDTH_DP * density, top + viewport.lineHeight, fillPaint)
+            requestFocus()
+            session.selectWord(offsetAtView(x, y), words)
         }
 
-        private fun drawComposingUnderline(
-            canvas: Canvas,
-            text: PieceTree,
-            visible: IntRange,
+        internal fun scrollByClamped(
+            dx: Int,
+            dy: Int,
         ) {
-            if (!session.isComposing) return
-            val first = text.positionAt(session.composingStart)
-            val last = text.positionAt(session.composingEnd)
-            fillPaint.color = palette.composingUnderline
-            val thickness = UNDERLINE_DP * density
-            for (line in maxOf(first.line, visible.first)..minOf(last.line, visible.last)) {
-                val layout = layoutFor(text, line)
-                val startColumn = if (line == first.line) first.column else 0
-                val endColumn = if (line == last.line) last.column else layout.lineLength
-                val left = textLeft - scrollX
-                val bottom = (viewport.lineTop(line) + viewport.lineHeight - scrollY).toFloat()
-                canvas.drawRect(
-                    left + layout.xOf(startColumn),
-                    bottom - thickness,
-                    left + layout.xOf(endColumn),
-                    bottom,
-                    fillPaint,
+            val x = if (wrap) 0 else (scrollX + dx).coerceIn(0, maxScrollX())
+            scrollTo(x, (scrollY + dy).coerceIn(0, maxScrollY()))
+        }
+
+        internal fun startFling(
+            velocityX: Int,
+            velocityY: Int,
+        ) {
+            val maxX = if (wrap) 0 else maxScrollX()
+            scroller.fling(scrollX, scrollY, velocityX, velocityY, 0, maxX, 0, maxScrollY())
+            postInvalidateOnAnimation()
+        }
+
+        internal fun stopFling() {
+            scroller.forceFinished(true)
+        }
+
+        /** One pinch step: scales the font about view y [focusY], keeping the line under the fingers still. */
+        internal fun zoomBy(
+            factor: Float,
+            focusY: Float,
+        ) {
+            val before = zoom.percent
+            if (!zoom.scaleBy(factor)) return
+            if (ZoomModel.crossesDefault(
+                    before,
+                    zoom.percent,
                 )
+            ) {
+                performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
             }
+            applyZoom(focusY)
+            listener?.onZoomChanged(zoom.percent, pinching = true)
         }
 
-        private fun drawGutter(
-            canvas: Canvas,
-            visible: IntRange,
+        internal fun endPinch() {
+            listener?.onZoomChanged(zoom.percent, pinching = false)
+        }
+
+        // ------------------------------------------------------------ layout
+
+        private fun applyZoom(viewY: Float) {
+            val line = geometry.heights.lineAt(scrollY.toLong() + viewY.toLong())
+            textPaint.textSize = spToPx(zoom.textSizeSp)
+            onFontChanged(line, viewY)
+        }
+
+        private fun onFontChanged(
+            line: Int,
+            viewY: Float,
         ) {
-            fillPaint.color = palette.gutterBackground
-            canvas.drawRect(0f, 0f, gutterWidth.toFloat(), height.toFloat(), fillPaint)
-            gutterPaint.color = palette.gutterText
-            val right = (gutterWidth - gap()).toFloat()
-            for (line in visible) {
-                val start = writeLineNumber(line + 1)
-                val y = (viewport.lineTop(line) - scrollY) + baseline
-                canvas.drawText(lineNumberChars, start, lineNumberChars.size - start, right, y, gutterPaint)
-            }
+            measurer.onPaintChanged()
+            renderer.onPaintChanged(textPaint)
+            onMetricsChanged()
+            relayout(line, viewY)
         }
 
-        /** Writes [number] right-aligned into [lineNumberChars] (no String per frame); returns its first index. */
-        private fun writeLineNumber(number: Int): Int {
-            var n = number
-            var index = lineNumberChars.size
-            do {
-                lineNumberChars[--index] = '0' + n % DECIMAL
-                n /= DECIMAL
-            } while (n > 0)
-            return index
+        /** Recomputes row height, baseline and gutter; returns true if the text column's width changed. */
+        private fun onMetricsChanged(): Boolean {
+            frame.width = width
+            geometry.heights.rowHeight = frame.update(textPaint, measurer.charWidth, session.document.text.lineCount)
+            return frame.textColumnWidth() != geometry.textWidth
         }
+
+        /** Throws away layouts and heights, then scrolls so [line] sits at view y [viewY] again. */
+        private fun relayout(
+            line: Int,
+            viewY: Float,
+        ) {
+            frame.width = width
+            geometry.configure(geometry.heights.rowHeight, wrap, frame.textColumnWidth())
+            placeLine(line, viewY)
+        }
+
+        /** Scrolls so the top of [line] is at view y [viewY], from the heights as they are now. */
+        private fun placeLine(
+            line: Int,
+            viewY: Float,
+        ) {
+            val target = line.coerceIn(0, session.document.text.lineCount - 1)
+            geometry.anchorLine = target
+            geometry.layoutFor(target)
+            val y = (geometry.heights.lineTop(target) - viewY.toLong()).coerceIn(0, maxScrollY().toLong())
+            scrollTo(horizontalScroll(), y.toInt())
+            // The position was computed from the current tops, so there is nothing left to correct.
+            geometry.takeScrollShift()
+            invalidate()
+        }
+
+        private fun horizontalScroll(): Int = if (wrap) 0 else scrollX
+
+        private fun maxScrollY(): Int = geometry.heights.maxScrollY(height)
+
+        private fun maxScrollX(): Int =
+            (widestVisibleRow + frame.gap - frame.textColumnWidth()).roundToInt().coerceAtLeast(0)
+
+        override fun onSizeChanged(
+            w: Int,
+            h: Int,
+            oldw: Int,
+            oldh: Int,
+        ) {
+            super.onSizeChanged(w, h, oldw, oldh)
+            if (w != oldw) relayout(anchorLine, 0f)
+        }
+
+        // ----------------------------------------------------------- drawing
 
         /**
-         * Lays out up to [PREFETCH_LINES_PER_FRAME] lines from the margin each
-         * frame, nearest first and on the side the scroll is heading, so a fling
-         * finds them ready. Cached lines cost a map lookup.
+         * Settles the frame before drawing: lays out the margin and the
+         * visible rows, applies the scroll anchoring that measuring caused,
+         * and tokenises the visible lines within the main-thread budget.
          */
-        private fun prefetchMargin(
-            text: PieceTree,
-            visible: IntRange,
-        ) {
-            if (visible.isEmpty()) return
-            val margin = viewport.renderLines(scrollY, height, text.lineCount, direction)
-            val below = (visible.last + 1)..margin.last
-            val above = (visible.first - 1) downTo margin.first
-            var budget = PREFETCH_LINES_PER_FRAME
-            if (direction == ScrollDirection.TOWARDS_START) {
-                budget = prefetch(text, above, budget)
-                prefetch(text, below, budget)
-            } else {
-                budget = prefetch(text, below, budget)
-                prefetch(text, above, budget)
+        private fun prepareFrame(): IntRange {
+            geometry.scrollX = horizontalScroll()
+            geometry.anchorLine = geometry.heights.lineAt(scrollY.toLong())
+            val margin = geometry.heights.renderLines(scrollY, height, direction)
+            geometry.prefetch(
+                geometry.heights.visibleLines(scrollY, height),
+                margin,
+                direction,
+                PREFETCH_LINES_PER_FRAME,
+            )
+            var y = scrollY + geometry.takeScrollShift()
+            y = geometry.settle(y, height).coerceIn(0, maxScrollY())
+            if (y != scrollY) scrollTo(scrollX, y)
+            val visible = geometry.heights.visibleLines(scrollY, height)
+            highlight.prepare(visible)
+            if (visible.first != lastAnchorLine) {
+                lastAnchorLine = visible.first
+                listener?.onAnchorLineChanged(visible.first)
             }
+            return visible
         }
 
-        /** Lays out [lines] in order until [budget] runs out; returns what is left. */
-        private fun prefetch(
-            text: PieceTree,
-            lines: IntProgression,
-            budget: Int,
-        ): Int {
-            var left = budget
-            for (line in lines) {
-                if (left == 0) break
-                if (cachedLayout(text, line) == null) {
-                    layoutFor(text, line)
-                    left--
-                }
-            }
-            return left
+        override fun onDraw(canvas: Canvas) {
+            val drawnX = scrollX
+            val drawnY = scrollY
+            val visible = prepareFrame()
+            frame.width = width
+            frame.height = height
+            frame.scrollX = horizontalScroll()
+            frame.scrollY = scrollY
+            frame.focused = hasFocus()
+            // View.draw translated by the scroll it saw; draw in view coordinates instead.
+            canvas.save()
+            canvas.translate(drawnX.toFloat(), drawnY.toFloat())
+            renderer.draw(canvas, visible, frame)
+            selectionUi.drawHandles(canvas, theme.caret)
+            canvas.restore()
+            widestVisibleRow = visible.maxOfOrNull { geometry.layoutFor(it).width } ?: 0f
         }
-
-        // ----------------------------------------------------------- scrolling
 
         override fun computeScroll() {
             if (scroller.computeScrollOffset()) {
-                scrollTo(scroller.currX.coerceIn(0, maxScrollX()), scroller.currY.coerceIn(0, maxScrollY()))
+                val x = if (wrap) 0 else scroller.currX.coerceIn(0, maxScrollX())
+                scrollTo(x, scroller.currY.coerceIn(0, maxScrollY()))
                 postInvalidateOnAnimation()
             }
         }
@@ -398,6 +473,7 @@ class MarkdownCodeView
             oldt: Int,
         ) {
             super.onScrollChanged(l, t, oldl, oldt)
+            geometry.anchorLine = geometry.heights.lineAt(t.toLong())
             direction =
                 when {
                     t > oldt -> ScrollDirection.TOWARDS_END
@@ -406,12 +482,12 @@ class MarkdownCodeView
                 }
         }
 
+        // ------------------------------------------------------------ touch
+
         override fun onTouchEvent(event: MotionEvent): Boolean {
-            if (event.actionMasked == MotionEvent.ACTION_DOWN) scroller.forceFinished(true)
-            tapped = false
-            val consumed = gestures.onTouchEvent(event)
+            val consumed = touch.onTouchEvent(event)
             // The tap already placed the caret; the click is what accessibility services can repeat.
-            if (tapped) performClick()
+            if (touch.takeTap()) performClick()
             return consumed || super.onTouchEvent(event)
         }
 
@@ -423,113 +499,32 @@ class MarkdownCodeView
             return true
         }
 
-        private fun revealCaret() {
-            val text = session.document.text
-            val position = text.positionAt(session.caret)
-            val y = viewport.scrollToReveal(position.line, scrollY, height)
-            val caretX = layoutFor(text, position.line).xOf(position.column)
-            val x =
-                when {
-                    caretX < scrollX -> caretX.toInt()
-                    caretX > scrollX + textWidth() - gap() -> (caretX - textWidth() + gap()).roundToInt()
-                    else -> scrollX
-                }
-            if (x != scrollX || y != scrollY) scrollTo(x.coerceAtLeast(0), y)
-        }
-
-        private inner class GestureListener : GestureDetector.SimpleOnGestureListener() {
-            override fun onDown(e: MotionEvent): Boolean = true
-
-            override fun onScroll(
-                e1: MotionEvent?,
-                e2: MotionEvent,
-                distanceX: Float,
-                distanceY: Float,
-            ): Boolean {
-                val x = (scrollX + distanceX.roundToInt()).coerceIn(0, maxScrollX())
-                val y = (scrollY + distanceY.roundToInt()).coerceIn(0, maxScrollY())
-                scrollTo(x, y)
-                return true
-            }
-
-            override fun onFling(
-                e1: MotionEvent?,
-                e2: MotionEvent,
-                velocityX: Float,
-                velocityY: Float,
-            ): Boolean {
-                scroller.fling(
-                    scrollX,
-                    scrollY,
-                    -velocityX.toInt(),
-                    -velocityY.toInt(),
-                    0,
-                    maxScrollX(),
-                    0,
-                    maxScrollY(),
-                )
-                postInvalidateOnAnimation()
-                return true
-            }
-
-            override fun onSingleTapUp(e: MotionEvent): Boolean {
-                session.moveCaretTo(offsetAt(e.x, e.y))
-                tapped = true
-                return true
-            }
-        }
-
         // --------------------------------------------------- keyboard and keys
 
         override fun onCheckIsTextEditor(): Boolean = true
 
         override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection {
-            outAttrs.inputType =
-                InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or
-                InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
-            outAttrs.imeOptions =
-                EditorInfo.IME_FLAG_NO_FULLSCREEN or EditorInfo.IME_FLAG_NO_EXTRACT_UI or EditorInfo.IME_ACTION_NONE
-            outAttrs.initialSelStart = session.selectionStart
-            outAttrs.initialSelEnd = session.selectionEnd
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val window = session.textWindow(SURROUNDING_TEXT_CHARS)
-                outAttrs.setInitialSurroundingSubText(window.text, window.start)
-            }
-            return CodeInputConnection(this, session, ::onKey)
+            ImeConfig.fill(outAttrs, session)
+            return CodeInputConnection(this, session, keys::onKey)
         }
 
         override fun onKeyDown(
             keyCode: Int,
             event: KeyEvent,
-        ): Boolean = onKey(event) || super.onKeyDown(keyCode, event)
+        ): Boolean = keys.onKey(event) || super.onKeyDown(keyCode, event)
 
-        /** Handles a key from a hardware keyboard or from the soft keyboard's `sendKeyEvent`. */
-        private fun onKey(event: KeyEvent): Boolean {
-            val handled = isEditingKey(event)
-            if (handled && event.action == KeyEvent.ACTION_DOWN) applyKey(event)
-            return handled
-        }
-
-        private fun applyKey(event: KeyEvent) {
-            when (event.keyCode) {
-                KeyEvent.KEYCODE_DEL -> session.pressBackspace()
-                KeyEvent.KEYCODE_FORWARD_DEL -> session.pressForwardDelete()
-                KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> session.pressEnter()
-                KeyEvent.KEYCODE_DPAD_LEFT -> session.moveCaretByGrapheme(forward = false)
-                KeyEvent.KEYCODE_DPAD_RIGHT -> session.moveCaretByGrapheme(forward = true)
-                KeyEvent.KEYCODE_DPAD_UP -> session.moveCaretByLine(-1)
-                KeyEvent.KEYCODE_DPAD_DOWN -> session.moveCaretByLine(1)
-                else -> session.commitText(String(Character.toChars(event.unicodeChar)), 1)
-            }
-        }
-
-        /** A key this view acts on: an editing or arrow key, or a printable char without Ctrl. */
-        private fun isEditingKey(event: KeyEvent): Boolean =
-            event.keyCode in EDITING_KEYS || (event.unicodeChar != 0 && !event.isCtrlPressed)
+        override fun onKeyUp(
+            keyCode: Int,
+            event: KeyEvent,
+        ): Boolean = KeyCommands.actionFor(event) != null || super.onKeyUp(keyCode, event)
 
         override fun onTextChanged(change: LineChange) {
-            cache.onEdit(change.firstLine, change.removedBreaks, change.addedBreaks, session.document.version)
-            if (change.removedBreaks != change.addedBreaks) onMetricsChanged()
+            geometry.onEdit(change)
+            highlight.onEdit(change)
+            if (onMetricsChanged()) relayout(anchorLine, 0f)
+            selectionUi.setInsertionHandle(false)
+            selectionUi.hideToolbar()
+            listener?.onTextEdited(change, session.document.version)
             invalidate()
         }
 
@@ -543,10 +538,49 @@ class MarkdownCodeView
             )
             revealCaret()
             restartBlink()
+            listener?.onSelectionChanged(session.selectionStart, session.selectionEnd)
+            val caretLine =
+                session.document.text
+                    .positionAt(session.caret)
+                    .line
+            if (caretLine != lastCaretLine &&
+                a11yManager?.isEnabled == true
+            ) {
+                accessibility.onCaretLineChanged(caretLine)
+            }
+            lastCaretLine = caretLine
             invalidate()
         }
 
-        // ------------------------------------------------------------- focus
+        private fun revealCaret() {
+            if (height == 0) return
+            val point = geometry.locate(session.caret)
+            val y = revealScroll(point.top, point.top + rowHeight, scrollY, height)
+            val x =
+                when {
+                    wrap -> {
+                        0
+                    }
+
+                    point.x < scrollX -> {
+                        point.x.toInt()
+                    }
+
+                    point.x > scrollX + frame.textColumnWidth() - frame.gap -> {
+                        (point.x - frame.textColumnWidth() + frame.gap)
+                            .roundToInt()
+                    }
+
+                    else -> {
+                        scrollX
+                    }
+                }
+            if (x != scrollX || y != scrollY) scrollTo(x.coerceAtLeast(0), y)
+        }
+
+        // --------------------------------------------- focus, a11y, lifecycle
+
+        override fun getAccessibilityNodeProvider(): AccessibilityNodeProvider = accessibility
 
         override fun onFocusChanged(
             gainFocus: Boolean,
@@ -554,51 +588,46 @@ class MarkdownCodeView
             previouslyFocusedRect: Rect?,
         ) {
             super.onFocusChanged(gainFocus, direction, previouslyFocusedRect)
-            if (gainFocus) restartBlink() else removeCallbacks(blink)
+            if (gainFocus) {
+                restartBlink()
+            } else {
+                removeCallbacks(blink)
+                session.finishComposingText()
+                selectionUi.hideToolbar()
+            }
+        }
+
+        override fun onAttachedToWindow() {
+            super.onAttachedToWindow()
+            viewTreeObserver.addOnPreDrawListener(preDraw)
         }
 
         override fun onDetachedFromWindow() {
+            viewTreeObserver.removeOnPreDrawListener(preDraw)
             removeCallbacks(blink)
+            selectionUi.hideToolbar()
             super.onDetachedFromWindow()
         }
 
-        override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        override fun onConfigurationChanged(newConfig: Configuration) {
             super.onConfigurationChanged(newConfig)
-            palette = EditorPalette.forContext(context)
-            invalidate()
+            // Layout changes commit the keyboard's word first (robustness.md §5a.4).
+            session.finishComposingText()
+            if (themeFollowsSystem) applyTheme(EditorTheme.forContext(context))
+            onFontChanged(anchorLine, 0f)
         }
 
         private fun restartBlink() {
             removeCallbacks(blink)
-            caretVisible = true
+            frame.caretVisible = true
             if (hasFocus()) postDelayed(blink, BLINK_MILLIS)
         }
 
+        private fun spToPx(sp: Float): Float =
+            TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, resources.displayMetrics)
+
         private companion object {
-            const val DEFAULT_TEXT_SP = 14f
-            const val LINE_SPACING = 1.3f
-            const val GAP_DP = 8f
-            const val CARET_WIDTH_DP = 2f
-            const val UNDERLINE_DP = 1.5f
-            const val MIN_GUTTER_DIGITS = 2
-            const val MAX_LINE_NUMBER_DIGITS = 10
-            const val DECIMAL = 10
             const val BLINK_MILLIS = 500L
             const val PREFETCH_LINES_PER_FRAME = 4
-
-            /** What `setInitialSurroundingSubText` keeps anyway; building more is waste. */
-            const val SURROUNDING_TEXT_CHARS = 4_096
-
-            val EDITING_KEYS =
-                setOf(
-                    KeyEvent.KEYCODE_DEL,
-                    KeyEvent.KEYCODE_FORWARD_DEL,
-                    KeyEvent.KEYCODE_ENTER,
-                    KeyEvent.KEYCODE_NUMPAD_ENTER,
-                    KeyEvent.KEYCODE_DPAD_LEFT,
-                    KeyEvent.KEYCODE_DPAD_RIGHT,
-                    KeyEvent.KEYCODE_DPAD_UP,
-                    KeyEvent.KEYCODE_DPAD_DOWN,
-                )
         }
     }

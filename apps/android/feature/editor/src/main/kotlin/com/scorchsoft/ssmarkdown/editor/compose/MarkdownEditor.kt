@@ -1,0 +1,61 @@
+package com.scorchsoft.ssmarkdown.editor.compose
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.AndroidView
+import com.scorchsoft.ssmarkdown.editor.EditorListener
+import com.scorchsoft.ssmarkdown.editor.EditorTheme
+import com.scorchsoft.ssmarkdown.editor.MarkdownCodeView
+import com.scorchsoft.ssmarkdown.text.TextDocument
+
+/**
+ * The Code pane for Compose screens: a [MarkdownCodeView] inside an
+ * [AndroidView], bound to [document].
+ *
+ * **Host it with `movableContentOf`** (docs/robustness.md §5a, rule 2).
+ * Moving between Code, Split and the side-by-side layout must move this
+ * same view instance, not rebuild it: a rebuilt view loses its keyboard
+ * connection, composing word, selection and scroll. Create the movable
+ * content once (`remember { movableContentOf { MarkdownEditor(...) } }`)
+ * and call it from whichever layout is showing.
+ *
+ * The view owns no text. [document] belongs to the host's store; changing
+ * it rebinds the view (and restarts the keyboard). [zoomPercent] and
+ * [wrap] are applied only when they differ from the view's own values, so
+ * a pinch's `onZoomChanged` feeding back into state does not fight the
+ * gesture. [onViewReady] hands the view to a host that needs its
+ * imperative API ([MarkdownCodeView.scrollToLine],
+ * [MarkdownCodeView.requestFlushComposing], [MarkdownCodeView.applyEdit]).
+ */
+@Composable
+fun MarkdownEditor(
+    document: TextDocument,
+    modifier: Modifier = Modifier,
+    theme: EditorTheme? = null,
+    wrap: Boolean = false,
+    zoomPercent: Int = 100,
+    listener: EditorListener? = null,
+    onViewReady: (MarkdownCodeView) -> Unit = {},
+) {
+    val bound = remember { BoundDocument() }
+    AndroidView(
+        modifier = modifier,
+        factory = { context -> MarkdownCodeView(context).also(onViewReady) },
+        update = { view ->
+            if (bound.document !== document) {
+                bound.document = document
+                view.setDocument(document)
+            }
+            if (theme != null && view.theme != theme) view.theme = theme
+            if (view.wrap != wrap) view.wrap = wrap
+            if (view.zoomPercent != zoomPercent) view.zoomPercent = zoomPercent
+            view.listener = listener
+        },
+    )
+}
+
+/** Which document the view was last bound to, so recomposition never rebinds the same one. */
+private class BoundDocument {
+    var document: TextDocument? = null
+}

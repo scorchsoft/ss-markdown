@@ -6,9 +6,11 @@ import com.scorchsoft.ssmarkdown.text.PieceTree
 /**
  * Turns a window of one line into a [LineLayout] with a single
  * `Paint.getTextRunAdvances` call: the unwrapped path from robustness.md
- * ("Unwrapped lines use getRunAdvance + drawTextRun"). Wrapped lines,
- * which need `MeasuredText` + `LineBreaker` off the main thread, are a
- * later iteration.
+ * ("Unwrapped lines use getRunAdvance + drawTextRun"), and the same
+ * advances broken greedily into rows for Wrap mode ([measureWrapped]).
+ * Wrapping runs on the main thread over at most [WrapLayout.WRAP_WINDOW]
+ * chars; moving it to `MeasuredText` + `LineBreaker` on a background
+ * thread is a later iteration.
  *
  * Reads only `[lineStart + start, lineStart + end)` from the tree, so a
  * 5 MB single line costs the same as a 2,000-char one.
@@ -40,6 +42,27 @@ internal class LineMeasurer(
         if (end in 1 until length && text[lineStart + end].isLowSurrogate()) end++
         val chars = text.getText(lineStart + start, lineStart + end).toCharArray()
         return LineLayout(length, start, chars, positionsOf(chars, start), charWidth)
+    }
+
+    /**
+     * Lays out [line] of [text] wrapped to [maxWidth] px. Only the first
+     * [WrapLayout.WRAP_WINDOW] chars are measured; the rest is estimated in
+     * rows of whole monospace cells.
+     */
+    fun measureWrapped(
+        text: PieceTree,
+        line: Int,
+        maxWidth: Float,
+    ): WrapLayout {
+        val lineStart = text.lineStartOffset(line)
+        val length = text.lineEndOffset(line) - lineStart
+        var end = minOf(length, WrapLayout.WRAP_WINDOW)
+        if (end in 1 until length && text[lineStart + end].isLowSurrogate()) end++
+        val chars = text.getText(lineStart, lineStart + end).toCharArray()
+        val positions = positionsOf(chars, 0)
+        val width = maxWidth.coerceAtLeast(charWidth)
+        val rows = WrapLayout.breakRows(chars, positions, width)
+        return WrapLayout(length, chars, positions, rows, charWidth, width)
     }
 
     /** Prefix sums of the advances, starting at the window's estimated x. Tabs are [TAB_CELLS] cells wide. */

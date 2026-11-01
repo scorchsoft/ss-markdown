@@ -12,6 +12,7 @@ reasons behind every decision so far. Then:
 - `docs/ux-spec.md` — what each control does and when it appears.
 - `docs/robustness.md` — the never-lose-work and large-file contract.
   Required reading before touching files, saving or the editor.
+- `docs/research-findings.md` — what users hate and love in other editors, and the requirements (R1–R13) we took from it.
 - `docs/rubric.md` — the definition of good. Score it at the end of
   every iteration.
 

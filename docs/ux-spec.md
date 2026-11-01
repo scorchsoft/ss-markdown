@@ -22,7 +22,7 @@ mockups agreed with Andrew win, and this file gets updated.
   - Untitled: "Save as…".
   - A brief toast confirms each save with the destination.
 - **⋮** opens: New · Open file · Open folder · Recent · Save as · Find &
-  replace · Export PDF · Export images · Share · Display · Settings.
+  replace · Export PDF · Export images · Share · Version history · Display · Settings.
 
 **Bottom bar (64 dp)**
 - A segmented Code | Split | Preview control, with icon and label.
@@ -203,7 +203,40 @@ Fonts family names, downloaded on first use and cached. The editor
   reopen the last file or start a new scratch doc.
 - Text: default zoom for each pane, the code font, the preview font
   override, and line numbers.
-- Saving: autosave files and recovery copies.
+- Saving: write to the file "When I tap Save" (default) or "Autosave"
+  (see `robustness.md` §3a), version history (on, storage cap, clear).
 - Split view: scroll panes together.
 - Preview: tap to edit (on by default).
 - Themes: manage custom themes.
+
+## Version history (⋮ → Version history)
+
+- A timeline grouped by day. Each entry shows its time and a label:
+  Opened, Saved, Autosaved, Checkpoint (unsaved work), Before restore,
+  or Pinned with a name. A line-change summary ("+12 −3 lines") sits
+  under each label.
+- Tapping an entry expands it into a diff snippet with **Compare with
+  now** and **Restore** buttons. Long-press an entry to pin and name it.
+- Older entries collapse ("Hourly · 6 versions").
+- The header shows the version count and the storage used.
+- Restoring never overwrites. See `robustness.md` §3 for the storage
+  design: keyframes plus diffs, thinning, and caps.
+
+## Small requirements from research
+
+Full evidence is in `research-findings.md`.
+
+- Opening a `.md` from a file manager, email or share sheet edits it
+  **in place**. If the source can't be written to, a **Read-only** badge
+  sits in the status line with "Save as…".
+- Tapping a task checkbox in Preview toggles it, changing exactly one
+  character.
+- Each file restores its own cursor, selection and scroll on reopen,
+  and keeps its own undo stack, which includes Preview edits.
+- No smart quotes inside code. The copy button on a code block copies
+  the exact source.
+- In folder mode, relative image paths (`../img/x.png`) resolve within
+  the opened folder.
+- The theme editor warns when a custom theme's contrast is below AA.
+- The formatting strip is always one row and always sits above the
+  keyboard, edge-to-edge-safe on Android 15+.

@@ -45,12 +45,77 @@ Each layer assumes every layer above it has failed.
   from another app, or a revoked folder), the work stays in the journal
   and we offer "Save as…". We never fail silently.
 
-### 3. Local version history (cheap insurance, hidden UI)
+### 3. Version history (keyframes + diffs, like git or video)
 
-- The last 20 saved versions of each file are kept in app storage,
-  capped at 50 MB overall with the oldest pruned first.
-- They are reached through ⋮ → Version history, with a diff against the
-  current text and a Restore button. There is no other UI for this.
+This is a local, per-file history that costs almost nothing in storage.
+It lives in a pure-JVM `core/history` module and is fully unit-tested.
+
+**When a version is recorded**
+- On open ("Opened · as found on disk").
+- On every save, manual or auto ("Saved").
+- At **checkpoints** of unsaved work: after 5 minutes of active editing,
+  when the app goes to the background, and before risky actions (Reload
+  from disk, "take theirs" in a conflict, Restore, a large paste, Replace
+  all).
+
+So even in manual-save mode, the unsaved work you never saved is in the
+history.
+
+**Storage format**
+- **Keyframes** are full, deflate-compressed snapshots. **Deltas** are
+  line-based diffs (Myers algorithm), compressed against the previous
+  version.
+- A new keyframe is written every 50 versions, or once the delta chain
+  since the last keyframe exceeds half the keyframe's size. That keeps
+  restore fast and limits how much one bad record can damage.
+- Every version stores a SHA-256 of its full text. Rebuilding a version
+  is verified against it. If a delta is corrupt, we fall back to the
+  nearest keyframe, and only the versions between that keyframe and the
+  bad delta are lost.
+- Writes are atomic: append to a pack file, then rename the index, both
+  in app-private storage where rename is atomic.
+- Rough cost: a 200 KB document with typical edits produces deltas of
+  about 0.1–2 KB, so 1,000 versions come to about 1–3 MB.
+
+**Retention (thinning, like Time Machine)**
+- Keep everything from the last 24 hours, then hourly for 7 days, then
+  daily for 90 days, then weekly.
+- Each file is capped at 20 MB and the whole history at 100 MB (both
+  adjustable), with the oldest pruned first.
+- Pruning rebuilds the next kept version and recomputes its delta, so
+  chains never break.
+- **Pinned** versions (long-press → "Keep forever", optionally named) are
+  never pruned.
+
+**Restoring is never destructive**
+- Before a restore, the current text is recorded as a version ("Before
+  restore").
+- The restored text loads as a dirty edit. In manual mode, the file on
+  disk doesn't change until you save, and the restore can be undone.
+
+**Identity**
+- History is keyed by document URI plus a content fingerprint. "Save
+  as…" copies the history to the new file.
+- History is local only. It is cleared per file or all at once (folder
+  ⋮ or Settings), and deleted on uninstall. That's why export, Save as
+  and pinning exist.
+
+### 3a. Save modes
+
+| Mode | Writes to the file | Default |
+|---|---|---|
+| **When I tap Save** | Only when you tap Save or Save all, or answer "Save" at a prompt | ✔ |
+| **Autosave** | After a 2 s pause in typing, and when leaving the file or app | |
+
+- Both modes share the same recovery journal and version history, so
+  either way every change is recoverable.
+- In Autosave the header reads "Autosaved · just now". The Save button
+  stays visible and forces an immediate save. The unsaved dot shows only
+  while a save is pending or has failed.
+- Autosave **pauses** (with a banner) when the file has changed on disk,
+  when write permission has been lost, or when a save fails. It never
+  overwrites someone else's change.
+- A file can override the global mode through ⋮ → "Autosave this file".
 
 ### 4. Byte-faithful files (no silent corruption)
 
@@ -75,6 +140,36 @@ Each layer assumes every layer above it has failed.
   never as `EXTRA_TEXT`.
 - Pasting very large text is chunked so it doesn't freeze the UI, and it
   can be undone in one step.
+
+### 5a. Rotation, folding, resizing and other configuration changes
+
+Rotating moves the editor from a top/bottom split into a side-by-side
+one. Unfolding, split-screen resizing, dark-mode or font-scale changes
+and keyboard attachment do similar things. Any of them can rebuild
+views, which is the classic way an Android editor loses text. Our rules:
+
+1. **Views never own text.** The document lives in a `DocumentStore`
+   that outlives Activities and lives as long as the process, and that
+   store is backed by the journal. The editor and preview are bound to
+   it; they hold no state of their own.
+2. **The same view instance moves; it is never rebuilt.** The editor and
+   the WebView are hosted with `movableContentOf`, so moving between
+   split layouts keeps the same `EditText` and `WebView`, along with
+   their cursor, selection, scroll, undo and keyboard connection.
+3. **Avoid recreation where it's safe.** The manifest handles
+   `orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|density|uiMode|fontScale`
+   itself, so most changes re-layout instead of recreating the Activity.
+   Every remaining path (locale, process death, "Don't keep activities")
+   still has to pass rules 1 and 2.
+4. **Flush pending input first.** Before any layout change, the
+   keyboard's in-progress word is committed (`finishComposingText`), and
+   any half-done Preview block edit (an uncommitted `contenteditable`
+   change or a table cell) is turned back into Markdown immediately.
+   Preview edits also flush on every change, never only when the cursor
+   leaves the block.
+5. **Dialogs and sheets** (find & replace text, the theme editor,
+   unsaved prompts) keep their inputs in saved state, so a rotation
+   never wipes a half-typed search or theme.
 
 ### 6. Leaving and switching
 
@@ -154,4 +249,7 @@ so the swap is local and the rest of the app doesn't change.
 | **Round-trip corpus** | Opening and saving without edits is byte-identical, including CRLF, BOM, no final newline and odd encodings. A Preview edit changes only its own block. |
 | **Large-file benchmarks** (macrobenchmark) | The size targets in the table above, plus no out-of-memory crash on 20 MB with a 256 MB heap. |
 | **Clipboard/share at 5 MB** | No `TransactionTooLargeException`; the fallback works. |
+| **Rotation matrix** (instrumented): every view mode × {typing a half-finished word, mid-selection, a Preview paragraph edit, mid table-cell edit, find open, a sheet open, unsaved prompt open} × {rotate, fold/unfold, split-screen resize, dark-mode toggle, font-scale change, "Don't keep activities", `am kill`} | The text, cursor, selection, scroll, undo stack and dirty state are identical before and after. Zero characters lost. Runs on every PR. |
+| **Keyboard matrix** (manual, each release): Gboard, Samsung Keyboard, HeliBoard | Toolbar actions and Preview edits respect the in-progress word; autocorrect never lands text in the wrong place. |
+| **History property tests** (JVM): random edit sequences, then record, prune and restore | Every kept version rebuilds byte-identically; pruning never breaks a chain; a corrupt delta loses only the versions after it up to the next keyframe. |
 | **Monkey + StrictMode** runs in CI | No ANRs and no main-thread disk access. |

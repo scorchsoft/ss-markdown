@@ -38,6 +38,12 @@ jobs:
       - name: Check and assemble debug APK
         run: gradle --no-daemon -p apps/android check :app:assembleDebug
 
+      # Rubric #1: `check` runs 100 seeded kills; this is the thousand (about 5 min).
+      - name: Kill test (1000 seeded kills, host)
+        run: >-
+          gradle --no-daemon --console=plain -p apps/android :feature:files:testDebugUnitTest
+          --tests '*RandomKillTest*' -Pssmarkdown.killRuns=1000
+
       # Review artefact, not a gate: the shell in light and dark at 412x915.
       - name: Render screenshots
         run: >-
@@ -216,6 +222,24 @@ jobs:
           target: default
           disable-animations: true
           script: gradle --no-daemon -p apps/android :app:connectedDebugAndroidTest
+
+      # Rubric #1's kill test on a real Android: 50 SIGKILLs of the app
+      # while typing through its InputConnection, each relaunch checked
+      # (KillLoopTest, tools/kill-loop.sh; about 4 min). Deterministic sync
+      # points, but not yet seen green on this runner, so it reports
+      # without gating; make it gating once it has passed here.
+      - name: Kill loop (50 kills)
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: default
+          disable-animations: true
+          script: |
+            adb install -r apps/android/app/build/outputs/apk/debug/app-debug.apk
+            adb install -r -t apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            bash apps/android/tools/kill-loop.sh 50
 
       - name: Preserve instrumented test reports
         if: always()

@@ -26,26 +26,29 @@ internal class SaveCoordinator(
 
     /**
      * Writes the buffer to [target], a document the user just picked or
-     * created ("Save as…"); on success the entry moves there and the old
-     * URI's journal and base copy are retired.
+     * created ("Save as…"); on success the entry moves there, takes the
+     * target's name, and the old URI's journal and base copy are retired.
+     *
+     * A failure is about the target, never the source: it is reported,
+     * but the source is not marked missing or in conflict because of it.
      */
     suspend fun saveAs(
         entry: OpenDocument,
         target: DocumentUri,
     ): SaveOutcome {
-        val targetBase =
-            when (val current = withContext(context.io) { fingerprintOf(target) }) {
+        val picked =
+            when (val current = withContext(context.io) { targetOf(target) }) {
                 is ProviderResult.Ok -> current.value
-                is ProviderResult.Failure -> return finish(entry, failureOutcome(current))
+                is ProviderResult.Failure -> return finish(entry, failureOutcome(current), aboutSource = false)
             }
         val from = entry.uri
-        val outcome = write(entry, target, targetBase, ignoreReadOnly = true)
+        val outcome = write(entry, target, picked.base, ignoreReadOnly = true)
         if (outcome is SaveOutcome.Saved) {
-            moveTo(entry, from, target, outcome.fingerprint)
+            moveTo(entry, from, target, outcome.fingerprint, picked.displayName)
             withContext(context.io) { context.baseCopies.delete(from) }
             context.notify(DocumentEvent.Moved(target, from))
         }
-        return finish(entry, outcome)
+        return finish(entry, outcome, aboutSource = false)
     }
 
     /**
@@ -61,6 +64,7 @@ internal class SaveCoordinator(
         from: DocumentUri,
         target: DocumentUri,
         saved: BaseFingerprint,
+        targetName: String?,
     ) {
         val old = entry.journal
         val fresh = context.journalFor(target)
@@ -68,6 +72,8 @@ internal class SaveCoordinator(
         old.endClean()
         context.entries.remove(from)
         entry.uri = target
+        // A draft's own name is its file id: never show it once the text has a real home.
+        entry.displayName = targetName
         entry.journal = fresh
         entry.readOnly = null
         entry.conflict = null
@@ -135,12 +141,14 @@ internal class SaveCoordinator(
         }
     }
 
+    /** [aboutSource] is false for Save as, whose conflicts and missing files are the target's. */
     private suspend fun finish(
         entry: OpenDocument,
         outcome: SaveOutcome,
+        aboutSource: Boolean = true,
     ): SaveOutcome {
         entry.lastSaveOutcome = outcome
-        when (outcome) {
+        when (outcome.takeIf { aboutSource }) {
             is SaveOutcome.Conflict -> {
                 if (entry.conflict == null) changes.diskChanged(entry)
             }
@@ -158,7 +166,13 @@ internal class SaveCoordinator(
         return outcome
     }
 
-    private fun fingerprintOf(uri: DocumentUri): ProviderResult<BaseFingerprint> {
+    /** What Save as needs of the picked document before writing: its fingerprint and its name. */
+    private class PickedTarget(
+        val base: BaseFingerprint,
+        val displayName: String?,
+    )
+
+    private fun targetOf(uri: DocumentUri): ProviderResult<PickedTarget> {
         val metadata =
             when (val result = context.provider.metadata(uri)) {
                 is ProviderResult.Ok -> result.value
@@ -167,7 +181,10 @@ internal class SaveCoordinator(
         return when (val digest = context.probe.digest(uri)) {
             is ProviderResult.Ok -> {
                 ProviderResult.Ok(
-                    BaseFingerprint(digest.value.size, metadata.lastModified, digest.value.sha256),
+                    PickedTarget(
+                        BaseFingerprint(digest.value.size, metadata.lastModified, digest.value.sha256),
+                        metadata.displayName,
+                    ),
                 )
             }
 

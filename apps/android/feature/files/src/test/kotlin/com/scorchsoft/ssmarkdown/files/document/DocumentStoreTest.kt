@@ -242,6 +242,39 @@ class DocumentStoreTest {
         }
 
     @Test
+    fun `Save as takes the target's name, so a draft never shows its file id`() =
+        runTest {
+            val fixture = fixture()
+            val doc = fixture.store.opened()
+            doc.replace(0, 0, "named ")
+
+            val target = provider.put("content://docs/Release notes.md", "")
+            assertTrue(fixture.store.saveAs(uri, target) is SaveOutcome.Saved)
+
+            assertEquals("Release notes.md", doc.displayName)
+        }
+
+    @Test
+    fun `a Save as that fails on the target leaves the source neither missing nor in conflict`() =
+        runTest {
+            val fixture = fixture()
+            val doc = fixture.store.opened()
+            doc.replace(0, 0, "mine ")
+            val events = ArrayList<DocumentEvent>()
+            fixture.store.addListener { events += it }
+
+            val gone = DocumentUri("content://docs/gone.md")
+            assertTrue(fixture.store.saveAs(uri, gone) is SaveOutcome.Missing)
+
+            assertFalse(doc.fileMissing)
+            assertNull(doc.conflict)
+            assertTrue(events.none { it is DocumentEvent.FileMissing || it is DocumentEvent.ConflictDetected })
+            assertSame(doc, fixture.store[uri])
+            assertTrue(doc.isDirty)
+            assertEquals("mine # Note\n\nfirst line\n", doc.document.text.toString())
+        }
+
+    @Test
     fun `discarding recovered edits restores the disk text and keeps them in history`() =
         runTest {
             val before = fixture()

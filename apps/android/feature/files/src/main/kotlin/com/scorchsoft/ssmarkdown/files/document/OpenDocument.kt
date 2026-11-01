@@ -28,13 +28,16 @@ class OpenDocument internal constructor(
     uri: DocumentUri,
     document: TextDocument,
     base: BaseFingerprint,
-    /** The provider's display name, if it gave one. */
-    val displayName: String?,
+    displayName: String?,
     /** The memory budget admission chose. */
     val budget: Budget,
     internal var journal: JournalLink,
     private val notify: (DocumentEvent) -> Unit,
 ) {
+    /** The provider's display name, if it gave one. Changes only on Save as, with [uri]. */
+    var displayName: String? = displayName
+        internal set
+
     /** Where the document lives. Changes only on Save as. */
     var uri: DocumentUri = uri
         internal set

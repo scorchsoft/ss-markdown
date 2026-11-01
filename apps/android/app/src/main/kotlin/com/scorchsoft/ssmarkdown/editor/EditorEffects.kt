@@ -1,0 +1,164 @@
+package com.scorchsoft.ssmarkdown.editor
+
+import com.scorchsoft.ssmarkdown.nav.AppScreen
+
+/**
+ * The side effects of each [EditorAction], after [EditorReducer] has
+ * applied its pure part. A dispatch table: each branch hands off to the
+ * controller that owns the area.
+ */
+internal object EditorEffects {
+    @Suppress("CyclomaticComplexMethod", "LongMethod") // One line per action; splitting would only hide the table.
+    fun run(
+        vm: EditorViewModel,
+        action: EditorAction,
+        before: EditorUiState,
+    ) {
+        when (action) {
+            is EditorAction.SelectMode -> {
+                vm.rememberView { it.copy(mode = action.mode) }.also { vm.emit(EditorEvent.Tick) }
+            }
+
+            EditorAction.CopyTapped -> {
+                vm.saves.copyAll(richText = false)
+            }
+
+            EditorAction.SaveTapped -> {
+                vm.saves.tap()
+            }
+
+            EditorAction.SaveLongPressed -> {
+                vm.saves.openSaveMenu()
+            }
+
+            EditorAction.ToggleAutosaveThisFile -> {
+                vm.saves.toggleAutosaveThisFile()
+            }
+
+            is EditorAction.ChooseMenuItem -> {
+                menu(vm, action.item)
+            }
+
+            EditorAction.TitleTapped -> {
+                vm.navigator.open()
+            }
+
+            is EditorAction.ResetZoom, is EditorAction.StepZoom, is EditorAction.ZoomChanged -> {
+                vm.rememberView { it.copy(codeZoom = vm.state.codeZoom, previewZoom = vm.state.previewZoom) }
+            }
+
+            is EditorAction.SetAppearance -> {
+                vm.deps.settings.update { it.copy(appearance = action.appearance) }
+            }
+
+            is EditorAction.SetCodeWrap -> {
+                vm.deps.settings.update { it.copy(codeWrap = action.wrap) }
+            }
+
+            EditorAction.RecoveryCompare -> {
+                vm.recovery.compare()
+            }
+
+            EditorAction.RecoveryDiscard -> {
+                vm.recovery.discard()
+            }
+
+            EditorAction.UndoDiscard, EditorAction.MessageUndo -> {
+                vm.recovery.undoDiscard()
+            }
+
+            EditorAction.ReviewConflict -> {
+                vm.conflicts.review()
+            }
+
+            EditorAction.MergeMine -> {
+                vm.conflicts.merge()
+            }
+
+            EditorAction.CompareConflict -> {
+                vm.conflicts.compare()
+            }
+
+            EditorAction.KeepTheirs -> {
+                vm.conflicts.keepTheirs()
+            }
+
+            EditorAction.ConfirmUseMine -> {
+                vm.conflicts.useMine()
+            }
+
+            EditorAction.SaveAsFromBanner, EditorAction.RecreateFile -> {
+                vm.saves.saveAs()
+            }
+
+            EditorAction.BackPressed -> {
+                if (EditorReducer.backLeaves(before)) vm.saves.leave(PendingLeave.Exit, discard = false)
+            }
+
+            EditorAction.LeaveSave -> {
+                (before.overlay as? EditorOverlay.DirtyPrompt)?.let { vm.saves.saveThenLeave(it.leave) }
+            }
+
+            EditorAction.LeaveDiscard -> {
+                (before.overlay as? EditorOverlay.DirtyPrompt)?.let { vm.saves.leave(it.leave, discard = true) }
+            }
+
+            is EditorAction.StripKeyTapped -> {
+                vm.strip.onKey(action.key)
+            }
+
+            is EditorAction.SymbolTapped -> {
+                vm.strip.onSymbol(action.text)
+            }
+
+            is EditorAction.CursorStepped -> {
+                vm.strip.onCursor(action.step)
+            }
+
+            is EditorAction.Find -> {
+                vm.find.onAction(action.action)
+            }
+
+            is EditorAction.Navigator -> {
+                vm.navigator.onAction(action.action)
+            }
+
+            is EditorAction.Folder -> {
+                vm.folder.onAction(action.action)
+            }
+
+            else -> {
+                Unit
+            }
+        }
+    }
+
+    @Suppress("CyclomaticComplexMethod") // One branch per menu row.
+    private fun menu(
+        vm: EditorViewModel,
+        item: MenuItem,
+    ) {
+        vm.update { if (it.overlay == EditorOverlay.Menu) it.copy(overlay = null) else it }
+        when (item) {
+            MenuItem.New -> vm.saves.requestLeave(PendingLeave.NewDocument)
+            MenuItem.OpenFile -> vm.emit(EditorEvent.PickFileToOpen)
+            MenuItem.OpenFolder -> vm.emit(EditorEvent.PickFolder)
+            MenuItem.SaveAs -> vm.saves.saveAs()
+            MenuItem.FindReplace -> vm.onAction(EditorAction.Find(com.scorchsoft.ssmarkdown.find.FindAction.Open))
+            MenuItem.VersionHistory -> vm.emit(EditorEvent.Open(AppScreen.History))
+            MenuItem.ExportPdf, MenuItem.ExportImages -> vm.message(MessageKind.PreviewPending)
+            MenuItem.Share -> vm.saves.share(richText = false)
+            MenuItem.CopyRichText -> vm.saves.copyAll(richText = true)
+            MenuItem.Display -> vm.update { it.copy(overlay = EditorOverlay.Display) }
+            MenuItem.Settings -> vm.emit(EditorEvent.Open(AppScreen.Settings))
+            MenuItem.Copy -> vm.saves.copyAll(richText = false)
+        }
+    }
+}
+
+/** Stores the on-screen document's view choices (mode, zoom) so it reopens the same way. */
+internal fun EditorViewModel.rememberView(change: (DocumentMeta) -> DocumentMeta) {
+    val uri = active?.open?.uri?.value ?: return
+    val now = state
+    updateMeta(uri) { change(it.copy(mode = now.mode, codeZoom = now.codeZoom, previewZoom = now.previewZoom)) }
+}

@@ -75,6 +75,9 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":core:text"))
+    implementation(project(":core:markdown"))
+    implementation(project(":core:history"))
     implementation(project(":core:ui"))
     implementation(project(":feature:editor"))
     implementation(project(":feature:preview"))
@@ -82,12 +85,15 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
+    // Dispatchers.Main for the view models; the same pin as feature:files' core.
+    implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.test.ext.junit)
     testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.kotlinx.coroutines.test)
 
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.androidx.test.runner)

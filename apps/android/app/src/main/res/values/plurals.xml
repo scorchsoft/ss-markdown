@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="folder_files">
+        <item quantity="one">%1$d file</item>
+        <item quantity="other">%1$d files</item>
+    </plurals>
+    <plurals name="folder_unsaved_files">
+        <item quantity="one">%1$d unsaved file</item>
+        <item quantity="other">%1$d unsaved files</item>
+    </plurals>
+    <plurals name="saved_files">
+        <item quantity="one">Saved %1$d file</item>
+        <item quantity="other">Saved %1$d files</item>
+    </plurals>
+    <plurals name="time_minutes_ago">
+        <item quantity="one">%1$d min ago</item>
+        <item quantity="other">%1$d min ago</item>
+    </plurals>
+    <plurals name="time_hours_ago">
+        <item quantity="one">%1$d h ago</item>
+        <item quantity="other">%1$d h ago</item>
+    </plurals>
+    <plurals name="time_days_ago">
+        <item quantity="one">yesterday</item>
+        <item quantity="other">%1$d days ago</item>
+    </plurals>
+    <plurals name="conflict_mine_changes">
+        <item quantity="one">%1$d change</item>
+        <item quantity="other">%1$d changes</item>
+    </plurals>
+    <plurals name="conflict_merge_summary">
+        <item quantity="one">%1$d merge cleanly, %2$d overlap</item>
+        <item quantity="other">%1$d merge cleanly, %2$d overlaps</item>
+    </plurals>
+    <plurals name="conflict_merge_hint">
+        <item quantity="one">You\'ll review the %1$d overlap before anything is saved</item>
+        <item quantity="other">You\'ll review the %1$d overlaps before anything is saved</item>
+    </plurals>
+    <plurals name="merge_summary">
+        <item quantity="one">%1$d changes merged · %2$d overlap to decide</item>
+        <item quantity="other">%1$d changes merged · %2$d overlaps to decide</item>
+    </plurals>
+    <plurals name="merge_done_left">
+        <item quantity="one">Done (%1$d left)</item>
+        <item quantity="other">Done (%1$d left)</item>
+    </plurals>
+    <plurals name="compare_differences">
+        <item quantity="one">%1$d difference</item>
+        <item quantity="other">%1$d differences</item>
+    </plurals>
+    <plurals name="nav_outline_count">
+        <item quantity="one">Outline · %1$d</item>
+        <item quantity="other">Outline · %1$d</item>
+    </plurals>
+    <plurals name="conflict_theirs_lines">
+        <item quantity="one">+%1$d −%2$d line vs. what you started from</item>
+        <item quantity="other">+%1$d −%2$d lines vs. what you started from</item>
+    </plurals>
+    <plurals name="compare_unchanged">
+        <item quantity="one">⋯ %1$d unchanged line</item>
+        <item quantity="other">⋯ %1$d unchanged lines</item>
+    </plurals>
+    <plurals name="section_lines">
+        <item quantity="one">Section · %1$d line</item>
+        <item quantity="other">Section · %1$d lines</item>
+    </plurals>
+    <plurals name="section_lines_up_to">
+        <item quantity="one">Section · %1$d line · up to “%2$s”</item>
+        <item quantity="other">Section · %1$d lines · up to “%2$s”</item>
+    </plurals>
+    <plurals name="storage_not_opened_detail">
+        <item quantity="one">%1$d file · frees %2$s</item>
+        <item quantity="other">%1$d files · frees %2$s</item>
+    </plurals>
+    <plurals name="storage_file_detail">
+        <item quantity="one">%1$s · %2$d version · opened %3$s</item>
+        <item quantity="other">%1$s · %2$d versions · opened %3$s</item>
+    </plurals>
+    <plurals name="storage_file_detail_pins">
+        <item quantity="one">%1$s · %2$d version · %3$d pinned · opened %4$s</item>
+        <item quantity="other">%1$s · %2$d versions · %3$d pinned · opened %4$s</item>
+    </plurals>
+    <plurals name="storage_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <plurals name="storage_months">
+        <item quantity="one">%1$d month</item>
+        <item quantity="other">%1$d months</item>
+    </plurals>
+    <plurals name="cleanup_row">
+        <item quantity="one">%1$s · %2$s %3$d version of %4$s</item>
+        <item quantity="other">%1$s · %2$s %3$d versions of %4$s</item>
+    </plurals>
+    <plurals name="confirm_title_files">
+        <item quantity="one">Clear history of %1$d file?</item>
+        <item quantity="other">Clear history of %1$d files?</item>
+    </plurals>
+    <plurals name="confirm_title_versions">
+        <item quantity="one">Clear %1$d version?</item>
+        <item quantity="other">Clear %1$d versions?</item>
+    </plurals>
+    <plurals name="confirm_body">
+        <item quantity="one">This permanently deletes %1$d saved version (%2$s) of %3$d files.</item>
+        <item quantity="other">This permanently deletes %1$d saved versions (%2$s) of %3$d files.</item>
+    </plurals>
+    <plurals name="cleared_result">
+        <item quantity="one">Cleared %1$d version · freed %2$s</item>
+        <item quantity="other">Cleared %1$d versions · freed %2$s</item>
+    </plurals>
+    <plurals name="imported_result">
+        <item quantity="one">Imported %1$d version</item>
+        <item quantity="other">Imported %1$d versions</item>
+    </plurals>
+    <plurals name="history_summary">
+        <item quantity="one">%1$s · %2$d version · %3$s</item>
+        <item quantity="other">%1$s · %2$d versions · %3$s</item>
+    </plurals>
+    <plurals name="history_lines">
+        <item quantity="one">+%1$d −%2$d line</item>
+        <item quantity="other">+%1$d −%2$d lines</item>
+    </plurals>
+    <plurals name="history_collapsed">
+        <item quantity="one">Hourly · %1$d version</item>
+        <item quantity="other">Hourly · %1$d versions</item>
+    </plurals>
+    <plurals name="share_from">
+        <item quantity="one">From %1$s · %2$d character</item>
+        <item quantity="other">From %1$s · %2$d characters</item>
+    </plurals>
+    <plurals name="share_characters">
+        <item quantity="one">%1$d character</item>
+        <item quantity="other">%1$d characters</item>
+    </plurals>
+</resources>

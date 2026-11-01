@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the share folder in the cache is exposed, for "Share as file"
+     when a document is too large for the clipboard (robustness §5). -->
+<paths>
+    <cache-path name="shared" path="shared/" />
+</paths>

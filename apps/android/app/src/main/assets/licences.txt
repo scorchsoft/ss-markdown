@@ -1,0 +1,9 @@
+# Open-source components bundled in the app: name | licence | where it comes from.
+# Kept in step with NOTICE at the repository root. The preview module and the
+# bundled fonts append their own lines when they are integrated.
+SS Markdown | Apache License 2.0 | https://github.com/scorchsoft
+Visual Studio Code piece tree (ported to Kotlin in core/text) | MIT License | https://github.com/microsoft/vscode
+AndroidX Activity, Core and Lifecycle | Apache License 2.0 | https://developer.android.com/jetpack/androidx
+Jetpack Compose (UI, Foundation, Material 3) | Apache License 2.0 | https://developer.android.com/jetpack/compose
+Kotlin standard library | Apache License 2.0 | https://kotlinlang.org
+kotlinx.coroutines | Apache License 2.0 | https://github.com/Kotlin/kotlinx.coroutines

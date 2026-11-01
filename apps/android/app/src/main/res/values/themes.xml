@@ -7,4 +7,12 @@
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowBackground">@color/window_background</item>
     </style>
+
+    <!-- The share sheet floats over the sending app: a translucent window,
+         no animation of its own, the sheet drawn by Compose. -->
+    <style name="Theme.SSMarkdown.Share">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
 </resources>

@@ -1,10 +1,255 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Every user-facing string. Copy follows the signed-off mockups
+     (docs/ux-spec.md). Plurals live in plurals.xml. -->
 <resources>
     <string name="app_name">SS Markdown</string>
     <string name="untitled">Untitled</string>
-    <string name="status_draft">Draft · kept on this phone</string>
-    <string name="placeholder_start_writing">Start writing…</string>
+
+    <!-- View modes -->
     <string name="mode_code">Code</string>
     <string name="mode_split">Split</string>
     <string name="mode_preview">Preview</string>
+
+    <!-- Top bar -->
+    <string name="open_navigator">Open Navigator: outline and files</string>
+    <string name="copy_all">Copy all</string>
+    <string name="more">More</string>
+    <string name="open_folder_drawer">Open folder</string>
+    <string name="unsaved_dot">Unsaved</string>
+    <string name="save">Save</string>
+    <string name="save_as">Save as…</string>
+    <string name="saving">Saving</string>
+    <string name="retry">Retry</string>
+    <string name="all_saved">All saved</string>
+    <string name="breadcrumb_separator">" › "</string>
+
+    <!-- Status line -->
+    <string name="status_saved">Saved · %1$s</string>
+    <string name="status_autosaved">Autosaved · %1$s</string>
+    <string name="status_opened">Opened · %1$s</string>
+    <string name="status_unsaved">Unsaved</string>
+    <string name="status_saving">Saving…</string>
+    <string name="status_draft">Draft · kept on this phone</string>
+    <string name="status_unsaved_read_only">Unsaved · read-only</string>
+    <string name="status_unsaved_read_only_from">Unsaved · read-only, from %1$s</string>
+    <string name="status_read_only">Read-only</string>
+    <string name="status_read_only_from">from %1$s</string>
+    <string name="status_failed">Couldn\'t save · %1$s</string>
+    <string name="status_autosave_paused">Autosave paused · %1$s</string>
+    <string name="badge_read_only">READ-ONLY</string>
+    <string name="big_file_mode">Big-file mode</string>
+    <string name="time_just_now">just now</string>
+
+    <!-- Save problems -->
+    <string name="problem_storage_full">storage full</string>
+    <string name="problem_permission">permission lost</string>
+    <string name="problem_missing">file moved or deleted</string>
+    <string name="problem_verify">the check after writing failed</string>
+    <string name="problem_backup">couldn\'t make a backup first</string>
+    <string name="problem_provider">the storage app reported an error</string>
+    <string name="problem_changed">changed in another app</string>
+    <string name="problem_read_only">read-only</string>
+
+    <!-- Menu -->
+    <string name="menu_new">New</string>
+    <string name="menu_open_file">Open file…</string>
+    <string name="menu_open_folder">Open folder…</string>
+    <string name="menu_save_as">Save as…</string>
+    <string name="menu_find_replace">Find &amp; replace</string>
+    <string name="menu_find_hint">Ctrl F</string>
+    <string name="menu_version_history">Version history</string>
+    <string name="menu_export_pdf">Export PDF</string>
+    <string name="menu_export_images">Export images…</string>
+    <string name="menu_export_images_hint">ZIP or files</string>
+    <string name="menu_share">Share</string>
+    <string name="menu_copy_rich">Copy as rich text</string>
+    <string name="menu_display">Display</string>
+    <string name="menu_display_hint">Theme · size · wrap</string>
+    <string name="menu_settings">Settings</string>
+    <string name="menu_copy">Copy</string>
+    <string name="save_menu_autosave_file">Autosave this file</string>
+
+    <!-- Zoom -->
+    <string name="zoom_chip">%1$d%%</string>
+    <string name="zoom_chip_reset">Reset zoom, now %1$d%%</string>
+    <string name="zoom_pinching">Pinching · %1$d%%</string>
+
+    <!-- Banners -->
+    <string name="recovered_title">Your unsaved edits are back</string>
+    <string name="recovered_body">The app closed unexpectedly at %1$s. Everything you typed up to then has been restored. The file on disk hasn\'t been touched.</string>
+    <string name="recovered_body_swipe">SS Markdown was closed before you saved, at %1$s. Everything you typed up to then has been restored. The file on disk hasn\'t been touched.</string>
+    <string name="recovered_got_it">Got it</string>
+    <string name="recovered_compare">Compare</string>
+    <string name="recovered_discard">Discard edits</string>
+    <string name="changed_outside_banner">%1$s changed in another app. Nothing is overwritten.</string>
+    <string name="review">Review</string>
+    <string name="save_failed_banner">Your text is safe on this phone.</string>
+    <string name="details">Details</string>
+    <string name="file_missing_banner">%1$s was moved or deleted.</string>
+    <string name="recreate">Recreate</string>
+    <string name="save_all_skipped">Skipped %1$s: changed in another app</string>
+    <string name="dismiss">Dismiss</string>
+
+    <!-- Messages -->
+    <string name="msg_saved_to">Saved to %1$s</string>
+    <string name="msg_all_saved">All saved</string>
+    <string name="msg_copied">Copied as Markdown</string>
+    <string name="msg_copied_rich">Copied as rich text</string>
+    <string name="msg_copy_too_large">Too large to copy. Share as file instead.</string>
+    <string name="msg_edits_discarded">Edits discarded · kept in History</string>
+    <string name="msg_section_copied">Section copied</string>
+    <string name="msg_replaced_all">Replaced %1$s</string>
+    <string name="msg_restored">Restored · your previous text is in History</string>
+    <string name="msg_renamed">Renamed</string>
+    <string name="msg_deleted">Deleted · its history is kept</string>
+    <string name="msg_duplicated">Duplicated</string>
+    <string name="msg_failed">That didn\'t work. Nothing was changed.</string>
+    <string name="msg_preview_pending">This arrives with the preview module.</string>
+    <string name="msg_autosave_file_on">Autosave on for this file</string>
+    <string name="msg_autosave_file_off">Autosave off for this file</string>
+    <string name="undo">Undo</string>
+
+    <!-- Dirty prompt -->
+    <string name="leave_title">Save changes to %1$s?</string>
+    <string name="leave_save">Save</string>
+    <string name="leave_discard">Don\'t save</string>
+    <string name="leave_keep">Keep editing</string>
+    <string name="leave_note">“Don\'t save” keeps a copy in History, so it can be undone.</string>
+
+    <!-- Conflict sheet -->
+    <string name="conflict_title">%1$s changed since your unsaved edits</string>
+    <string name="conflict_body">Another app saved it. You have unsaved edits here. Nothing has been overwritten — both are kept.</string>
+    <string name="conflict_theirs">The file now</string>
+    <string name="conflict_mine">Your edits</string>
+    <string name="conflict_merge">Merge my edits into the new file</string>
+    <string name="conflict_merge_clean">Your edits merge cleanly</string>
+    <string name="conflict_compare">Compare side by side</string>
+    <string name="conflict_keep_theirs">Keep the file\'s version</string>
+    <string name="conflict_keep_theirs_hint">Your edits stay in History, restorable any time</string>
+    <string name="conflict_use_mine">Use my version instead…</string>
+    <string name="conflict_no_base">The copy your edits started from was lost, so Merge isn\'t available. Compare to choose.</string>
+    <string name="use_mine_title">Use your version?</string>
+    <string name="use_mine_body">This replaces the other app\'s changes with your text when you save. Their version stays in History.</string>
+    <string name="use_mine_confirm">Use my version</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- Merge -->
+    <string name="merge_title">Merge into %1$s</string>
+    <string name="merge_where">Line %1$d. Both you and the other app changed this line.</string>
+    <string name="merge_where_section">Line %1$d · under “%2$s”. Both you and the other app changed this line.</string>
+    <string name="merge_theirs">In the file now</string>
+    <string name="merge_mine">Your edit</string>
+    <string name="merge_use_theirs">Use the file\'s version</string>
+    <string name="merge_use_mine">Use my version</string>
+    <string name="merge_keep_both">Keep both</string>
+    <string name="merge_edit">Edit by hand</string>
+    <string name="merge_edit_apply">Use this text</string>
+    <string name="merge_note">Nothing is written to the file until you save. You can undo the whole merge, and both originals are in History.</string>
+    <string name="merge_done">Done</string>
+    <string name="merge_previous">Previous overlap</string>
+    <string name="merge_next">Next overlap</string>
+
+    <!-- Compare -->
+    <string name="compare_title">Compare %1$s</string>
+    <string name="compare_changes">Changes</string>
+    <string name="compare_theirs">File\'s version</string>
+    <string name="compare_mine">My version</string>
+    <string name="compare_note">Strike-through grey is text only in the file; blue is text only in yours.</string>
+    <string name="compare_keep_theirs">Keep the file\'s version</string>
+    <string name="compare_merge">Merge my edits</string>
+    <string name="compare_mine_tag">mine</string>
+    <string name="compare_file_tag">file</string>
+
+    <!-- Find -->
+    <string name="find_hint">Find</string>
+    <string name="find_count">%1$d of %2$d</string>
+    <string name="find_count_capped">%1$d of %2$d+</string>
+    <string name="find_none">No matches</string>
+    <string name="find_invalid">Not a valid pattern</string>
+    <string name="find_previous">Previous match</string>
+    <string name="find_next">Next match</string>
+    <string name="find_replace_toggle">Replace</string>
+    <string name="find_replace_hint">Replace with</string>
+    <string name="find_replace_one">Replace</string>
+    <string name="find_replace_all">All</string>
+    <string name="find_match_case">Match case</string>
+    <string name="find_whole_word">Whole word</string>
+    <string name="find_regex">Regular expression</string>
+    <string name="find_close">Close find</string>
+
+    <!-- Navigator -->
+    <string name="nav_search_hint">Jump to a heading or file</string>
+    <string name="nav_files">Files</string>
+    <string name="nav_top">Top of document</string>
+    <string name="nav_here">You\'re here</string>
+    <string name="nav_long_press_hint">Long-press a heading to copy its section</string>
+    <string name="nav_in_file">In this file</string>
+    <string name="nav_recent">Recent</string>
+    <string name="nav_recent_files">Recent files</string>
+    <string name="nav_in_folder">In %1$s</string>
+    <string name="nav_drafts">Drafts · on this phone</string>
+    <string name="nav_old_draft">Old draft</string>
+    <string name="nav_open_file">Open a file…</string>
+    <string name="nav_no_results">Nothing matches “%1$s”</string>
+    <string name="nav_no_headings">No headings yet. Lines that start with # appear here.</string>
+    <string name="nav_ctrl_k">Ctrl K</string>
+    <string name="nav_row_menu">More for %1$s</string>
+    <string name="nav_delete_draft">Delete draft</string>
+
+    <!-- Section menu -->
+    <string name="section_copy">Copy section</string>
+    <string name="section_copy_rich">Copy as rich text</string>
+    <string name="section_select">Select section</string>
+    <string name="section_export">Export section…</string>
+    <string name="section_select_text">Select text instead</string>
+
+    <!-- Display -->
+    <string name="display_title">Display</string>
+    <string name="display_appearance">Appearance</string>
+    <string name="appearance_system">System</string>
+    <string name="appearance_light">Light</string>
+    <string name="appearance_dark">Dark</string>
+    <string name="display_text_size">Text size · this file</string>
+    <string name="display_code_size">Code</string>
+    <string name="display_preview_size">Preview</string>
+    <string name="display_reset">Reset</string>
+    <string name="display_wrap">Line wrapping · Code</string>
+    <string name="wrap_on">Wrap</string>
+    <string name="wrap_off">No wrap</string>
+    <string name="display_theme_placeholder">Preview themes, fonts and page modes arrive with the theme module.</string>
+
+    <!-- Big file -->
+    <string name="big_file_title">Big-file mode</string>
+    <string name="big_file_body">This file is large for this phone, so a few extras are paused to keep typing fast: live preview while typing, the diagram cache and spell suggestions. Everything you type is still saved and recoverable.</string>
+    <string name="too_large">This %1$s file needs about %2$s, and this phone allows %3$s.</string>
+    <string name="ok">OK</string>
+
+    <!-- Save failure -->
+    <string name="save_failed_title">Couldn\'t save</string>
+    <string name="save_failed_untouched">Your text is safe on this phone, and the file on disk was not changed.</string>
+
+    <!-- Preview slot -->
+    <string name="preview_placeholder">Preview arrives with the preview module</string>
+
+    <!-- Bottom bar while the keyboard is up: Done hides it -->
+    <string name="split_divider">Resize panes</string>
+    <string name="split_top_larger">Make top larger</string>
+    <string name="split_top_smaller">Make top smaller</string>
+
+    <!-- Folder -->
+    <string name="folder_find">Find a file</string>
+    <string name="folder_unsaved">Unsaved: %1$d</string>
+    <string name="folder_save_all">Save all</string>
+    <string name="folder_changed">Changed</string>
+    <string name="folder_new_file">New file here</string>
+    <string name="folder_open_another">Open another folder</string>
+    <string name="folder_close">Close folder</string>
+    <string name="folder_show_all">Show all files</string>
+    <string name="folder_list_failed">Couldn\'t read this folder.</string>
+    <string name="file_rename">Rename</string>
+    <string name="file_duplicate">Duplicate</string>
+    <string name="file_delete">Delete</string>
+    <string name="file_delete_title">Delete %1$s?</string>
+    <string name="file_delete_body">The file is deleted from the folder. Its version history stays in SS Markdown.</string>
+    <string name="file_name">Name</string>
 </resources>

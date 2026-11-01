@@ -8,14 +8,26 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** On a real device: the launcher Activity starts and draws the shell. */
+/** On a real device: the launcher Activity starts straight into an editor with the two bars. */
 @RunWith(AndroidJUnit4::class)
 class LaunchTest {
     @get:Rule val rule = createAndroidComposeRule<MainActivity>()
 
     @Test
-    fun launchesToAnUntitledDraft() {
-        rule.onNodeWithText("Untitled").assertIsDisplayed()
+    fun launchesToAnEditor() {
+        rule.waitUntil(TIMEOUT_MILLIS) {
+            rule.activity
+                .graph()
+                .editor.active != null
+        }
         rule.onNodeWithText("Code").assertIsDisplayed()
+        rule.onNodeWithText("Preview").assertIsDisplayed()
+    }
+
+    private companion object {
+        const val TIMEOUT_MILLIS = 5_000L
     }
 }
+
+/** The process's graph, as the Activity sees it. */
+fun MainActivity.graph(): AppGraph = (application as SSMarkdownApplication).graph

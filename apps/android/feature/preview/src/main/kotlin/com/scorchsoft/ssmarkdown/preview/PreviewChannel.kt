@@ -28,6 +28,17 @@ internal class PreviewChannel(
     private var port: WebMessagePort? = null
     private var ready = false
 
+    private val decoder =
+        OrderedDecoder(
+            background = ENCODER,
+            main = MainThread,
+            decode = BridgeCodec::decode,
+            deliver = { decoded ->
+                if (decoded is PageMessage.Ready) onReady(decoded)
+                onMessage(decoded)
+            },
+        )
+
     init {
         queue.onReady = ::flush
     }
@@ -45,9 +56,7 @@ internal class PreviewChannel(
                     port: WebMessagePort,
                     message: WebMessage,
                 ) {
-                    val decoded = message.data?.let(BridgeCodec::decode) ?: return
-                    if (decoded is PageMessage.Ready) onReady(decoded)
-                    onMessage(decoded)
+                    message.data?.let(decoder::onData)
                 }
             },
         )

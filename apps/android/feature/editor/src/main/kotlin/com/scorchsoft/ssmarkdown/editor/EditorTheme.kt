@@ -45,6 +45,12 @@ data class EditorTheme(
     val codeBlockBackground: Int,
     /** Text inside code. */
     val codeText: Int,
+    /** Every find match's fill: the Highlight token, used for find matches only (quality-bar §3). */
+    val findMatch: Int = LIGHT_FIND_MATCH,
+    /** The current find match's stronger fill. */
+    val findCurrent: Int = LIGHT_FIND_CURRENT,
+    /** The outline around the current find match: ink, so it reads without colour too. */
+    val findCurrentOutline: Int = text,
 ) {
     /** Built-in themes. */
     companion object {
@@ -73,6 +79,9 @@ data class EditorTheme(
                 codeSpanBackground = colors.segmentTrack.toArgb(),
                 codeBlockBackground = colors.chrome.toArgb(),
                 codeText = colors.ink.toArgb(),
+                findMatch = if (colors.isDark) DARK_FIND_MATCH else LIGHT_FIND_MATCH,
+                findCurrent = if (colors.isDark) DARK_FIND_CURRENT else LIGHT_FIND_CURRENT,
+                findCurrentOutline = colors.ink.toArgb(),
             )
 
         /**
@@ -88,6 +97,14 @@ data class EditorTheme(
             val isColor = value.type in TypedValue.TYPE_FIRST_COLOR_INT..TypedValue.TYPE_LAST_COLOR_INT
             return if (resolved && isColor) base.copy(selection = value.data) else base
         }
+
+        // quality-bar §3 "Highlight": #FFF1B8, current #F5C542 with an ink outline. The spec
+        // gives light values only; the dark pair keeps the hue at a depth where light ink
+        // on it still passes AA (FindHighlightsTest checks both).
+        private const val LIGHT_FIND_MATCH = 0xFFFFF1B8.toInt()
+        private const val LIGHT_FIND_CURRENT = 0xFFF5C542.toInt()
+        private const val DARK_FIND_MATCH = 0xFF45390F.toInt()
+        private const val DARK_FIND_CURRENT = 0xFF6E5410.toInt()
 
         private const val RGB_MASK = 0x00FFFFFF
         private const val SELECTION_ALPHA = 0x55 shl 24

@@ -51,4 +51,11 @@ interface EditorListener {
         ctrl: Boolean,
         shift: Boolean,
     ): Boolean = false
+
+    /**
+     * A large paste ([MarkdownCodeView.pasteText]) moved on: show progress
+     * while [PasteProgress.done] is false. The paste is one undo step, and
+     * typing during it is applied after it.
+     */
+    fun onPasteProgress(progress: PasteProgress) = Unit
 }

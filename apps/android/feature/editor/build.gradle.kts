@@ -32,7 +32,8 @@ android {
 dependencies {
     // `api`: TextDocument and SSColors appear in this module's public API.
     api(project(":core:text"))
-    implementation(project(":core:markdown"))
+    api(project(":core:markdown")) // FenceStates is in the view's API (fenceStates()).
+
     api(project(":core:ui"))
 
     testImplementation(libs.junit)

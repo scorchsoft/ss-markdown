@@ -60,11 +60,11 @@ internal class CommandRunner(
         val session = view.session
         when (command) {
             EditorCommand.LEFT -> {
-                session.moveCaretByGrapheme(forward = false, extend = extend)
+                horizontal(right = false, extend = extend)
             }
 
             EditorCommand.RIGHT -> {
-                session.moveCaretByGrapheme(forward = true, extend = extend)
+                horizontal(right = true, extend = extend)
             }
 
             EditorCommand.WORD_LEFT -> {
@@ -118,6 +118,43 @@ internal class CommandRunner(
         return true
     }
 
+    /**
+     * Left or Right: by grapheme in logical order, or in visual order on a
+     * line with right-to-left text when the view asks for it ([BidiCaret]).
+     * Past a line's visual edge the caret goes to the next line's start or
+     * the previous line's end, as it does on any line.
+     */
+    private fun horizontal(
+        right: Boolean,
+        extend: Boolean,
+    ) {
+        val session = view.session
+        val visual = if (view.bidiCaretMovement) visualTarget(right) else null
+        if (visual !=
+            null
+        ) {
+            session.moveOrExtend(visual, extend)
+        } else {
+            session.moveCaretByGrapheme(right, extend = extend)
+        }
+    }
+
+    /** The caret's next offset in visual order, or null when the line needs no bidi. */
+    private fun visualTarget(right: Boolean): Int? {
+        val text = view.session.document.text
+        val position = text.positionAt(view.session.caret)
+        val start = text.lineStartOffset(position.line)
+        val end = text.lineEndOffset(position.line)
+        val line = text.getText(start, end)
+        if (!BidiCaret.needsBidi(line)) return null
+        val column = BidiCaret.move(line, position.column, right)
+        return when {
+            column != position.column -> start + column
+            right -> if (end < text.length) end + 1 else view.session.caret
+            else -> if (start > 0) start - 1 else view.session.caret
+        }
+    }
+
     private fun vertical(
         rows: Int,
         extend: Boolean,
@@ -149,12 +186,20 @@ internal class CommandRunner(
         return copied
     }
 
+    /**
+     * Pastes the clipboard. Plain text the clip already holds is measured
+     * first; a URI or a large text goes through the sliced paste, which
+     * reads it off the main thread (docs/edge-cases.md, "Paste of 50 MB").
+     */
     private fun paste(): Boolean {
-        val clip = clipboard?.primaryClip?.takeIf { it.itemCount > 0 }
-        val text = clip?.getItemAt(0)?.coerceToText(view.context)?.takeIf { it.isNotEmpty() }
-        val session = view.session
-        text?.let { view.applyEdit(session.selectionStart, session.selectionEnd, it) }
-        return text != null
+        val item = clipboard?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)
+        val plain = item?.text
+        val pasteable = item != null && (plain == null || plain.isNotEmpty())
+        if (pasteable) {
+            val context = view.context
+            view.pasteText(plain?.length ?: UNKNOWN_LENGTH) { plain ?: item.coerceToText(context) }
+        }
+        return pasteable
     }
 
     private companion object {
@@ -163,6 +208,9 @@ internal class CommandRunner(
          * the clipboard: Binder's limit makes it a crash (robustness.md §5).
          */
         const val MAX_CLIPBOARD_CHARS = 500_000
+
+        /** A clip item with no text yet (a URI): its size is known only once read, off the main thread. */
+        const val UNKNOWN_LENGTH = -1
 
         /** Commands that keep the goal x of the previous vertical move. */
         val VERTICAL = setOf(EditorCommand.UP, EditorCommand.DOWN, EditorCommand.PAGE_UP, EditorCommand.PAGE_DOWN)

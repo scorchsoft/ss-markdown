@@ -28,81 +28,85 @@ import androidx.annotation.RequiresApi
  * [EditingSession.MAX_IME_WINDOW] chars (robustness.md: without that cap,
  * select-all on a large file is an ANR).
  *
- * Spike limits, recorded for the real view: no `GET_EXTRACTED_TEXT_MONITOR`
- * updates (extracted-text UI is disabled through `IME_FLAG_NO_EXTRACT_UI`),
- * no `requestCursorUpdates`, no context-menu actions.
+ * While a large paste is going in ([ChunkedPaste]), every edit verb is
+ * held by the [gate] and replayed after it, in order, so nothing typed is
+ * lost or lands inside the pasted text. `requestCursorUpdates` is answered
+ * by the [cursor] reporter. Spike limits, recorded for the real view: no
+ * `GET_EXTRACTED_TEXT_MONITOR` updates (extracted-text UI is disabled
+ * through `IME_FLAG_NO_EXTRACT_UI`), no context-menu actions.
  */
 @Suppress("TooManyFunctions") // InputConnection is a wide interface; each override is one line onto the session.
-class CodeInputConnection(
+class CodeInputConnection internal constructor(
     view: View,
     private val session: EditingSession,
     /** Hard and soft keys the session does not handle as text (arrows, Enter, Backspace) go here. */
     private val onKey: (KeyEvent) -> Boolean,
+    private val gate: InputGate,
+    private val cursor: CursorAnchorReporter?,
 ) : BaseInputConnection(view, true) {
-    override fun beginBatchEdit(): Boolean {
-        session.beginBatchEdit()
-        return true
-    }
+    /** A connection with no paste gate and no cursor reports, as before either existed. */
+    constructor(
+        view: View,
+        session: EditingSession,
+        onKey: (KeyEvent) -> Boolean,
+    ) : this(view, session, onKey, InputGate(), null)
 
-    override fun endBatchEdit(): Boolean = session.endBatchEdit()
+    override fun beginBatchEdit(): Boolean = edit { session.beginBatchEdit() }
+
+    override fun endBatchEdit(): Boolean {
+        if (!gate.isHolding) return session.endBatchEdit()
+        gate.run { session.endBatchEdit() }
+        return false
+    }
 
     override fun commitText(
         text: CharSequence?,
         newCursorPosition: Int,
-    ): Boolean {
-        session.commitText(text ?: "", newCursorPosition)
-        return true
-    }
+    ): Boolean = edit { session.commitText(text ?: "", newCursorPosition) }
 
     override fun setComposingText(
         text: CharSequence?,
         newCursorPosition: Int,
-    ): Boolean {
-        session.setComposingText(text ?: "", newCursorPosition)
-        return true
-    }
+    ): Boolean = edit { session.setComposingText(text ?: "", newCursorPosition) }
 
     override fun setComposingRegion(
         start: Int,
         end: Int,
-    ): Boolean {
-        session.setComposingRegion(start, end)
-        return true
-    }
+    ): Boolean = edit { session.setComposingRegion(start, end) }
 
-    override fun finishComposingText(): Boolean {
-        session.finishComposingText()
-        return true
-    }
+    override fun finishComposingText(): Boolean = edit { session.finishComposingText() }
 
     override fun deleteSurroundingText(
         beforeLength: Int,
         afterLength: Int,
-    ): Boolean {
-        session.deleteSurroundingText(beforeLength, afterLength)
-        return true
-    }
+    ): Boolean = edit { session.deleteSurroundingText(beforeLength, afterLength) }
 
     override fun deleteSurroundingTextInCodePoints(
         beforeLength: Int,
         afterLength: Int,
-    ): Boolean {
-        val before = session.textBeforeCursor(beforeLength * 2)
-        val after = session.textAfterCursor(afterLength * 2)
-        session.deleteSurroundingText(
-            charsForCodePoints(before, beforeLength, fromEnd = true),
-            charsForCodePoints(after, afterLength, fromEnd = false),
-        )
-        return true
-    }
+    ): Boolean =
+        edit {
+            val before = session.textBeforeCursor(beforeLength * 2)
+            val after = session.textAfterCursor(afterLength * 2)
+            session.deleteSurroundingText(
+                charsForCodePoints(before, beforeLength, fromEnd = true),
+                charsForCodePoints(after, afterLength, fromEnd = false),
+            )
+        }
 
     override fun setSelection(
         start: Int,
         end: Int,
-    ): Boolean {
-        session.setSelection(start, end)
-        return true
-    }
+    ): Boolean = edit { session.setSelection(start, end) }
+
+    /** Reports where the caret is drawn, now and/or on every change (handwriting, floating and CJK keyboards). */
+    override fun requestCursorUpdates(cursorUpdateMode: Int): Boolean = cursor?.request(cursorUpdateMode) ?: false
+
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    override fun requestCursorUpdates(
+        cursorUpdateMode: Int,
+        cursorUpdateFilter: Int,
+    ): Boolean = requestCursorUpdates(cursorUpdateMode or cursorUpdateFilter)
 
     override fun getTextBeforeCursor(
         n: Int,
@@ -174,21 +178,32 @@ class CodeInputConnection(
         text: CharSequence,
         newCursorPosition: Int,
         textAttribute: TextAttribute?,
-    ): Boolean {
-        session.beginBatchEdit()
-        session.finishComposingText()
-        session.setSelection(start, end)
-        session.commitText(text, newCursorPosition)
-        session.endBatchEdit()
+    ): Boolean =
+        edit {
+            session.beginBatchEdit()
+            session.finishComposingText()
+            session.setSelection(start, end)
+            session.commitText(text, newCursorPosition)
+            session.endBatchEdit()
+        }
+
+    /** Keys from soft keyboards (Backspace with nothing composing, Enter) and from `performEditorAction`. */
+    override fun sendKeyEvent(event: KeyEvent): Boolean {
+        if (!gate.isHolding) return onKey(event)
+        gate.run { onKey(event) }
         return true
     }
 
-    /** Keys from soft keyboards (Backspace with nothing composing, Enter) and from `performEditorAction`. */
-    override fun sendKeyEvent(event: KeyEvent): Boolean = onKey(event)
-
     override fun closeConnection() {
-        session.finishComposingText()
+        cursor?.stop()
+        gate.run { session.finishComposingText() }
         super.closeConnection()
+    }
+
+    /** Runs [action] now, or after a running paste; the keyboard is told it was accepted either way. */
+    private inline fun edit(crossinline action: () -> Unit): Boolean {
+        gate.run { action() }
+        return true
     }
 
     private companion object {

@@ -75,6 +75,13 @@ class EditingSession(
     /** Set by the view; null in tests that only check text. */
     var listener: Listener? = null
 
+    /**
+     * Told the exact chars of every edit made through this session: `(start,
+     * removed, inserted)`. Undo and redo, applied by the document as whole
+     * groups, report `(-1, 0, 0)`: "something changed, extent not tracked".
+     */
+    internal var onRangeReplaced: ((start: Int, removed: Int, inserted: Int) -> Unit)? = null
+
     /** Grapheme maths for the keys in `SessionKeys.kt`; one per session because it holds a BreakIterator. */
     internal val graphemes = GraphemeBoundaries()
 
@@ -275,6 +282,7 @@ class EditingSession(
             composingEnd = shift(composingEnd, start, end, delta)
             if (composingStart >= composingEnd) clearComposing()
         }
+        onRangeReplaced?.invoke(start, end - start, text.length)
         listener?.onTextChanged(LineChange(firstLine, removed, added))
         return text.length
     }
@@ -285,6 +293,7 @@ class EditingSession(
         caretAfter: Int,
     ) {
         clearComposing()
+        onRangeReplaced?.invoke(-1, 0, 0)
         listener?.onTextChanged(change)
         setSelection(caretAfter, caretAfter)
     }

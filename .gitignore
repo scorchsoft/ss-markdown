@@ -20,3 +20,9 @@ apps/android/**/*.hprof
 *.apk
 *.aab
 *.aar
+
+# The app's Baseline Profile is generated on CI's emulator (the `perf` job)
+# and compiled into the hand-over APK there; it is ~6 MB of text that
+# changes with every run, so it is not committed (apps/android/CLAUDE.md,
+# "The hand-over build").
+apps/android/app/src/main/generated/baselineProfiles/

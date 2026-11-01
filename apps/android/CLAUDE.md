@@ -18,6 +18,7 @@ feature/files     SAF, DocumentStore, save pipeline (backup, verify, timeout), t
 feature/fonts     Google Fonts download and cache
 build-logic/      ssmarkdown.* convention plugins (below)
 config/detekt/    detekt overrides; ktlint reads ../.editorconfig
+benchmark/        com.android.test: Macrobenchmarks + the Baseline Profile generator, against :app's benchmarkRelease (see "Emulator evidence")
 tools/            bootstrap-android-sdk.sh, fetch-fonts.sh, editor-bench (ADR 0001 benchmark, never shipped)
 ```
 
@@ -54,7 +55,12 @@ gradle -p apps/android ktlintFormat            # fix formatting before committin
 gradle -p apps/android :app:assembleDebug
 gradle -p apps/android -Pssmarkdown.minifyDebug=true :app:assembleDebug   # hand-over build (below)
 gradle -p apps/android -Pssmarkdown.screenshots=true :app:testDebugUnitTest --tests '*ScreenshotTest*'
-gradle -p apps/android :app:connectedDebugAndroidTest   # needs a device or emulator
+gradle -p apps/android :app:connectedDebugAndroidTest   # needs a device or emulator (LeakCanary checks every test)
+gradle -p apps/android :benchmark:connectedBenchmarkReleaseAndroidTest \
+    -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=Macrobenchmark   # device/emulator
+gradle -p apps/android :app:generateBaselineProfile \
+    -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=BaselineProfile  # device/emulator, API 33+
+gradle -p apps/android :benchmark:compileBenchmarkReleaseKotlin   # what the container can check of :benchmark
 ```
 
 Screenshots land in `app/build/screenshots/{light,dark}/` (never
@@ -80,11 +86,17 @@ ships `PreviewActivity`, or loses `baseline.prof` or the licence texts.
 - **Keep rules.** `app/proguard-rules.pro` is empty on purpose and records
   why (no reflection, no serialization library, no `@JavascriptInterface`).
   Adding any of those means adding a precise keep rule and a test.
-- **App baseline profile: deferred to the device run.** Library profiles
-  ship today. Generating the app's own (cold start, open 1 MB, fling)
-  needs a `:baselineprofile` Macrobenchmark module run on a device or a
-  managed emulator, which this container cannot do; add it with the
-  device measurements for ADR 0001 (performance review PERF-20).
+- **App Baseline Profile.** `:benchmark`'s `BaselineProfileGenerator`
+  records start, open 1 MB, type, fling and the three modes;
+  `androidx.baselineprofile` (on `:app`, `mergeIntoMain`) puts it in
+  `app/src/main/generated/baselineProfiles/`, so every non-debuggable
+  variant, the hand-over included, compiles it in. Generation needs a
+  device: CI's `perf` job generates it on the API 34 emulator, builds the
+  hand-over APK with it (same non-debuggable, no-provider, no-LeakCanary
+  checks) and uploads both in `emulator-evidence`. **Hand over that APK**:
+  the `checks` job's carries the library profiles only. The text is not
+  committed (about 6 MB, different every run; `.gitignore`). An ordinary
+  build never generates (`automaticGenerationDuringBuild = false`).
 - **APK size** is a guideline, not a hard limit (`docs/quality-bar.md` §4):
   shrink only where nothing regresses, and record any deliberate rise.
 
@@ -92,6 +104,35 @@ Tests run on debug only (root `build.gradle.kts` removes the release
 unit-test component). Robolectric is pinned to `sdk=34` in
 `app/src/test/resources/robolectric.properties`; a different `@Config`
 sdk buys a second sandbox and doubles the run time.
+
+## Emulator evidence (rubric #4, #11)
+
+CI's `perf` job (`.github/workflows/android.yml`) runs
+`benchmark/ci/emulator-evidence.sh` on an API 34 emulator: the Baseline
+Profile, the Macrobenchmarks, then a seeded 2,000-event monkey on the
+debuggable build. `benchmark/ci/perf_report.py` writes the numbers to the
+job summary and fails only on a **>25% regression** against
+`docs/perf/emulator-baseline.json` (beyond each metric's noise floor);
+the quality-bar budgets are advisory on an emulator. To rebaseline after a
+deliberate change, run the script with `--write-baseline` on the job's
+`perf-results.json` and commit it with the reason.
+`benchmark/ci/strictmode_check.py` fails on any StrictMode violation whose
+nearest app frame is ours; its allowlist (WebView/Chromium internals only)
+says why for each entry.
+
+- **The app's side**: core/ui's `PerfTrace` sections (`SSM:open`,
+  `SSM:commit`, `SSM:previewRefresh`), and MainActivity reports drawn when a
+  document is bound (`timeToFullDisplayMs`). Renaming a section breaks the
+  benchmark; `benchmark/.../AppDriver.kt` copies the names.
+- **The corpus**: `app/src/perf` is compiled into `benchmarkRelease` and
+  `nonMinifiedRelease` only (variant API in app/build.gradle.kts, because
+  the plugin copies release's manifest over theirs). Its provider serves
+  `perf-50kb.md`, `perf-1mb.md` and `perf-20mb.md` through `content://`.
+  CI fails the hand-over if it ever ships it, or LeakCanary.
+- **LeakCanary** is `androidTestImplementation` only. `LeakCheckRunner`
+  installs the watcher; every instrumented test class declares
+  `@get:Rule(order = 0) val leaks = DetectLeaksAfterTestSuccess()`
+  (outermost, so it runs after the Activity closes). Add it to new classes.
 
 ## Traps
 

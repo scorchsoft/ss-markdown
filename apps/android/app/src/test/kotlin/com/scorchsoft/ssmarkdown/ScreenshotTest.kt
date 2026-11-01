@@ -5,17 +5,24 @@ import android.graphics.Canvas
 import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.core.graphics.Insets
 import androidx.core.graphics.withTranslation
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.scorchsoft.ssmarkdown.about.AboutScreen
 import com.scorchsoft.ssmarkdown.editor.EditorUiState
 import com.scorchsoft.ssmarkdown.editor.ViewMode
 import com.scorchsoft.ssmarkdown.fixtures.PreviewSamples
 import com.scorchsoft.ssmarkdown.fixtures.Samples
+import com.scorchsoft.ssmarkdown.fixtures.ScreenSamples
 import com.scorchsoft.ssmarkdown.fontpicker.FontPickerScreen
+import com.scorchsoft.ssmarkdown.history.HistoryScreen
 import com.scorchsoft.ssmarkdown.media.ViewerScreen
 import com.scorchsoft.ssmarkdown.settings.AppSettings
 import com.scorchsoft.ssmarkdown.settings.SettingsScreen
+import com.scorchsoft.ssmarkdown.share.ShareSheet
 import com.scorchsoft.ssmarkdown.storage.StorageScreen
 import com.scorchsoft.ssmarkdown.storage.StorageUiState
 import com.scorchsoft.ssmarkdown.themes.ThemeEditorScreen
@@ -31,9 +38,10 @@ import java.io.File
 
 /**
  * Headless screenshot harness (Robolectric native graphics). Renders the
- * key screens in both themes at the reference viewport (412 x 915 dp) and
- * writes `app/build/screenshots/<theme>/<name>.png`. A review artefact,
- * not a regression test, so it only runs when asked:
+ * key screens in both themes at the reference viewport (412 x 915 dp), at
+ * the rubric's 360 / 600 / 840 / 1280 dp widths, and at 2× font for every
+ * Save state, and writes `app/build/screenshots/<theme>/<name>.png`. A
+ * review artefact, not a regression test, so it only runs when asked:
  *
  *     gradle -p apps/android :app:testDebugUnitTest -Pssmarkdown.screenshots=true --tests '*ScreenshotTest*'
  */
@@ -90,6 +98,80 @@ class ScreenshotTest(
             ThemeEditorScreen(PreviewSamples.themeColours, {})
         }
 
+    // UX2-1 / UX2-13: every Save state at 2× font, so a clipped pill can never hide again.
+    @Test fun saveDraftLargeFont() = shot("save-font-200-draft", fontScale = 2f) { EditorFor(Samples.draft) }
+
+    @Test fun saveReadOnlyLargeFont() = shot("save-font-200-read-only", fontScale = 2f) { EditorFor(Samples.readOnly) }
+
+    @Test
+    fun saveReadOnlyCleanLargeFont() =
+        shot("save-font-200-read-only-clean", fontScale = 2f) { EditorFor(Samples.readOnlyClean) }
+
+    @Test fun saveRetryLargeFont() = shot("save-font-200-retry", fontScale = 2f) { EditorFor(Samples.failed) }
+
+    @Test fun saveSavingLargeFont() = shot("save-font-200-saving", fontScale = 2f) { EditorFor(Samples.saving) }
+
+    @Test fun savePausedLargeFont() = shot("save-font-200-paused", fontScale = 2f) { EditorFor(Samples.autosavePaused) }
+
+    @Test fun recoveredLargeFont() = shot("editor-font-200-recovered", fontScale = 2f) { EditorFor(Samples.recovered) }
+
+    @Test fun bigFile() = editor("editor-big-file", Samples.bigFile)
+
+    // UX2-13: the rubric's widths (#8).
+    @Test
+    @Config(qualifiers = "w360dp-h780dp-420dpi")
+    fun width360() = editor("width-360-folder", ScreenSamples.longName)
+
+    @Test
+    @Config(qualifiers = "w360dp-h780dp-420dpi")
+    fun width360LargeFont() =
+        shot("width-360-font-200-read-only", fontScale = 2f) {
+            EditorFor(Samples.readOnly.copy(folder = ScreenSamples.folder))
+        }
+
+    @Test
+    @Config(qualifiers = "w360dp-h780dp-420dpi")
+    fun width360Drawer() = editor("width-360-drawer", ScreenSamples.drawer)
+
+    @Test
+    @Config(qualifiers = "w600dp-h960dp-320dpi")
+    fun width600() = editor("width-600-split", ScreenSamples.split600)
+
+    @Test
+    @Config(qualifiers = "w840dp-h1200dp-320dpi")
+    fun width840() = editor("width-840-docked", ScreenSamples.docked)
+
+    @Test
+    @Config(qualifiers = "w840dp-h1200dp-320dpi")
+    fun width840Collapsed() =
+        editor(
+            "width-840-collapsed",
+            ScreenSamples.docked.copy(folder = ScreenSamples.folder.copy(panelCollapsed = true)),
+        )
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp-land-240dpi")
+    fun width1280() = editor("width-1280-split", ScreenSamples.wideSplit)
+
+    // UX2-13: the surfaces the review had to render by hand.
+    @Test fun navigator() = editor("navigator", ScreenSamples.navigator)
+
+    @Test fun find() = editor("find", ScreenSamples.find)
+
+    @Test fun findLargeFont() = shot("find-font-200", fontScale = 2f) { EditorFor(ScreenSamples.find) }
+
+    @Test fun conflict() = sheet("conflict-sheet", Samples.conflict)
+
+    @Test fun sectionMenu() = sheet("section-menu", ScreenSamples.sectionMenu)
+
+    @Test fun history() = shot("history") { HistoryScreen(ScreenSamples.history, {}) }
+
+    @Test fun share() = shot("share-sheet") { ShareSheet(ScreenSamples.share) {} }
+
+    @Test fun strip() = keyboard("formatting-strip", Samples.unsaved)
+
+    @Test fun stripLargeFont() = keyboard("formatting-strip-font-200", Samples.unsaved, fontScale = 2f)
+
     @Test fun preview() = editor("preview", Samples.saved.copy(mode = ViewMode.Preview))
 
     @Test fun splitPortrait() = editor("split-portrait", Samples.saved.copy(mode = ViewMode.Split))
@@ -127,6 +209,34 @@ class ScreenshotTest(
         render { EditorFor(state) }
         val windows = capture(name)
         check(windows > 1) { "$name: the sheet's window was not captured" }
+    }
+
+    /**
+     * The editor with the keyboard up: an IME inset is dispatched to the
+     * root, as the platform does, so the formatting strip replaces the mode bar.
+     */
+    private fun keyboard(
+        name: String,
+        state: EditorUiState,
+        fontScale: Float = 1f,
+    ) {
+        lateinit var view: View
+        render(fontScale) {
+            view = LocalView.current
+            EditorFor(state)
+        }
+        rule.runOnIdle {
+            val ime = (KEYBOARD_DP * view.resources.displayMetrics.density).toInt()
+            val insets =
+                WindowInsetsCompat
+                    .Builder()
+                    .setInsets(WindowInsetsCompat.Type.ime(), Insets.of(0, 0, 0, ime))
+                    .setVisible(WindowInsetsCompat.Type.ime(), true)
+                    .build()
+            ViewCompat.dispatchApplyWindowInsets(view, insets)
+        }
+        rule.waitForIdle()
+        capture(name)
     }
 
     private fun shot(
@@ -186,6 +296,7 @@ class ScreenshotTest(
 
     companion object {
         private const val PNG_QUALITY = 100
+        private const val KEYBOARD_DP = 300
         private const val SCREENSHOTS = "build/screenshots"
 
         @JvmStatic

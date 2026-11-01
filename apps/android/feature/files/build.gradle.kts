@@ -1,16 +1,31 @@
-// Files: Storage Access Framework, DocumentStore, the save pipeline and
-// the MemoryGovernor (docs/robustness.md). Empty until its iteration; the
-// dependencies below are the edges the module graph allows it.
+// Files: Storage Access Framework, DocumentStore, the save pipeline, the
+// three-way merge and the MemoryGovernor (docs/robustness.md). Android
+// types stay at the edges (provider/, saf/, memory/AndroidMemorySource);
+// everything else runs on the host JVM against injected fakes.
 plugins {
     id("ssmarkdown.android.library")
 }
 
 android {
     namespace = "com.scorchsoft.ssmarkdown.feature.files"
+    testOptions {
+        unitTests.all { test ->
+            // Same cap as :app: each Robolectric fork carries a sandbox.
+            test.maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4)
+        }
+    }
 }
 
+// core:text, core:history and coroutines types appear in this module's public API
+// (TextDocument, BaseFingerprint, suspend functions), so they are `api`.
+// No core:ui yet: this module has no screens; the app draws its states.
 dependencies {
-    implementation(project(":core:text"))
-    implementation(project(":core:history"))
-    implementation(project(":core:ui"))
+    api(project(":core:text"))
+    api(project(":core:history"))
+    api(libs.kotlinx.coroutines.core)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

@@ -74,7 +74,9 @@
     <string name="storage_open_history">Open history</string>
     <string name="storage_automatic">Automatic</string>
     <string name="storage_keep_history">Keep version history</string>
+    <!-- UX2-16: the subtitle describes the state the switch is in. -->
     <string name="storage_keep_history_hint">Off: no versions are saved. Crash recovery still protects unsaved work.</string>
+    <string name="storage_keep_history_on_hint">Each save keeps a version you can go back to.</string>
     <string name="storage_limit">History limit</string>
     <string name="storage_forget">Forget history of files unused for</string>
     <string name="storage_never">Never</string>

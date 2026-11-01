@@ -24,6 +24,7 @@ import com.scorchsoft.ssmarkdown.ui.NoteText
 import com.scorchsoft.ssmarkdown.ui.SecondaryScreen
 import com.scorchsoft.ssmarkdown.ui.SectionLabel
 import com.scorchsoft.ssmarkdown.ui.SettingRow
+import com.scorchsoft.ssmarkdown.ui.StepperButtons
 import com.scorchsoft.ssmarkdown.ui.SwitchRow
 import java.util.Locale
 
@@ -160,12 +161,12 @@ private fun ZoomRow(
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
-        IconButton(onClick = { onStep(-1) }) {
-            Icon(AppIcons.chevronDown, stringResource(R.string.settings_zoom_decrease, title), tint = SS.colors.ink)
-        }
-        IconButton(onClick = { onStep(1) }) {
-            Icon(AppIcons.chevronUp, stringResource(R.string.settings_zoom_increase, title), tint = SS.colors.ink)
-        }
+        // The Display sheet's − / + pills, not chevrons (UX2-8).
+        StepperButtons(
+            stringResource(R.string.settings_zoom_decrease, title),
+            stringResource(R.string.settings_zoom_increase, title),
+            onStep,
+        )
     }
 }
 

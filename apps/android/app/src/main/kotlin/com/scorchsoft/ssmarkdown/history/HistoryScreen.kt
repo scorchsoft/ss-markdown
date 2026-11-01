@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
@@ -51,7 +52,12 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Date
 
-private val TimeColumn = 56.dp
+/**
+ * The time column: wide enough for "10:00 PM" in Inter at 1×, so times
+ * align; a longer one (a large font, a 24-hour locale with seconds) pushes
+ * the label along rather than breaking "PM" onto its own line.
+ */
+private val TimeColumn = 72.dp
 
 /**
  * Version history (the History board): the timeline by day, a diff
@@ -247,7 +253,9 @@ private fun Entry(
                 DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(info.wallTimeMillis)),
                 style = SS.type.label,
                 color = SS.colors.inkMuted,
-                modifier = Modifier.width(TimeColumn),
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.widthIn(min = TimeColumn).padding(end = 8.dp),
             )
             Column(Modifier.weight(1f)) {
                 Text(
@@ -342,7 +350,9 @@ private fun CollapsedEntry(
             DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(first.wallTimeMillis)),
             style = SS.type.label,
             color = SS.colors.inkMuted,
-            modifier = Modifier.width(TimeColumn),
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier.widthIn(min = TimeColumn).padding(end = 8.dp),
         )
         Column {
             Text(

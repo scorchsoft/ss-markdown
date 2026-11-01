@@ -18,6 +18,10 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -58,11 +62,7 @@ fun StorageScreen(
         stringResource(R.string.storage_title),
         { onAction(StorageAction.Back) },
         modifier,
-        actions = {
-            TextButton(onClick = { onAction(StorageAction.ImportHistory) }) {
-                Text(stringResource(R.string.storage_import), style = SS.type.label, color = SS.colors.ink)
-            }
-        },
+        actions = { StorageMenu(onAction) },
     ) {
         if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp), color = SS.colors.inkMuted)
         Breakdown(state)
@@ -74,6 +74,29 @@ fun StorageScreen(
         InfoNote(stringResource(R.string.storage_android_title), stringResource(R.string.storage_android_body))
     }
     StorageDialogs(state, onAction)
+}
+
+/**
+ * ⋮ with Import history (.zip), as the spec places it (UX2-16): one rare
+ * action does not earn an always-visible label on an otherwise calm screen.
+ */
+@Composable
+private fun StorageMenu(onAction: (StorageAction) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }) {
+            Icon(AppIcons.more, stringResource(R.string.more), tint = SS.colors.ink)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }, containerColor = SS.colors.chrome) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.storage_import), style = SS.type.body, color = SS.colors.ink) },
+                onClick = {
+                    open = false
+                    onAction(StorageAction.ImportHistory)
+                },
+            )
+        }
+    }
 }
 
 @Composable
@@ -263,7 +286,10 @@ private fun Automatic(
         stringResource(R.string.storage_keep_history),
         state.policy.recording,
         { onAction(StorageAction.ToggleKeepHistory) },
-        stringResource(R.string.storage_keep_history_hint),
+        // The subtitle describes the state the switch is in (UX2-16).
+        stringResource(
+            if (state.policy.recording) R.string.storage_keep_history_on_hint else R.string.storage_keep_history_hint,
+        ),
     )
     SettingRow(stringResource(R.string.storage_limit), value = limitText(state.limitBytes), onClick = {
         onAction(StorageAction.OpenPicker(StoragePicker.Limit))

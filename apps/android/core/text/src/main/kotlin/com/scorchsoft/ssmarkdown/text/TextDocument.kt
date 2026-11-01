@@ -16,7 +16,12 @@ import java.io.OutputStream
  * restored by undo comes back in the dominant style, so undoing back to
  * the opened state is not byte-identical for those lines. Uniform files,
  * which are nearly all files, are unaffected.
+ *
+ * Because every change passes through here, this is also where an
+ * [EditObserver] hears each op: the recovery journal records exactly
+ * what changed without depending on every caller to report it.
  */
+@Suppress("TooManyFunctions") // Edit, undo, groups and observers: the one place a document changes.
 public class TextDocument(
     /** The live text. Read it freely; change it only through this class, or undo and line endings drift. */
     public val text: PieceTree,
@@ -33,6 +38,8 @@ public class TextDocument(
      */
     public var version: Long = 0
         private set
+
+    private val observers = ArrayList<EditObserver>(2)
 
     /** True when there is something to undo. */
     public val canUndo: Boolean get() = history.canUndo
@@ -69,6 +76,19 @@ public class TextDocument(
     /** Ends the current typing run, e.g. on a cursor jump. */
     public fun breakTypingRun(): Unit = history.breakTypingRun()
 
+    /**
+     * Adds [observer], which hears every op from now on, in the order
+     * applied; see [EditObserver]. Adding the same observer twice has no effect.
+     */
+    public fun addEditObserver(observer: EditObserver) {
+        if (observer !in observers) observers += observer
+    }
+
+    /** Removes [observer]; it hears nothing more. */
+    public fun removeEditObserver(observer: EditObserver) {
+        observers -= observer
+    }
+
     /** Converts every line break on save to [ending] (the "Line endings" setting). */
     public fun convertLineEndings(ending: LineEnding) {
         format = format.copy(lineEndings = LineEndings.Uniform(ending))
@@ -82,6 +102,9 @@ public class TextDocument(
     public fun writeTo(out: OutputStream): Unit = Utf8Encoder.write(text.snapshot(), format, out)
 
     private fun apply(op: EditOp) {
+        // A copy, so an observer may remove itself while it is told.
+        val told = if (observers.isEmpty()) emptyList() else observers.toList()
+        told.forEach { it.beforeEdit(op) }
         val endings = format.lineEndings
         if (endings is LineEndings.Mixed) {
             val firstLine = text.positionAt(op.offset).line
@@ -90,6 +113,7 @@ public class TextDocument(
         }
         op.applyTo(text)
         version++
+        told.forEach { it.afterEdit(op) }
     }
 
     /** Ways to open a document. */

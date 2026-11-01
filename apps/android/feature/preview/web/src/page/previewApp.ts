@@ -25,6 +25,16 @@ export class PreviewApp {
     private settings: PreviewSettings = DEFAULT_SETTINGS;
     private anchorLine: number | null = null;
     private lastTop = -1;
+    /**
+     * Where Kotlin last asked to land, when the page could not scroll that
+     * line to the top (the last screen of the document). Until the reader
+     * touches the page, it reports this line as its top, so a Code → Preview
+     * → Code round trip comes back to the same line instead of the earlier
+     * one at the top of the last screen (rubric #3). Layout settling after
+     * the jump (sections mounting, diagrams drawing) does not end the pin;
+     * only the reader's own input does.
+     */
+    private pinned: number | null = null;
     private scrollFrame = 0;
     private renderStarted = 0;
 
@@ -60,6 +70,9 @@ export class PreviewApp {
             post,
         });
         window.addEventListener("scroll", () => this.onScroll(), { passive: true });
+        for (const type of ["pointerdown", "wheel", "keydown", "touchstart"]) {
+            window.addEventListener(type, () => (this.pinned = null), { passive: true, capture: true });
+        }
         // Going to the background: typing still waiting for its pause goes now (DS-14).
         document.addEventListener("visibilitychange", () => {
             if (document.visibilityState === "hidden") this.editor.flushTyping();
@@ -104,7 +117,7 @@ export class PreviewApp {
                 this.applySettings(m.settings);
                 break;
             case "scrollToLine":
-                scrollToLine(this.controller, m.line, m.smooth ?? false);
+                this.land(m.line, m.smooth ?? false);
                 // Not rendered yet: land again, exactly, once its section arrives.
                 if (this.controller.viewAtLine(m.line)?.html === null) this.anchorLine = m.line;
                 break;
@@ -185,7 +198,16 @@ export class PreviewApp {
         const view = this.controller.viewAtLine(line);
         if (!view?.mounted) return;
         this.anchorLine = null;
-        scrollToLine(this.controller, line);
+        this.land(line);
+    }
+
+    /** Scrolls [line] to the top, pinning it as the reported top when the page cannot scroll that far. */
+    private land(line: number, smooth = false): void {
+        scrollToLine(this.controller, line, smooth);
+        const short = !smooth && atBottom() && Math.floor(topLine(this.controller)) < line;
+        this.pinned = short ? line : null;
+        // Already at the bottom, the page does not move and fires no scroll event: say so anyway.
+        if (short) this.reportTop(false);
     }
 
     /** Reports the top line and breadcrumb at most once a frame, and only on change. */
@@ -197,7 +219,9 @@ export class PreviewApp {
         if (this.scrollFrame !== 0) return;
         this.scrollFrame = requestAnimationFrame(() => {
             this.scrollFrame = 0;
-            const line = Math.floor(topLine(this.controller));
+            // The page grew under a pin (sections mounted): land again, now that it may reach.
+            if (this.pinned !== null && !atBottom()) this.land(this.pinned);
+            const line = this.pinned ?? Math.floor(topLine(this.controller));
             if (line === this.lastTop && !force) return;
             this.lastTop = line;
             this.bridge.post({ type: "topLine", line, crumbs: breadcrumb(this.controller.outline(), line) });
@@ -246,4 +270,9 @@ export class PreviewApp {
         await document.fonts.ready;
         this.bridge.post({ type: "printReady" });
     }
+}
+
+/** True when the page is scrolled as far down as it goes. */
+function atBottom(): boolean {
+    return window.scrollY >= document.documentElement.scrollHeight - window.innerHeight - 1;
 }

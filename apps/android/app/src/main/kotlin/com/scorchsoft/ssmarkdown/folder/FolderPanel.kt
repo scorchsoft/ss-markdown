@@ -61,7 +61,7 @@ fun FolderPanel(
             colors =
                 OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = SS.colors.ink,
-                    unfocusedBorderColor = SS.colors.border,
+                    unfocusedBorderColor = SS.colors.inputOutline,
                     cursorColor = SS.colors.ink,
                 ),
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),

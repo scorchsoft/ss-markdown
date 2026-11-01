@@ -9,6 +9,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import com.scorchsoft.ssmarkdown.about.Licences
 import com.scorchsoft.ssmarkdown.core.ui.SSMarkdownTheme
 import com.scorchsoft.ssmarkdown.editor.LaunchRequest
@@ -21,6 +22,7 @@ import com.scorchsoft.ssmarkdown.platform.LaunchIntents
 import com.scorchsoft.ssmarkdown.platform.PlatformActions
 import com.scorchsoft.ssmarkdown.preview.PreviewView
 import com.scorchsoft.ssmarkdown.settings.Appearance
+import com.scorchsoft.ssmarkdown.ui.ChromeFonts
 import com.scorchsoft.ssmarkdown.ui.TickingNow
 import java.io.File
 import java.io.IOException
@@ -65,7 +67,9 @@ class MainActivity : ComponentActivity() {
                     Appearance.Light -> false
                     Appearance.Dark -> true
                 }
-            SSMarkdownTheme(darkTheme = dark) {
+            // Inter and JetBrains Mono from feature/fonts' bundle (UX2-12).
+            val fonts = remember { ChromeFonts.families(assets) }
+            SSMarkdownTheme(darkTheme = dark, fonts = fonts) {
                 TickingNow(graph.clock) {
                     AppRoot(
                         graph,

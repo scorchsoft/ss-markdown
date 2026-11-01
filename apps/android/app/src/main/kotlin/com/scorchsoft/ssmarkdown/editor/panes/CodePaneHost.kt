@@ -5,11 +5,13 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import com.scorchsoft.ssmarkdown.core.ui.SS
 import com.scorchsoft.ssmarkdown.document.ActiveDocument
 import com.scorchsoft.ssmarkdown.editor.EditorTheme
 import com.scorchsoft.ssmarkdown.editor.MarkdownCodeView
 import com.scorchsoft.ssmarkdown.editor.compose.MarkdownEditor
+import com.scorchsoft.ssmarkdown.ui.ChromeFonts
 
 /**
  * The real Code pane: `feature/editor`'s [MarkdownEditor] bound to the
@@ -34,12 +36,15 @@ fun CodePaneHost(
     val holder = remember { ViewHolder() }
     val colors = SS.colors
     val theme = remember(colors) { EditorTheme.fromColors(colors) }
+    val assets = LocalContext.current.assets
+    val typeface = remember { ChromeFonts.codeTypeface(assets) }
     MarkdownEditor(
         document = doc.text,
         modifier = modifier,
         theme = theme,
         wrap = wrap,
         zoomPercent = zoomPercent,
+        typeface = typeface,
         listener = doc,
         onViewReady = { view ->
             holder.view = view

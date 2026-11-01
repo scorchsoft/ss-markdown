@@ -31,6 +31,9 @@ class SSColorsContrastTest {
                     "needs-you text on chrome" to (c.needsYouText to c.chrome),
                     "needs-you text on bg" to (c.needsYouText to c.bg),
                     "needs-you text on segment track" to (c.needsYouText to c.segmentTrack),
+                    // UX2-6: the error callout's title and glyph, and its body.
+                    "needs-you text on its tint" to (c.needsYouText to c.needsYouBg),
+                    "ink on the error tint" to (c.ink to c.needsYouBg),
                 )
             textPairs.forEach { (name, pair) -> assertContrast("$theme $name", pair.first, pair.second, AA_TEXT) }
         }
@@ -41,6 +44,16 @@ class SSColorsContrastTest {
         // The unsaved dot is a graphic, not text: AA asks 3:1 of it.
         for (c in listOf(SSLightColors, SSDarkColors)) {
             assertContrast("needs-you dot (dark=${c.isDark})", c.needsYou, c.chrome, AA_GRAPHIC)
+        }
+    }
+
+    @Test
+    fun `a text field's outline reaches 3 to 1 wherever a field sits`() {
+        // UX2-10: WCAG 1.4.11. `border` (1.26:1) was the outline of every field.
+        for (c in listOf(SSLightColors, SSDarkColors)) {
+            for ((surface, color) in listOf("bg" to c.bg, "chrome" to c.chrome, "track" to c.segmentTrack)) {
+                assertContrast("input outline on $surface (dark=${c.isDark})", c.inputOutline, color, AA_GRAPHIC)
+            }
         }
     }
 

@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.lifecycle.lifecycleScope
 import com.scorchsoft.ssmarkdown.AppGraph
 import com.scorchsoft.ssmarkdown.MainActivity
@@ -25,6 +26,7 @@ import com.scorchsoft.ssmarkdown.files.saf.SharedContent
 import com.scorchsoft.ssmarkdown.files.saf.from
 import com.scorchsoft.ssmarkdown.platform.LaunchIntents
 import com.scorchsoft.ssmarkdown.platform.OpenTokens
+import com.scorchsoft.ssmarkdown.ui.ChromeFonts
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -63,7 +65,8 @@ class ShareActivity : ComponentActivity() {
                     finish()
                 }
             }
-            SSMarkdownTheme {
+            val fonts = remember { ChromeFonts.families(assets) }
+            SSMarkdownTheme(fonts = fonts) {
                 ShareSheet(state) { action ->
                     when (action) {
                         ShareAction.Cancel -> finish()

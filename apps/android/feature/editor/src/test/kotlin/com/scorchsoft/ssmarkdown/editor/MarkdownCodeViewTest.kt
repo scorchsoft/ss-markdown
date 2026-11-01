@@ -2,6 +2,7 @@ package com.scorchsoft.ssmarkdown.editor
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Typeface
 import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
@@ -44,6 +45,19 @@ class MarkdownCodeViewTest {
         assertTrue(view.lineHeight > 0)
         assertTrue(view.charWidth > 0f)
         assertTrue(view.textLeft > 0)
+    }
+
+    @Test
+    fun `a new code typeface re-measures the cell and keeps the caret maths exact`() {
+        // UX2-12: the host swaps in the bundled JetBrains Mono after the view exists.
+        show("abcd\nefgh")
+        assertEquals(Typeface.MONOSPACE, view.codeTypeface)
+        val face = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+        view.codeTypeface = face
+        assertEquals(face, view.codeTypeface)
+        assertEquals(view.font.measurer.charWidth, view.charWidth, 0f)
+        assertEquals(view.textLeft + 3 * view.charWidth, view.xForOffset(3), 0.5f)
+        draw()
     }
 
     @Test

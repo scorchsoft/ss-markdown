@@ -159,7 +159,7 @@ private fun countText(state: FindUiState): String =
 private fun fieldColors() =
     OutlinedTextFieldDefaults.colors(
         focusedBorderColor = SS.colors.ink,
-        unfocusedBorderColor = SS.colors.border,
+        unfocusedBorderColor = SS.colors.inputOutline,
         cursorColor = SS.colors.ink,
         focusedTextColor = SS.colors.ink,
         unfocusedTextColor = SS.colors.ink,

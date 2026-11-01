@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Rect
+import android.graphics.Typeface
 import android.util.AttributeSet
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -162,6 +163,20 @@ class MarkdownCodeView
             get() = font.paint.textSize
             set(value) {
                 font.paint.textSize = value
+                sizing.onFontChanged(anchorLine, 0f)
+            }
+
+        /**
+         * The face the source is set in. The app hands in the bundled
+         * JetBrains Mono (docs/ux-spec.md, "Code font"; UX2-12); a view
+         * nobody configures keeps the system monospace. A change keeps the
+         * top line in place, like a zoom.
+         */
+        var codeTypeface: Typeface
+            get() = font.paint.typeface ?: Typeface.MONOSPACE
+            set(value) {
+                if (font.paint.typeface == value) return
+                font.paint.typeface = value
                 sizing.onFontChanged(anchorLine, 0f)
             }
 

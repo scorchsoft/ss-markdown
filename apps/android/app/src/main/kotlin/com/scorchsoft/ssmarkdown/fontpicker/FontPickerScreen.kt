@@ -178,6 +178,8 @@ private fun GoogleRow(
             LinearProgressIndicator(
                 progress = { progress },
                 color = SS.colors.ink,
+                // The neutral track, never Material's stock container colour (UX2-9).
+                trackColor = SS.colors.segmentTrack,
                 modifier = Modifier.width(ProgressWidth),
             )
             TextButton(onClick = { onAction(FontPickerAction.Cancel(option.family)) }) {

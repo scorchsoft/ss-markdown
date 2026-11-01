@@ -20,8 +20,14 @@ data class SSColors(
     val bg: Color,
     /** The top and bottom bars, sheets and menus. */
     val chrome: Color,
-    /** Hairlines between chrome and page. */
+    /** Hairlines between chrome and page. Decorative: never the only edge of a control. */
     val border: Color,
+    /**
+     * A text field's resting outline: at least 3:1 on the page, the chrome
+     * and the segment track (WCAG 1.4.11, UX2-10). [border] is 1.26:1 and
+     * only separates surfaces.
+     */
+    val inputOutline: Color,
     /** Text and everything else that needs emphasis: syntax markers, toggles, the caret. */
     val ink: Color,
     /** Secondary text: the status line, unselected segments, the clean tick. */
@@ -37,6 +43,12 @@ data class SSColors(
      * red that passes AA (UX-4). Never a fill: white on it fails.
      */
     val needsYouText: Color,
+    /**
+     * The tint behind an error callout (a failed save): [needsYouText] on it
+     * passes AA in both themes, so the error reads as an error without
+     * relying on the icon alone (UX2-6).
+     */
+    val needsYouBg: Color,
     /** Text on a [needsYou] fill. */
     val onNeedsYou: Color,
     /** Recovery, notes and alerts: [info] text on [infoBg]. */
@@ -56,11 +68,13 @@ val SSLightColors =
         bg = Color(0xFFFFFFFF),
         chrome = Color(0xFFFAFAF9),
         border = Color(0xFFE6E5E2),
+        inputOutline = Color(0xFF828288),
         ink = Color(0xFF1C1C1E),
         inkMuted = Color(0xFF636369),
         gutter = Color(0xFF6E6E73),
         needsYou = Color(0xFFB3191B),
         needsYouText = Color(0xFFB3191B),
+        needsYouBg = Color(0xFFFCEBEA),
         onNeedsYou = Color(0xFFFFFFFF),
         info = Color(0xFF1D5DBF),
         infoBg = Color(0xFFEAF1FC),
@@ -82,11 +96,13 @@ val SSDarkColors =
         bg = Color(0xFF161618),
         chrome = Color(0xFF1C1C1F),
         border = Color(0xFF2E2E33),
+        inputOutline = Color(0xFF80808A),
         ink = Color(0xFFECECEF),
         inkMuted = Color(0xFFA3A3AB),
         gutter = Color(0xFF8E8E96),
         needsYou = Color(0xFFC9302F),
         needsYouText = Color(0xFFFF6B66),
+        needsYouBg = Color(0xFF33191A),
         onNeedsYou = Color(0xFFFFFFFF),
         info = Color(0xFF82B4FF),
         infoBg = Color(0xFF1B2536),

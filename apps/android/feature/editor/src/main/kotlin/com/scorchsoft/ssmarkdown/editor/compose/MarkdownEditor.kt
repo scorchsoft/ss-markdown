@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.editor.compose
 
+import android.graphics.Typeface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -24,7 +25,8 @@ import com.scorchsoft.ssmarkdown.text.TextDocument
  * it rebinds the view (and restarts the keyboard). [zoomPercent] and
  * [wrap] are applied only when they differ from the view's own values, so
  * a pinch's `onZoomChanged` feeding back into state does not fight the
- * gesture. [onViewReady] hands the view to a host that needs its
+ * gesture. [typeface] is the code font; null keeps the system monospace.
+ * [onViewReady] hands the view to a host that needs its
  * imperative API ([MarkdownCodeView.scrollToLine],
  * [MarkdownCodeView.requestFlushComposing], [MarkdownCodeView.applyEdit]).
  */
@@ -35,6 +37,7 @@ fun MarkdownEditor(
     theme: EditorTheme? = null,
     wrap: Boolean = false,
     zoomPercent: Int = 100,
+    typeface: Typeface? = null,
     listener: EditorListener? = null,
     onViewReady: (MarkdownCodeView) -> Unit = {},
 ) {
@@ -49,6 +52,7 @@ fun MarkdownEditor(
             }
             if (theme != null && view.theme != theme) view.theme = theme
             if (view.wrap != wrap) view.wrap = wrap
+            if (typeface != null && view.codeTypeface != typeface) view.codeTypeface = typeface
             if (view.zoomPercent != zoomPercent) view.zoomPercent = zoomPercent
             view.listener = listener
         },

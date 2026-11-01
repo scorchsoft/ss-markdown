@@ -29,8 +29,68 @@ class TokenizerMemoryTest {
         // Before: one LineResult per line, 200,000 of them (about 100 bytes a line, 121 MB for 20 MB of text).
         assertTrue("${cache.cachedLines} lines of tokens held", cache.cachedLines <= 1_024)
         val perLine = cache.retainedBytesEstimate().toDouble() / doc.lineCount
-        assertTrue("$perLine bytes a line", perLine < 16.0)
+        // Ten bytes of slots a line, plus one heading (~90 bytes with its text) every ten lines (PERF-J counts them).
+        assertTrue("$perLine bytes a line", perLine < 24.0)
         assertEquals(20_000, cache.outline.size)
+    }
+
+    @Test
+    fun `a run of line breaks near the top of a huge file moves no state after the first (PERF-E)`() {
+        val doc = bigDoc(HUGE_LINES)
+        val cache = fullyTokenized(doc)
+        // The first break near the top pays once to bring the gap there.
+        doc.edit(cache, doc.offsetOf(10), doc.offsetOf(10), "\n")
+        val first = cache.stateEntriesMoved
+        assertTrue("$first moved for the first break", first <= HUGE_LINES)
+        var line = 11
+        repeat(BREAKS) {
+            val at = doc.offsetOf(line) + 2
+            doc.edit(cache, at, at, "\n")
+            cache.continueInIdle(Long.MAX_VALUE / 4)
+            line++
+        }
+        // Before: every break shifted the whole tail of four arrays, 200k entries each, 40M moves for 200 breaks.
+        val moved = cache.stateEntriesMoved - first
+        assertTrue("$moved state slots moved for $BREAKS line breaks", moved <= BREAKS * 2L)
+        assertTrue(cache.isComplete)
+        val fresh = fullyTokenized(doc)
+        for (probe in listOf(0, 10, 11, 12, 100, 211, 5_000, doc.lineCount - 1)) {
+            assertTrue("line $probe", cache.resultAt(probe).sameAs(fresh.resultAt(probe)))
+        }
+    }
+
+    @Test
+    fun `typing inside lines never moves a state slot (PERF-E)`() {
+        val doc = bigDoc(HUGE_LINES)
+        val cache = fullyTokenized(doc)
+        repeat(BREAKS) {
+            val at = doc.offsetOf(500) + 3
+            doc.edit(cache, at, at, "x")
+        }
+        assertEquals(0L, cache.stateEntriesMoved)
+    }
+
+    @Test
+    fun `the memory estimate counts headings and references, not just the line slots (PERF-J)`() {
+        val doc =
+            TestDoc(
+                (0 until 20_000).joinToString("\n") { i ->
+                    if (i % 2 ==
+                        0
+                    ) {
+                        "## A heading with a fairly long title number $i"
+                    } else {
+                        "[label$i]: https://example.com/$i"
+                    }
+                },
+            )
+        val cache = fullyTokenized(doc)
+        val slotsOnly = doc.lineCount.toLong() * IncrementalTokenizer.BYTES_PER_LINE
+        // 10k headings of ~45 chars and 10k labels: well over 1 MB beyond the slots, which the old estimate ignored.
+        assertTrue(
+            "${cache.retainedBytesEstimate()} bytes estimated",
+            cache.retainedBytesEstimate() > slotsOnly + 1_000_000,
+        )
     }
 
     @Test
@@ -95,5 +155,7 @@ class TokenizerMemoryTest {
 
     private companion object {
         const val FRAMES = 10
+        const val HUGE_LINES = 200_000
+        const val BREAKS = 200
     }
 }

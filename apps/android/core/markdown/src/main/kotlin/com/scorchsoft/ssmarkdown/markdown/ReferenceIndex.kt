@@ -33,6 +33,10 @@ public class ReferenceIndex internal constructor() {
     /** Every defined label, in document order, without duplicates. */
     public fun labels(): List<String> = (0 until entries.size).map { entries.valueAt(it) }.distinct()
 
+    /** Roughly the heap the definitions hold: entries, labels and the count map's nodes. */
+    internal fun retainedBytesEstimate(): Long =
+        entries.retainedBytesEstimate(::stringBytes) + counts.size.toLong() * COUNT_NODE_BYTES
+
     internal fun set(
         line: Int,
         label: String?,
@@ -65,5 +69,10 @@ public class ReferenceIndex internal constructor() {
         val footnote = inner.startsWith('^')
         val key = BlockSyntax.normalizeLabel(inner, if (footnote) 1 else 0, inner.length)
         return if (footnote) "^$key" else key
+    }
+
+    private companion object {
+        /** A `HashMap` node, its boxed count and its table slot. */
+        const val COUNT_NODE_BYTES = 52L
     }
 }

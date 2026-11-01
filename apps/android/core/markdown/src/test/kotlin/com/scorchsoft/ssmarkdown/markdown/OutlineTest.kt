@@ -88,21 +88,56 @@ class OutlineTest {
     }
 
     @Test
+    fun `a detached copy follows edits without its tokenizer, and never moves the original`() {
+        val copy = outline.copy()
+        // Enter in the middle of "## Code review" (line 3): the heading stays on line 3, later ones move down.
+        copy.followEdit(3, 1, 2)
+        assertEquals(listOf(1, 3, 6, 8, 9, 11), copy.headings().map { it.line })
+        assertEquals(listOf(1, 3, 5, 7, 8, 10), outline.headings().map { it.line })
+        // Lines 5-7 become one: line 5 keeps its place, the Checklist heading on line 6 goes, the rest move up.
+        copy.followEdit(5, 3, 1)
+        assertEquals(listOf(1, 3, 6, 7, 9), copy.headings().map { it.line })
+        assertEquals(
+            listOf("How we work", "Code review", "Releases", "Setext two", "Appendix"),
+            copy.headings().map {
+                it.text
+            },
+        )
+        assertEquals(9..10, copy.sectionRange(9))
+    }
+
+    @Test(expected = IllegalStateException::class)
+    fun `a tokenizer's own outline refuses to follow edits by hand`() {
+        outline.followEdit(0, 1, 1)
+    }
+
+    @Test
     fun `ten thousand headings stay cheap to query and edit`() {
         val lines = (0 until 50_000).map { i -> if (i % 5 == 0) "#".repeat(1 + (i / 5) % 6) + " H$i" else "text $i" }
         val doc = TestDoc(lines.joinToString("\n"))
         val cache = fullyTokenized(doc)
         assertEquals(10_000, cache.outline.size)
-        val started = System.nanoTime()
-        repeat(1_000) { n ->
+        val tokenizedBefore = cache.linesTokenized
+        val derivedBefore = cache.outline.derivations
+        repeat(EDITS) { n ->
             val line = (n * 49) % 50_000
             doc.edit(cache, doc.offsetOf(line), doc.offsetOf(line), "x")
             cache.tokenizeUntil(line + 1, Long.MAX_VALUE / 4)
-            cache.outline.breadcrumbAt(line)
-            cache.outline.sectionRange(cache.outline.heading(cache.outline.indexAt(line).coerceAtLeast(0)).line)
+            repeat(QUERIES_PER_EDIT) {
+                cache.outline.breadcrumbAt(line)
+                cache.outline.sectionRange(cache.outline.heading(cache.outline.indexAt(line).coerceAtLeast(0)).line)
+            }
         }
-        val elapsedMs = (System.nanoTime() - started) / 1_000_000
-        // Dominated by TestDoc's own O(n) offset maths; the outline's share is microseconds.
-        assertTrue("1,000 edits + queries took $elapsedMs ms", elapsedMs < 10_000)
+        // Work, not wall-clock time (CC-F): an edit re-reads a line or two, and the parent/section pass
+        // runs at most once per edit however many queries follow it, never once per query.
+        val tokenized = cache.linesTokenized - tokenizedBefore
+        assertTrue("$tokenized lines tokenised for $EDITS edits", tokenized <= EDITS * 3L)
+        val derived = cache.outline.derivations - derivedBefore
+        assertTrue("$derived derivations for $EDITS edits", derived <= EDITS)
+    }
+
+    private companion object {
+        const val EDITS = 1_000
+        const val QUERIES_PER_EDIT = 5
     }
 }

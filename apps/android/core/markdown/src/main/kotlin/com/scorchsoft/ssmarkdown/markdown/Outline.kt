@@ -31,11 +31,21 @@ public data class Heading(
  * cached until the set of headings changes, so a breadcrumb or section
  * query on a 10k-heading document is a binary search plus a short walk.
  */
-public class Outline internal constructor() {
-    private val entries = LineKeyedList<Entry>()
+@Suppress("TooManyFunctions") // Queries, the tokenizer's updates and the detached copy's: one index.
+public class Outline private constructor(
+    private val entries: LineKeyedList<Entry>,
+    /** True for a [copy]: it follows edits by [followEdit] instead of being fed by a tokenizer. */
+    private val detached: Boolean,
+) {
+    internal constructor() : this(LineKeyedList(), detached = false)
+
     private var derivedVersion = -1
     private var parents = IntArray(0)
     private var sectionEnds = IntArray(0)
+
+    /** Times the parent and section arrays were rebuilt: a statistic for the bounded-work tests. */
+    internal var derivations: Int = 0
+        private set
 
     /** Lines in the document, for the end of the last section. */
     internal var lineCount: Int = 1
@@ -113,6 +123,43 @@ public class Outline internal constructor() {
         entries.replaceLines(from, removed, inserted)
     }
 
+    /** Roughly the heap the headings hold: entries, texts and the derived arrays. */
+    internal fun retainedBytesEstimate(): Long =
+        entries.retainedBytesEstimate { ENTRY_BYTES + stringBytes(it.text) } +
+            (parents.size + sectionEnds.size).toLong() * Int.SIZE_BYTES
+
+    /**
+     * A detached copy of the headings as they are now, to hand to another
+     * thread: the outline tokenizer runs on a background snapshot and
+     * publishes copies to the main thread (performance review PERF-D).
+     * Headings are immutable, so the copy costs two array copies.
+     */
+    public fun copy(): Outline {
+        val copy = Outline(entries.copy(), detached = true)
+        copy.lineCount = lineCount
+        return copy
+    }
+
+    /**
+     * Follows an edit on a detached copy until a fresh one arrives: lines
+     * `[from, from + removed)` became [inserted] lines. Headings on lines
+     * that still exist stay where they are (the next copy corrects their
+     * text, so the breadcrumb never blinks while a heading is typed in),
+     * headings on deleted lines go, and later ones move. Line numbers are
+     * therefore always valid for the current text, if briefly stale in
+     * content.
+     */
+    public fun followEdit(
+        from: Int,
+        removed: Int,
+        inserted: Int,
+    ) {
+        check(detached) { "a tokenizer's own outline follows its tokenizer" }
+        val kept = minOf(removed, inserted)
+        entries.replaceLines(from + kept, removed - kept, inserted - kept)
+        lineCount += inserted - removed
+    }
+
     /** One stack pass computes every heading's parent and the heading that ends its section. */
     private fun derive() {
         if (derivedVersion == entries.version) return
@@ -129,6 +176,7 @@ public class Outline internal constructor() {
         }
         while (top > 0) sectionEnds[stack[--top]] = -1
         derivedVersion = entries.version
+        derivations++
     }
 
     private data class Entry(
@@ -138,6 +186,9 @@ public class Outline internal constructor() {
 
     internal companion object {
         private const val MAX_TEXT = 200
+
+        /** An [Entry]: header, level and a reference. */
+        private const val ENTRY_BYTES = 24L
 
         private val HIDDEN =
             setOf(

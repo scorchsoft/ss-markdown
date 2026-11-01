@@ -10,6 +10,7 @@ package com.scorchsoft.ssmarkdown.markdown
  * A balanced tree would buy O(log n) shifts at the cost of an object per
  * entry; it is not needed at these sizes.
  */
+@Suppress("TooManyFunctions") // Lookups, edits, a copy and its size estimate: each a few lines.
 internal class LineKeyedList<T : Any> {
     private var lines = IntArray(INITIAL)
     private var values = arrayOfNulls<Any>(INITIAL)
@@ -69,6 +70,25 @@ internal class LineKeyedList<T : Any> {
         version++
     }
 
+    /** An independent copy; the values are shared, so they must be immutable. */
+    fun copy(): LineKeyedList<T> {
+        val copy = LineKeyedList<T>()
+        copy.lines = lines.copyOf()
+        copy.values = values.copyOf()
+        copy.size = size
+        return copy
+    }
+
+    /**
+     * Roughly the heap these entries hold: the two arrays at capacity, plus
+     * [perValue] for each value (its own objects).
+     */
+    fun retainedBytesEstimate(perValue: (T) -> Long): Long {
+        var bytes = lines.size.toLong() * (Int.SIZE_BYTES + REFERENCE_BYTES)
+        for (i in 0 until size) bytes += perValue(valueAt(i))
+        return bytes
+    }
+
     private fun lowerBound(line: Int): Int {
         var low = 0
         var high = size
@@ -108,5 +128,14 @@ internal class LineKeyedList<T : Any> {
 
     private companion object {
         const val INITIAL = 16
+
+        /** A compressed reference, on ART and on a 64-bit JVM with compressed oops. */
+        const val REFERENCE_BYTES = 4
     }
 }
+
+/** A `String`'s own heap: the object, its array header and one byte a char (ART and the JVM compress ASCII). */
+internal fun stringBytes(text: String): Long = STRING_OVERHEAD_BYTES + text.length
+
+/** The `String` object and its backing array's header, rounded. */
+private const val STRING_OVERHEAD_BYTES = 40L

@@ -178,18 +178,18 @@ class LineTokenizerTest {
     @Test
     fun `a long line is tokenised only up to the cap`() {
         val head = "# " + "*a* ".repeat(5_000)
-        val line = head + "x".repeat(1_000_000)
-        val started = System.nanoTime()
+        val line = CountingChars(head + "x".repeat(1_000_000))
         val result = LineTokenizer().tokenize(line, LineState.NORMAL)
-        val elapsedMs = (System.nanoTime() - started) / 1_000_000
         val last = result.tokens.last()
         assertEquals(LineTokenizer.MAX_TOKENIZED_COLUMNS, Tokens.end(last))
         assertEquals(LineKind.HEADING, result.kind)
-        assertTrue("1 MB line took $elapsedMs ms", elapsedMs < 1_000)
+        // Work, not wall-clock time (CC-F): nothing past the cap is read, and the prefix only a few times over.
+        assertTrue("read up to ${line.furthest}", line.furthest < LineTokenizer.MAX_TOKENIZED_COLUMNS)
+        assertTrue("${line.reads} char reads", line.reads <= LineTokenizer.MAX_TOKENIZED_COLUMNS * READS_PER_CHAR)
     }
 
     @Test
-    fun `hostile inline lines stay fast`() {
+    fun `hostile inline lines stay linear`() {
         val hostile =
             listOf(
                 "*a ".repeat(3_000),
@@ -200,12 +200,40 @@ class LineTokenizerTest {
                 "\$".repeat(10_000),
             )
         val tokenizer = LineTokenizer()
-        for (line in hostile) {
-            val started = System.nanoTime()
+        for (text in hostile) {
+            val line = CountingChars(text)
             tokenizer.tokenize(line, LineState.NORMAL)
-            val elapsedMs = (System.nanoTime() - started) / 1_000_000
-            assertTrue("\"${line.take(10)}...\" took $elapsedMs ms", elapsedMs < 2_000)
+            // A quadratic scan reads tens of millions of chars here; a linear one, a small multiple of the line.
+            val read = minOf(text.length, LineTokenizer.MAX_TOKENIZED_COLUMNS)
+            assertTrue("\"${text.take(10)}...\" read ${line.reads} chars", line.reads <= read.toLong() * READS_PER_CHAR)
         }
+    }
+
+    /** A line that counts how often, and how far, the tokenizer reads it. */
+    private class CountingChars(
+        private val text: String,
+    ) : CharSequence {
+        var reads = 0L
+        var furthest = -1
+
+        override val length: Int get() = text.length
+
+        override fun get(index: Int): Char {
+            reads++
+            if (index > furthest) furthest = index
+            return text[index]
+        }
+
+        override fun subSequence(
+            startIndex: Int,
+            endIndex: Int,
+        ): CharSequence {
+            reads += endIndex - startIndex
+            if (endIndex - 1 > furthest) furthest = endIndex - 1
+            return text.subSequence(startIndex, endIndex)
+        }
+
+        override fun toString(): String = error("the tokenizer must not copy the whole line")
     }
 
     @Test
@@ -225,5 +253,10 @@ class LineTokenizerTest {
         assertEquals(TokenKind.FOOTNOTE_LABEL, Tokens.kind(token))
         assertEquals(InlineStyle.LINK or InlineStyle.STRONG, Tokens.styles(token))
         assertEquals("12-9999:FOOTNOTE_LABEL/10", Tokens.describe(longArrayOf(token)))
+    }
+
+    private companion object {
+        /** Reads per char the tokenizer may make: at most 6 measured on these lines, so 16 leaves margin, not slack. */
+        const val READS_PER_CHAR = 16L
     }
 }

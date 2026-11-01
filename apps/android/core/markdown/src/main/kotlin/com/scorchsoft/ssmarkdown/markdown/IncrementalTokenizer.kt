@@ -75,10 +75,7 @@ public class IncrementalTokenizer(
     public var linesTokenizedForDisplay: Long = 0
         private set
 
-    private var starts = arrayOfNulls<LineState>(lineCount)
-    private var ends = arrayOfNulls<LineState>(lineCount)
-    private var roles = ByteArray(lineCount)
-    private var aboveRoles = ByteArray(lineCount)
+    private val states = LineStates(lineCount)
     private val marks = SortedMarks()
     private val guesser = LineTokenizer()
     private val cache = TokenCache(tokenCacheLines)
@@ -108,11 +105,26 @@ public class IncrementalTokenizer(
     public val cachedLines: Int get() = cache.size
 
     /**
-     * Roughly what this cache keeps alive, in bytes: the per-line arrays at
-     * their current capacity plus the cached tokens. For the memory
-     * governor's accounting and the PERF-9 regression test.
+     * Per-line state slots moved to follow line breaks so far. A statistic
+     * for the PERF-E regression test: a run of line breaks in one place
+     * moves nothing after the first ([LineStates] is a gap buffer).
      */
-    public fun retainedBytesEstimate(): Long = starts.size.toLong() * BYTES_PER_LINE + cache.retainedBytesEstimate()
+    public val stateEntriesMoved: Long get() = states.movedEntries
+
+    /**
+     * Roughly what this cache keeps alive, in bytes: the per-line slots at
+     * their current capacity, the cached tokens, the outline's headings and
+     * the reference labels (each with its text), and the interned states.
+     * For the PERF-9 regression test and the benchmark. It used to count
+     * the slots and tokens only, half of what the benchmark measures on a
+     * heading-rich file (performance review PERF-J).
+     */
+    public fun retainedBytesEstimate(): Long =
+        states.capacity.toLong() * BYTES_PER_LINE +
+            cache.retainedBytesEstimate() +
+            outline.retainedBytesEstimate() +
+            references.retainedBytesEstimate() +
+            interned.size.toLong() * INTERNED_STATE_BYTES
 
     /**
      * Drops every cached token (the memory governor's "tokenizer cache"
@@ -140,7 +152,7 @@ public class IncrementalTokenizer(
             "Edit ($fromLine, -$linesRemoved, +$linesInserted) is outside $lineCount lines"
         }
         val newCount = lineCount - linesRemoved + linesInserted
-        replaceRange(fromLine, linesRemoved, linesInserted, newCount)
+        states.replace(fromLine, linesRemoved, linesInserted)
         cache.onEdit(fromLine, linesRemoved, linesInserted)
         outline.replaceLines(fromLine, linesRemoved, linesInserted)
         references.replaceLines(fromLine, linesRemoved, linesInserted)
@@ -148,9 +160,9 @@ public class IncrementalTokenizer(
         lineCount = newCount
         outline.lineCount = newCount
         // The line above may have been read as a setext heading or table header because of a line that just changed.
-        val lookBack = fromLine > 0 && roles[fromLine - 1] != AS_IS
+        val lookBack = fromLine > 0 && states.role(fromLine - 1) != AS_IS
         if (lookBack) {
-            roles[fromLine - 1] = AS_IS
+            states.setRole(fromLine - 1, AS_IS)
             marks.add(fromLine - 1)
         } else if (fromLine < newCount) {
             marks.add(fromLine)
@@ -192,7 +204,7 @@ public class IncrementalTokenizer(
         if (!isAccurate(line)) return tokenizeHeuristically(line)
         val slot = cache.slotOf(line)
         if (slot >= 0 && !cache.isGuess(slot)) return cache.resultIn(slot)
-        val result = retokenize(line, checkNotNull(starts[line]))
+        val result = retokenize(line, checkNotNull(states.start(line)))
         cache.put(line, result, guess = false)
         return result
     }
@@ -209,7 +221,7 @@ public class IncrementalTokenizer(
     public fun tokenizeHeuristically(line: Int): LineResult {
         val slot = cache.slotOf(line)
         if (slot >= 0) return cache.resultIn(slot)
-        starts[line]?.let { start ->
+        states.start(line)?.let { start ->
             // The text is unchanged since this line was tokenised from [start]: the same tokens, re-derived.
             return retokenize(line, start).also { cache.put(line, it, guess = true) }
         }
@@ -232,7 +244,7 @@ public class IncrementalTokenizer(
 
     /** The end state of [line] if anything (a stored pass or a cached guess) knows it. */
     private fun knownEnd(line: Int): LineState? {
-        ends[line]?.let { return it }
+        states.end(line)?.let { return it }
         val slot = cache.slotOf(line)
         return if (slot >= 0) cache.resultIn(slot).endState else null
     }
@@ -242,7 +254,7 @@ public class IncrementalTokenizer(
         start: LineState,
     ): LineResult {
         linesTokenizedForDisplay++
-        return guesser.tokenize(source.lineText(line), start, LineRole.entries[roles[line].toInt()])
+        return guesser.tokenize(source.lineText(line), start, LineRole.entries[states.role(line).toInt()])
     }
 
     private fun run(
@@ -262,8 +274,8 @@ public class IncrementalTokenizer(
 
     /** Tokenises the first pending line, then either converges or moves the mark to the next line. */
     private fun step(line: Int) {
-        val start = if (line == 0) LineState.DOCUMENT_START else checkNotNull(ends[line - 1])
-        val role = LineRole.entries[roles[line].toInt()]
+        val start = if (line == 0) LineState.DOCUMENT_START else checkNotNull(states.end(line - 1))
+        val role = LineRole.entries[states.role(line).toInt()]
         val result = store(line, start, role)
         fixLineAbove(line, result)
         val next = line + 1
@@ -272,12 +284,12 @@ public class IncrementalTokenizer(
                 marks.removeFirst()
             }
 
-            starts[next] != null && starts[next] == result.endState -> {
+            states.start(next) != null && states.start(next) == result.endState -> {
                 // Converged: everything up to the next mark was computed from this same state.
                 marks.removeFirst()
-                val asked = LineRole.entries[aboveRoles[next].toInt()]
+                val asked = LineRole.entries[states.aboveRole(next).toInt()]
                 if (asked != role) {
-                    roles[line] = asked.ordinal.toByte()
+                    states.setRole(line, asked.ordinal.toByte())
                     store(line, start, asked)
                 }
             }
@@ -293,9 +305,9 @@ public class IncrementalTokenizer(
         line: Int,
         result: LineResult,
     ) {
-        if (line == 0 || roles[line - 1].toInt() == result.previousLineRole.ordinal) return
-        roles[line - 1] = result.previousLineRole.ordinal.toByte()
-        store(line - 1, checkNotNull(starts[line - 1]), result.previousLineRole)
+        if (line == 0 || states.role(line - 1).toInt() == result.previousLineRole.ordinal) return
+        states.setRole(line - 1, result.previousLineRole.ordinal.toByte())
+        store(line - 1, checkNotNull(states.start(line - 1)), result.previousLineRole)
     }
 
     private fun store(
@@ -306,10 +318,13 @@ public class IncrementalTokenizer(
         val text = source.lineText(line)
         val result = tokenizer.tokenize(text, start, role)
         linesTokenized++
-        starts[line] = start
-        ends[line] = intern(result.endState)
-        roles[line] = role.ordinal.toByte()
-        aboveRoles[line] = result.previousLineRole.ordinal.toByte()
+        states.store(
+            line,
+            start,
+            intern(result.endState),
+            role.ordinal.toByte(),
+            result.previousLineRole.ordinal.toByte(),
+        )
         cache.put(line, result, guess = false)
         val heading = result.kind == LineKind.HEADING
         outline.set(line, result.headingLevel, if (heading) Outline.headingText(text, result.tokens) else null)
@@ -322,44 +337,6 @@ public class IncrementalTokenizer(
         // Fence info strings are user text: past the cap, a hostile document just shares less.
         if (interned.size < MAX_INTERNED_STATES) interned[state] = state
         return state
-    }
-
-    private fun replaceRange(
-        from: Int,
-        removed: Int,
-        inserted: Int,
-        newCount: Int,
-    ) {
-        if (newCount > starts.size) {
-            val capacity = maxOf(newCount, starts.size + starts.size / 2)
-            starts = starts.copyOf(capacity)
-            ends = ends.copyOf(capacity)
-            roles = roles.copyOf(capacity)
-            aboveRoles = aboveRoles.copyOf(capacity)
-        }
-        val tail = lineCount - from - removed
-        // A change within lines (the common keystroke) moves nothing; skip copying a million-entry tail onto itself.
-        if (removed != inserted) shiftTail(from, removed, inserted, tail)
-        starts.fill(null, from, from + inserted)
-        ends.fill(null, from, from + inserted)
-        roles.fill(AS_IS, from, from + inserted)
-        aboveRoles.fill(AS_IS, from, from + inserted)
-        if (newCount < lineCount) {
-            starts.fill(null, newCount, lineCount)
-            ends.fill(null, newCount, lineCount)
-        }
-    }
-
-    private fun shiftTail(
-        from: Int,
-        removed: Int,
-        inserted: Int,
-        tail: Int,
-    ) {
-        System.arraycopy(starts, from + removed, starts, from + inserted, tail)
-        System.arraycopy(ends, from + removed, ends, from + inserted, tail)
-        System.arraycopy(roles, from + removed, roles, from + inserted, tail)
-        System.arraycopy(aboveRoles, from + removed, aboveRoles, from + inserted, tail)
     }
 
     /** Tuning shared with the editor. */
@@ -378,6 +355,9 @@ public class IncrementalTokenizer(
         public const val BYTES_PER_LINE: Int = 10
 
         private const val AS_IS: Byte = 0
+
+        /** A map node plus a small [LineState]: the cost of one distinct interned state. */
+        private const val INTERNED_STATE_BYTES = 96L
         private const val MAX_INTERNED_STATES = 4_096
     }
 }

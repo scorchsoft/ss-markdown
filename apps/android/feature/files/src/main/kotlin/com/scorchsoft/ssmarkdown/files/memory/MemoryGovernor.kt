@@ -1,5 +1,7 @@
 package com.scorchsoft.ssmarkdown.files.memory
 
+import com.scorchsoft.ssmarkdown.text.UndoStack
+
 /**
  * Owns the memory budget (docs/robustness.md Part 2a): admission control
  * before a load, pressure checks during loads and pastes, and the shed
@@ -38,6 +40,9 @@ class MemoryGovernor(
      * - one transient full copy of the text, as a `String`, built while the
      *   buffer is live: the replay of recovered edits on open, or a
      *   conflict's copies of the base and the file on disk: × 2;
+     * - the undo history, which a whole-text replace (a merge, Replace
+     *   all) fills with a second copy: × 2, up to its per-document cap
+     *   ([UndoStack.DEFAULT_MAX_BYTES], 32 MB; PERF-G);
      *
      * plus a fixed safety margin.
      */
@@ -46,6 +51,7 @@ class MemoryGovernor(
             fileBytes / INDEX_DIVISOR +
             fileBytes * TOKENIZERS_PER_BYTE +
             fileBytes * TRANSIENT_COPY_PER_BYTE +
+            minOf(fileBytes * TEXT_PER_BYTE, UndoStack.DEFAULT_MAX_BYTES) +
             SAFETY_MARGIN_BYTES
 
     /**

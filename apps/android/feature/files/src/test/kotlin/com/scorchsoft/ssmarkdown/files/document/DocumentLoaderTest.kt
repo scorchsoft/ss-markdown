@@ -12,7 +12,7 @@ import org.junit.Test
 
 /** Out-of-memory protection when the provider does not say how big a file is (performance review PERF-I). */
 class DocumentLoaderTest {
-    // 200 MB free: a 12 MB file costs ~86 MB, past the 80 MB normal line, so it opens lean.
+    // 200 MB free: a 12 MB file costs ~110 MB, past the 80 MB normal line, so it opens lean.
     private val memory = FakeMemorySource(maxHeap = 256 * MB, usedHeap = 56 * MB, memoryClassMegabytes = 256)
     private val provider = FakeDocumentProvider()
     private val loader = DocumentLoader(provider, MemoryGovernor(memory))

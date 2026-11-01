@@ -14,12 +14,15 @@ class MemoryGovernorTest {
     private val governor = MemoryGovernor(source)
 
     // Free heap is 200 MB, so the normal line is 80 MB of cost and the lean line 140 MB.
-    private fun fileCosting(cost: Long) = (cost - MemoryGovernor.SAFETY_MARGIN_BYTES) * 2 / 13
+    private fun fileCosting(cost: Long) = (cost - MemoryGovernor.SAFETY_MARGIN_BYTES) * 2 / 17
 
     @Test
-    fun `cost counts the text, index, tokenizers, a transient copy and the margin (PERF-9, DS-19)`() {
-        // Text x2, index x0.5, two tokenizers x2, one String copy for a recovery or conflict x2.
-        assertEquals(10 * MB * 13 / 2 + MemoryGovernor.SAFETY_MARGIN_BYTES, governor.estimateOpenCost(10 * MB))
+    fun `cost counts the text, index, tokenizers, a transient copy, undo and the margin (PERF-9, DS-19, PERF-G)`() {
+        // Text x2, index x0.5, two tokenizers x2, one String copy for a recovery or conflict x2, undo x2.
+        assertEquals(10 * MB * 17 / 2 + MemoryGovernor.SAFETY_MARGIN_BYTES, governor.estimateOpenCost(10 * MB))
+        // Undo is capped per document: past 16 MB of text it adds its 32 MB cap and no more.
+        val big = 40 * MB
+        assertEquals(big * 13 / 2 + 32 * MB + MemoryGovernor.SAFETY_MARGIN_BYTES, governor.estimateOpenCost(big))
     }
 
     @Test

@@ -35,7 +35,11 @@ public class UndoStack(
     /** True when there is something to redo. */
     public val canRedo: Boolean get() = redoGroups.isNotEmpty()
 
-    /** Memory held by both stacks, for the memory governor. */
+    /**
+     * Memory held by both stacks: what the [maxBytes] budget is checked
+     * against. The memory governor budgets for the cap itself
+     * ([DEFAULT_MAX_BYTES]) when it admits a file.
+     */
     public var retainedBytes: Long = 0
         private set
 

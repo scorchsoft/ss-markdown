@@ -279,7 +279,14 @@ class MarkdownCodeView
             renderer.draw(canvas, visible, frame)
             selectionUi.drawHandles(canvas, theme.caret)
             canvas.restore()
-            viewport.widestVisibleRow = visible.maxOfOrNull { geometry.layoutFor(it).width } ?: 0f
+            viewport.widestVisibleRow = widestRow(visible)
+        }
+
+        /** The widest laid-out row on screen; a plain loop, because `maxOfOrNull` boxes every line number. */
+        private fun widestRow(visible: IntRange): Float {
+            var widest = 0f
+            for (line in visible) widest = maxOf(widest, geometry.layoutFor(line).width)
+            return widest
         }
 
         override fun computeScroll() {

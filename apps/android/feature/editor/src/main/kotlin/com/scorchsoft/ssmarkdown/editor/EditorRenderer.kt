@@ -192,17 +192,24 @@ internal class EditorRenderer(
         result: LineResult,
         frame: FrameMetrics,
     ) {
-        val key = LineDrawKey(result, row.layout, epoch, row.left, frame.width)
-        val node =
-            nodes.get(versions[line], key) { reused ->
-                val node = reused ?: RenderNode("line")
-                record(node, result, frame)
-                node
-            }
+        probe.set(result, row.layout, epoch, row.left, frame.width)
+        recordResult = result
+        recordFrame = frame
+        val node = nodes.get(versions[line], probe, recordNode)
         canvas.save()
         canvas.translate(0f, top.toFloat())
         canvas.drawRenderNode(node)
         canvas.restore()
+    }
+
+    // One probe key and one recording function for every line of every frame: the draw path allocates nothing.
+    private val probe = LineDrawKey(Unit, Unit, 0, 0f, 0)
+    private var recordResult: LineResult? = null
+    private var recordFrame: FrameMetrics? = null
+    private val recordNode: (RenderNode?) -> RenderNode = { reused ->
+        val node = reused ?: RenderNode("line")
+        record(node, checkNotNull(recordResult), checkNotNull(recordFrame))
+        node
     }
 
     /** Records every row of the current line, in line-local coordinates. */

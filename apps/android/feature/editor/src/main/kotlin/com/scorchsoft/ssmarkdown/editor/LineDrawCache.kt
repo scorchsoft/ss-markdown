@@ -20,6 +20,10 @@ internal class LineVersions(
 
     val lineCount: Int get() = size
 
+    /** Entries moved by edits so far; a same-line-count edit moves none (PERF-17). */
+    var shiftedEntries: Long = 0
+        private set
+
     /** Starts over for a document of [lineCount] lines; every old id is retired. */
     fun reset(lineCount: Int) {
         size = maxOf(lineCount, 1)
@@ -34,7 +38,12 @@ internal class LineVersions(
         val added = change.addedBreaks + 1
         val newSize = size - removed + added
         val out = if (newSize <= ids.size) ids else IntArray(maxOf(newSize, ids.size * 2))
-        System.arraycopy(ids, first + removed, out, first + added, size - first - removed)
+        // A keystroke inside a line moves nothing: skip copying a million-entry tail onto itself.
+        if (out !== ids || added != removed) {
+            val tail = size - first - removed
+            System.arraycopy(ids, first + removed, out, first + added, tail)
+            shiftedEntries += tail
+        }
         if (out !== ids) System.arraycopy(ids, 0, out, 0, first)
         for (i in first until first + added) out[i] = nextId++
         ids = out
@@ -78,7 +87,8 @@ internal class LineDrawCache<T : Any>(
         if (entry != null && entry.key == key) return entry.drawing
         val drawing = record(entry?.drawing)
         recordings++
-        entries[lineId] = Entry(key, drawing)
+        // The caller may reuse [key] as a probe for every line, every frame: store a copy.
+        entries[lineId] = Entry(key.copy(), drawing)
         if (entries.size > capacity) evictEldest()
         return drawing
     }
@@ -116,12 +126,42 @@ internal class LineDrawCache<T : Any>(
  * @property width the drawing's width.
  */
 internal class LineDrawKey(
-    val tokens: Any,
-    val layout: Any,
-    val epoch: Int,
-    val left: Float,
-    val width: Int,
+    tokens: Any,
+    layout: Any,
+    epoch: Int,
+    left: Float,
+    width: Int,
 ) {
+    var tokens: Any = tokens
+        private set
+    var layout: Any = layout
+        private set
+    var epoch: Int = epoch
+        private set
+    var left: Float = left
+        private set
+    var width: Int = width
+        private set
+
+    /** Reuses this key as a lookup probe, so the draw path allocates no key per line per frame (PERF-19). */
+    fun set(
+        tokens: Any,
+        layout: Any,
+        epoch: Int,
+        left: Float,
+        width: Int,
+    ): LineDrawKey {
+        this.tokens = tokens
+        this.layout = layout
+        this.epoch = epoch
+        this.left = left
+        this.width = width
+        return this
+    }
+
+    /** An independent key with the same values, for storing. */
+    fun copy(): LineDrawKey = LineDrawKey(tokens, layout, epoch, left, width)
+
     override fun equals(other: Any?): Boolean =
         other is LineDrawKey &&
             sameTokens(other.tokens) &&
@@ -132,8 +172,10 @@ internal class LineDrawKey(
 
     override fun hashCode(): Int = System.identityHashCode(layout) * HASH + epoch
 
-    private fun sameTokens(other: Any): Boolean =
-        other === tokens || (tokens is LineResult && other is LineResult && tokens.sameAs(other))
+    private fun sameTokens(other: Any): Boolean {
+        val mine = tokens
+        return other === mine || (mine is LineResult && other is LineResult && mine.sameAs(other))
+    }
 
     private companion object {
         const val HASH = 31

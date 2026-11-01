@@ -84,6 +84,10 @@ class LineLayoutCache(
     ) {
         val lastTouched = firstLine + removedBreaks
         val shift = addedBreaks - removedBreaks
+        if (shift == 0) {
+            restampInPlace(firstLine, lastTouched, newVersion)
+            return
+        }
         val survivors = ArrayList<Pair<Int, Entry>>(entries.size)
         for ((line, entry) in entries) {
             when {
@@ -97,6 +101,24 @@ class LineLayoutCache(
             entry.version = newVersion
             entries[line] = entry
         }
+    }
+
+    /**
+     * The common keystroke: no line moved, so drop only the touched lines
+     * and re-stamp the rest where they are. No rebuilt map, no pairs, no
+     * boxed keys (performance review PERF-17).
+     */
+    private fun restampInPlace(
+        firstLine: Int,
+        lastTouched: Int,
+        newVersion: Long,
+    ) {
+        if (lastTouched - firstLine < entries.size) {
+            for (line in firstLine..lastTouched) entries.remove(line)
+        } else {
+            entries.keys.removeAll { it in firstLine..lastTouched }
+        }
+        for (entry in entries.values) entry.version = newVersion
     }
 
     /** Forgets everything, e.g. after the font size or the whole document changes. */

@@ -1,0 +1,107 @@
+/* Code blocks and the highlight.js palette. Syntax colours live only inside
+   fenced code (docs/quality-bar.md, "Code"). */
+code,
+pre {
+    font-family: var(--font-code);
+    font-size: 0.88em;
+}
+:not(pre) > code {
+    background: var(--code-bg);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+}
+pre.code-block {
+    background: var(--code-bg);
+    padding: 12px 14px;
+    border-radius: 8px;
+    overflow-x: auto;
+    line-height: 1.5;
+}
+pre.code-block code {
+    white-space: pre;
+}
+
+.hljs-comment,
+.hljs-quote {
+    color: #6a737d;
+    font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-type {
+    color: #8250df;
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-addition {
+    color: #0a7a3c;
+}
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet {
+    color: #b35900;
+}
+.hljs-title,
+.hljs-section,
+.hljs-function .hljs-title {
+    color: #0550ae;
+}
+.hljs-attr,
+.hljs-attribute,
+.hljs-variable,
+.hljs-template-variable {
+    color: #953800;
+}
+.hljs-built_in,
+.hljs-name,
+.hljs-tag {
+    color: #116329;
+}
+.hljs-meta {
+    color: #57606a;
+}
+.hljs-deletion {
+    color: #82071e;
+}
+.hljs-emphasis {
+    font-style: italic;
+}
+.hljs-strong {
+    font-weight: bold;
+}
+
+:root[data-dark="true"] .hljs-comment,
+:root[data-dark="true"] .hljs-quote {
+    color: #8b949e;
+}
+:root[data-dark="true"] .hljs-keyword,
+:root[data-dark="true"] .hljs-selector-tag,
+:root[data-dark="true"] .hljs-literal,
+:root[data-dark="true"] .hljs-type {
+    color: #d2a8ff;
+}
+:root[data-dark="true"] .hljs-string,
+:root[data-dark="true"] .hljs-regexp,
+:root[data-dark="true"] .hljs-addition {
+    color: #7ee787;
+}
+:root[data-dark="true"] .hljs-number,
+:root[data-dark="true"] .hljs-symbol,
+:root[data-dark="true"] .hljs-bullet {
+    color: #ffa657;
+}
+:root[data-dark="true"] .hljs-title,
+:root[data-dark="true"] .hljs-section {
+    color: #79c0ff;
+}
+:root[data-dark="true"] .hljs-attr,
+:root[data-dark="true"] .hljs-attribute,
+:root[data-dark="true"] .hljs-variable {
+    color: #ffa198;
+}
+:root[data-dark="true"] .hljs-built_in,
+:root[data-dark="true"] .hljs-name,
+:root[data-dark="true"] .hljs-tag {
+    color: #7ee787;
+}

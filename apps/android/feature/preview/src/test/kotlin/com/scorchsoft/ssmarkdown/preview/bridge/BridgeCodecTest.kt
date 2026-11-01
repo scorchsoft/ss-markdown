@@ -1,0 +1,108 @@
+package com.scorchsoft.ssmarkdown.preview.bridge
+
+import org.json.JSONObject
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
+/**
+ * The wire format both ends agree on. The JSON strings below are exactly what
+ * `web/src/protocol.ts` produces and expects; a change here is a protocol change.
+ */
+@RunWith(RobolectricTestRunner::class)
+class BridgeCodecTest {
+    private fun encoded(message: HostMessage): JSONObject = JSONObject(BridgeCodec.encode(message))
+
+    @Test
+    fun `load carries the text, revision and anchor`() {
+        val json = encoded(HostMessage.Load(rev = 3, text = "# Hi\n", anchorLine = 12))
+        assertEquals("load", json.getString("type"))
+        assertEquals(3, json.getInt("rev"))
+        assertEquals("# Hi\n", json.getString("text"))
+        assertEquals(12, json.getInt("anchorLine"))
+        assertTrue(!encoded(HostMessage.Load(1, "x")).has("anchorLine"))
+    }
+
+    @Test
+    fun `edits travel as line ranges, never the whole document`() {
+        val json = encoded(HostMessage.Edit(rev = 9, changes = listOf(LineChange(4, 5, listOf("a", "")))))
+        val change = json.getJSONArray("changes").getJSONObject(0)
+        assertEquals(4, change.getInt("fromLine"))
+        assertEquals(5, change.getInt("toLine"))
+        assertEquals(2, change.getJSONArray("lines").length())
+        assertTrue(!json.has("text"))
+    }
+
+    @Test
+    fun `theme embeds the theme JSON as an object`() {
+        val json = encoded(HostMessage.Theme("""{"name":"Reader","base":"reader"}""", dark = true))
+        assertEquals("Reader", json.getJSONObject("theme").getString("name"))
+        assertTrue(json.getBoolean("dark"))
+    }
+
+    @Test
+    fun `settings, table and export messages match the page's shapes`() {
+        val settings =
+            encoded(
+                HostMessage.Settings(PreviewSettings(tapToEdit = false, zoom = 1.5f)),
+            ).getJSONObject("settings")
+        assertEquals(false, settings.getBoolean("tapToEdit"))
+        assertEquals(1.5, settings.getDouble("zoom"), 0.0)
+        assertEquals("next", encoded(HostMessage.TableNav(next = true)).getString("direction"))
+        val op = encoded(HostMessage.Table(TableOp.Align(TableAlign.RIGHT))).getJSONObject("op")
+        assertEquals("align", op.getString("kind"))
+        assertEquals("right", op.getString("align"))
+        assertEquals(1, encoded(HostMessage.Table(TableOp.MoveRow(5))).getJSONObject("op").getInt("by"))
+        val export = encoded(HostMessage.ExportImage(requestId = 2, line = 7, png = true, scale = 9))
+        assertEquals("png", export.getString("format"))
+        assertEquals(3, export.getInt("scale"))
+        assertEquals("""{"type":"preparePrint"}""", BridgeCodec.encode(HostMessage.PreparePrint))
+    }
+
+    @Test
+    fun `decodes every page message`() {
+        assertEquals(PageMessage.Ready(PROTOCOL_VERSION), BridgeCodec.decode("""{"type":"ready","version":1}"""))
+        assertEquals(
+            PageMessage.SourceEdit(4, listOf(TextEdit(10, 12, "ab"), TextEdit(20, 20, "\\*"))),
+            BridgeCodec.decode(
+                """{"type":"sourceEdit","baseRev":4,"edits":""" +
+                    """[{"from":10,"to":12,"insert":"ab"},{"from":20,"to":20,"insert":"\\*"}]}""",
+            ),
+        )
+        assertEquals(
+            PageMessage.TopLine(40, listOf(Crumb(1, "Intro", 0), Crumb(2, "Setup", 30))),
+            BridgeCodec.decode(
+                """{"type":"topLine","line":40,"crumbs":""" +
+                    """[{"level":1,"text":"Intro","line":0},{"level":2,"text":"Setup","line":30}]}""",
+            ),
+        )
+        assertEquals(
+            PageMessage.Selection(1, 5, setOf("bold", "link"), false),
+            BridgeCodec.decode("""{"type":"selection","from":1,"to":5,"marks":["bold","link"],"inTable":false}"""),
+        )
+        assertEquals(
+            PageMessage.TaskToggle(2, 3, true),
+            BridgeCodec.decode("""{"type":"taskToggle","baseRev":2,"offset":3,"checked":true}"""),
+        )
+        assertEquals(
+            PageMessage.OpenViewer(MediaKind.DIAGRAM, 0, 12),
+            BridgeCodec.decode("""{"type":"openViewer","kind":"diagram","index":0,"line":12}"""),
+        )
+        assertEquals(PageMessage.PrintReady, BridgeCodec.decode("""{"type":"printReady"}"""))
+        assertEquals(
+            PageMessage.TableMenu(3, 1, 0),
+            BridgeCodec.decode("""{"type":"tableMenu","line":3,"row":1,"column":0}"""),
+        )
+    }
+
+    @Test
+    fun `malformed or unknown messages decode to null instead of throwing`() {
+        assertNull(BridgeCodec.decode("not json"))
+        assertNull(BridgeCodec.decode("""{"type":"launchMissiles"}"""))
+        assertNull(BridgeCodec.decode("""{"type":"sourceEdit","baseRev":"x"}"""))
+        assertNull(BridgeCodec.decode("""{"type":"openViewer","kind":"video","index":0,"line":1}"""))
+    }
+}

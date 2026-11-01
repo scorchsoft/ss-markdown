@@ -1,0 +1,52 @@
+{
+  "name": "ss-markdown-preview",
+  "version": "1.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "The SS Markdown preview bundle: markdown-it in a worker, KaTeX, highlight.js, Mermaid, DOMPurify.",
+  "type": "module",
+  "dependencies": {
+    "dompurify": "3.4.17",
+    "highlight.js": "11.11.1",
+    "katex": "0.19.1",
+    "markdown-it": "15.0.3",
+    "markdown-it-abbr": "2.0.0",
+    "markdown-it-anchor": "9.2.0",
+    "markdown-it-deflist": "4.0.0",
+    "markdown-it-emoji": "3.1.0",
+    "markdown-it-footnote": "4.0.0",
+    "markdown-it-front-matter": "0.2.4",
+    "markdown-it-github-alerts": "1.0.1",
+    "markdown-it-mark": "4.0.0",
+    "markdown-it-sub": "2.0.0",
+    "markdown-it-sup": "2.0.0",
+    "markdown-it-task-lists": "2.1.1",
+    "mermaid": "11.17.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.36.0",
+    "@types/katex": "0.16.7",
+    "@types/node": "22.18.6",
+    "esbuild": "0.25.10",
+    "eslint": "9.36.0",
+    "jsdom": "27.0.0",
+    "pdfjs-dist": "5.4.149",
+    "playwright": "1.63.0",
+    "prettier": "3.6.2",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.44.1",
+    "vitest": "3.2.4"
+  },
+  "overrides": {
+    "katex": "$katex"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc -p .",
+    "lint": "eslint . && prettier --check \"src/**/*.{ts,css,html}\" \"test/**/*.ts\" \"scripts/*.mjs\"",
+    "format": "prettier --write \"src/**/*.{ts,css,html}\" \"test/**/*.ts\" \"scripts/*.mjs\"",
+    "test:unit": "vitest run --project unit",
+    "test:e2e": "vitest run --project e2e",
+    "test": "npm run typecheck && npm run lint && vitest run"
+  }
+}

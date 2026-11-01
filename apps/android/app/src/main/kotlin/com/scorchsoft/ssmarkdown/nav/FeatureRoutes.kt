@@ -17,7 +17,9 @@ import com.scorchsoft.ssmarkdown.fontpicker.FontPickerEvent
 import com.scorchsoft.ssmarkdown.fontpicker.FontPickerScreen
 import com.scorchsoft.ssmarkdown.media.ViewerAction
 import com.scorchsoft.ssmarkdown.media.ViewerScreen
+import com.scorchsoft.ssmarkdown.platform.BoundedRead
 import com.scorchsoft.ssmarkdown.platform.PlatformActions
+import com.scorchsoft.ssmarkdown.theme.codec.ThemeCodec
 import com.scorchsoft.ssmarkdown.themes.FontRole
 import com.scorchsoft.ssmarkdown.themes.ThemeEditorEvent
 import com.scorchsoft.ssmarkdown.themes.ThemeEditorScreen
@@ -69,7 +71,11 @@ fun ThemeEditorRoute(
                 val text =
                     withContext(graph.io) {
                         try {
-                            context.contentResolver.openInputStream(uri)?.use { it.reader().readText() }
+                            // Bounded (SEC-8): a theme is at most ThemeCodec.MAX_BYTES; anything bigger is not one.
+                            context.contentResolver
+                                .openInputStream(uri)
+                                ?.use { BoundedRead.bytes(it, ThemeCodec.MAX_BYTES) }
+                                ?.decodeToString()
                         } catch (_: IOException) {
                             null
                         } catch (_: SecurityException) {

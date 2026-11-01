@@ -11,6 +11,7 @@ import android.view.HapticFeedbackConstants
 import android.view.View
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
+import com.scorchsoft.ssmarkdown.files.saf.SafeFileName
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -51,17 +52,30 @@ class PlatformActions(
         start(Intent.createChooser(intent, null))
     }
 
-    /** Shares [text] as a file through the FileProvider: too large for the clipboard's Binder limit. */
+    /**
+     * Shares [text] as a file through the FileProvider: too large for the
+     * clipboard's Binder limit. [name] is usually a provider's
+     * `DISPLAY_NAME`, which a hostile app controls, so it is reduced to one
+     * safe file name inside `cache/shared/` before anything is written
+     * (SEC-1). Does nothing if the file cannot be written or shared.
+     */
     suspend fun shareAsFile(
         name: String,
         text: CharSequence,
     ) {
-        val file =
+        val uri =
             withContext(io) {
-                val dir = File(context.cacheDir, "shared").apply { mkdirs() }
-                File(dir, name).also { f -> f.bufferedWriter().use { it.append(text) } }
-            }
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+                try {
+                    val dir = File(context.cacheDir, SHARED_DIR).apply { mkdirs() }
+                    val file = SafeFileName.inside(dir, name)
+                    file.bufferedWriter().use { it.append(text) }
+                    FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+                } catch (_: IOException) {
+                    null
+                } catch (_: IllegalArgumentException) {
+                    null
+                }
+            } ?: return
         val intent =
             Intent(Intent.ACTION_SEND).apply {
                 type = "text/markdown"
@@ -109,21 +123,27 @@ class PlatformActions(
             }
         }
 
-    /** Copies a picked [uri] into the cache (an import zip), or null on failure. */
+    /**
+     * Copies a picked [uri] into the cache (an import zip), or null on
+     * failure or when it is larger than [MAX_IMPORT_BYTES] (SEC-8). Earlier
+     * copies are deleted first, so imports never pile up in the cache.
+     */
     suspend fun copyToCache(uri: Uri): File? =
         withContext(io) {
-            try {
-                val target = File(context.cacheDir, "import-${System.nanoTime()}.zip")
-                context.contentResolver.openInputStream(uri)?.use { input ->
-                    target.outputStream().use { input.copyTo(it) }
+            context.cacheDir.listFiles { f -> f.name.startsWith(IMPORT_PREFIX) }?.forEach(File::delete)
+            val target = File(context.cacheDir, "$IMPORT_PREFIX${System.nanoTime()}.zip")
+            val copied =
+                try {
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        target.outputStream().use { BoundedRead.copy(input, it, MAX_IMPORT_BYTES) }
+                    } == true
+                } catch (_: IOException) {
+                    false
+                } catch (_: SecurityException) {
+                    false
                 }
-                    ?: return@withContext null
-                target
-            } catch (_: IOException) {
-                null
-            } catch (_: SecurityException) {
-                null
-            }
+            if (!copied) target.delete()
+            target.takeIf { copied }
         }
 
     /** Opens scorchsoft.com in the browser; the app itself has no network access. */
@@ -153,7 +173,12 @@ class PlatformActions(
         }
     }
 
-    private companion object {
-        const val SITE = "https://www.scorchsoft.com"
+    companion object {
+        private const val SITE = "https://www.scorchsoft.com"
+        private const val SHARED_DIR = "shared"
+        private const val IMPORT_PREFIX = "import-"
+
+        /** The largest history export accepted for import; real ones are a few megabytes (SEC-8). */
+        const val MAX_IMPORT_BYTES: Long = 256L * 1024 * 1024
     }
 }

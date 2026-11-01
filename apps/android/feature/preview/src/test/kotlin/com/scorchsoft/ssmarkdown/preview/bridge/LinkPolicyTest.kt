@@ -12,6 +12,19 @@ class LinkPolicyTest {
     }
 
     @Test
+    fun `mailto keeps only subject, body, cc and bcc, and bidi controls are dropped (SEC-7)`() {
+        assertEquals(
+            LinkTarget.External("mailto:a@b.c?subject=Hi&body=x"),
+            LinkPolicy.classify("mailto:a@b.c?subject=Hi&attach=/sdcard/secret.pdf&body=x&ATTACHMENT=y"),
+        )
+        assertEquals(LinkTarget.External("mailto:a@b.c"), LinkPolicy.classify("mailto:a@b.c?attach=x"))
+        assertEquals(
+            LinkTarget.External("https://example.com/evil.com"),
+            LinkPolicy.classify("https://example.com/\u202Eevil.com"),
+        )
+    }
+
+    @Test
     fun `local and script schemes are always blocked`() {
         val hostile =
             listOf(

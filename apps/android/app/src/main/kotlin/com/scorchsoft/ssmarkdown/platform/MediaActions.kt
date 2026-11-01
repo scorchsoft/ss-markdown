@@ -11,6 +11,7 @@ import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import com.scorchsoft.ssmarkdown.R
+import com.scorchsoft.ssmarkdown.files.saf.SafeFileName
 import com.scorchsoft.ssmarkdown.media.ExportFile
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
@@ -37,7 +38,7 @@ class MediaActions(
     ): Int =
         withContext(io) {
             val resolver = context.contentResolver
-            val path = "${Environment.DIRECTORY_DOWNLOADS}/$APP_FOLDER/${safe(folder)}"
+            val path = "${Environment.DIRECTORY_DOWNLOADS}/$APP_FOLDER/${SafeFileName.of(folder)}"
             files.count { file ->
                 val values =
                     ContentValues().apply {
@@ -107,13 +108,18 @@ class MediaActions(
         clipboard.setPrimaryClip(ClipData.newHtmlText(context.getString(R.string.app_name), text, html))
     }
 
-    /** Opens a web, mail or phone link in another app. */
-    fun openLink(url: String) = start(Intent(Intent.ACTION_VIEW, url.toUri()))
+    /**
+     * Opens a web, mail or phone link in another app. [url] has been through
+     * `LinkPolicy` (http, https, mailto, tel only; mailto fields trimmed).
+     * `CATEGORY_BROWSABLE` limits the choice to apps that agree to be opened
+     * from a link, as a browser would (SEC-7).
+     */
+    fun openLink(url: String) = start(Intent(Intent.ACTION_VIEW, url.toUri()).addCategory(Intent.CATEGORY_BROWSABLE))
 
     private fun cached(file: ExportFile): Uri? =
         try {
             val dir = File(context.cacheDir, SHARED_DIR).apply { mkdirs() }
-            val target = File(dir, safe(file.name)).apply { writeBytes(file.bytes) }
+            val target = SafeFileName.inside(dir, file.name).apply { writeBytes(file.bytes) }
             FileProvider.getUriForFile(context, "${context.packageName}.files", target)
         } catch (_: IOException) {
             null
@@ -144,8 +150,5 @@ class MediaActions(
     private companion object {
         const val APP_FOLDER = "SS Markdown"
         const val SHARED_DIR = "shared"
-        val UNSAFE = Regex("""[\\/:*?"<>|]""")
-
-        fun safe(name: String): String = UNSAFE.replace(name, "-").ifBlank { "untitled" }
     }
 }

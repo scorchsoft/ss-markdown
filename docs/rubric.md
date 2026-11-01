@@ -4,6 +4,8 @@ Score every criterion from 0 to 5 at the end of each iteration, with
 evidence: a test, a measurement or a screenshot.
 
 **Ship bar:** a weighted average of at least **4.0**, and **no criterion
+
+**Design gate** (sign-off before build): no open Critical or Major finding from the latest independent review; J1–J10 pass on paper; no criterion below 3 apart from #4, #5 and #11 (which only code can prove); sign-off. The ship bar applies to release candidates.
 below 3**.
 
 Scale: 0 missing · 1 broken · 2 works but frustrating · 3 acceptable ·

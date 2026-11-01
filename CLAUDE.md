@@ -18,14 +18,16 @@ reasons behind every decision so far. Then:
 - `docs/engineering.md` — open-source code standards (Apache-2.0, showcase quality).
 - `docs/quality-bar.md` — the ten jobs, anti-goals, premium-feel spec, every budget, and how we score. If a feature can't point to a job here, it doesn't ship.
 - `docs/design-review-1.md` … `-3.md` — independent design reviews and how every finding was triaged.
+- `docs/roadmap.md` — the six build iterations and what each must deliver.
 - `docs/rubric.md` — the definition of good. Score it at the end of
   every iteration.
 
 ## Status
 
-Iteration 0 (design) is in progress: the mockups are under review and
-there is no app code yet. Do not start the Android app until the mockups
-are signed off.
+**Design is signed off** (iteration 0 is done). The build follows
+`docs/roadmap.md`. Iteration 1 covers the scaffold, `core/text` and the
+journal. The design canvas is the visual source of truth:
+https://claude.ai/artifact/5Rjq5it6m3px6CNq1m4rLg
 
 ## Planned layout
 

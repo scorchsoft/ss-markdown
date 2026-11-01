@@ -97,7 +97,6 @@ class FontImporter(
     }
 
     /** Copies the source into [target]; null on success, else the failure. */
-    @Suppress("ReturnCount") // Opening and writing fail before the copy starts; the copy has its own outcome.
     private suspend fun copy(
         fileName: String,
         open: () -> InputStream,

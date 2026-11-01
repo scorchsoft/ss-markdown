@@ -14,6 +14,14 @@ style:
     # hide numbers.
     ignorePropertyDeclaration: true
     ignoreCompanionObjectPropertyDeclaration: true
+  ReturnCount:
+    # The house style is guard clauses: refuse each bad input with its own
+    # early return, then the happy path (parsers, codecs, the save and
+    # download pipelines). detekt's default of 2 fought that style and
+    # left ~60 inline suppressions saying so. Guard clauses no longer
+    # count, and up to four returns are fine; more still need a reason.
+    max: 4
+    excludeGuardClauses: true
   UnusedPrivateMember:
     # @Preview functions are private and only called by tooling.
     ignoreAnnotated: ['Preview']

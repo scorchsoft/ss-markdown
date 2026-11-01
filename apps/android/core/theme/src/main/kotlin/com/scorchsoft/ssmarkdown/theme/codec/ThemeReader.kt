@@ -54,7 +54,6 @@ internal class ThemeReader {
         }
     }
 
-    @Suppress("ReturnCount") // Missing, wrong type and present each end differently.
     private fun readName(root: JsonValue.Obj): String {
         val member = root.member("name")
         if (member == null) {
@@ -69,7 +68,6 @@ internal class ThemeReader {
         return name
     }
 
-    @Suppress("ReturnCount") // Absent and wrong type both mean the default; unknown also reports.
     private fun readBase(root: JsonValue.Obj): Theme {
         val member = root.member("base") ?: return BuiltInThemes.DEFAULT
         val id = findings.string(member) ?: return BuiltInThemes.DEFAULT
@@ -91,7 +89,6 @@ internal class ThemeReader {
         )
     }
 
-    @Suppress("ReturnCount") // Absent, wrong type and malformed each yield "inherit".
     private fun fontName(member: Member?): String? {
         val name = member?.let { findings.string(it) }?.trim() ?: return null
         if (!FONT_NAME.matches(name)) {
@@ -115,7 +112,6 @@ internal class ThemeReader {
         )
     }
 
-    @Suppress("ReturnCount") // Absent, wrong type and out of range each yield "inherit".
     private fun bounded(
         member: Member?,
         range: ClosedFloatingPointRange<Double>,

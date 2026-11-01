@@ -68,7 +68,6 @@ class FontDownloader(
             }
         }
 
-    @Suppress("ReturnCount") // CSS, each file and the final move each fail in their own way.
     private suspend fun fetchFamily(
         entry: CatalogueEntry,
         staging: File,

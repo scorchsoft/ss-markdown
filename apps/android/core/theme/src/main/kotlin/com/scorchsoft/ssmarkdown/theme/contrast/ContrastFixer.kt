@@ -30,7 +30,6 @@ public object ContrastFixer {
     private const val MAX_ROUNDING_STEPS = 8
 
     /** Returns [foreground] adjusted to reach [target] against [background]. */
-    @Suppress("ReturnCount") // Already passing, fixed, and unreachable are three distinct answers.
     public fun fix(
         foreground: ThemeColor,
         background: ThemeColor,

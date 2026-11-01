@@ -1,6 +1,4 @@
 // A recogniser bails out the moment the line stops matching.
-@file:Suppress("ReturnCount")
-
 package com.scorchsoft.ssmarkdown.markdown.edit
 
 /** A list item's marker: a bullet char, or a number with its `.` or `)`. */

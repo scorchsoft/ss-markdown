@@ -1,7 +1,5 @@
 // Recognisers bail out the moment a construct fails to match, as CommonMark's
 // own reference parsers do; one exit per function would bury the grammar in flags.
-@file:Suppress("ReturnCount")
-
 package com.scorchsoft.ssmarkdown.markdown
 
 /**

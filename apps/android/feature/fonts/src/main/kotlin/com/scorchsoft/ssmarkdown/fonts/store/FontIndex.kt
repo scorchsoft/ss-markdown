@@ -23,7 +23,6 @@ internal object FontIndex {
     private const val BYTES_COLUMN = 4
     private const val SHA_COLUMN = 5
 
-    @Suppress("ReturnCount") // Unreadable, incomplete and valid each end differently.
     fun read(directory: File): InstalledFont? {
         val index = File(directory, FILE_NAME)
         val rows =
@@ -69,7 +68,6 @@ internal object FontIndex {
         if (!temp.renameTo(File(directory, FILE_NAME))) throw IOException("Couldn't write the font index in $directory")
     }
 
-    @Suppress("ReturnCount") // A short row and a bad cell are both skipped, before the happy path.
     private fun file(
         directory: File,
         cells: List<String>,

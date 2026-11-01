@@ -62,7 +62,7 @@ fun FindBar(
             Text(
                 countText(state),
                 style = SS.type.meta,
-                color = if (state.invalidPattern) SS.colors.needsYou else SS.colors.inkMuted,
+                color = if (state.invalidPattern) SS.colors.needsYouText else SS.colors.inkMuted,
                 modifier = Modifier.padding(horizontal = 6.dp),
             )
             IconButton(onClick = {

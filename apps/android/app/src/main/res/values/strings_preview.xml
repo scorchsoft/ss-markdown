@@ -50,6 +50,9 @@
     <string name="viewer_save">Save</string>
     <string name="viewer_share">Share</string>
     <string name="viewer_fit">Fit</string>
+    <string name="viewer_zoom_in">Zoom in</string>
+    <string name="viewer_zoom_out">Zoom out</string>
+    <string name="viewer_thumb">Image %1$d</string>
     <string name="viewer_loading">Drawing…</string>
     <string name="viewer_failed">This image couldn\'t be shown. Pictures on the web aren\'t fetched; the app works offline.</string>
 
@@ -110,6 +113,16 @@
     <string name="theme_px">%1$d px</string>
     <string name="theme_heading_scale">Heading scale</string>
     <string name="theme_line_height">Line height</string>
+    <string name="theme_colour_bg">Background</string>
+    <string name="theme_colour_text">Text</string>
+    <string name="theme_colour_heading">Headings</string>
+    <string name="theme_colour_link">Links</string>
+    <string name="theme_colour_code">Code</string>
+    <string name="theme_colour_code_bg">Code background</string>
+    <string name="theme_colour_muted">Secondary text</string>
+    <string name="theme_colour_border">Borders</string>
+    <string name="theme_step_down">Decrease %1$s</string>
+    <string name="theme_step_up">Increase %1$s</string>
     <string name="theme_duplicate">Duplicate</string>
     <string name="theme_use">Use this theme</string>
     <string name="theme_sample_heading">Heading</string>

@@ -66,7 +66,11 @@ fun FileActionDialogs(
                 text = { Text(stringResource(R.string.file_delete_body), style = SS.type.body, color = SS.colors.ink) },
                 confirmButton = {
                     TextButton(onClick = { onAction(FolderAction.Delete(action.uri)) }) {
-                        Text(stringResource(R.string.file_delete), style = SS.type.label, color = SS.colors.needsYou)
+                        Text(
+                            stringResource(R.string.file_delete),
+                            style = SS.type.label,
+                            color = SS.colors.needsYouText,
+                        )
                     }
                 },
                 dismissButton = { DialogButton(R.string.cancel, dismiss) },

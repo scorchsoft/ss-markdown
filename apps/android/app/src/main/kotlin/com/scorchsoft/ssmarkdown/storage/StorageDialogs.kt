@@ -70,7 +70,7 @@ fun ConfirmClearDialog(
         text = { ConfirmBody(confirm, onAction) },
         confirmButton = {
             TextButton(onClick = { onAction(StorageAction.ConfirmClear) }) {
-                Text(stringResource(label), style = SS.type.label, color = SS.colors.needsYou)
+                Text(stringResource(label), style = SS.type.label, color = SS.colors.needsYouText)
             }
         },
         dismissButton = { Cancel(onAction) },
@@ -214,7 +214,7 @@ private fun ConfirmTurnOffDelete(onAction: (StorageAction) -> Unit) {
                 Text(
                     stringResource(R.string.confirm_clear_permanently),
                     style = SS.type.label,
-                    color = SS.colors.needsYou,
+                    color = SS.colors.needsYouText,
                 )
             }
         },

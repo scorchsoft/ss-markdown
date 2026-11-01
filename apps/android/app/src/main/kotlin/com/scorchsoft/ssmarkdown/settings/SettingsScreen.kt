@@ -1,11 +1,20 @@
 package com.scorchsoft.ssmarkdown.settings
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
@@ -123,19 +132,40 @@ private fun TextSection(
     })
 }
 
+/**
+ * A default zoom with − and + (UX-15). Each button names its subject
+ * ("Decrease Default zoom · Code"), and the value is a polite live region,
+ * so TalkBack says the new value after each step.
+ */
 @Composable
 private fun ZoomRow(
     title: String,
     value: String,
     onStep: (Int) -> Unit,
 ) {
-    SettingRow(title, value) {
-        IconButton(onClick = {
-            onStep(-1)
-        }) { Icon(AppIcons.chevronDown, stringResource(R.string.decrease), tint = SS.colors.ink) }
-        IconButton(onClick = {
-            onStep(1)
-        }) { Icon(AppIcons.chevronUp, stringResource(R.string.increase), tint = SS.colors.ink) }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = SS.dimens.rowPrimary)
+                .padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = SS.type.body, color = SS.colors.ink)
+            Text(
+                value,
+                style = SS.type.meta,
+                color = SS.colors.inkMuted,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            )
+        }
+        IconButton(onClick = { onStep(-1) }) {
+            Icon(AppIcons.chevronDown, stringResource(R.string.settings_zoom_decrease, title), tint = SS.colors.ink)
+        }
+        IconButton(onClick = { onStep(1) }) {
+            Icon(AppIcons.chevronUp, stringResource(R.string.settings_zoom_increase, title), tint = SS.colors.ink)
+        }
     }
 }
 

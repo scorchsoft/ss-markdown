@@ -15,6 +15,7 @@
     <string name="copy_all">Copy all</string>
     <string name="more">More</string>
     <string name="open_folder_drawer">Open folder</string>
+    <string name="close_folder_drawer">Close the file list</string>
     <string name="unsaved_dot">Unsaved</string>
     <string name="save">Save</string>
     <string name="save_as">Save as…</string>
@@ -194,6 +195,7 @@
     <string name="nav_files">Files</string>
     <string name="nav_top">Top of document</string>
     <string name="nav_here">You\'re here</string>
+    <string name="nav_pane_title">Navigator</string>
     <string name="nav_long_press_hint">Long-press a heading to copy its section</string>
     <string name="nav_in_file">In this file</string>
     <string name="nav_recent">Recent</string>

@@ -22,7 +22,7 @@
     <string name="settings_zoom_preview_value">%1$d%% (%2$d px)</string>
     <string name="settings_code_font">Code font</string>
     <string name="settings_preview_font">Preview font</string>
-    <string name="settings_font_pending">Chosen in Display once themes arrive</string>
+    <string name="settings_font_pending">Part of each theme: ⋮ → Display → Edit theme…</string>
     <string name="settings_line_numbers">Line numbers</string>
     <string name="settings_saving">Saving</string>
     <string name="settings_write">Write to the file</string>
@@ -41,8 +41,8 @@
     <string name="settings_themes">Themes</string>
     <string name="settings_custom_themes">Custom themes</string>
     <string name="settings_about">About</string>
-    <string name="decrease">Decrease</string>
-    <string name="increase">Increase</string>
+    <string name="settings_zoom_decrease">Decrease %1$s</string>
+    <string name="settings_zoom_increase">Increase %1$s</string>
 
     <!-- Storage -->
     <string name="storage_title">Storage</string>

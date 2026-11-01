@@ -9,12 +9,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
@@ -34,8 +34,8 @@ import com.scorchsoft.ssmarkdown.core.ui.SS
 import com.scorchsoft.ssmarkdown.editor.chrome.inkSwitchColors
 
 /**
- * A secondary screen: a 56 dp bar with Back and a title, then scrolling
- * content, edge to edge with the insets applied.
+ * A secondary screen: a bar with Back and a title (56 dp, taller at a
+ * large font), then scrolling content, edge to edge with the insets applied.
  */
 @Composable
 fun SecondaryScreen(
@@ -50,7 +50,12 @@ fun SecondaryScreen(
         Column(Modifier.background(SS.colors.chrome).statusBarsPadding()) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().height(SS.dimens.topBar).padding(horizontal = SS.dimens.grid),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(
+                            min = SS.dimens.topBar,
+                        ).padding(horizontal = SS.dimens.grid),
             ) {
                 IconButton(
                     onClick = onBack,
@@ -136,7 +141,12 @@ fun SettingRow(
     }
 }
 
-/** A row whose whole width toggles an ink switch (switches are never red). */
+/**
+ * A row whose whole width toggles an ink switch (switches are never red).
+ * The row is the toggleable node, so TalkBack reads "Line numbers, on,
+ * switch" and announces the new state (UX-3); the inner [Switch] has no
+ * callback and therefore no semantics of its own.
+ */
 @Composable
 fun SwitchRow(
     title: String,
@@ -150,7 +160,7 @@ fun SwitchRow(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = SS.dimens.rowPrimary)
-                .clickable(role = Role.Switch, onClick = onToggle)
+                .toggleable(value = checked, role = Role.Switch, onValueChange = { onToggle() })
                 .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Column(Modifier.weight(1f)) {

@@ -26,10 +26,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
+import com.scorchsoft.ssmarkdown.editor.chrome.UnsavedDot
 import com.scorchsoft.ssmarkdown.ui.AppIcons
 
 private val IndentPerDepth = 16.dp
@@ -68,7 +71,7 @@ fun FolderPanel(
             Text(
                 stringResource(R.string.folder_list_failed),
                 style = SS.type.meta,
-                color = SS.colors.needsYou,
+                color = SS.colors.needsYouText,
                 modifier = Modifier.padding(16.dp),
             )
         }
@@ -137,7 +140,10 @@ private fun EntryRow(
     row: FolderEntryRow,
     onAction: (FolderAction) -> Unit,
 ) {
-    val current = if (row.current) Modifier.background(SS.colors.segmentTrack) else Modifier
+    // The open file: a filled tint plus weight, and "selected" for TalkBack (UX-19);
+    // the tint alone is 1.2:1 on the panel.
+    val current =
+        if (row.current) Modifier.background(SS.colors.segmentTrack).semantics { selected = true } else Modifier
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier =
@@ -160,20 +166,19 @@ private fun EntryRow(
         )
         Text(
             row.name,
-            style = if (row.isDirectory) SS.type.label else SS.type.body,
+            style =
+                when {
+                    row.isDirectory -> SS.type.label
+                    row.current -> SS.type.bodyStrong
+                    else -> SS.type.body
+                },
             color = if (row.muted) SS.colors.inkMuted else SS.colors.ink,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).padding(start = 8.dp),
         )
-        if (row.dirty) {
-            Text(
-                "●",
-                style = SS.type.caption,
-                color = SS.colors.needsYou,
-                modifier = Modifier.padding(end = 4.dp),
-            )
-        }
+        // A drawn dot labelled "Unsaved", so the row reads "notes.md, Unsaved" (UX-6).
+        if (row.dirty) UnsavedDot(Modifier.padding(end = 8.dp))
         if (row.changedOutside) Tag(stringResource(R.string.folder_changed))
         if (row.isDirectory && row.unsavedInside > 0) Tag(stringResource(R.string.folder_unsaved, row.unsavedInside))
         if (!row.isDirectory) {

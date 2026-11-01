@@ -1,9 +1,9 @@
 package com.scorchsoft.ssmarkdown.editor
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -31,13 +31,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
 import com.scorchsoft.ssmarkdown.editor.chrome.EditorBannerView
 import com.scorchsoft.ssmarkdown.editor.chrome.LandscapeBar
 import com.scorchsoft.ssmarkdown.editor.chrome.ModeBar
 import com.scorchsoft.ssmarkdown.editor.chrome.TopBar
+import com.scorchsoft.ssmarkdown.editor.chrome.stripDocumentFor
 import com.scorchsoft.ssmarkdown.editor.panes.EditorPanes
 import com.scorchsoft.ssmarkdown.editor.panes.PreviewHostState
 import com.scorchsoft.ssmarkdown.editor.preview.PreviewStripKeys
@@ -52,7 +60,6 @@ import com.scorchsoft.ssmarkdown.folder.FolderPanel
 import com.scorchsoft.ssmarkdown.navigator.NavigatorSheet
 import com.scorchsoft.ssmarkdown.settings.Appearance
 import com.scorchsoft.ssmarkdown.ui.strip.FormattingStrip
-import com.scorchsoft.ssmarkdown.ui.strip.StripDocument
 import com.scorchsoft.ssmarkdown.ui.strip.StripMode
 
 /** The folder panel docks from this width (ux-spec "Layouts"). */
@@ -94,7 +101,14 @@ fun EditorScreen(
         val landscape = maxWidth > maxHeight && maxHeight < LandscapeMaxHeight
         val docked = maxWidth >= DockedWidth && state.folder != null
         val layout = ScreenLayout(landscape, docked, imeVisible, largeFont)
-        Row(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))) {
+        val drawerOpen = !docked && state.folder?.drawerOpen == true
+        val behindDrawer = if (drawerOpen) Modifier.clearAndSetSemantics {} else Modifier
+        Row(
+            Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                .then(behindDrawer),
+        ) {
             if (docked && !state.folder.panelCollapsed) {
                 FolderPanel(
                     state.folder,
@@ -159,11 +173,12 @@ private fun Header(
     val folderButton = state.folder != null && !layout.docked
     when {
         // Landscape with the keyboard: the header steps aside; the strip carries name, dot and Save.
-        layout.landscape && layout.imeVisible -> Box(Modifier.statusBarsPadding())
+        layout.landscape && layout.imeVisible -> Box(Modifier.background(SS.colors.chrome).statusBarsPadding())
 
-        layout.landscape -> LandscapeBar(state, onAction, folderButton, layout.largeFont, Modifier.statusBarsPadding())
+        // Both bars paint the status-bar strip in the chrome colour themselves (UX-27).
+        layout.landscape -> LandscapeBar(state, onAction, folderButton, layout.largeFont)
 
-        else -> TopBar(state, onAction, folderButton, layout.largeFont, Modifier.statusBarsPadding())
+        else -> TopBar(state, onAction, folderButton, layout.largeFont)
     }
 }
 
@@ -179,7 +194,7 @@ private fun Footer(
                 state.strip.copy(
                     mode = if (state.previewTyping) StripMode.Preview else StripMode.Code,
                     canUndo = state.canUndo || state.strip.canUndo,
-                    document = if (layout.landscape) StripDocument(state.title, state.isDirty) else null,
+                    document = if (layout.landscape) stripDocumentFor(state) else null,
                 )
             FormattingStrip(
                 state = strip,
@@ -210,8 +225,12 @@ private fun Footer(
     }
 }
 
-/** The modal folder drawer on phones and small tablets. */
-@OptIn(ExperimentalFoundationApi::class)
+/**
+ * The modal folder drawer on phones and small tablets. To TalkBack it is a
+ * pane titled with the folder's name (UX-13); the scrim is a "Close the
+ * file list" button, and the editor behind is hidden from accessibility
+ * while the drawer is open, so swiping cannot wander out of the drawer.
+ */
 @Composable
 private fun Drawer(
     state: EditorUiState,
@@ -219,19 +238,27 @@ private fun Drawer(
 ) {
     val folder = state.folder ?: return
     if (!folder.drawerOpen) return
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = SCRIM_ALPHA))
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                onAction(EditorAction.Folder(FolderAction.CloseDrawer))
-            },
-    ) {
-        // The panel swallows taps on its empty areas, so only the scrim closes the drawer.
+    val close = { onAction(EditorAction.Folder(FolderAction.CloseDrawer)) }
+    val closeLabel = stringResource(R.string.close_folder_drawer)
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = SCRIM_ALPHA))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClickLabel = closeLabel,
+                    onClick = close,
+                ).semantics { contentDescription = closeLabel },
+        )
+        // The panel swallows taps on its empty areas, so only the scrim closes the
+        // drawer; a gesture detector does that without making the panel a button.
         val panel =
             Modifier
                 .width(DrawerWidth)
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+                .pointerInput(Unit) { detectTapGestures { } }
+                .semantics { paneTitle = folder.name }
                 .statusBarsPadding()
                 .navigationBarsPadding()
         FolderPanel(folder, { onAction(EditorAction.Folder(it)) }, panel)

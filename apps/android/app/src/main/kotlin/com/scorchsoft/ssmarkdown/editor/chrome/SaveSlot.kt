@@ -26,8 +26,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
+import com.scorchsoft.ssmarkdown.editor.EditorUiState
 import com.scorchsoft.ssmarkdown.editor.SaveButton
+import com.scorchsoft.ssmarkdown.editor.SaveStatusLine
 import com.scorchsoft.ssmarkdown.ui.AppIcons
+import com.scorchsoft.ssmarkdown.ui.strip.StripDocument
+import com.scorchsoft.ssmarkdown.ui.strip.StripSave
 
 /** The fixed Save slot: 96 dp in every state, sized for "Save as…", so Copy never moves (review 3). */
 val SaveSlotWidth = 96.dp
@@ -148,3 +152,43 @@ private fun SavingPill(label: String) {
         Text(stringResource(R.string.save), style = SS.type.label, color = colors.inkMuted, maxLines = 1)
     }
 }
+
+/**
+ * What the formatting strip carries in landscape with the keyboard up,
+ * when the header has stepped aside (UX-9): the name, the dot, the same
+ * Save button as the header's Save-state table, and the header's status
+ * line whenever it is something the user must not miss (a failed or
+ * paused save, a read-only file).
+ */
+@Composable
+fun stripDocumentFor(state: EditorUiState): StripDocument {
+    val status = state.save.status
+    val shown =
+        when (status) {
+            is SaveStatusLine.Failed,
+            is SaveStatusLine.AutosavePaused,
+            is SaveStatusLine.ReadOnly,
+            is SaveStatusLine.UnsavedReadOnly,
+            -> statusText(status)
+
+            else -> null
+        }
+    return StripDocument(
+        name = state.title.ifEmpty { stringResource(R.string.untitled) },
+        isDirty = state.save.showDirtyDot,
+        save = state.save.button.toStrip(),
+        status = shown,
+        statusIsError = status is SaveStatusLine.Failed || status is SaveStatusLine.AutosavePaused,
+    )
+}
+
+/** The header's [SaveButton] as the strip draws it: one strip state per row of the table. */
+fun SaveButton.toStrip(): StripSave =
+    when (this) {
+        SaveButton.AllSaved -> StripSave.Saved
+        SaveButton.Save -> StripSave.Save
+        SaveButton.Saving -> StripSave.Saving
+        SaveButton.SaveAsDraft, SaveButton.SaveAsReadOnly -> StripSave.SaveAs
+        SaveButton.SaveAsRequired -> StripSave.SaveAsRequired
+        SaveButton.Retry -> StripSave.Retry
+    }

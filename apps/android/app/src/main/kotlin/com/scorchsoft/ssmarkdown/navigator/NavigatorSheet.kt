@@ -29,6 +29,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -36,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
 import com.scorchsoft.ssmarkdown.core.ui.components.SSSegmentedControl
+import com.scorchsoft.ssmarkdown.editor.chrome.UnsavedDot
 import com.scorchsoft.ssmarkdown.ui.AppIcons
 import com.scorchsoft.ssmarkdown.ui.RelativeTime
 import com.scorchsoft.ssmarkdown.ui.relativeTimeText
@@ -56,7 +59,9 @@ fun NavigatorSheet(
 ) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
-    Column(modifier.fillMaxWidth().background(SS.colors.chrome)) {
+    val pane = stringResource(R.string.nav_pane_title)
+    // A pane title, so TalkBack announces the sheet as it opens (UX-13).
+    Column(modifier.fillMaxWidth().background(SS.colors.chrome).semantics { paneTitle = pane }) {
         OutlinedTextField(
             value = state.query,
             onValueChange = { onAction(NavigatorAction.Query(it)) },
@@ -233,7 +238,8 @@ private fun FileRowView(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (row.dirty) Text(" ●", style = SS.type.caption, color = SS.colors.needsYou)
+                // A drawn dot labelled "Unsaved", never a "●" read as "black circle" (UX-6).
+                if (row.dirty) UnsavedDot(Modifier.padding(start = 6.dp))
             }
             if (detail.isNotEmpty()) {
                 Text(

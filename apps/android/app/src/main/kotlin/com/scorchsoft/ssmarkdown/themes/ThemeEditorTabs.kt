@@ -23,6 +23,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
@@ -130,7 +135,10 @@ private fun ColourRow(
                 .background(swatch?.toCompose() ?: SS.colors.bg, CircleShape)
                 .border(SS.dimens.hairline, SS.colors.border, CircleShape),
         )
-        Text(key.json, style = SS.type.body, color = SS.colors.ink, modifier = Modifier.weight(1f))
+        // A human name, which is also the field's accessible name (UX-23): TalkBack
+        // read "#FBF7EF, edit box", and the visible labels were JSON keys.
+        val name = stringResource(colourName(key))
+        Text(name, style = SS.type.body, color = SS.colors.ink, modifier = Modifier.weight(1f))
         OutlinedTextField(
             value = draft,
             onValueChange = {
@@ -140,10 +148,22 @@ private fun ColourRow(
             singleLine = true,
             isError = ThemeColor.parse(draft) == null,
             textStyle = SS.type.code.copy(color = SS.colors.ink),
-            modifier = Modifier.width(132.dp),
+            modifier = Modifier.width(132.dp).semantics { contentDescription = name },
         )
     }
 }
+
+private fun colourName(key: PaletteKey): Int =
+    when (key) {
+        PaletteKey.BG -> R.string.theme_colour_bg
+        PaletteKey.TEXT -> R.string.theme_colour_text
+        PaletteKey.HEADING -> R.string.theme_colour_heading
+        PaletteKey.LINK -> R.string.theme_colour_link
+        PaletteKey.CODE -> R.string.theme_colour_code
+        PaletteKey.CODE_BG -> R.string.theme_colour_code_bg
+        PaletteKey.MUTED -> R.string.theme_colour_muted
+        PaletteKey.BORDER -> R.string.theme_colour_border
+    }
 
 /** Spacing: base size, heading scale and line height, each a stepper. */
 @Composable
@@ -175,9 +195,21 @@ private fun StepRow(
         modifier = Modifier.fillMaxWidth().heightIn(min = SS.dimens.rowPrimary).padding(horizontal = 16.dp),
     ) {
         Text(label, style = SS.type.body, color = SS.colors.ink, modifier = Modifier.weight(1f))
-        OutlinedButton(onClick = { onStep(-1) }) { Text("−", style = SS.type.label, color = SS.colors.ink) }
-        Text(value, style = SS.type.label, color = SS.colors.ink)
-        OutlinedButton(onClick = { onStep(1) }) { Text("+", style = SS.type.label, color = SS.colors.ink) }
+        // Named steppers and a live value, as in Settings (UX-15).
+        val down = stringResource(R.string.theme_step_down, label)
+        val up = stringResource(R.string.theme_step_up, label)
+        OutlinedButton(onClick = { onStep(-1) }, modifier = Modifier.semantics { contentDescription = down }) {
+            Text("−", style = SS.type.label, color = SS.colors.ink, modifier = Modifier.clearAndSetSemantics {})
+        }
+        Text(
+            value,
+            style = SS.type.label,
+            color = SS.colors.ink,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+        )
+        OutlinedButton(onClick = { onStep(1) }, modifier = Modifier.semantics { contentDescription = up }) {
+            Text("+", style = SS.type.label, color = SS.colors.ink, modifier = Modifier.clearAndSetSemantics {})
+        }
     }
 }
 

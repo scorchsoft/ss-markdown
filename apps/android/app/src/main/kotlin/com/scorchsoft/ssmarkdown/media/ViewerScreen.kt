@@ -4,7 +4,6 @@ import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
@@ -20,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,7 +38,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
@@ -48,6 +53,7 @@ import kotlin.math.roundToInt
 private const val MIN_SCALE = 1f
 private const val MAX_SCALE = 8f
 private const val DOUBLE_TAP_SCALE = 2.5f
+private const val ZOOM_STEP = 1.5f
 private const val PERCENT = 100
 private val ThumbSize = 56.dp
 private val ChipShape = RoundedCornerShape(20.dp)
@@ -135,35 +141,65 @@ private fun ZoomableImage(
             }
         }
         if (image is ViewerImage.Loaded) {
-            ZoomChip(scale, Modifier.align(Alignment.TopEnd).padding(12.dp)) {
-                scale = MIN_SCALE
-                offset = Offset.Zero
-            }
+            ZoomChip(
+                scale,
+                Modifier.align(Alignment.TopEnd).padding(12.dp),
+                onStep = { factor ->
+                    scale = (scale * factor).coerceIn(MIN_SCALE, MAX_SCALE)
+                    if (scale == MIN_SCALE) offset = Offset.Zero
+                },
+                onFit = {
+                    scale = MIN_SCALE
+                    offset = Offset.Zero
+                },
+            )
         }
     }
 }
 
-/** "250% · Fit": the zoom, and the way back to the whole image. */
+/**
+ * "− 250% + · Fit": the zoom, buttons that do what pinch does (UX-20:
+ * zoom must not be gesture-only), and the way back to the whole image.
+ */
 @Composable
 private fun ZoomChip(
     scale: Float,
     modifier: Modifier,
+    onStep: (Float) -> Unit,
     onFit: () -> Unit,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
         modifier = modifier.background(SS.colors.bg, ChipShape).border(SS.dimens.hairline, SS.colors.border, ChipShape),
     ) {
+        StepButton("−", stringResource(R.string.viewer_zoom_out), enabled = scale > MIN_SCALE) { onStep(1 / ZOOM_STEP) }
         Text(
             stringResource(R.string.zoom_chip, (scale * PERCENT).roundToInt()),
             style = SS.type.label,
             color = SS.colors.ink,
-            modifier = Modifier.padding(start = 12.dp),
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
         )
+        StepButton("+", stringResource(R.string.viewer_zoom_in), enabled = scale < MAX_SCALE) { onStep(ZOOM_STEP) }
         TextButton(
             onClick = onFit,
         ) { Text(stringResource(R.string.viewer_fit), style = SS.type.label, color = SS.colors.ink) }
+    }
+}
+
+@Composable
+private fun StepButton(
+    glyph: String,
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    TextButton(onClick = onClick, enabled = enabled, modifier = Modifier.semantics { contentDescription = label }) {
+        Text(
+            glyph,
+            style = SS.type.bodyStrong,
+            color = if (enabled) SS.colors.ink else SS.colors.inkMuted,
+            modifier = Modifier.clearAndSetSemantics {},
+        )
     }
 }
 
@@ -173,22 +209,28 @@ private fun Message(text: Int) {
 }
 
 @Composable
+private fun label(index: Int): String = stringResource(R.string.viewer_thumb, index + 1)
+
+@Composable
 private fun Filmstrip(
     state: ViewerUiState,
     onAction: (ViewerAction) -> Unit,
 ) {
+    // The inset goes outside the strip's height, never inside it (UX-11):
+    // inside, a 48 dp 3-button bar left the 56 dp thumbnails 8 dp.
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(ThumbSize + 24.dp)
                 .navigationBarsPadding()
+                .height(ThumbSize + 24.dp)
                 .padding(12.dp),
     ) {
         itemsIndexed(state.items) { index, item ->
             val selected = index == state.index
             val shape = RoundedCornerShape(8.dp)
+            val name = item.title.ifEmpty { label(index) }
             Box(
                 contentAlignment = Alignment.Center,
                 modifier =
@@ -199,11 +241,15 @@ private fun Filmstrip(
                             if (selected) 2.dp else SS.dimens.hairline,
                             if (selected) SS.colors.ink else SS.colors.border,
                             shape,
-                        ).clickable(role = Role.Tab) { onAction(ViewerAction.Select(index)) },
+                        ).selectable(selected = selected, role = Role.Tab) { onAction(ViewerAction.Select(index)) }
+                        // Named by the picture's title, and "selected" on the current one (UX-20).
+                        .semantics { contentDescription = name },
             ) {
                 val loaded = state.images[index] as? ViewerImage.Loaded
-                loaded?.let { decoded(it.bytes) }?.let { Image(it, item.title, Modifier.fillMaxSize().padding(4.dp)) }
-                    ?: Column { Text("${index + 1}", style = SS.type.caption, color = SS.colors.inkMuted) }
+                loaded?.let { decoded(it.bytes) }?.let { Image(it, null, Modifier.fillMaxSize().padding(4.dp)) }
+                    ?: Column(Modifier.clearAndSetSemantics {}) {
+                        Text("${index + 1}", style = SS.type.caption, color = SS.colors.inkMuted)
+                    }
             }
         }
     }

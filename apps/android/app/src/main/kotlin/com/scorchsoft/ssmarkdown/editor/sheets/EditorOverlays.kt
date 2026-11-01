@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.editor.sheets
 
 import android.text.format.Formatter
+import android.view.accessibility.AccessibilityManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,7 +34,10 @@ import com.scorchsoft.ssmarkdown.editor.UserMessage
 import kotlinx.coroutines.delay
 
 private val MessageShape = RoundedCornerShape(18.dp)
-private const val MESSAGE_MILLIS = 3_000L
+private const val MESSAGE_MILLIS = 3_000
+
+/** With a screen reader on, a message offering Undo stays at least this long, as Material's do. */
+private const val SCREEN_READER_UNDO_MILLIS = 10_000
 
 /** The sheet or dialog for [EditorUiState.overlay]; menus anchor to their buttons instead. */
 @Composable
@@ -97,15 +101,26 @@ fun EditorOverlays(
     }
 }
 
-/** A short confirmation at the foot of the page, with Undo when it can be undone. Never a toast. */
+/**
+ * A short confirmation at the foot of the page, with Undo when it can be
+ * undone. Never a toast. It stays as long as the user's accessibility
+ * timeout asks (UX-10, WCAG 2.2.1): see [messageTimeoutMillis].
+ */
 @Composable
 fun MessageBar(
     message: UserMessage,
     onAction: (EditorAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     LaunchedEffect(message.id) {
-        delay(MESSAGE_MILLIS)
+        val manager = context.getSystemService(AccessibilityManager::class.java)
+        val timeout =
+            messageTimeoutMillis(
+                undo = message.undo,
+                screenReader = manager?.isTouchExplorationEnabled == true,
+            ) { millis, flags -> manager?.getRecommendedTimeoutMillis(millis, flags) ?: millis }
+        delay(timeout)
         onAction(EditorAction.MessageShown)
     }
     Row(
@@ -130,6 +145,28 @@ fun MessageBar(
             }
         }
     }
+}
+
+/**
+ * How long a message stays: 3 s, or the user's "Time to take action"
+ * setting via [recommend] (`AccessibilityManager.getRecommendedTimeoutMillis`),
+ * which a message with Undo asks for as controls and the rest as text. A
+ * screen-reader user needs time to reach Undo, so with one running a
+ * message with Undo stays at least [SCREEN_READER_UNDO_MILLIS].
+ */
+internal fun messageTimeoutMillis(
+    undo: Boolean,
+    screenReader: Boolean,
+    recommend: (millis: Int, flags: Int) -> Int,
+): Long {
+    val flags =
+        if (undo) {
+            AccessibilityManager.FLAG_CONTENT_TEXT or AccessibilityManager.FLAG_CONTENT_CONTROLS
+        } else {
+            AccessibilityManager.FLAG_CONTENT_TEXT
+        }
+    val recommended = recommend(MESSAGE_MILLIS, flags).toLong()
+    return if (undo && screenReader) maxOf(recommended, SCREEN_READER_UNDO_MILLIS.toLong()) else recommended
 }
 
 @Suppress("CyclomaticComplexMethod") // One string per message kind.

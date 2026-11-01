@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
@@ -47,7 +48,8 @@ fun ModeBar(
 ) {
     Column(modifier.background(SS.colors.chrome)) {
         HorizontalDivider(thickness = SS.dimens.hairline, color = SS.colors.border)
-        Box(Modifier.fillMaxWidth().height(SS.dimens.bottomBar), contentAlignment = Alignment.Center) {
+        // A floor, not a height: the segments grow with the font (UX-7, UX-8).
+        Box(Modifier.fillMaxWidth().heightIn(min = SS.dimens.bottomBar), contentAlignment = Alignment.Center) {
             ModeSwitcher(mode, onSelect, iconOnly, modes)
         }
     }

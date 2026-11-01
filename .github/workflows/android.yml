@@ -44,20 +44,67 @@ jobs:
           gradle --no-daemon -p apps/android -Pssmarkdown.screenshots=true
           :app:testDebugUnitTest --tests '*ScreenshotTest*'
 
+      # Line coverage of the core modules. `check` above already ran
+      # koverVerify (the >= 90% gate from docs/engineering.md); this writes
+      # the merged report and puts the per-module numbers on the run page.
+      - name: Coverage report
+        run: |
+          gradle --no-daemon --console=plain -p apps/android koverXmlReport koverHtmlReport koverLog | tee kover.log
+          {
+            echo "### Core line coverage"
+            echo "| Module | Lines |"
+            echo "|---|---|"
+            awk '/^> Task .*koverPrintCoverage/ { m = $3; sub(/:koverPrintCoverage$/, "", m); if (m == "") m = "all core (merged)" }
+                 /line coverage:/ { print "| " m " | " $NF " |" }' kover.log
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: apps/android/build/reports/kover/
+          retention-days: 14
+
       - uses: actions/upload-artifact@v4
         with:
           name: screenshots
           path: apps/android/app/build/screenshots/
           retention-days: 14
 
-      # The hand-over artefact: debug-signed, but through R8 like a release.
+      # The hand-over artefact: debug-signed, otherwise a release build
+      # (non-debuggable, fully optimised R8, baseline profile included).
       - name: Assemble minified debug APK
         run: gradle --no-daemon -p apps/android -Pssmarkdown.minifyDebug=true :app:assembleDebug
 
+      # Guards PERF-1 from regressing quietly: the hand-over must not be
+      # debuggable, must not carry ui-tooling's exported PreviewActivity,
+      # and must ship the baseline profile and the licence texts.
+      - name: Verify the hand-over APK
+        run: |
+          apk=$(ls apps/android/app/build/outputs/apk/debug/*.apk)
+          aapt2=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2
+          manifest=$("$aapt2" dump xmltree --file AndroidManifest.xml "$apk")
+          if grep -q 'android:debuggable.*=true' <<<"$manifest"; then echo "::error::hand-over APK is debuggable"; exit 1; fi
+          if grep -q 'PreviewActivity' <<<"$manifest"; then echo "::error::hand-over APK ships PreviewActivity"; exit 1; fi
+          for entry in assets/dexopt/baseline.prof assets/licences/Apache-2.0.txt assets/licences/vscode-piece-tree-MIT.txt; do
+            unzip -l "$apk" "$entry" > /dev/null || { echo "::error::$entry missing from the hand-over APK"; exit 1; }
+          done
+          test -s apps/android/app/build/outputs/mapping/debug/mapping.txt
+          {
+            echo "### Hand-over APK"
+            echo "| | bytes |"
+            echo "|---|---|"
+            echo "| APK | $(stat -c %s "$apk") |"
+            unzip -lv "$apk" | awk '/classes[0-9]*\.dex$/ { print "| " $NF " | " $1 " |" }'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # mapping.txt travels with the APK: the build is obfuscated, so a
+      # stack trace from it is unreadable without the mapping of that build.
       - uses: actions/upload-artifact@v4
         with:
           name: app-debug-minified
-          path: apps/android/app/build/outputs/apk/debug/*.apk
+          path: |
+            apps/android/app/build/outputs/apk/debug/*.apk
+            apps/android/app/build/outputs/mapping/debug/mapping.txt
           retention-days: 14
 
       - name: Preserve test and lint reports
@@ -70,6 +117,55 @@ jobs:
             apps/android/**/build/reports/
             apps/android/**/build/test-results/
           retention-days: 14
+
+  preview-web:
+    name: Preview bundle (TypeScript, unit, e2e, freshness, budget)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/android/feature/preview/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: apps/android/feature/preview/web/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/android/feature/preview/web/package-lock.json
+      - run: npm ci
+
+      # The TypeScript half of the edit protocol (OT property tests,
+      # editSafety) and the static checks. Kotlin's half runs in `check`.
+      - name: Typecheck, lint and unit tests
+        run: npm run typecheck && npm run lint && npm run test:unit
+
+      # The committed assets must be exactly what web/src builds to (the
+      # build is deterministic). Catches "edited src, forgot npm run build".
+      - name: Committed bundle matches a fresh build
+        run: |
+          npm run build
+          stale=$(git status --porcelain -- ../src/main/assets/preview)
+          if [ -n "$stale" ]; then
+            echo "$stale"
+            echo "::error::src/main/assets/preview is stale: run npm run build in feature/preview/web and commit the result"
+            exit 1
+          fi
+
+      # Budget: the whole assets/preview directory (JS, CSS, KaTeX fonts,
+      # LICENSES.txt), as build.mjs reports it. ~3.43 MiB when set.
+      - name: Bundle size budget
+        run: |
+          budget=$((3584 * 1024))
+          size=$(du -sb ../src/main/assets/preview | cut -f1)
+          echo "Preview bundle: $size bytes (budget $budget)" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$size" -gt "$budget" ]; then echo "::error::preview bundle is over its 3.5 MiB budget"; exit 1; fi
+
+      # The e2e tests drive the BUILT bundle in Chromium: rendering, the
+      # security corpus, editing, print and virtualisation.
+      - name: End-to-end tests (Chromium)
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e
 
   device:
     name: Instrumented tests (API 34 emulator)

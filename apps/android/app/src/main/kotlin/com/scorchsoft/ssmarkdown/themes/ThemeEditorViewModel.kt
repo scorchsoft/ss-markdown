@@ -3,6 +3,7 @@ package com.scorchsoft.ssmarkdown.themes
 import com.scorchsoft.ssmarkdown.settings.SettingsRepository
 import com.scorchsoft.ssmarkdown.theme.BuiltInThemes
 import com.scorchsoft.ssmarkdown.theme.codec.ThemeCodec
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -10,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /** One-shot effects the theme editor's route performs: pickers and navigation. */
 sealed interface ThemeEditorEvent {
@@ -39,6 +41,8 @@ sealed interface ThemeEditorEvent {
 class ThemeEditorViewModel(
     private val library: ThemeLibrary,
     private val settings: SettingsRepository,
+    /** The main-thread scope "Use this theme" runs in; the file write itself is on the library's I/O. */
+    private val scope: CoroutineScope,
 ) {
     private val ui = MutableStateFlow(ThemeEditorUiState())
     private val eventChannel = Channel<ThemeEditorEvent>(Channel.BUFFERED)
@@ -112,17 +116,19 @@ class ThemeEditorViewModel(
 
     private fun use() {
         val state = ui.value
-        // Never replace a different theme that happens to share the name (SEC-L1).
-        val theme = library.withFreeName(state.theme, state.savedId)
-        if (!library.save(theme)) {
-            ui.update { it.copy(saveFailed = true) }
-            return
+        scope.launch {
+            // Never replace a different theme that happens to share the name (SEC-L1).
+            val theme = library.withFreeName(state.theme, state.savedId)
+            if (!library.save(theme)) {
+                ui.update { it.copy(saveFailed = true) }
+                return@launch
+            }
+            // A rename gives the theme a new id; the old file must not linger as a twin.
+            state.savedId?.takeIf { it != theme.id }?.let { library.delete(it) }
+            settings.update { it.copy(previewThemeId = theme.id) }
+            ui.update { it.copy(theme = theme, savedId = theme.id, dirty = false, saveFailed = false) }
+            eventChannel.trySend(ThemeEditorEvent.Close)
         }
-        // A rename gives the theme a new id; the old file must not linger as a twin.
-        state.savedId?.takeIf { it != theme.id }?.let(library::delete)
-        settings.update { it.copy(previewThemeId = theme.id) }
-        ui.update { it.copy(theme = theme, savedId = theme.id, dirty = false, saveFailed = false) }
-        eventChannel.trySend(ThemeEditorEvent.Close)
     }
 
     private companion object {

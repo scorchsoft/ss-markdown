@@ -4,9 +4,13 @@ import com.scorchsoft.ssmarkdown.theme.BuiltInThemes
 import com.scorchsoft.ssmarkdown.theme.Theme
 import com.scorchsoft.ssmarkdown.theme.codec.ThemeCodec
 import com.scorchsoft.ssmarkdown.theme.codec.ThemeDecodeResult
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
 
@@ -15,40 +19,53 @@ import java.io.IOException
  * custom themes, each kept as its own JSON file (the same format as
  * Export, so a file in [dir] is exactly what a person could import).
  *
- * Custom themes load lazily on first use, never on the launch path. A
- * file that no longer decodes is skipped, not deleted: it may be from a
- * newer version of the app.
+ * No method touches the disk on the caller's thread (performance review
+ * PERF-C): custom themes are read ahead on [io] when the library is
+ * built, and [themes] publishes them when they land; until then [all]
+ * and [byId] answer from the built-ins. [save] and [delete] suspend onto
+ * [io]. A file that no longer decodes is skipped, not deleted: it may be
+ * from a newer version of the app.
  */
 class ThemeLibrary(
     private val dir: File,
+    private val io: CoroutineDispatcher,
+    scope: CoroutineScope,
 ) {
     private val customs = MutableStateFlow<List<Theme>?>(null)
 
-    /** Built-ins first, then custom themes by name. */
+    /** The custom themes once read (null until then), by name. */
     val themes: StateFlow<List<Theme>?> get() = customs.asStateFlow()
 
-    /** Every theme, loading custom ones if they have not been read yet. */
-    fun all(): List<Theme> = BuiltInThemes.ALL + loaded()
+    init {
+        scope.launch(io) { loaded() }
+    }
 
-    /** The theme with [id], or the default when it is gone (deleted, or from another install). */
+    /** Built-ins first, then the custom themes read so far. */
+    fun all(): List<Theme> = BuiltInThemes.ALL + customs.value.orEmpty()
+
+    /** The theme with [id], or the default when it is gone (deleted, from another install, or not read yet). */
     fun byId(id: String): Theme =
-        // A built-in never touches the disk: the common case stays off the launch path's I/O.
-        BuiltInThemes.byId(id) ?: loaded().firstOrNull { it.id == id } ?: BuiltInThemes.DEFAULT
+        BuiltInThemes.byId(id) ?: customs.value?.firstOrNull { it.id == id } ?: BuiltInThemes.DEFAULT
 
     /** Saves [theme] as a custom theme, replacing one with the same id. False if it could not be written. */
-    fun save(theme: Theme): Boolean {
+    suspend fun save(theme: Theme): Boolean {
         require(BuiltInThemes.byId(theme.id) == null) { "built-in themes are read-only" }
-        val written =
-            try {
-                dir.mkdirs()
-                val temp = File(dir, "${theme.id}.json.tmp")
-                temp.writeText(ThemeCodec.encode(theme))
-                temp.renameTo(File(dir, "${theme.id}.json"))
-            } catch (_: IOException) {
-                false
+        return withContext(io) {
+            val written =
+                try {
+                    dir.mkdirs()
+                    val temp = File(dir, "${theme.id}.json.tmp")
+                    temp.writeText(ThemeCodec.encode(theme))
+                    temp.renameTo(File(dir, "${theme.id}.json"))
+                } catch (_: IOException) {
+                    false
+                }
+            if (written) {
+                val others = loaded().filterNot { it.id == theme.id }
+                customs.value = (others + theme).sortedBy { it.name.lowercase() }
             }
-        if (written) customs.value = (loaded().filterNot { it.id == theme.id } + theme).sortedBy { it.name.lowercase() }
-        return written
+            written
+        }
     }
 
     /**
@@ -57,24 +74,28 @@ class ThemeLibrary(
      * theme, a second copy or a rename that matched another theme's name
      * would otherwise replace that theme silently on save (SEC-L1).
      * [ownId] is the id [theme] is already stored under, if any: saving
-     * over itself is not a clash.
+     * over itself is not a clash. Suspends onto [io]: it may read the
+     * custom themes.
      */
-    fun withFreeName(
+    suspend fun withFreeName(
         theme: Theme,
         ownId: String?,
-    ): Theme {
-        val taken = loaded().map { it.id }.toSet() - setOfNotNull(ownId)
-        if (theme.id !in taken) return theme
-        return generateSequence(2) { it + 1 }
-            .take(MAX_RENAME_TRIES)
-            .mapNotNull { renamed(theme, " ($it)") }
-            .firstOrNull { it.id !in taken } ?: theme
-    }
+    ): Theme =
+        withContext(io) {
+            val taken = loaded().map { it.id }.toSet() - setOfNotNull(ownId)
+            if (theme.id !in taken) return@withContext theme
+            generateSequence(2) { it + 1 }
+                .take(MAX_RENAME_TRIES)
+                .mapNotNull { renamed(theme, " ($it)") }
+                .firstOrNull { it.id !in taken } ?: theme
+        }
 
     /** Removes the custom theme [id]. */
-    fun delete(id: String) {
-        File(dir, "$id.json").delete()
-        customs.value = loaded().filterNot { it.id == id }
+    suspend fun delete(id: String) {
+        withContext(io) {
+            File(dir, "$id.json").delete()
+            customs.value = loaded().filterNot { it.id == id }
+        }
     }
 
     /** [theme] with [suffix] on its name and the id that name gives, through the codec that derives it. */
@@ -86,7 +107,8 @@ class ThemeLibrary(
         return (ThemeCodec.decode(ThemeCodec.encode(theme.copy(name = name))) as? ThemeDecodeResult.Decoded)?.theme
     }
 
-    private fun loaded(): List<Theme> = customs.value ?: read().also { customs.value = it }
+    /** On [io] only. */
+    private fun loaded(): List<Theme> = customs.value ?: read().also { customs.compareAndSet(null, it) }
 
     private fun read(): List<Theme> =
         dir

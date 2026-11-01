@@ -233,13 +233,13 @@ class AppGraph(
     val media = MediaActions(app, io)
 
     /** The preview themes: built-ins plus custom JSON files. */
-    val themes = ThemeLibrary(File(app.filesDir, "themes"))
+    val themes = ThemeLibrary(File(app.filesDir, "themes"), io, ioScope)
 
     /** Bundled, downloaded and imported fonts; built on first use (the catalogue is parsed then). */
     val fonts: FontRepository by lazy { AndroidFonts.repository(app) }
 
     /** The theme editor. */
-    val themeEditor: ThemeEditorViewModel by lazy { ThemeEditorViewModel(themes, settings) }
+    val themeEditor: ThemeEditorViewModel by lazy { ThemeEditorViewModel(themes, settings, mainScope) }
 
     /** The font picker; a chosen font goes to the theme editor. */
     val fontPicker: FontPickerViewModel by lazy {

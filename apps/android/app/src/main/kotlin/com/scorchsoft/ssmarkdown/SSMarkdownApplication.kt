@@ -1,6 +1,8 @@
 package com.scorchsoft.ssmarkdown
 
 import android.app.Application
+import android.content.pm.ApplicationInfo
+import android.os.StrictMode
 
 /**
  * Holds the [AppGraph] for the life of the process. The graph is built on
@@ -21,7 +23,32 @@ class SSMarkdownApplication : Application() {
      */
     override fun onCreate() {
         super.onCreate()
+        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) enableStrictMode()
         getSharedPreferences(SETTINGS_PREFERENCES, MODE_PRIVATE)
+    }
+
+    /**
+     * Debuggable builds log every main-thread disk or network access and
+     * every leaked closeable (docs/robustness.md Part 3; performance
+     * review PERF-C). Log only, never death: WebView's own start-up reads
+     * disk on the main thread, which no app can avoid. The hand-over build
+     * is not debuggable, so it never pays for this.
+     */
+    private fun enableStrictMode() {
+        StrictMode.setThreadPolicy(
+            StrictMode.ThreadPolicy
+                .Builder()
+                .detectAll()
+                .penaltyLog()
+                .build(),
+        )
+        StrictMode.setVmPolicy(
+            StrictMode.VmPolicy
+                .Builder()
+                .detectAll()
+                .penaltyLog()
+                .build(),
+        )
     }
 
     /**

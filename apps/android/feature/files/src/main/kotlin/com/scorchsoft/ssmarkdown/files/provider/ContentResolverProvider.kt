@@ -77,10 +77,14 @@ class ContentResolverProvider(
                 override fun flush() = out.flush()
 
                 override fun close() {
-                    out.flush()
-                    syncIfPossible()
-                    out.close()
-                    descriptor.close()
+                    // The descriptor is released whatever the flush or close says (DS-19).
+                    try {
+                        out.flush()
+                        syncIfPossible()
+                        out.close()
+                    } finally {
+                        descriptor.close()
+                    }
                 }
             }
 

@@ -5,6 +5,7 @@ import com.scorchsoft.ssmarkdown.files.fingerprint.DiskProbe
 import com.scorchsoft.ssmarkdown.files.fingerprint.DiskState
 import com.scorchsoft.ssmarkdown.files.provider.DocumentProvider
 import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
+import com.scorchsoft.ssmarkdown.files.provider.FileMetadata
 import com.scorchsoft.ssmarkdown.files.provider.ProviderFailures
 import com.scorchsoft.ssmarkdown.files.provider.ProviderResult
 import com.scorchsoft.ssmarkdown.files.provider.valueOrNull
@@ -32,6 +33,7 @@ import com.scorchsoft.ssmarkdown.text.Utf8Encoder
  * A save that runs past [timeout] ends as [SaveOutcome.TimedOut] with the
  * file untouched or restored; see [SaveTimeout] for where it is enforced.
  */
+@Suppress("TooManyFunctions") // One function per step of the class description.
 class SavePipeline(
     private val provider: DocumentProvider,
     private val baseCopies: BaseCopyStore,
@@ -47,6 +49,7 @@ class SavePipeline(
         val deadline = timeout.start()
         checkDiskAndBackup(request.uri, request.base)?.let { return it }
         if (deadline.expired) return SaveOutcome.TimedOut(FileIntegrity.Untouched)
+        lastLook(request.uri, request.base)?.let { return it }
         val first =
             writer.write(request.uri) { Utf8Encoder.write(request.text, request.format, deadline.guard(it)) }
         val written =
@@ -73,6 +76,24 @@ class SavePipeline(
             return blocked
         }
         return if (staged.commit()) null else SaveOutcome.BackupFailed(isStorageFull(staged.failure))
+    }
+
+    /**
+     * The precondition hashes the whole file, which takes seconds on a
+     * cloud provider, so another app may write in that time. SAF has no
+     * compare-and-swap, but a metadata query right before opening the file
+     * shrinks the window from seconds to milliseconds (DS-17): if size or
+     * time moved, hash again before writing over anything. Null means
+     * "carry on".
+     */
+    private fun lastLook(
+        uri: DocumentUri,
+        base: BaseFingerprint,
+    ): SaveOutcome? {
+        val now = provider.metadata(uri).valueOrNull() ?: return null // The write itself will report it.
+        val sizeMoved = now.size != FileMetadata.UNKNOWN_SIZE && now.size != base.size
+        val timeMoved = base.lastModified != 0L && now.lastModified != base.lastModified
+        return if (sizeMoved || timeMoved) precondition(probe.check(uri, base, thorough = true)) else null
     }
 
     private fun precondition(disk: DiskState): SaveOutcome? =

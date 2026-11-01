@@ -48,6 +48,22 @@ class SavePipelineTest {
     }
 
     @Test
+    fun `DS-17 a write that lands while the precondition hashes is caught before ours`() {
+        val base = base()
+        var reads = 0
+        provider.onOpenInput = {
+            // The precondition's hash reads the old bytes; another app writes meanwhile.
+            if (reads++ == 0) provider.externalWrite(uri, "theirs, mid-hash\n".toByteArray())
+        }
+
+        val outcome = pipeline.save(request(base = base))
+
+        assertTrue(outcome.toString(), outcome is SaveOutcome.Conflict)
+        assertEquals("theirs, mid-hash\n", provider.text(uri))
+        assertEquals(0, provider.writesOpened)
+    }
+
+    @Test
     fun `an outside change of a different size is a conflict and nothing is written`() {
         val base = base()
         provider.externalWrite(uri, "theirs, longer than before\n".toByteArray())

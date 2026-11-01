@@ -26,7 +26,7 @@ where each idea came from, so a future reader can check the source.
 | Snapshot-vs-delta rule (delta > text; chain payload > 2× text; chain cap) | Mercurial `revlogutils/deltas.py` (GPL, the idea only); git pack depth 50 | `core/history` |
 | `onTrimMemory` RUNNING_* levels not delivered on API 34+ | AOSP `ComponentCallbacks2.java` | `MemoryGovernor` polls instead |
 | Renderer priority + `onRenderProcessGone` recovery that tells a crash from an OOM kill | Android WebView docs | `feature/preview` |
-| Baseline Profiles (`profileinstaller`), Macrobenchmark on a 10 MB fixture, JankStats, StrictMode, LeakCanary (debug only), Perfetto | Android tooling | CI + `benchmark/` |
+| Baseline Profiles (`profileinstaller`), Macrobenchmark on a 10 MB fixture, JankStats, StrictMode, LeakCanary (debug only), Perfetto | Android tooling | StrictMode (penaltyLog) in debuggable builds today; library baseline profiles ship. Macrobenchmark, JankStats and LeakCanary are planned with the device run (`robustness.md` Part 3) |
 
 ## Host measurements (performance review fixes, 2026-11-01)
 
@@ -46,6 +46,16 @@ test, never a wall-clock threshold. The tokenizer rows come from
 | PERF-17 `LineVersions` per in-line keystroke at 1.46M lines | 1.46M ids copied (0.25 ms) | 0 | `EditorCacheWorkTest` |
 | PERF-17 `LineLayoutCache` per keystroke | 512 Pairs and boxed keys | < 256 bytes allocated | `EditorCacheWorkTest` |
 | PERF-18 height query at 1.46M lines | walk of up to 2,850 blocks, one object per call (0.35 ms a frame) | ≤ 12 Fenwick steps, no allocation | `EditorCacheWorkTest` |
+| PERF-9/J `retainedBytesEstimate` vs measured, 20 MB corpus | 13 MB estimated, 27 MB measured | 23 MB estimated (now counts headings, labels, interned states), 27 MB measured | `TokenizerMemoryTest` |
+| PERF-A Preview-only edit, one char at the end of 100k lines with 50 headings | whole outline dropped; 100,000 lines re-tokenised on the main thread in 4 ms slices (28 slices to recover) | ≤ 2 lines re-tokenised, off the main thread; 50 headings throughout | `OutlineTrackerTest` |
+| PERF-B file writes for a 100-step pinch | 100 serialise + write + rename, on the main thread | 0 mid-pinch; 1 when the fingers lift, on the I/O scope (500 ms debounce) | `ViewMemoryTest` |
+| PERF-C custom-theme file reads on the main thread | every composition of the theme controls, plus save and delete | 0 (read ahead on I/O; save and delete suspend onto it) | `ThemeLibraryTest` |
+| PERF-D main-thread tokenising in one frame, fence opened at line 0 | up to 16 ms: 8 ms pre-draw + 4 ms idle slice + 4 ms outline slice | ≤ 8 ms + one line for the Code pane; 0 for the outline (background snapshot) | `HighlightSchedulerTest`, `OutlineTrackerTest` |
+| PERF-E a line break near the top of 1.42M lines, per tokenizer | 0.98 ms median, 4 arrays × 1.42M entries shifted (review probe) | 30 µs, 0 slots moved, after a 3.5 ms first break that brings the gap there (`TokenizerBenchmarkTest`); line ids likewise | `TokenizerMemoryTest`, `EditorCacheWorkTest` |
+| PERF-F pieces after 3,000 scattered edits to a 10k-char text | ~6,000, never compacted outside the benchmark | compacted off the main thread to below the 2 × (chars/64K) + 1,000 line | `TreeCompactorTest` |
+| PERF-H whole-document definition scans while typing beside a `[^1]` citation | 1 per keystroke (3 regexes a line + a JSON hash) | 0; 1 only when a citation or definition changes | `definitions.test.ts` |
+| PERF-I budget for a 12 MB stream of unknown size | Normal (admitted as 0 bytes); an `OutOfMemoryError` mid-decode crashed the app | Lean, from the bytes that arrived; an `OutOfMemoryError` declines the file | `DocumentLoaderTest` |
+| CC-F the three wall-clock tests | < 1 s, < 2 s, < 10 s | ≤ 16 char reads a char; ≤ 3 lines tokenised and ≤ 1 outline rebuild per edit | `LineTokenizerTest`, `OutlineTest` |
 
 ## Libraries
 

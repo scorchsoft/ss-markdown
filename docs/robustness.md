@@ -105,7 +105,8 @@ hash is always taken before a save.
   apply automatically. Overlaps are presented one by one (take theirs /
   take mine / edit). The result loads as an unsaved edit, and nothing is
   written until you save.
-- It lives in pure JVM (`core/history`) and is property-tested.
+- It lives in `feature/files/merge` (`ThreeWayMerge`, plain Kotlin with no
+  Android types) and is property-tested (`ThreeWayMergePropertyTest`).
 
 **History is a graph, not a line.** Each version records its parent, so
 an outside change becomes its own node, and your edits branch from the

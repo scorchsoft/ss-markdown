@@ -1,21 +1,21 @@
 # SS Markdown Android
 
-Kotlin + Compose. Pure-JVM core, thin app, no DI framework. Iteration 1
-is the scaffold: every module exists and builds, but only `core:ui` and
-the app shell hold real code yet.
+Kotlin + Compose. Pure-JVM core, thin app, no DI framework. Every
+module holds real code; the map below says what each one has.
 
 ## Layout
 
 ```
 app/              MainActivity (edge to edge, handles its own config changes) and shell/
 core/text         PURE JVM. Piece table, line index, graphemes, undo.        (piece tree, done: see core/text/NOTICE)
-core/markdown     PURE JVM. Tokenizer, block index, anchor maths.             (tokenizer + outline done; see known gaps in commit)
-core/history      PURE JVM. Journal, keyframe+diff history, retention.        (recovery journal, done: see core/history/FORMAT.md)
-core/theme        PURE JVM. Theme schema, CSS generation, contrast checks.    (placeholder)
-core/ui           Design system: SS.colors, SSType, SSDimens, SS* components
-feature/editor    empty: MarkdownCodeView, InputConnection, gestures
-feature/preview   empty: WebView host, bridge, print/export
-feature/files     empty: SAF, DocumentStore, save pipeline
+core/markdown     PURE JVM. Tokenizer, block index, anchor maths, edit commands.  (done: tokenizer, outline, edit commands with fence-aware line commands and list renumbering)
+core/history      PURE JVM. Journal, keyframe+diff history, retention.        (done: journal (FORMAT.md), versions, export/import + export listing (VERSIONS-FORMAT.md))
+core/theme        PURE JVM. Theme schema, CSS generation, contrast checks.    (done: schema, codec, CSS, contrast; see THEME-CSS.md)
+core/ui           Design system: SS.colors, SSType, SSDimens, SS* components  (formatting strip incl. table mode)
+feature/editor    MarkdownCodeView and collaborators: viewport, renderer (per-line RenderNode cache), IME (cursor updates), find highlights, sliced paste, gestures, a11y
+feature/preview   WebView host, bridge, edit sync, print/export (see "Preview bundle")
+feature/files     SAF, DocumentStore, save pipeline (backup, verify, timeout), three-way merge (merge/), MemoryGovernor, folder actions, document locations
+feature/fonts     Google Fonts download and cache
 build-logic/      ssmarkdown.* convention plugins (below)
 config/detekt/    detekt overrides; ktlint reads ../.editorconfig
 tools/            bootstrap-android-sdk.sh

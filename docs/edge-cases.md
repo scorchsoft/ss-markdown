@@ -13,43 +13,47 @@ is green in CI).
 
 | Case | Handling | Test | Status |
 |---|---|---|---|
-| Disk full during save (`ENOSPC`) | The write fails without touching the original thanks to the backup and verification. The doc stays dirty and we show "Storage full — free space or Save as". | Fault-injection provider | planned |
+| Disk full during save (`ENOSPC`) | The write fails without touching the original thanks to the backup and verification. The doc stays dirty and we show "Storage full — free space or Save as". | Fault-injection provider (`SavePipelineTest`: a full disk part way is StorageFull and the old file is put back) | tested |
 | Disk full for the journal or history | Check `getAllocatableBytes` before writing. If space is low, warn early ("Less than 50 MB free — recovery copies may stop"). History pruning runs first. The journal has 2 MB reserved and preallocated. | Unit test with a fake StorageManager | planned |
-| File changed by another app between sessions, with no unsaved edits | Load the disk version and record "Changed outside" in history. Cursor and scroll are mapped through the diff; the old undo stack is discarded. | Outside-change scenarios | planned |
-| File changed by another app while we hold unsaved edits (open now or in the journal) | Never auto-apply: the conflict sheet offers merge, compare, keep file, or use mine. Autosave pauses. | Outside-change scenarios | planned |
-| Outside change with the same size in the same second, or a provider reporting `lastModified = 0` | Base fingerprint includes SHA-256; hash compared when metadata is ambiguous or unreliable, and always before save. | Outside-change scenarios | planned |
-| File deleted or renamed by another app while open | The next save or focus check notices. Banner: "File no longer exists — Save as / Recreate". The text is kept. | Instrumented test | planned |
-| SD card ejected or cloud provider uninstalled | Same as a lost permission: work stays in the journal; offer Save as. | Fault-injection provider | planned |
-| Slow cloud provider (Drive, OneDrive) | All file I/O runs off the main thread with a progress indicator after 300 ms. A timeout offers Retry or Save locally. We never block the UI. | Fake provider with a delay | planned |
-| Same file open twice (multi-window, or open again from the file manager) | One `DocumentStore` entry per URI; both windows share the same buffer. | Instrumented test | planned |
-| Zero-byte, extension-less, or `text/plain` `.MD` (upper case) | Opens normally. MIME and extension matching ignore case. | Unit test | planned |
-| Binary file opened by mistake | NUL bytes or invalid UTF-8 → read-only with "This doesn't look like text". It is never saved over. | Corpus test | planned |
+| File changed by another app between sessions, with no unsaved edits | Load the disk version and record "Changed outside" in history. Cursor and scroll are mapped through the diff; the old undo stack is discarded. | Outside-change scenarios (`DocumentStoreTest`: a clean buffer reloads silently, with a mapped cursor and no old undo) | tested |
+| File changed by another app while we hold unsaved edits (open now or in the journal) | Never auto-apply: the conflict sheet offers merge, compare, keep file, or use mine. Autosave pauses. | Outside-change scenarios (`DocumentStoreTest`, `SchedulingTest`: autosave pauses on a conflict) | tested |
+| Outside change with the same size in the same second, or a provider reporting `lastModified = 0` | Base fingerprint includes SHA-256; hash compared when metadata is ambiguous or unreliable, and always before save. | Outside-change scenarios (`SavePipelineTest`, `DocumentStoreTest`) | tested |
+| File deleted or renamed by another app while open | The next save or focus check notices. Banner: "File no longer exists — Save as / Recreate". The text is kept. | `DocumentStoreTest` (a deleted file keeps its text); `FolderActionsTest` (rename and delete through a real resolver). Instrumented test still planned | tested (unit) |
+| SD card ejected or cloud provider uninstalled | Same as a lost permission: work stays in the journal; offer Save as. | Fault-injection provider (`SavePipelineTest` and `DocumentStoreTest`: a revoked grant keeps the work dirty and journalled) | tested |
+| Slow cloud provider (Drive, OneDrive) | All file I/O runs off the main thread with a progress indicator after 300 ms. A timeout offers Retry or Save locally. We never block the UI. | `SaveTimeoutTest`: a timed-out save is `SaveOutcome.TimedOut` with the file untouched or restored, and can be retried. The Retry / Save locally UI is the app's | tested (library) |
+| Same file open twice (multi-window, or open again from the file manager) | One `DocumentStore` entry per URI; both windows share the same buffer. | `DocumentStoreTest` (one entry per uri, shared by every window). Instrumented test still planned | tested (unit) |
+| Zero-byte, extension-less, or `text/plain` `.MD` (upper case) | Opens normally. MIME and extension matching ignore case. | `SafHelpersTest` (extensions match without regard to case) | tested |
+| Binary file opened by mistake | NUL bytes or invalid UTF-8 → read-only with "This doesn't look like text". It is never saved over. | `DocumentStoreTest` (invalid UTF-8 and NUL bytes open read-only) | tested |
 | Mixed line endings in one file | Preserved byte-for-byte. New lines use the file's dominant ending. | Round-trip corpus | tested |
 | Mixed-EOL file: a line break deleted then restored by undo | Comes back in the file's dominant style (documented in `TextDocument`); every other line stays byte-exact. Acceptable for now; revisit if seen in the wild | `LineEndingsTest` | tested (known limitation) |
-| A save interrupted by power loss | Backup + verify + journal; on next launch the file is old-or-new, never partial. | Kill test (journal half proven: torn-tail tests in core/history) | planned |
+| A save interrupted by power loss | Backup + verify + journal; on next launch the file is old-or-new, never partial. | Restore path: `SavePipelineTest` (random one-shot faults leave the old version or the new). Kill test still planned (journal half proven: torn-tail tests in core/history) | handled |
 
 ## Text and input
 
 | Case | Handling | Test | Status |
 |---|---|---|---|
 | Emoji, surrogate pairs, flags, ZWJ sequences, combining marks | All cursor, selection and anchor maths works in grapheme clusters (`BreakIterator`), never raw `char` indices. | Property tests with a grapheme corpus | handled |
-| Right-to-left and mixed-direction text | The view uses `Bidi` per line; caret movement follows visual order. | Corpus + screenshot test | planned |
+| Right-to-left and mixed-direction text | The view uses `Bidi` per line; caret movement follows visual order. | `BidiCaretTest`. Visual caret order per line (`BidiCaret`) is behind `MarkdownCodeView.bidiCaretMovement` until the renderer draws bidi runs reordered; runs are drawn in logical order today | handled (caret; drawing planned) |
 | One 5 MB line (minified JSON, base64 image) | Virtualised horizontally too. Colouring is capped at 10k characters per line. Wrap mode measures that line lazily. | Benchmark corpus | planned |
-| Keyboard composing during rotation or toolbar tap | Commit composing text first (`finishComposingText`). | Rotation + keyboard matrix | planned |
-| Hardware keyboard or Chromebook | Ctrl+S, Ctrl+F, Ctrl+Z / Ctrl+Shift+Z, Ctrl+B / Ctrl+I, Tab to indent; arrows and Shift-select work. | Instrumented key-event tests | planned |
-| Paste of 50 MB | Chunked insert off the main thread with progress; undoable as one step; admission control applies. | Instrumented test | planned |
+| Keyboard composing during rotation or toolbar tap | Commit composing text first (`finishComposingText`). | `EditingSession`/`MarkdownCodeView` commit composing text on configuration change, focus loss and every outside edit; rotation + keyboard matrix still planned | handled |
+| Hardware keyboard or Chromebook | Ctrl+S, Ctrl+F, Ctrl+Z / Ctrl+Shift+Z, Ctrl+B / Ctrl+I, Tab to indent; arrows and Shift-select work. | `KeyCommandsTest`, `EditorViewBehaviourTest` (key routing); instrumented key-event tests still planned | handled |
+| Paste of 50 MB | Chunked insert off the main thread with progress; undoable as one step; admission control applies. | `ChunkedPasteTest`: prepared off the main thread, inserted a slice per frame with progress, one undo step, typing held until it ends. Admission control is the host's (it owns the `MemoryGovernor`) | tested (editor) |
 | Undo across a Preview edit | The Preview round-trip is applied as one piece-table operation and lands on the same undo stack. | Unit test | planned |
 | Typing that changes block state (e.g. typing ``` or a table pipe) far up a huge file | Main thread re-tokenises only to the viewport (≤ 8 ms); the rest converges in idle slices. Follow-up: measured ~5,000 lines re-tokenised per state-changing edit on a 1.46M-line file; profile convergence once the editor renders colours | `IncrementalTokenizer` property and benchmark tests | handled (tune in iteration 2) |
 | Known tokenizer simplifications: setext restyles one line; links close on the same line; ≤ 8 nested containers; footnote defs don't continue | Documented; revisit if seen in real files | `LineTokenizerTest` | handled (known limitation) |
+| Heading or list toggle with the caret inside a fenced code block | Line commands read the tokenizer's fence state (`FenceStates`); code lines are never toggled, Enter inside a fence never continues a "list" | `FenceAwareEditTest` | tested |
+| Code-block toggle between two fenced blocks | Unwrap uses the fence state, not "a fence-looking line is adjacent", so the text between two blocks is wrapped, never mistaken for a block | `FenceAwareEditTest` | tested |
+| Indent, outdent or delete an item in a numbered list | Every level is renumbered: the level an item leaves closes its gap, the level it joins continues, a new sublist starts at 1; `1. 1. 1.` lists and custom starts are kept; numbers in fences are never touched | `IndentEditTest`, `ListNumberingPropertyTest` | tested |
+| Many find matches in a huge file | Matches are sorted ranges; a frame finds the ones on screen by binary search, and edits move them | `FindHighlightsTest` | tested |
 
 ## Storage and clean-up
 
 | Case | Handling | Test | Status |
 |---|---|---|---|
-| User runs Android "Clear cache" | Only the diagram/preview cache lives in `cacheDir`; history, drafts and journals are in `filesDir`, so nothing of value is lost | Instrumented test (clear cacheDir, then relaunch) | planned |
-| A clean-up runs while a file is open with unsaved edits | Bulk clears skip files with open dirty buffers and never touch journals or drafts | Unit test | planned |
-| A clean-up is interrupted (app killed mid-clear) | History deletions are per-file atomic (index rewritten with AtomicFile), so no file's history is left half-deleted | Kill test | planned |
-| Import a history zip for a file that has changed since it was exported | Versions attach as a separate branch; the current file is never modified by an import | Unit test | planned |
+| User runs Android "Clear cache" | Only the diagram/preview cache lives in `cacheDir`; history, drafts and journals are in `filesDir`, so nothing of value is lost | `StorageAccountantTest` (only the preview cache lives in cacheDir). Instrumented test still planned | tested (unit) |
+| A clean-up runs while a file is open with unsaved edits | Bulk clears skip files with open dirty buffers and never touch journals or drafts | `ClearAndExportTest` (every clear previews exactly what it removes, keeping skipped files) | tested |
+| A clean-up is interrupted (app killed mid-clear) | History deletions are per-file atomic (index rewritten with AtomicFile), so no file's history is left half-deleted | `CorruptionAndCrashTest` (index rewritten atomically; torn `index.ssv.new` deleted on load). Kill test still planned | handled |
+| Import a history zip for a file that has changed since it was exported | Versions attach as a separate branch; the current file is never modified by an import | `ClearAndExportTest` (export then import attaches a separate branch); `ExportContentsTest` (the import picker lists an export's documents without writing) | tested |
 | Journal disk-space preallocation, and quarantine retention | Reserve journal space up front; quarantine is pruned after 30 days and capped at 20 MB | Unit test | planned |
 | A version-history delta is damaged on disk | CRC and SHA-256 checks reject it; reading reports `Corrupt` with the nearest intact keyframe; only versions between it and the keyframe below are lost, and a rewrite drops and logs them | `CorruptionAndCrashTest` (core/history) | done |
 | Crash between appending to the history pack and renaming its index | The old index ignores the uncommitted pack tail, which is cut off before the next append; a torn `index.ssv.new` and orphan packs are deleted on load | `CorruptionAndCrashTest` (core/history) | done |
@@ -63,7 +67,7 @@ is green in CI).
 | Append to a file changed outside the app since last seen | Fingerprint check; the append applies to the current disk version (not our stale copy) and is recorded in history. | Outside-change scenarios | planned |
 | Append to a read-only, conflicted, missing or huge file | The sheet explains and offers New note; admission control applies to huge targets. | Instrumented test | planned |
 | Shared payload above the Binder limit, or shared as a stream URI | Read from the URI as a stream; size is checked before buffering. | Instrumented test | planned |
-| Outline of a file with 10k+ headings | Built from the block index incrementally; the list is virtualised. | Benchmark corpus | planned |
+| Outline of a file with 10k+ headings | Built from the block index incrementally; the list is virtualised. | `OutlineTest` (ten thousand headings stay cheap to query and edit) | tested |
 | Setext headings and headings inside code fences | The outline uses the same tokenizer state, so `#` inside a fence is never a heading. | Corpus test | planned |
 
 ## Rendering and preview

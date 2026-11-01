@@ -88,16 +88,41 @@ internal class DocumentLoader(
                 is ProviderResult.Ok -> result.value
                 is ProviderResult.Failure -> return LoadResult.Failed(result)
             }
-        val read = providerCall { input.use { decode(it, copyTo?.stream) } }
+        val read =
+            try {
+                providerCall { input.use { decode(it, copyTo?.stream) } }
+            } catch (_: OutOfMemoryError) {
+                // The last resort of docs/robustness.md: the partial text is garbage now, so the heap is back.
+                return LoadResult.Declined(governor.decline(metadata.size))
+            }
         return when (read) {
             is ProviderResult.Ok -> {
-                finish(uri, read.value, metadata, budget)
+                finish(uri, read.value, metadata, budgetFor(read.value, metadata, budget))
             }
 
             is ProviderResult.Failure -> {
                 val outOfMemory = (read as? ProviderResult.Failed)?.cause is LoadAbortedForMemory
                 if (outOfMemory) LoadResult.Declined(governor.decline(metadata.size)) else LoadResult.Failed(read)
             }
+        }
+    }
+
+    /**
+     * The budget for what was actually read (PERF-I). A provider that
+     * reports no size, or too small a one, was admitted on its word; the
+     * bytes it really sent decide. A file that would not have been
+     * admitted opens lean: it is already in memory, and declining it now
+     * would free nothing the user wants freed.
+     */
+    private fun budgetFor(
+        decoding: Decoding,
+        metadata: FileMetadata,
+        admitted: Budget,
+    ): Budget {
+        if (decoding.digest.size <= metadata.size) return admitted
+        return when (val actual = governor.admit(decoding.digest.size)) {
+            is Admission.Admitted -> maxOf(actual.budget, admitted)
+            is Admission.Declined -> Budget.Lean
         }
     }
 

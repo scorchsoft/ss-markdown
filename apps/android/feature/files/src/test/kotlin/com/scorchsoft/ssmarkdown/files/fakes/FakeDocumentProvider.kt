@@ -58,8 +58,11 @@ class FakeDocumentProvider : DocumentProvider {
     /** The next close throws (one-shot), as a cloud provider does when the upload fails. */
     var failNextClose = false
 
-    /** Each read sleeps this long: a slow cloud provider. */
-    var readDelayMillis = 0L
+    /** When set, metadata reports this size whatever the file holds: a provider that does not know, or lies. */
+    var reportedSize: Long? = null
+
+    /** When set, reading thrown this part way through (an `OutOfMemoryError`, say). */
+    var failReadWith: Throwable? = null
 
     /** Called before every byte written: a test advances its clock here to fake a slow upload. */
     var onWriteByte: (() -> Unit)? = null
@@ -119,7 +122,7 @@ class FakeDocumentProvider : DocumentProvider {
             val file = find(uri)
             FileMetadata(
                 uri.value.substringAfterLast('/'),
-                file.bytes.size.toLong(),
+                reportedSize ?: file.bytes.size.toLong(),
                 reported(file),
                 writable = file.writable,
             )
@@ -128,9 +131,15 @@ class FakeDocumentProvider : DocumentProvider {
     override fun openInput(uri: DocumentUri): ProviderResult<InputStream> =
         providerCall {
             val file = find(uri)
-            if (readDelayMillis > 0) Thread.sleep(readDelayMillis)
             onOpenInput?.invoke()
-            ByteArrayInputStream(file.bytes.copyOf())
+            val failure = failReadWith
+            if (failure ==
+                null
+            ) {
+                ByteArrayInputStream(file.bytes.copyOf())
+            } else {
+                FailingInput(file.bytes.size / 2, failure)
+            }
         }
 
     override fun openOutput(
@@ -203,5 +212,16 @@ class FakeDocumentProvider : DocumentProvider {
             if (corrupt && file.bytes.isNotEmpty()) file.bytes[0] = (file.bytes[0] + 1).toByte()
             file.lastModified = tick()
         }
+    }
+}
+
+/** Gives [goodBytes] zero bytes, then throws [failure]: a read that dies part way. */
+private class FailingInput(
+    private var goodBytes: Int,
+    private val failure: Throwable,
+) : InputStream() {
+    override fun read(): Int {
+        if (goodBytes-- <= 0) throw failure
+        return 0
     }
 }

@@ -53,9 +53,16 @@ public sealed interface ImportResult {
  * (docs/edge-cases.md, "Import a history zip for a file that has changed
  * since it was exported"). Every text is verified against its hash
  * before anything is written, so a damaged zip imports nothing.
+ *
+ * Verification runs *outside* the store's lock and only the write runs
+ * inside it ([locked]), so a large or hostile zip never holds up a
+ * checkpoint that "Don't save" is waiting for (R2-DS-7). Each distinct
+ * entry is decompressed and hashed once, however many versions name it,
+ * and the texts together may declare at most [MAX_TOTAL_CHARS].
  */
 internal class HistoryImporter(
     private val directory: HistoryDirectory,
+    private val locked: (() -> ImportResult) -> ImportResult = { it() },
 ) {
     fun import(
         zipFile: File,
@@ -91,8 +98,24 @@ internal class HistoryImporter(
             pick(manifest.documents, sourceUri ?: target.uri)
                 ?: return ImportResult.Invalid("the export holds ${manifest.documents.size} documents; name one")
         if (document.versions.isEmpty()) return ImportResult.Invalid("the export holds no versions")
-        val unreadable = document.versions.firstOrNull { ExportManifest.readText(zip, it) == null }
+        val declared = document.versions.sumOf { it.info.textLength.toLong() }
+        if (declared > MAX_TOTAL_CHARS) return ImportResult.Invalid("the export's texts are too large together")
+        val verified = HashMap<Triple<String, String, Int>, Boolean>()
+        val unreadable =
+            document.versions.firstOrNull { version ->
+                val key = Triple(version.path, version.info.sha256Hex, version.info.textLength)
+                !verified.getOrPut(key) { ExportManifest.readText(zip, version) != null }
+            }
         if (unreadable != null) return ImportResult.Invalid("${unreadable.path} is missing or does not match its hash")
+        return locked { write(zip, document, target) }
+    }
+
+    /** The write half: under the store's lock, after every text was verified. */
+    private fun write(
+        zip: ZipFile,
+        document: ExportManifest.Document,
+        target: DocumentKey,
+    ): ImportResult {
         val history =
             when (val open = directory.open(target)) {
                 is OpenHistory.Ready -> open.history
@@ -122,4 +145,13 @@ internal class HistoryImporter(
         documents: List<ExportManifest.Document>,
         uri: String,
     ): ExportManifest.Document? = documents.firstOrNull { it.uri == uri } ?: documents.singleOrNull()
+
+    internal companion object {
+        /**
+         * Most UTF-16 units all of one import's versions may declare
+         * together: 1 Gi, far beyond a real document's history, far below
+         * what a zip bomb naming one entry 100,000 times would ask for.
+         */
+        const val MAX_TOTAL_CHARS: Long = 1L shl 30
+    }
 }

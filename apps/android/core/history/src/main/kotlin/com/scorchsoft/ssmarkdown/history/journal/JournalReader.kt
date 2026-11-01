@@ -49,6 +49,40 @@ public class JournalReader(
             }
         }
 
+    /**
+     * Rebuilds what the journal can still say without replaying it onto
+     * its file (see [Salvage]). [baseTextFor] is asked once, with the
+     * header's base, for that file's old text, and may answer null. Never
+     * throws: an unreadable file is [Salvage.Unavailable].
+     */
+    public fun salvage(baseTextFor: (BaseFingerprint) -> String?): Salvage =
+        try {
+            if (!file.isFile) {
+                Salvage.Unavailable("no journal")
+            } else {
+                readOrFail { input, length ->
+                    when (val header = HeaderCodec.read(input)) {
+                        is HeaderRead.Unsupported -> {
+                            Salvage.Unavailable("format ${header.formatVersion} is newer")
+                        }
+
+                        is HeaderRead.Unreadable -> {
+                            Salvage.Unavailable(header.reason)
+                        }
+
+                        is HeaderRead.Ok -> {
+                            salvageRecords(
+                                RecordScanner(input, length),
+                                baseTextFor(header.header.base),
+                            )
+                        }
+                    }
+                }
+            }
+        } catch (e: IOException) {
+            Salvage.Unavailable("cannot read: ${e.message}")
+        }
+
     /** The header alone: what the startup scan needs for the recovery banner. Throws [IOException]. */
     internal fun header(): HeaderRead = readOrFail { input, _ -> HeaderCodec.read(input) }
 
@@ -73,6 +107,23 @@ public class JournalReader(
                 is ScanStep.Damaged -> return FramingResult.Damaged
             }
         }
+    }
+
+    private fun salvageRecords(
+        scanner: RecordScanner,
+        baseText: String?,
+    ): Salvage {
+        val state = SalvageState(baseText)
+        var going = true
+        while (going) {
+            going =
+                when (val step = scanner.next()) {
+                    is ScanStep.Record -> state.apply(step.record)
+                    ScanStep.End, is ScanStep.TornTail -> false
+                    is ScanStep.Damaged -> state.stop()
+                }
+        }
+        return state.result()
     }
 
     private fun replayRecords(

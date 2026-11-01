@@ -281,7 +281,9 @@ public class VersionStore(
         zip: File,
         target: DocumentKey,
         sourceUri: String? = null,
-    ): ImportResult = synchronized(lock) { HistoryImporter(directory).import(zip, target, sourceUri) }
+    ): ImportResult =
+        // Verifying a zip can take a while; only the write holds the lock that checkpoints wait on (R2-DS-7).
+        HistoryImporter(directory) { write -> synchronized(lock) { write() } }.import(zip, target, sourceUri)
 
     /**
      * Lists the documents inside an export without importing anything,

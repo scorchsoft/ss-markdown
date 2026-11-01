@@ -202,12 +202,66 @@ public class JournalStore internal constructor(
         return if (movable) quarantine.admit(file) else null
     }
 
+    /**
+     * What can be rebuilt from this document's journal without its file
+     * (see [Salvage]): for edits whose file cannot be reached or changed
+     * with no copy of the old bytes. Reads only; the journal stays.
+     * [baseTextFor] is asked for the text of the journal's base.
+     */
+    public fun salvage(
+        documentKey: String,
+        baseTextFor: (BaseFingerprint) -> String?,
+    ): Salvage = JournalReader(fileFor(documentKey)).salvage(baseTextFor)
+
+    /**
+     * Every journal in `quarantine/`, newest first, so set-aside edits are
+     * never out of the user's reach (robustness §1). Unreadable headers
+     * are listed too, with no document named.
+     */
+    public fun listSetAside(): List<SetAsideJournal> =
+        File(root, Quarantine.DIRECTORY_NAME)
+            .listFiles()
+            .orEmpty()
+            .filter { it.isFile }
+            .map { file ->
+                val header = runCatchingIo { JournalReader(file).header() } as? HeaderRead.Ok
+                SetAsideJournal(
+                    file = file,
+                    documentKey = header?.header?.documentKey,
+                    createdAtMillis = header?.header?.createdAtMillis,
+                    setAsideAtMillis = file.lastModified(),
+                    sizeBytes = file.length(),
+                )
+            }.sortedByDescending { it.setAsideAtMillis }
+
+    /**
+     * [salvage] for a journal [listSetAside] listed. Refuses (as
+     * [Salvage.Unavailable]) any file that is not directly inside this
+     * store's quarantine, so a caller can never be steered to read
+     * elsewhere.
+     */
+    public fun salvageSetAside(
+        file: File,
+        baseTextFor: (BaseFingerprint) -> String?,
+    ): Salvage {
+        val quarantineDir = File(root, Quarantine.DIRECTORY_NAME).canonicalFile
+        if (file.canonicalFile.parentFile != quarantineDir) return Salvage.Unavailable("not a set-aside journal")
+        return JournalReader(file).salvage(baseTextFor)
+    }
+
     /** The journal file for [documentKey], whether or not it exists. */
     public fun fileFor(documentKey: String): File {
         val digest = MessageDigest.getInstance("SHA-256").digest(Wtf8.encode(documentKey))
         val name = digest.take(NAME_HASH_BYTES).joinToString("") { "%02x".format(it) }
         return File(root, "$name.${JournalFormat.FILE_EXTENSION}")
     }
+
+    private inline fun <T> runCatchingIo(block: () -> T): T? =
+        try {
+            block()
+        } catch (_: IOException) {
+            null
+        }
 
     private fun deleteSound(file: File): CleanResult {
         if (!file.delete()) return CleanResult.Failed(IOException("cannot delete $file"))

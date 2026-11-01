@@ -51,6 +51,9 @@ is green in CI).
 | A clean-up is interrupted (app killed mid-clear) | History deletions are per-file atomic (index rewritten with AtomicFile), so no file's history is left half-deleted | Kill test | planned |
 | Import a history zip for a file that has changed since it was exported | Versions attach as a separate branch; the current file is never modified by an import | Unit test | planned |
 | Journal disk-space preallocation, and quarantine retention | Reserve journal space up front; quarantine is pruned after 30 days and capped at 20 MB | Unit test | planned |
+| A version-history delta is damaged on disk | CRC and SHA-256 checks reject it; reading reports `Corrupt` with the nearest intact keyframe; only versions between it and the keyframe below are lost, and a rewrite drops and logs them | `CorruptionAndCrashTest` (core/history) | done |
+| Crash between appending to the history pack and renaming its index | The old index ignores the uncommitted pack tail, which is cut off before the next append; a torn `index.ssv.new` and orphan packs are deleted on load | `CorruptionAndCrashTest` (core/history) | done |
+| A storage limit that cannot be met without touching protected versions | Retention stops and returns a `LimitShortfall`; latest, last-7-days and pinned versions are never removed | `RetentionTest` (core/history) | done |
 
 ## Share-in and Navigator
 

@@ -8,3 +8,11 @@ plugins {
 dependencies {
     testImplementation(libs.junit)
 }
+
+tasks.test {
+    // Version-history property tests sync every record to disk, so `check`
+    // runs a modest number of cases. `-Pssmarkdown.heavyTests=true` runs ten
+    // times as many, plus the 1,000-version size and restore benchmark.
+    systemProperty("ssmarkdown.heavyTests", providers.gradleProperty("ssmarkdown.heavyTests").getOrElse("false"))
+    maxHeapSize = "1g"
+}

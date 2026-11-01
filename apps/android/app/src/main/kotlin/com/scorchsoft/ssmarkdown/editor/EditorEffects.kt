@@ -159,8 +159,25 @@ internal object EditorEffects {
                 vm.folder.onAction(action.action)
             }
 
-            else -> {
+            is EditorAction.PreviewAction -> {
                 PreviewEffects.run(vm, action, before)
+            }
+
+            // The reducer does all there is to do for these.
+            EditorAction.CopyLongPressed,
+            EditorAction.OpenMenu,
+            EditorAction.DismissOverlay,
+            is EditorAction.AnchorChanged,
+            EditorAction.RecoveryGotIt,
+            EditorAction.ShowFailureDetails,
+            EditorAction.DismissBanner,
+            EditorAction.AskUseMine,
+            EditorAction.KeepEditing,
+            is EditorAction.ImeVisibilityChanged,
+            EditorAction.BigFileChipTapped,
+            EditorAction.MessageShown,
+            -> {
+                Unit
             }
         }
     }

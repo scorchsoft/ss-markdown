@@ -18,7 +18,7 @@ internal object PreviewEffects {
     @Suppress("CyclomaticComplexMethod") // A dispatch table: one short branch per action.
     fun run(
         vm: EditorViewModel,
-        action: EditorAction,
+        action: EditorAction.PreviewAction,
         before: EditorUiState,
     ) {
         when (action) {
@@ -61,10 +61,6 @@ internal object PreviewEffects {
 
             is EditorAction.EditTheme -> {
                 vm.emit(EditorEvent.EditTheme(action.id))
-            }
-
-            else -> {
-                Unit
             }
         }
         if (action in chipActions || action is EditorAction.Table) {

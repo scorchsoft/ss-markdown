@@ -35,6 +35,14 @@ enum class MenuItem {
 
 /** Everything the user (or the platform) can do on the editor screen. */
 sealed interface EditorAction {
+    /**
+     * The actions whose effects are the Preview's (`PreviewEffects`): a
+     * sub-hierarchy, so both effect tables are exhaustive `when`s with no
+     * `else`, and a new action that nobody handles fails to compile
+     * (code review CC-16).
+     */
+    sealed interface PreviewAction : EditorAction
+
     data class SelectMode(
         val mode: ViewMode,
     ) : EditorAction
@@ -170,49 +178,49 @@ sealed interface EditorAction {
     /** A finger went down on [pane]: in Split it now leads the scrolling. */
     data class PaneTouched(
         val pane: Pane,
-    ) : EditorAction
+    ) : PreviewAction
 
     /** The link chip's Open. */
-    data object OpenLink : EditorAction
+    data object OpenLink : PreviewAction
 
     /** The link chip's Edit link: Code, at the link's line. */
-    data object EditLink : EditorAction
+    data object EditLink : PreviewAction
 
     /** The link chip's Copy link: the address to the clipboard, nothing opened. */
-    data object CopyLink : EditorAction
+    data object CopyLink : PreviewAction
 
     /** A row of the Mermaid sheet. */
     data class MediaMenu(
         val action: MediaMenuAction,
-    ) : EditorAction
+    ) : PreviewAction
 
     /** An Export images sheet action. */
     data class ExportImages(
         val action: ExportImagesAction,
-    ) : EditorAction
+    ) : PreviewAction
 
     /** A table ⋯ sheet row. */
     data class Table(
         val op: TableOp,
-    ) : EditorAction
+    ) : PreviewAction
 
     /** "Preview paused · Retry". */
-    data object RetryPreview : EditorAction
+    data object RetryPreview : PreviewAction
 
     /** Display → Preview wrapping: Fluid, the A4 page, or No wrap. */
     data class SetPreviewWrap(
         val wrap: PreviewWrap,
-    ) : EditorAction
+    ) : PreviewAction
 
     /** Display → Preview theme. */
     data class SetPreviewTheme(
         val id: String,
-    ) : EditorAction
+    ) : PreviewAction
 
     /** Display → Edit theme… for the theme with [id] (a built-in starts a custom copy). */
     data class EditTheme(
         val id: String,
-    ) : EditorAction
+    ) : PreviewAction
 
     /** A folder drawer action. */
     data class Folder(

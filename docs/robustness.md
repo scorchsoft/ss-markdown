@@ -55,17 +55,43 @@ work: keystrokes against disk work"):
   checks the journal's base, and a journal recovery could not apply
   (`Recovery.Kept`) is *held*: closing never deletes it, and the first
   new edit moves it into `quarantine/`. The banner says so.
+- **Edits that cannot be applied are still readable** (R2-DS-2,
+  R2-DS-3). `JournalStore.salvage` rebuilds a journal's text without its
+  file: onto the base copy when it is kept, from the last snapshot when
+  there is one, else only the inserted text, labelled as such.
+  `DocumentStore.recoverAsCopy` puts that text in a new draft, saves it,
+  and only then moves the journal into `quarantine/`. The kept-aside
+  banner offers **Open as a copy**, and Settings → Storage lists every
+  set-aside journal with **Open as a copy**. Nothing in `quarantine/` is
+  ever deleted by the app.
 - **Saves finish their bookkeeping.** A save that holds the document's
   lock is not cancellable, and autosave never cancels a save in flight.
 - **A failing journal is said out loud.** If the journal cannot be
   written, the document turns unhealthy, a "Recovery copies have
-  stopped" banner appears, and the next edit retries from a full
-  snapshot. Edits are never dropped silently.
-- **Checkpoints before destruction are awaited.** History records run
-  through one ordered queue; "Don't save", "Keep the file's version",
-  "Discard edits" and a merge wait for their checkpoint before the
-  journal or buffer goes. With History off, the UI says nothing is
-  kept.
+  stopped" banner appears, and the next edit or flush (on pause, before
+  a save) at least 2 s later retries from a full snapshot. Edits are
+  never dropped silently (R2-DS-8).
+- **Checkpoints before destruction are awaited, and their answer
+  decides** (R2-DS-1). History records run through one ordered queue;
+  "Don't save", "Keep the file's version", "Discard edits" and a merge
+  settled by hand wait for their checkpoint, and the store passes
+  History's answer up (`ResolveOutcome.Resolved(checkpoint)`,
+  `CloseOutcome.NotKept`). If History kept nothing (off, disk full,
+  damaged index), nothing changes, journal included, and the UI asks
+  "History couldn't keep a copy · Discard anyway?". Every message is
+  worded from that answer, never from the History setting. "Use my
+  version" and a clean merge keep every edit of mine, so they never
+  depend on History.
+- **The newest keystroke is always in a checkpoint** (R2-DS-5). A
+  checkpoint is retaken while typing moves the buffer; if it is still
+  moving after three tries, the step is not taken (the conflict sheet
+  comes back, or "Don't save" leaves the document in memory, dirty and
+  journalled).
+- **Closing waits for the document's lock** (R2-DS-6). "Don't save" and
+  the memory governor's eviction run after any save or outside check in
+  progress, so a save landing afterwards can never start a journal for a
+  document the user chose not to keep, and eviction never deletes a base
+  copy a check is about to commit.
 - On launch, edits from a journal that wasn't cleanly closed are
   **restored automatically**. A non-modal banner (ux-spec "Recovery")
   offers Got it / Compare / Discard edits. Discarding records a History
@@ -97,7 +123,19 @@ work: keystrokes against disk work"):
   Review opens the conflict sheet (§2a).
 - **Lost permission.** If file permission has gone (a temporary grant
   from another app, or a revoked folder), the work stays in the journal
-  and we offer "Save as…". We never fail silently.
+  and we offer "Save as…". We never fail silently. A grant another app
+  made persistable (`FLAG_GRANT_PERSISTABLE_URI_PERMISSION`) is taken
+  when the file opens, so "Open with" usually survives a restart. When
+  one does not, and the process died with unsaved edits, the next launch
+  rebuilds them from the base copy and the journal into a new draft:
+  "Recovered from <name> · Save as…", never an error and an empty draft
+  (R2-DS-2). A moved or deleted file, an ejected card or an uninstalled
+  provider take the same path.
+- **Save as never orphans an open document** (R2-DS-4). If the picked
+  file is open here with unsaved edits, a conflict, held edits or a
+  window, nothing is written: "that file is open here with unsaved
+  edits". Save as holds the store's open lock, so the target cannot be
+  opened while it is written.
 
 ### 2a. Other apps edit our files: the disk is always the truth
 

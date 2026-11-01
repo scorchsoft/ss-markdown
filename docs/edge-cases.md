@@ -96,3 +96,12 @@ is green in CI).
 | Clock or timezone change | History ordering uses a monotonic sequence number; times are display-only. | Unit test | planned |
 | App updated with an older journal or history format on disk | Versioned formats with migrations and tests. Unknown future versions are read-only, never deleted. | Migration tests | planned |
 | Large clipboard or share (> about 1 MB) | Sent as a content URI (see `robustness.md` §5). | Instrumented test | planned |
+
+## Build and release
+
+| Case | Handling | Test | Status |
+|---|---|---|---|
+| Hand-over APK built debuggable, so R8 skips optimisation and the baseline profile (PERF-1) | `isDebuggable = !minifyDebug`; locale filter; ui-tooling's exported `PreviewActivity` excluded. `mapping.txt` archived with each APK. | CI "Verify the hand-over APK" step (debuggable, PreviewActivity, baseline.prof, licence texts) | done |
+| A licensed component ships without its licence text (the VS Code MIT notice, CC-2) | Every `licences.txt` row names a packaged text; LICENSE and `core/text/NOTICE` are copied into assets at build time; the licences screen shows each in full. | `LicenceTextsTest` | done |
+| Committed Preview bundle stale against `web/src`, or over budget (CC-3) | CI rebuilds (deterministic) and fails on any difference; 3.5 MiB budget on `assets/preview`. | CI `preview-web` job | done |
+| Screenshot of a modal sheet shows only the screen behind it; a deleted test's PNG lingers (UX-24) | The harness draws every open window; sheet shots fail with fewer than two windows; the screenshot folder is emptied per run. | `ScreenshotTest.sheet` | done |

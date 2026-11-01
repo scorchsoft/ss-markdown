@@ -9,10 +9,25 @@ import com.scorchsoft.ssmarkdown.ui.LocalNow
 import com.scorchsoft.ssmarkdown.ui.RelativeTime
 import com.scorchsoft.ssmarkdown.ui.relativeTimeText
 
-/** The words for a [SaveStatusLine]; times follow [LocalNow], which the Activity ticks. */
+/**
+ * True for the states drawn in the text-safe red: a failed save and paused
+ * autosave. One rule for the header, the compact header and the landscape
+ * strip, so the same state is never red in one and grey in another (UX2-7).
+ */
+fun SaveStatusLine.isError(): Boolean = this is SaveStatusLine.Failed || this is SaveStatusLine.AutosavePaused
+
+/**
+ * The words for a [SaveStatusLine]; times follow [LocalNow], which the Activity ticks.
+ *
+ * @param besideBadge the READ-ONLY badge is drawn next to the line, so the
+ *   line leaves "read-only" out and keeps room for the source (UX2-14).
+ */
 @Suppress("CyclomaticComplexMethod") // One branch per row of the Save-state table.
 @Composable
-fun statusText(status: SaveStatusLine): String =
+fun statusText(
+    status: SaveStatusLine,
+    besideBadge: Boolean = false,
+): String =
     when (status) {
         is SaveStatusLine.Saved -> {
             val ago = relativeTimeText(ticking(status.atMillis))
@@ -36,8 +51,12 @@ fun statusText(status: SaveStatusLine): String =
         }
 
         is SaveStatusLine.UnsavedReadOnly -> {
-            status.source?.let { stringResource(R.string.status_unsaved_read_only_from, it) }
-                ?: stringResource(R.string.status_unsaved_read_only)
+            when {
+                besideBadge && status.source != null -> stringResource(R.string.status_unsaved_from, status.source)
+                besideBadge -> stringResource(R.string.status_unsaved)
+                status.source != null -> stringResource(R.string.status_unsaved_read_only_from, status.source)
+                else -> stringResource(R.string.status_unsaved_read_only)
+            }
         }
 
         is SaveStatusLine.ReadOnly -> {

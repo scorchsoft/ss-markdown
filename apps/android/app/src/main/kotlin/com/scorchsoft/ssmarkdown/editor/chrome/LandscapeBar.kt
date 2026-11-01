@@ -38,7 +38,7 @@ private val LandscapeBarHeight = 48.dp
 fun LandscapeBar(
     state: EditorUiState,
     onAction: (EditorAction) -> Unit,
-    showFolderButton: Boolean,
+    folderButton: FolderButton?,
     copyInMenu: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -47,15 +47,11 @@ fun LandscapeBar(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth().heightIn(min = LandscapeBarHeight).padding(horizontal = SS.dimens.grid),
         ) {
-            if (showFolderButton) {
-                IconButton(onClick = { onAction(EditorAction.Folder(FolderAction.OpenDrawer)) }) {
-                    Icon(AppIcons.menu, stringResource(R.string.open_folder_drawer), tint = SS.colors.ink)
-                }
-            }
+            folderButton?.let { FolderButtonView(it, onAction) }
             TitleBlock(
                 state,
                 onAction,
-                Modifier.weight(1f).widthIn(min = 120.dp),
+                Modifier.weight(1f).widthIn(min = TitleMinWidth),
                 compact = LocalDensity.current.fontScale > LANDSCAPE_COMPACT_FONT_SCALE,
             )
             ModeSwitcher(

@@ -23,6 +23,7 @@ import com.scorchsoft.ssmarkdown.editor.EditorUiState
 import com.scorchsoft.ssmarkdown.editor.Pane
 import com.scorchsoft.ssmarkdown.settings.Appearance
 import com.scorchsoft.ssmarkdown.settings.PreviewWrap
+import com.scorchsoft.ssmarkdown.ui.StepperButtons
 import java.util.Locale
 
 /** Code's 100 % is 12.5 sp (ux-spec "Text size: one model"). */
@@ -163,14 +164,6 @@ private fun Stepper(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Text(label, style = SS.type.body, color = SS.colors.ink, modifier = Modifier.weight(1f))
-        OutlinedButton(
-            onClick = { onAction(EditorAction.StepZoom(pane, -1)) },
-            modifier = Modifier.semantics { contentDescription = "$label −" },
-        ) { Text("−", style = SS.type.label, color = SS.colors.ink) }
-        Text(percentText, style = SS.type.label, color = SS.colors.ink)
-        OutlinedButton(
-            onClick = { onAction(EditorAction.StepZoom(pane, 1)) },
-            modifier = Modifier.semantics { contentDescription = "$label +" },
-        ) { Text("+", style = SS.type.label, color = SS.colors.ink) }
+        StepperButtons("$label −", "$label +", { onAction(EditorAction.StepZoom(pane, it)) }, percentText)
     }
 }

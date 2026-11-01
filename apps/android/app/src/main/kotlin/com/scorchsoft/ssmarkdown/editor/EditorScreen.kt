@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
 import com.scorchsoft.ssmarkdown.editor.chrome.EditorBannerView
+import com.scorchsoft.ssmarkdown.editor.chrome.FolderButton
 import com.scorchsoft.ssmarkdown.editor.chrome.LandscapeBar
 import com.scorchsoft.ssmarkdown.editor.chrome.ModeBar
 import com.scorchsoft.ssmarkdown.editor.chrome.TopBar
@@ -170,7 +171,15 @@ private fun Header(
     onAction: (EditorAction) -> Unit,
     layout: ScreenLayout,
 ) {
-    val folderButton = state.folder != null && !layout.docked
+    val folder = state.folder
+    // UX2-4: docked, the ≡ collapses and restores the panel, so it is never stuck open.
+    val folderButton =
+        when {
+            folder == null -> null
+            !layout.docked -> FolderButton.OpenDrawer
+            folder.panelCollapsed -> FolderButton.ShowPanel
+            else -> FolderButton.HidePanel
+        }
     when {
         // Landscape with the keyboard: the header steps aside; the strip carries name, dot and Save.
         layout.landscape && layout.imeVisible -> Box(Modifier.background(SS.colors.chrome).statusBarsPadding())

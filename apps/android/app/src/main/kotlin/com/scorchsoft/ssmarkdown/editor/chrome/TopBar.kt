@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -44,7 +46,8 @@ import com.scorchsoft.ssmarkdown.editor.SaveStatusLine
 import com.scorchsoft.ssmarkdown.folder.FolderAction
 import com.scorchsoft.ssmarkdown.ui.AppIcons
 
-private val TitleMinWidth = 120.dp
+/** The title's minimum width; Save leaves it this much before taking more (UX2-1). */
+internal val TitleMinWidth = 120.dp
 private val ProgressHeight = 2.dp
 private val BadgeShape = RoundedCornerShape(4.dp)
 
@@ -67,14 +70,15 @@ private val FullBreadcrumbWidth = 360.dp
  * out (UX-7); above [PORTRAIT_COMPACT_FONT_SCALE] the two lines fold into
  * one ([TitleBlock]).
  *
- * @param showFolderButton the `≡` that opens the drawer, on phones in folder mode.
+ * @param folderButton the `≡` in folder mode: the drawer on phones, the
+ *   docked panel on tablets; null outside folder mode.
  * @param copyInMenu above 1.5× font scale Copy moves into ⋮; Save never moves.
  */
 @Composable
 fun TopBar(
     state: EditorUiState,
     onAction: (EditorAction) -> Unit,
-    showFolderButton: Boolean,
+    folderButton: FolderButton?,
     copyInMenu: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -87,11 +91,7 @@ fun TopBar(
                     .heightIn(min = SS.dimens.topBar)
                     .padding(start = SS.dimens.grid, end = SS.dimens.grid),
         ) {
-            if (showFolderButton) {
-                IconButton(onClick = { onAction(EditorAction.Folder(FolderAction.OpenDrawer)) }) {
-                    Icon(AppIcons.menu, stringResource(R.string.open_folder_drawer), tint = SS.colors.ink)
-                }
-            }
+            folderButton?.let { FolderButtonView(it, onAction) }
             TitleBlock(
                 state,
                 onAction,
@@ -101,6 +101,35 @@ fun TopBar(
             TopBarActions(state, onAction, copyInMenu)
         }
         ReadingLine(state.readingFraction)
+    }
+}
+
+/** What the header's `≡` does in folder mode. */
+enum class FolderButton {
+    /** Phones: open the modal drawer. */
+    OpenDrawer,
+
+    /** Tablets: collapse the docked panel, giving its width back to the text (UX2-4). */
+    HidePanel,
+
+    /** Tablets: bring the collapsed panel back. */
+    ShowPanel,
+}
+
+/** The `≡` itself, shared by the portrait header and the landscape bar. */
+@Composable
+fun FolderButtonView(
+    kind: FolderButton,
+    onAction: (EditorAction) -> Unit,
+) {
+    val (action, label) =
+        when (kind) {
+            FolderButton.OpenDrawer -> FolderAction.OpenDrawer to R.string.open_folder_drawer
+            FolderButton.HidePanel -> FolderAction.TogglePanel to R.string.hide_folder_panel
+            FolderButton.ShowPanel -> FolderAction.TogglePanel to R.string.show_folder_panel
+        }
+    IconButton(onClick = { onAction(EditorAction.Folder(action)) }) {
+        Icon(AppIcons.menu, stringResource(label), tint = SS.colors.ink)
     }
 }
 
@@ -116,6 +145,9 @@ fun RowScope.TopBarActions(
         button = state.save.button,
         onTap = { onAction(EditorAction.SaveTapped) },
         onLongPress = { onAction(EditorAction.SaveLongPressed) },
+        // The Row measures Save before ⋮ and the weighted title, so Save's room
+        // still includes both: leave ⋮ its 48 dp and the title its minimum.
+        reserve = TitleMinWidth + SS.dimens.iconButton,
     )
     Box {
         IconButton(onClick = { onAction(EditorAction.OpenMenu) }) {
@@ -168,37 +200,46 @@ fun TitleBlock(
     compact: Boolean = false,
 ) {
     val title = state.title.ifEmpty { stringResource(R.string.untitled) }
-    BoxWithConstraints(
-        contentAlignment = Alignment.CenterStart,
-        modifier =
-            modifier
-                .heightIn(min = SS.dimens.pillHitArea)
-                .clickable(onClickLabel = stringResource(R.string.open_navigator), role = Role.Button) {
-                    onAction(EditorAction.TitleTapped)
-                }.padding(horizontal = SS.dimens.grid * 2, vertical = SS.dimens.grid),
-    ) {
-        val wide = maxWidth >= FullBreadcrumbWidth
-        // The second line says "Unsaved" itself in these states, so the dot stays silent (UX-30).
-        val lineSaysUnsaved =
-            state.save.status.let {
-                it == SaveStatusLine.Unsaved ||
-                    it is SaveStatusLine.UnsavedReadOnly
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        BoxWithConstraints(
+            contentAlignment = Alignment.CenterStart,
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .heightIn(min = SS.dimens.pillHitArea)
+                    .clickable(onClickLabel = stringResource(R.string.open_navigator), role = Role.Button) {
+                        onAction(EditorAction.TitleTapped)
+                    }.padding(horizontal = SS.dimens.grid * 2, vertical = SS.dimens.grid),
+        ) {
+            val wide = maxWidth >= FullBreadcrumbWidth
+            // The second line says "Unsaved" itself in these states, so the dot stays silent (UX-30).
+            val lineSaysUnsaved =
+                state.save.status.let {
+                    it == SaveStatusLine.Unsaved ||
+                        it is SaveStatusLine.UnsavedReadOnly
+                }
+            Column {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        title,
+                        style = SS.type.bodyStrong,
+                        color = SS.colors.ink,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (state.save.showDirtyDot) UnsavedDot(labelled = compact || !lineSaysUnsaved)
+                    if (compact) CompactStatus(state.save.status, Modifier.weight(1f, fill = false))
+                }
+                if (!compact) SecondLine(state, wide)
             }
-        Column {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    title,
-                    style = SS.type.bodyStrong,
-                    color = SS.colors.ink,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                if (state.save.showDirtyDot) UnsavedDot(labelled = compact || !lineSaysUnsaved)
-                if (compact) CompactStatus(state.save.status, Modifier.weight(1f, fill = false))
-            }
-            if (!compact) SecondLine(state, wide, onAction)
         }
+        // UX-14 / UX2-5: Big-file mode is its own 48 dp target beside the title, never
+        // nested in the title's Navigator tap, and shown in the compact header too.
+        if (state.bigFile) BigFileChip { onAction(EditorAction.BigFileChipTapped) }
     }
 }
 
@@ -225,27 +266,24 @@ private fun CompactStatus(
     )
 }
 
-private fun SaveStatusLine.isError(): Boolean = this is SaveStatusLine.Failed || this is SaveStatusLine.AutosavePaused
-
 @Composable
 private fun SecondLine(
     state: EditorUiState,
     wide: Boolean,
-    onAction: (EditorAction) -> Unit,
 ) {
     val status = state.save.status
-    val error = status is SaveStatusLine.Failed
+    val error = status.isError()
     if (state.breadcrumb.isEmpty()) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (status is SaveStatusLine.ReadOnly || status is SaveStatusLine.UnsavedReadOnly) ReadOnlyBadge()
+            val badge = status is SaveStatusLine.ReadOnly || status is SaveStatusLine.UnsavedReadOnly
+            if (badge) ReadOnlyBadge()
             Text(
-                statusText(status),
+                statusText(status, besideBadge = badge),
                 style = SS.type.meta,
                 color = if (error) SS.colors.needsYouText else SS.colors.inkMuted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (state.bigFile) BigFileChip { onAction(EditorAction.BigFileChipTapped) }
         }
         return
     }
@@ -276,8 +314,6 @@ private fun SecondLine(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = false),
         )
-        // UX-14: Big-file mode stays visible when a breadcrumb replaces the status line.
-        if (state.bigFile) BigFileChip { onAction(EditorAction.BigFileChipTapped) }
     }
 }
 
@@ -291,19 +327,34 @@ private fun ReadOnlyBadge() {
     )
 }
 
+/**
+ * The Big-file chip: a small caution badge drawn inside a full 48 dp
+ * target (UX2-5), so a slightly-off tap lands on it rather than on the title.
+ */
 @Composable
 private fun BigFileChip(onTap: () -> Unit) {
-    Text(
-        stringResource(R.string.big_file_mode),
-        style = SS.type.caption,
-        color = SS.colors.caution,
+    Box(
+        contentAlignment = Alignment.Center,
         modifier =
             Modifier
-                .background(SS.colors.cautionBg, BadgeShape)
+                .testTag(BIG_FILE_CHIP_TAG)
+                .sizeIn(minWidth = SS.dimens.pillHitArea, minHeight = SS.dimens.pillHitArea)
                 .clickable(role = Role.Button, onClick = onTap)
-                .padding(horizontal = 6.dp, vertical = 1.dp),
-    )
+                .padding(horizontal = 4.dp),
+    ) {
+        Text(
+            stringResource(R.string.big_file_mode),
+            style = SS.type.caption,
+            color = SS.colors.caution,
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier.background(SS.colors.cautionBg, BadgeShape).padding(horizontal = 6.dp, vertical = 2.dp),
+        )
+    }
 }
+
+/** The Big-file chip's test tag, for its touch-target test. */
+const val BIG_FILE_CHIP_TAG = "big-file-chip"
 
 /** The header's bottom hairline, doubling as a neutral 2 dp reading-position line. */
 @Composable

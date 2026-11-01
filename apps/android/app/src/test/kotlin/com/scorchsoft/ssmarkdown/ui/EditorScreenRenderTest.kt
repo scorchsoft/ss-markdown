@@ -69,13 +69,17 @@ class EditorScreenRenderTest(
     @Test
     fun `read-only with edits names the source`() {
         render(Samples.readOnly)
-        rule.onNodeWithText("Unsaved · read-only, from Gmail").assertIsDisplayed()
+        // UX2-14: the badge says read-only, so the line keeps room for the source.
+        rule.onNodeWithText("READ-ONLY").assertIsDisplayed()
+        rule.onNodeWithText("Unsaved · from Gmail").assertIsDisplayed()
     }
 
     @Test
     fun `a failed save says why and offers Save as`() {
         render(Samples.failed)
         rule.onNodeWithText("Couldn't save · storage full").assertIsDisplayed()
+        // UX2-2: the banner itself says what failed and why.
+        rule.onNodeWithText("Couldn't save roadmap.md · storage full").assertIsDisplayed()
         rule.onNodeWithText("Your text is safe on this phone.").assertIsDisplayed()
         rule.onNodeWithContentDescription("Retry").assertIsDisplayed()
     }
@@ -100,7 +104,7 @@ class EditorScreenRenderTest(
     fun `the conflict sheet offers merge, compare, keep and use mine`() {
         render(Samples.conflict)
         rule.onNodeWithText("Merge my edits into the new file").assertIsDisplayed()
-        rule.onNodeWithText("Compare side by side").assertExists()
+        rule.onNodeWithText("Compare").assertExists()
         rule.onNodeWithText("Keep the file's version").assertExists()
         rule.onNodeWithText("Use my version instead…").assertExists()
     }

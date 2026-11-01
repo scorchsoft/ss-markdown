@@ -3,6 +3,8 @@ package com.scorchsoft.ssmarkdown.find
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -112,12 +114,14 @@ private fun ReplaceRow(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun Options(
     options: FindOptions,
     onAction: (FindAction) -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    // Flows onto a second row at a large font rather than squeezing ".*" into a column.
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OptionChip(stringResource(R.string.find_match_case), options.matchCase) { onAction(FindAction.ToggleMatchCase) }
         OptionChip(stringResource(R.string.find_whole_word), options.wholeWord) { onAction(FindAction.ToggleWholeWord) }
         OptionChip(stringResource(R.string.find_regex), options.regex, ".*") { onAction(FindAction.ToggleRegex) }
@@ -134,7 +138,7 @@ private fun OptionChip(
     FilterChip(
         selected = selected,
         onClick = onClick,
-        label = { Text(shown, style = SS.type.label) },
+        label = { Text(shown, style = SS.type.label, maxLines = 1, softWrap = false) },
         colors =
             FilterChipDefaults.filterChipColors(
                 selectedContainerColor = SS.colors.ink,

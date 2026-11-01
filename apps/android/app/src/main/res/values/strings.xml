@@ -15,10 +15,15 @@
     <string name="copy_all">Copy all</string>
     <string name="more">More</string>
     <string name="open_folder_drawer">Open folder</string>
+    <!-- UX2-4: the same ≡ collapses and restores the docked folder panel on tablets. -->
+    <string name="hide_folder_panel">Hide folder</string>
+    <string name="show_folder_panel">Show folder</string>
     <string name="close_folder_drawer">Close the file list</string>
     <string name="unsaved_dot">Unsaved</string>
     <string name="save">Save</string>
     <string name="save_as">Save as…</string>
+    <!-- UX2-1: beside the Save-as glyph, when "Save as…" cannot fit at a very large font. Never "Save". -->
+    <string name="save_as_short">As…</string>
     <string name="saving">Saving</string>
     <string name="retry">Retry</string>
     <string name="all_saved">All saved</string>
@@ -33,6 +38,8 @@
     <string name="status_draft">Draft · kept on this phone</string>
     <string name="status_unsaved_read_only">Unsaved · read-only</string>
     <string name="status_unsaved_read_only_from">Unsaved · read-only, from %1$s</string>
+    <!-- UX2-14: beside the READ-ONLY badge, which already says read-only. -->
+    <string name="status_unsaved_from">Unsaved · from %1$s</string>
     <string name="status_read_only">Read-only</string>
     <string name="status_read_only_from">from %1$s</string>
     <string name="status_failed">Couldn\'t save · %1$s</string>
@@ -89,6 +96,8 @@
     <string name="recovery_stopped_body">Your text is safe on screen, but if the app is closed now, recent typing could be lost. Save now, or Save as… somewhere else.</string>
     <string name="changed_outside_banner">%1$s changed in another app. Nothing is overwritten.</string>
     <string name="review">Review</string>
+    <!-- UX2-2: what failed and why, in the banner itself, so it survives any font size. -->
+    <string name="save_failed_banner_title">Couldn\'t save %1$s · %2$s</string>
     <string name="save_failed_banner">Your text is safe on this phone.</string>
     <string name="details">Details</string>
     <string name="file_missing_banner">%1$s was moved or deleted.</string>
@@ -132,7 +141,8 @@
     <string name="conflict_mine">Your edits</string>
     <string name="conflict_merge">Merge my edits into the new file</string>
     <string name="conflict_merge_clean">Your edits merge cleanly</string>
-    <string name="conflict_compare">Compare side by side</string>
+    <!-- UX2-15: Compare is one scrolling diff on every width today, so the label promises no columns. -->
+    <string name="conflict_compare">Compare</string>
     <string name="conflict_keep_theirs">Keep the file\'s version</string>
     <string name="conflict_keep_theirs_hint">Your edits stay in History, restorable any time</string>
     <string name="conflict_keep_theirs_hint_history_off">History is off, so your edits will be gone</string>

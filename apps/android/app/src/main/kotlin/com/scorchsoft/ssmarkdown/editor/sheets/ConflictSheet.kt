@@ -119,7 +119,8 @@ fun UseMineDialog(
         },
         confirmButton = {
             TextButton(onClick = { onAction(EditorAction.ConfirmUseMine) }) {
-                Text(stringResource(R.string.use_mine_confirm), style = SS.type.label, color = SS.colors.needsYou)
+                // Text-safe red: the pill red is 3.2:1 as text in dark mode (UX-17).
+                Text(stringResource(R.string.use_mine_confirm), style = SS.type.label, color = SS.colors.needsYouText)
             }
         },
         dismissButton = {

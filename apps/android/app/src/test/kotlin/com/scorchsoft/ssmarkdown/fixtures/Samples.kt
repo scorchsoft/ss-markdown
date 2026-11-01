@@ -63,8 +63,35 @@ object Samples {
         )
     val zoomed = saved.copy(codeZoom = 120)
 
+    /** A read-only file without edits: outline "Save as…" (SaveAsReadOnly). */
+    val readOnlyClean =
+        saved.copy(
+            title = "invoice-notes.md",
+            save = SaveStateMachine.present(clean.copy(readOnly = true, readOnlySource = "Gmail")),
+        )
+
+    /** A save in flight: the disabled pill with a spinner. */
+    val saving = unsaved.copy(save = SaveStateMachine.present(clean.copy(isDirty = true, saving = true)))
+
+    /** Autosave on, paused by a full disk. */
+    val autosavePaused =
+        unsaved.copy(
+            title = "roadmap.md",
+            save =
+                SaveStateMachine.present(
+                    clean.copy(isDirty = true, autosave = true, autosavePausedBy = SaveProblem.StorageFull),
+                ),
+        )
+
+    /** Big-file mode with a breadcrumb: the chip sits beside the title. */
+    val bigFile = section.copy(title = "server-log-export.md", bigFile = true)
+
     init {
         check(unsaved.save.button == SaveButton.Save)
+        check(readOnly.save.button == SaveButton.SaveAsRequired)
+        check(readOnlyClean.save.button == SaveButton.SaveAsReadOnly)
+        check(saving.save.button == SaveButton.Saving)
+        check(failed.save.button == SaveButton.Retry)
     }
 
     /** The preview slot's state with nothing to render. */

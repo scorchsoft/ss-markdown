@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.R
@@ -189,5 +192,30 @@ fun InfoNote(
             Text(title, style = SS.type.bodyStrong, color = SS.colors.info)
         }
         Text(body, style = SS.type.meta, color = SS.colors.ink, modifier = Modifier.padding(top = 6.dp))
+    }
+}
+
+/**
+ * The − and + pills that step a zoom, the same on the Display sheet and in
+ * Settings (UX2-8): chevrons read as expand and collapse, these read as
+ * less and more. Each pill carries its own TalkBack name.
+ */
+@Composable
+fun StepperButtons(
+    decreaseLabel: String,
+    increaseLabel: String,
+    onStep: (Int) -> Unit,
+    value: String? = null,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(
+            onClick = { onStep(-1) },
+            modifier = Modifier.semantics { contentDescription = decreaseLabel },
+        ) { Text("−", style = SS.type.label, color = SS.colors.ink) }
+        value?.let { Text(it, style = SS.type.label, color = SS.colors.ink) }
+        OutlinedButton(
+            onClick = { onStep(1) },
+            modifier = Modifier.semantics { contentDescription = increaseLabel },
+        ) { Text("+", style = SS.type.label, color = SS.colors.ink) }
     }
 }

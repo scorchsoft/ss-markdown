@@ -5,24 +5,29 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
@@ -33,7 +38,11 @@ import com.scorchsoft.ssmarkdown.ui.AppIcons
 import com.scorchsoft.ssmarkdown.ui.strip.StripDocument
 import com.scorchsoft.ssmarkdown.ui.strip.StripSave
 
-/** The fixed Save slot: 96 dp in every state, sized for "Save as…", so Copy never moves (review 3). */
+/**
+ * The Save slot's width at 1×: 96 dp in every state, sized for "Save as…",
+ * so Copy never moves (review 3). With a large font the slot grows with
+ * its label instead of clipping it (UX2-1): the title gives way, Save never does.
+ */
 val SaveSlotWidth = 96.dp
 
 private val PillShape = RoundedCornerShape(20.dp)
@@ -45,6 +54,14 @@ private val SpinnerSize = 16.dp
  * right-aligned in the slot; the clean tick is right-aligned too, and it
  * *is* the Save button, so it is present in autosave as well. Long-press
  * offers Save as… · Autosave this file.
+ *
+ * The visible words never say less than the action (UX2-1): a pill that
+ * opens Save as… never reads "Save". If even the grown slot can't hold
+ * "Save as…", the pill becomes the Save-as glyph plus "As…", which still
+ * says where the tap goes; TalkBack always hears the full label.
+ *
+ * @param reserve room to leave for the title beside it: the full label is
+ *   used only if the title keeps at least this much.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -53,13 +70,14 @@ fun SaveSlot(
     onTap: () -> Unit,
     onLongPress: () -> Unit,
     modifier: Modifier = Modifier,
+    reserve: Dp = 0.dp,
 ) {
     val label = saveLabel(button)
-    Box(
+    BoxWithConstraints(
         contentAlignment = Alignment.CenterEnd,
         modifier =
             modifier
-                .width(SaveSlotWidth)
+                .widthIn(min = SaveSlotWidth)
                 .height(SS.dimens.pillHitArea)
                 .combinedClickable(
                     enabled = button != SaveButton.Saving,
@@ -83,11 +101,16 @@ fun SaveSlot(
                 SavingPill(label)
             }
 
-            SaveButton.SaveAsDraft, SaveButton.SaveAsReadOnly -> {
-                Pill(label, filled = false)
+            SaveButton.SaveAsDraft, SaveButton.SaveAsReadOnly, SaveButton.SaveAsRequired -> {
+                val filled = button == SaveButton.SaveAsRequired
+                if (pillFits(label, maxWidth - reserve)) {
+                    Pill(label, filled)
+                } else {
+                    Pill(stringResource(R.string.save_as_short), filled, AppIcons.saveAs)
+                }
             }
 
-            SaveButton.Save, SaveButton.SaveAsRequired, SaveButton.Retry -> {
+            SaveButton.Save, SaveButton.Retry -> {
                 Pill(label, filled = true)
             }
         }
@@ -106,10 +129,23 @@ private fun saveLabel(button: SaveButton): String =
         },
     )
 
+/** True when [label]'s pill fits in [room] at the current font scale. */
+@Composable
+private fun pillFits(
+    label: String,
+    room: Dp,
+): Boolean {
+    val measurer = rememberTextMeasurer()
+    val style = SS.type.label
+    val width = remember(label, style, measurer) { measurer.measure(label, style, softWrap = false).size.width }
+    return with(LocalDensity.current) { width.toDp() + PillPadding * 2 } <= room
+}
+
 @Composable
 private fun Pill(
     label: String,
     filled: Boolean,
+    icon: ImageVector? = null,
 ) {
     val colors = SS.colors
     val shape =
@@ -121,11 +157,15 @@ private fun Pill(
         } else {
             Modifier.border(SS.dimens.hairline, colors.ink, PillShape)
         }
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = shape.height(SS.dimens.pill).padding(horizontal = PillPadding),
+    val ink = if (filled) colors.onNeedsYou else colors.ink
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = shape.height(SS.dimens.pill).padding(horizontal = if (icon != null) 10.dp else PillPadding),
     ) {
-        Text(label, style = SS.type.label, color = if (filled) colors.onNeedsYou else colors.ink, maxLines = 1)
+        if (icon != null) Icon(icon, contentDescription = null, tint = ink, modifier = Modifier.size(SpinnerSize))
+        // softWrap off: the slot is sized to the label, so it never wraps or clips (UX2-1).
+        Text(label, style = SS.type.label, color = ink, maxLines = 1, softWrap = false)
     }
 }
 
@@ -149,7 +189,13 @@ private fun SavingPill(label: String) {
             color = colors.inkMuted,
             trackColor = Color.Transparent,
         )
-        Text(stringResource(R.string.save), style = SS.type.label, color = colors.inkMuted, maxLines = 1)
+        Text(
+            stringResource(R.string.save),
+            style = SS.type.label,
+            color = colors.inkMuted,
+            maxLines = 1,
+            softWrap = false,
+        )
     }
 }
 
@@ -178,7 +224,7 @@ fun stripDocumentFor(state: EditorUiState): StripDocument {
         isDirty = state.save.showDirtyDot,
         save = state.save.button.toStrip(),
         status = shown,
-        statusIsError = status is SaveStatusLine.Failed || status is SaveStatusLine.AutosavePaused,
+        statusIsError = status.isError(),
     )
 }
 

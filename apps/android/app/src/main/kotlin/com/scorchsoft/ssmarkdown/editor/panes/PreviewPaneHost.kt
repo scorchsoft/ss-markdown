@@ -65,7 +65,7 @@ fun PreviewPaneHost(
     // Landing on the anchor whenever the pane comes into view (a mode switch, a rotation into Split).
     LaunchedEffect(Unit) { session.scrollTo(state.anchorLine) }
     state.look?.let { look ->
-        LaunchedEffect(look) { view.setTheme(look.themeJson, look.dark, look.background) }
+        LaunchedEffect(look) { view.setTheme(look.themeJson, look.dark, look.background, look.fonts) }
     }
     LaunchedEffect(state.tapToEdit, state.pageMode, state.zoomPercent, state.readOnly) {
         view.applySettings(

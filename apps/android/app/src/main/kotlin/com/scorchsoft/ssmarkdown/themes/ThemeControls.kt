@@ -17,6 +17,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -27,8 +28,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
+import com.scorchsoft.ssmarkdown.preview.bridge.ThemeFonts
 import com.scorchsoft.ssmarkdown.settings.Appearance
 import com.scorchsoft.ssmarkdown.theme.Theme
+import com.scorchsoft.ssmarkdown.theme.css.FontFaceSource
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private val ChipShape = RoundedCornerShape(12.dp)
 
@@ -104,14 +109,24 @@ fun isDark(appearance: Appearance): Boolean =
         Appearance.Dark -> true
     }
 
-/** The preview's look for the chosen theme, recomputed when the theme, its file or the appearance changes. */
+/**
+ * The preview's look for the chosen theme, recomputed when the theme, its
+ * file or the appearance changes. Its fonts are resolved from [faces] off
+ * the main thread and arrive a moment later.
+ */
 @Composable
 fun rememberPreviewLook(
     library: ThemeLibrary,
     themeId: String,
     appearance: Appearance,
+    faces: FontFaceSource = FontFaceSource.None,
 ): PreviewLook {
     val customs by library.themes.collectAsState()
     val dark = isDark(appearance)
-    return remember(themeId, dark, customs) { PreviewLook.of(library.byId(themeId), dark) }
+    val theme = remember(themeId, customs) { library.byId(themeId) }
+    val look = remember(theme, dark) { PreviewLook.of(theme, dark) }
+    val fonts by produceState<ThemeFonts?>(null, theme, faces) {
+        value = withContext(Dispatchers.IO) { PreviewLook.fontsOf(theme, faces) }
+    }
+    return remember(look, fonts) { look.copy(fonts = fonts) }
 }

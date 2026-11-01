@@ -54,7 +54,7 @@ internal fun EditorRoute(
     val settings by graph.settings.settings.collectAsState()
     // Remembered once: EditorPanes hosts this with movableContentOf, so its identity must never change.
     val codePane = remember(vm) { codePaneFor(vm) }
-    val look = rememberPreviewLook(graph.themes, settings.previewThemeId, settings.appearance)
+    val look = rememberPreviewLook(graph.themes, settings.previewThemeId, settings.appearance, graph.fonts.faceSource)
     val preview =
         PreviewHostState(
             document = active?.text,

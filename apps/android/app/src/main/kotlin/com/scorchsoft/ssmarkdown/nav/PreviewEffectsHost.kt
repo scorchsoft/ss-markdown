@@ -10,7 +10,6 @@ import com.scorchsoft.ssmarkdown.AppGraph
 import com.scorchsoft.ssmarkdown.editor.EditorAction
 import com.scorchsoft.ssmarkdown.editor.EditorEvent
 import com.scorchsoft.ssmarkdown.editor.MessageKind
-import com.scorchsoft.ssmarkdown.editor.preview.RenderedHtml
 import com.scorchsoft.ssmarkdown.platform.PlatformActions
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
@@ -74,7 +73,7 @@ private suspend fun copyRich(
 ) {
     val html =
         graph.editor.preview.view
-            ?.let { RenderedHtml.read(it, event.fromLine, event.toLine) }
+            ?.exportHtml(event.fromLine, event.toLine)
     if (html != null) graph.media.copyHtml(event.text, html) else platform.copy(event.text)
 }
 

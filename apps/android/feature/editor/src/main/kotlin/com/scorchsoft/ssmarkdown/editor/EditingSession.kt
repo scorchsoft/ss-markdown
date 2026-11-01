@@ -82,6 +82,12 @@ class EditingSession(
      */
     internal var onRangeReplaced: ((start: Int, removed: Int, inserted: Int) -> Unit)? = null
 
+    /**
+     * Told `[start, end)` just before it is replaced, while its old text can
+     * still be read: accessibility speaks what a deletion removed.
+     */
+    internal var beforeReplace: ((start: Int, end: Int) -> Unit)? = null
+
     /** Grapheme maths for the keys in `SessionKeys.kt`; one per session because it holds a BreakIterator. */
     internal val graphemes = GraphemeBoundaries()
 
@@ -272,6 +278,7 @@ class EditingSession(
         val tree = document.text
         val firstLine = tree.positionAt(start).line
         val removed = tree.positionAt(end).line - firstLine
+        beforeReplace?.invoke(start, end)
         document.replace(start, end - start, text)
         val added = text.count { it == '\n' }
         val delta = text.length - (end - start)

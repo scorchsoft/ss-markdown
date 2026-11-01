@@ -17,6 +17,8 @@ android {
     namespace = "com.scorchsoft.ssmarkdown.feature.editor"
     buildFeatures { compose = true }
     testOptions {
+        // The view's accessibility strings (hint, heading actions) must resolve under Robolectric.
+        unitTests.isIncludeAndroidResources = true
         unitTests.all { test ->
             // Same cap as :app: each Robolectric fork carries a sandbox.
             test.maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4)

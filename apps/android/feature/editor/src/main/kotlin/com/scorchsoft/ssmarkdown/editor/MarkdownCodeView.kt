@@ -15,6 +15,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
 import android.widget.OverScroller
+import com.scorchsoft.ssmarkdown.feature.editor.R
 import com.scorchsoft.ssmarkdown.text.PieceTree
 import com.scorchsoft.ssmarkdown.text.TextDocument
 
@@ -66,7 +67,7 @@ class MarkdownCodeView
         internal val selectionUi = SelectionUi(this, commands)
         private val touch = TouchController(this)
         private val keys = KeyRouter(session, commands) { listener }
-        private val accessibility = EditorAccessibility(this)
+        private val accessibility = EditorAccessibility(this) { a11yManager?.isEnabled == true }
         private val inputMethods: InputMethodManager? = context.getSystemService(InputMethodManager::class.java)
         private val a11yManager: AccessibilityManager? = context.getSystemService(AccessibilityManager::class.java)
         internal val words = WordFinder()
@@ -94,10 +95,18 @@ class MarkdownCodeView
             session.listener = this
             session.onRangeReplaced = { start, removed, inserted ->
                 if (start < 0) finds.clear() else finds.onEdit(start, removed, inserted)
+                accessibility.onTextReplaced(start, removed, inserted)
             }
+            session.beforeReplace = accessibility::beforeReplace
             applyTheme(EditorTheme.forContext(context))
             sizing.onMetricsChanged()
         }
+
+        /**
+         * What TalkBack reads for an empty document ("Start writing…" by
+         * default); null for none. Hosts may set their own placeholder.
+         */
+        var accessibilityHint: CharSequence? = context.getString(R.string.editor_a11y_hint)
 
         /** The colours. Until a host sets one, the view follows the context's light or dark mode. */
         var theme: EditorTheme
@@ -349,11 +358,7 @@ class MarkdownCodeView
                 s.document.text
                     .positionAt(s.caret)
                     .line
-            if (caretLine != lastCaretLine &&
-                a11yManager?.isEnabled == true
-            ) {
-                accessibility.onCaretLineChanged(caretLine)
-            }
+            accessibility.onSelectionSettled(lineChanged = caretLine != lastCaretLine)
             lastCaretLine = caretLine
             invalidate()
         }

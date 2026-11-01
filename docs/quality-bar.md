@@ -135,7 +135,23 @@ scored by walking these jobs on a device.
 | Accessibility node text | ≤ 100K chars |
 | Heap admission | open normally ≤ 40% of free heap; lean ≤ 70%; else decline before loading |
 | History | Default limits 100 MB per file and 1 GB total (adjustable or off); thinning only, never silent; chain ≤ 50; Mercurial 2× rule |
-| APK size (minified) | < 15 MB including the preview bundle |
+| APK size (minified) | < 15 MB including the preview bundle. **A guideline, not a hard limit** (see below) |
+
+**The APK size budget is a guideline.** Andrew set this policy on
+2026-11-01. The mission comes first: a fast, calm editor that never
+loses work.
+- **Shrink where it's free.** Make the APK smaller whenever that costs
+  nothing the user would notice: no lost feature, no regression, no
+  slower start, no weaker robustness.
+- **Never trade the mission for size.** Don't drop or weaken anything
+  the mission depends on just to get under 15 MB.
+- **Raising the limit is allowed.** If going over is the right
+  strategic call, raise it deliberately. Record the reason, the new
+  figure and what it buys in `product-journey.md` (Decisions), and
+  update this row.
+- **Silent creep is the failure.** Going over by accident, with nobody
+  noticing, breaks the budget. Going over on purpose, with the reason
+  written down, does not.
 
 ## 5. How we score
 

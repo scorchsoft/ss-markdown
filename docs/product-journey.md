@@ -68,6 +68,7 @@ it that is always on screen is not.
 | No side-stripe highlights | Selection and callouts use a filled tint plus weight or an icon, never a one-sided coloured border | Andrew: the one-sided border is an AI tell. |
 | Where history lives | Private app storage, with caps, 90-day pruning and Export/Import history. An opt-in per-folder `.ssmarkdown/` store is deferred until after 1.0. | Sidecar files are *less* robust on Android (no atomic rename through Storage Access Framework), conflict under Syncthing/Drive, pollute git repos, leak deleted text and fail for read-only files. Andrew raised the question; see `how-it-works.md`. |
 | Toolchain | Mirrors Measur3D's Android setup (AGP 8.13, Kotlin 2.3, Compose BOM 2026.06, no wrapper) | Already proven in this cloud container and on CI. |
+| APK size | Under 15 MB is a **guideline**. Shrink wherever it causes no regression. The limit may be raised when that is the right strategic choice, recorded here with the reason. | Andrew, 2026-11-01: size must never be bought at the cost of the app's mission, but it shouldn't creep silently either. The policy is in `quality-bar.md` §4. |
 
 ## Iteration history
 

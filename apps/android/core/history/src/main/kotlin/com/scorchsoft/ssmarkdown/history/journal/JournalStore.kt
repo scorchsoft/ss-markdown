@@ -22,6 +22,7 @@ import java.security.MessageDigest
  *
  * @property root the directory that holds the journals, created on first use.
  */
+@Suppress("TooManyFunctions") // Start, resume, replay, scan, clean and set aside: one store, one file per document.
 public class JournalStore internal constructor(
     public val root: File,
     private val timing: FlushTiming,
@@ -83,6 +84,21 @@ public class JournalStore internal constructor(
         documentKey: String,
         base: BaseFingerprint,
         currentText: String,
+    ): OpenResult = resume(documentKey, base, currentText, replacing = null)
+
+    /**
+     * [resume], for a caller that knows the journal it is replacing: its
+     * own, written on [replacing] (the base before a save, a reload or a
+     * resolved conflict). A sound journal on that base is replaced in the
+     * same atomic step, because [currentText] carries every edit it held;
+     * anything else is still quarantined. One atomic replace is what keeps
+     * a crash at any moment from finding no journal at all.
+     */
+    public fun resume(
+        documentKey: String,
+        base: BaseFingerprint,
+        currentText: String,
+        replacing: BaseFingerprint?,
     ): OpenResult =
         guarded {
             val atomic = AtomicFile(fileFor(documentKey))
@@ -90,7 +106,8 @@ public class JournalStore internal constructor(
             val existing = existingHeader(atomic.baseFile)
             if (existing is HeaderRead.Unsupported) return@guarded OpenResult.Unsupported(existing.formatVersion)
             val replaceable =
-                existing is HeaderRead.Ok && existing.header.base.matches(base) &&
+                existing is HeaderRead.Ok &&
+                    (existing.header.base.matches(base) || replacing?.matches(existing.header.base) == true) &&
                     JournalReader(atomic.baseFile).framing() == FramingResult.Sound
             if (existing != null && !replaceable) quarantine.admit(atomic.baseFile)
             val snapshot =
@@ -119,8 +136,23 @@ public class JournalStore internal constructor(
      * Ends a document's journal after a verified save, or after the user
      * chose to discard the edits (and History has recorded them). Only a
      * journal whose every record checks out is deleted.
+     *
+     * Prefer the overload that names the base: this one deletes any sound
+     * journal, including one an earlier session left on another base.
      */
-    public fun markClean(documentKey: String): CleanResult {
+    public fun markClean(documentKey: String): CleanResult = markClean(documentKey, expectedBase = null)
+
+    /**
+     * [markClean], but only for the journal the caller wrote: one whose
+     * header names [expectedBase]. A sound journal on any other base is a
+     * different run of edits (an earlier session's, waiting to be
+     * recovered), so it is quarantined rather than deleted. A null
+     * [expectedBase] skips the check.
+     */
+    public fun markClean(
+        documentKey: String,
+        expectedBase: BaseFingerprint?,
+    ): CleanResult {
         val file = fileFor(documentKey)
         return try {
             quarantine.settleLeftover(AtomicFile(file).newFile)
@@ -130,7 +162,11 @@ public class JournalStore internal constructor(
                 }
 
                 FramingResult.Sound -> {
-                    deleteSound(file)
+                    if (expectedBase == null || headerBase(file)?.matches(expectedBase) == true) {
+                        deleteSound(file)
+                    } else {
+                        CleanResult.Quarantined(quarantine.admit(file))
+                    }
                 }
 
                 FramingResult.Damaged -> {
@@ -149,6 +185,23 @@ public class JournalStore internal constructor(
         }
     }
 
+    /**
+     * Moves this document's journal, if any, into `quarantine/` without
+     * reading it: for a journal that is not ours to replace or delete (one
+     * an earlier session left that could not be applied), when the user
+     * starts a new run of edits. Returns where it went, or null if there
+     * was none. Nothing is ever deleted here. A journal from a newer
+     * format stays where it is, and null is returned.
+     *
+     * @throws IOException if the journal exists but cannot be moved.
+     */
+    public fun setAside(documentKey: String): File? {
+        val file = fileFor(documentKey)
+        quarantine.settleLeftover(AtomicFile(file).newFile)
+        val movable = file.exists() && JournalReader(file).header() !is HeaderRead.Unsupported
+        return if (movable) quarantine.admit(file) else null
+    }
+
     /** The journal file for [documentKey], whether or not it exists. */
     public fun fileFor(documentKey: String): File {
         val digest = MessageDigest.getInstance("SHA-256").digest(Wtf8.encode(documentKey))
@@ -161,6 +214,9 @@ public class JournalStore internal constructor(
         AtomicFile.syncDirectory(root)
         return CleanResult.Deleted
     }
+
+    private fun headerBase(file: File): BaseFingerprint? =
+        (JournalReader(file).header() as? HeaderRead.Ok)?.header?.base
 
     private fun existingHeader(file: File): HeaderRead? = if (file.exists()) JournalReader(file).header() else null
 

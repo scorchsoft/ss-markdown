@@ -40,6 +40,12 @@ sealed interface ResolveOutcome {
     data object NoConflict : ResolveOutcome
 
     /**
+     * The buffer was edited after the user chose, so the chosen text no
+     * longer contains every edit; nothing changed. Review again (DS-7).
+     */
+    data object BufferChanged : ResolveOutcome
+
+    /**
      * The disk could not be read; nothing changed.
      *
      * @property outcome what the check found.

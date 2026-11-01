@@ -53,6 +53,7 @@ data class EditorUiState(
     val isMarkdown: Boolean = true,
     val canUndo: Boolean = false,
     val preview: PreviewPaneState = PreviewPaneState(),
+    val historyOn: Boolean = true,
 ) {
     /** The strip drives the Preview: in Preview, or in Split while the page has the caret. */
     val previewTyping: Boolean
@@ -104,6 +105,16 @@ sealed interface EditorBanner {
 
     /** "<name> was moved or deleted. Save as… · Recreate". */
     data object FileMissing : EditorBanner
+
+    /**
+     * Edits from an earlier session that could not be applied to this
+     * file (`Recovery.Kept`): kept untouched until the user edits the file
+     * or discards them (DS-3). "Discard them · Got it".
+     */
+    data object EditsKeptAside : EditorBanner
+
+    /** The recovery journal stopped working: "Recovery copies have stopped · Save as…". */
+    data object RecoveryCopiesStopped : EditorBanner
 
     /** "Saved 3 files · Skipped roadmap.md: changed in another app · Review". */
     data class SaveAllResult(
@@ -243,6 +254,8 @@ enum class MessageKind {
     CopiedRichText,
     CopyTooLarge,
     EditsDiscarded,
+    EditsDiscardedNoHistory,
+    DraftDeleted,
     SectionCopied,
     ReplacedAll,
     Restored,

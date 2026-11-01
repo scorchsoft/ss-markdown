@@ -9,9 +9,11 @@ import com.scorchsoft.ssmarkdown.files.save.SaveOutcome
 import com.scorchsoft.ssmarkdown.files.save.SaveTimeout
 import com.scorchsoft.ssmarkdown.history.journal.JournalStore
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.util.concurrent.Executor
 
 /**
  * Every open document, one entry per URI, for the life of the process
@@ -27,6 +29,11 @@ import kotlinx.coroutines.withContext
  *
  * [saveTimeout] bounds each save; a slow provider ends as
  * [SaveOutcome.TimedOut] with the file untouched or restored.
+ *
+ * Journal writes run on [journalThread], never on the caller's thread
+ * (see [JournalExecutor]); [callbacks] runs the store's notifications
+ * from that thread back on the owner's (the main executor in the app).
+ * The defaults run both inline, for tests and tools.
  */
 @Suppress(
     "LongParameterList", // Constructor injection without a DI framework (docs/engineering.md).
@@ -41,8 +48,22 @@ class DocumentStore(
     history: HistoryHook = HistoryHook.NONE,
     cursorMapper: CursorMapper = CursorMapper.BY_LINE,
     saveTimeout: SaveTimeout = SaveTimeout(),
+    journalThread: JournalExecutor = JournalExecutor.INLINE,
+    callbacks: Executor = Executor(Runnable::run),
 ) {
-    private val context = StoreContext(provider, journals, baseCopies, governor, io, history, cursorMapper, saveTimeout)
+    private val context =
+        StoreContext(
+            provider,
+            journals,
+            baseCopies,
+            governor,
+            io,
+            history,
+            cursorMapper,
+            saveTimeout,
+            journalThread,
+            callbacks,
+        )
     private val opener = DocumentOpener(context)
     private val changes = OutsideChanges(context)
     private val saves = SaveCoordinator(context, changes)
@@ -96,7 +117,9 @@ class DocumentStore(
     /** Saves [uri] through the safe pipeline; see [SaveOutcome]. */
     suspend fun save(uri: DocumentUri): SaveOutcome {
         val entry = context.entries[uri] ?: return SaveOutcome.Missing(FileIntegrity.Untouched)
-        return entry.lock.withLock { saves.save(entry) }
+        // Once a save holds the lock it runs to the end, bookkeeping included: a write that
+        // completed must never skip marking the buffer clean and settling the journal (DS-5).
+        return entry.lock.withLock { withContext(NonCancellable) { saves.save(entry) } }
     }
 
     /** Save as: writes [uri]'s buffer to [target] and moves the entry there. */
@@ -105,7 +128,7 @@ class DocumentStore(
         target: DocumentUri,
     ): SaveOutcome {
         val entry = context.entries[uri] ?: return SaveOutcome.Missing(FileIntegrity.Untouched)
-        return entry.lock.withLock { saves.saveAs(entry, target) }
+        return entry.lock.withLock { withContext(NonCancellable) { saves.saveAs(entry, target) } }
     }
 
     /** Looks for an outside change now: on resume, on a timer, on a `ContentObserver` ping. */
@@ -120,17 +143,57 @@ class DocumentStore(
     /** "Keep the file as it is". */
     suspend fun keepTheirs(uri: DocumentUri): ResolveOutcome = resolving(uri) { changes.keepTheirs(it) }
 
-    /** "Merge my edits" (with the merged text) or "Use my version…" (with the buffer's text). */
+    /**
+     * "Merge my edits" with a merge the user settled by hand: [text] was
+     * made from the buffer at [madeFromVersion]. If the buffer moved since
+     * (typing while the disk was re-read), nothing is applied and the
+     * answer is [ResolveOutcome.BufferChanged]: review again (DS-7).
+     */
     suspend fun useText(
         uri: DocumentUri,
         text: String,
-    ): ResolveOutcome = resolving(uri) { changes.useText(it, text) }
+        madeFromVersion: Long,
+    ): ResolveOutcome = resolving(uri) { changes.useText(it, madeFromVersion) { text } }
+
+    /**
+     * "Merge my edits" with no overlaps: merged from the buffer as it is
+     * when the resolution applies, so typing after the tap is merged too.
+     * [ResolveOutcome.BufferChanged] if that typing made an overlap.
+     */
+    suspend fun useCleanMerge(uri: DocumentUri): ResolveOutcome =
+        resolving(uri) { entry ->
+            changes.useText(entry, madeFromVersion = null) { conflict ->
+                conflict.merge(entry.document.snapshot())?.cleanText()
+            }
+        }
+
+    /** "Use my version…": the buffer as it is when the resolution applies, every keystroke included. */
+    suspend fun useMine(uri: DocumentUri): ResolveOutcome =
+        resolving(
+            uri,
+        ) { entry -> changes.useText(entry, madeFromVersion = null) { entry.document.snapshot().toString() } }
 
     /** "Discard edits" on the recovery banner: History keeps them, the file comes back clean. */
     suspend fun discardEdits(uri: DocumentUri): ResolveOutcome = resolving(uri) { changes.discard(it) }
 
-    /** Syncs every journal: `onPause` / `onStop`. */
+    /** Syncs every journal: `onPause` / `onStop`. Queues the work; see [awaitJournals]. */
     fun flushJournals() = context.entries.values.forEach(OpenDocument::flushJournal)
+
+    /**
+     * Blocks for at most [timeoutMillis] until every queued journal write,
+     * including [flushJournals]'s, is on disk. For `onPause`/`onStop` only,
+     * where the process may be killed next. Returns false on timeout.
+     */
+    fun awaitJournals(timeoutMillis: Long): Boolean = context.journalThread.drain(timeoutMillis)
+
+    /**
+     * "Discard them" for edits from an earlier session that could not be
+     * applied ([Recovery.Kept]): they are moved into the journal's
+     * quarantine, never deleted outright.
+     */
+    fun discardHeldEdits(uri: DocumentUri) {
+        context.entries[uri]?.journal?.discardHeld()
+    }
 
     /**
      * A window lets go of [uri]. The entry stays while another window
@@ -147,13 +210,13 @@ class DocumentStore(
         if (entry.windows > 0) return CloseOutcome.StillShown
         if (entry.isDirty && !discardUnsaved) return CloseOutcome.KeptUnsaved
         if (entry.isDirty) {
+            // Durable before the journal goes: it may be the only other copy (DS-12).
             context.history.onCheckpoint(uri, entry.document.snapshot(), CheckpointReason.ClosedWithoutSaving)
         }
         context.entries.remove(uri)
-        withContext(context.io) {
-            entry.journal.endClean()
-            context.baseCopies.delete(uri)
-        }
+        // A held journal (edits an earlier session could not apply) is never ours to end: close keeps it.
+        if (entry.journal.isHolding) entry.journal.close() else entry.journal.endClean()
+        withContext(context.io) { context.baseCopies.delete(uri) }
         return CloseOutcome.Closed
     }
 

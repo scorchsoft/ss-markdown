@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.files.fakes
 
 import com.scorchsoft.ssmarkdown.files.document.CheckpointReason
+import com.scorchsoft.ssmarkdown.files.document.CheckpointResult
 import com.scorchsoft.ssmarkdown.files.document.HistoryHook
 import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.history.journal.BaseFingerprint
@@ -34,11 +35,19 @@ class RecordingHistory : HistoryHook {
         entries += "outside:$text"
     }
 
-    override fun onCheckpoint(
+    /** What [onCheckpoint] answers; [CheckpointResult.Off] models History switched off. */
+    var checkpointResult = CheckpointResult.Recorded
+
+    /** Runs inside each checkpoint, while the store waits for it: a test types here. */
+    var duringCheckpoint: () -> Unit = {}
+
+    override suspend fun onCheckpoint(
         uri: DocumentUri,
         text: Snapshot,
         reason: CheckpointReason,
-    ) {
+    ): CheckpointResult {
         entries += "checkpoint-$reason:$text"
+        duringCheckpoint()
+        return checkpointResult
     }
 }

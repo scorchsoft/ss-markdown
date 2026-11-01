@@ -75,6 +75,27 @@ class DraftStore(
     /** Deletes a draft (the Drafts list's own delete; no clean-up ever calls this). */
     fun delete(uri: DocumentUri): Boolean = resolve(uri)?.delete() == true
 
+    /**
+     * Deletes a draft so that [restore] can bring it back: the file moves
+     * into a trash folder the list never shows (DS-16, UX-1). Only the most
+     * recent deletion is undoable; an older one is emptied now. Returns
+     * false if the draft could not be moved.
+     */
+    fun trash(uri: DocumentUri): Boolean {
+        val file = resolve(uri)?.takeIf { it.isFile } ?: return false
+        val trash = File(root, TRASH)
+        trash.listFiles()?.forEach { it.delete() }
+        if (!trash.isDirectory && !trash.mkdirs()) return false
+        return file.renameTo(File(trash, file.name))
+    }
+
+    /** Undoes [trash] for [uri], if it was the most recent deletion. */
+    fun restore(uri: DocumentUri): Boolean {
+        val target = resolve(uri) ?: return false
+        val trashed = File(File(root, TRASH), target.name)
+        return trashed.isFile && !target.exists() && trashed.renameTo(target)
+    }
+
     /** Reads at most the first [HEAD_CHARS] chars, so a draft that is one huge line costs nothing to list. */
     private fun titleOf(file: File): String =
         try {
@@ -92,6 +113,7 @@ class DraftStore(
 
     private companion object {
         const val EXTENSION = ".md"
+        const val TRASH = ".trash"
         const val HEAD_CHARS = 4096
         const val MAX_TITLE_CHARS = 80
         val ID_PATTERN = Regex("[A-Za-z0-9-]{1,64}")

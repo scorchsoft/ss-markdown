@@ -71,6 +71,21 @@ fun EditorBannerView(
         is EditorBanner.SaveAllResult -> {
             SaveAllBanner(banner, onAction, modifier)
         }
+
+        EditorBanner.EditsKeptAside -> {
+            Callout(stringResource(R.string.kept_title), stringResource(R.string.kept_body), Tone.Caution, modifier) {
+                BannerButton(R.string.kept_discard) { onAction(EditorAction.DiscardKeptEdits) }
+                BannerButton(R.string.recovered_got_it) { onAction(EditorAction.DismissBanner) }
+            }
+        }
+
+        EditorBanner.RecoveryCopiesStopped -> {
+            val body = stringResource(R.string.recovery_stopped_body)
+            Callout(stringResource(R.string.recovery_stopped_title), body, Tone.Error, modifier) {
+                BannerButton(R.string.save_as) { onAction(EditorAction.SaveAsFromBanner) }
+                BannerButton(R.string.dismiss) { onAction(EditorAction.DismissBanner) }
+            }
+        }
     }
 }
 

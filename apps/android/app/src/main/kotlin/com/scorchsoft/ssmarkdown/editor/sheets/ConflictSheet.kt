@@ -25,6 +25,7 @@ fun ConflictSheet(
     fileName: String,
     summary: ConflictSummary,
     onAction: (EditorAction) -> Unit,
+    historyOn: Boolean = true,
 ) {
     SSSheet(onDismiss = { onAction(EditorAction.DismissOverlay) }) {
         SheetTitle(stringResource(R.string.conflict_title, fileName))
@@ -55,7 +56,9 @@ fun ConflictSheet(
             stringResource(R.string.conflict_keep_theirs),
             Emphasis.Outline,
             { onAction(EditorAction.KeepTheirs) },
-            stringResource(R.string.conflict_keep_theirs_hint),
+            stringResource(
+                if (historyOn) R.string.conflict_keep_theirs_hint else R.string.conflict_keep_theirs_hint_history_off,
+            ),
         )
         SheetButton(stringResource(R.string.conflict_use_mine), Emphasis.Quiet, { onAction(EditorAction.AskUseMine) })
     }
@@ -102,12 +105,18 @@ private fun Summary(summary: ConflictSummary) {
 
 /** "Use my version…" asks first: it replaces the other app's change. */
 @Composable
-fun UseMineDialog(onAction: (EditorAction) -> Unit) {
+fun UseMineDialog(
+    onAction: (EditorAction) -> Unit,
+    historyOn: Boolean = true,
+) {
     AlertDialog(
         onDismissRequest = { onAction(EditorAction.DismissOverlay) },
         containerColor = SS.colors.chrome,
         title = { Text(stringResource(R.string.use_mine_title), style = SS.type.title, color = SS.colors.ink) },
-        text = { Text(stringResource(R.string.use_mine_body), style = SS.type.body, color = SS.colors.ink) },
+        text = {
+            val body = if (historyOn) R.string.use_mine_body else R.string.use_mine_body_history_off
+            Text(stringResource(body), style = SS.type.body, color = SS.colors.ink)
+        },
         confirmButton = {
             TextButton(onClick = { onAction(EditorAction.ConfirmUseMine) }) {
                 Text(stringResource(R.string.use_mine_confirm), style = SS.type.label, color = SS.colors.needsYou)

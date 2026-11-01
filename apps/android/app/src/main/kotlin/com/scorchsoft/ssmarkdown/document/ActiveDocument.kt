@@ -7,6 +7,7 @@ import com.scorchsoft.ssmarkdown.editor.clearFindMatches
 import com.scorchsoft.ssmarkdown.editor.setFindMatches
 import com.scorchsoft.ssmarkdown.files.document.OpenDocument
 import com.scorchsoft.ssmarkdown.markdown.edit.DocumentStyle
+import com.scorchsoft.ssmarkdown.text.EditObserver
 import com.scorchsoft.ssmarkdown.text.EditOp
 import com.scorchsoft.ssmarkdown.text.Snapshot
 import com.scorchsoft.ssmarkdown.text.TextDocument
@@ -60,14 +61,19 @@ fun interface TextChangeListener {
 /**
  * The document on screen, bound to its view: the bridge between
  * `MarkdownCodeView` (which edits the [TextDocument] directly) and the
- * store's [OpenDocument] (which must journal every edit before anything
- * else happens — the never-lose-work promise at the keystroke level).
+ * store's [OpenDocument].
+ *
+ * Journalling is not done here. The [OpenDocument] hears every op the
+ * [TextDocument] applies, from any surface, and journals it before it is
+ * applied (docs/robustness.md §1). This class only listens to the same ops
+ * so the Preview gets exact char edits, never whole lines (PERF-5), and
+ * tells the store when a run of view edits has landed.
  *
  * One instance per [TextDocument]: when the store replaces the buffer
  * (a reload or a resolved conflict) the session builds a new one, so the
  * old undo stack and snapshots never reach into new content.
  */
-@Suppress("TooManyFunctions") // The EditorListener contract plus the journal and change bridges.
+@Suppress("TooManyFunctions") // The EditorListener contract plus the change bridges.
 class ActiveDocument(
     val open: OpenDocument,
     private val listener: ActiveDocumentListener,
@@ -81,15 +87,27 @@ class ActiveDocument(
     /** The file's own Markdown dialect, detected once (ux-spec "Editing in Preview"). */
     val style: DocumentStyle = DocumentStyle.detect(text.snapshot())
 
-    private val recorder = EditRecorder(text.snapshot())
     private var view: MarkdownCodeView? = null
     private val buffer = BufferSurface(open) { before, ops -> afterBufferEdit(before, ops) }
 
-    /** True once the journal is known to be running for the current run of unsaved edits. */
-    private var journalPrimed = false
+    /** The text before the ops in [applied]; taken lazily, only while someone listens for changes. */
+    private var before: Snapshot? = null
+    private val applied = ArrayList<EditOp>(1)
+    private val opTap =
+        object : EditObserver {
+            override fun beforeEdit(op: EditOp) {
+                if (changes == null) return
+                if (before == null) before = text.snapshot()
+                applied += op
+            }
+        }
 
     /** Hears every change, from any surface; the Preview session sets it. */
     var changes: TextChangeListener? = null
+
+    init {
+        text.addEditObserver(opTap)
+    }
 
     /** Where programmatic edits go: the Code view while it is attached, else the buffer. */
     val surface: EditorSurface get() = view?.let(::CodeViewSurface) ?: buffer
@@ -118,49 +136,22 @@ class ActiveDocument(
         if (view === codeView) view = null
     }
 
+    /** This session is no longer on screen: it stops listening to the buffer. */
+    fun release() {
+        text.removeEditObserver(opTap)
+        changes = null
+        before = null
+        applied.clear()
+    }
+
     override fun onTextEdited(
         change: LineChange,
         version: Long,
     ) {
-        val before = recorder.snapshot
-        val op = recorder.record(text.text, change.firstLine, change.removedBreaks, change.addedBreaks)
-        startJournalBefore(op)
-        open.recordApplied(listOf(op))
+        open.onEditsApplied()
         outline.onLinesChanged(change.firstLine, change.removedBreaks, change.addedBreaks)
-        if (!op.isNoOp) changes?.onTextChanged(before, listOf(op))
+        dispatchChanges()
         listener.onEdited()
-    }
-
-    /**
-     * The document is clean again (saved, discarded or reloaded): the next
-     * edit starts a new run, so the journal may need starting before it.
-     */
-    fun onClean() {
-        journalPrimed = false
-    }
-
-    /**
-     * Starts the journal on the text **before** [op] (docs/robustness.md §1).
-     *
-     * The Code view applies keystrokes to the buffer itself and only then
-     * reports them, but the journal starts lazily and, when an earlier
-     * session's journal had to be set aside, it snapshots "the text before
-     * the coming edit". Snapshotting after the view's edit and then
-     * appending that edit would replay it twice after a crash. So the raw
-     * text steps back over [op] while the journal starts (no undo record,
-     * no version change: the view never sees it) and forward again after.
-     * This runs once per run of unsaved edits, not per keystroke.
-     */
-    private fun startJournalBefore(op: EditOp) {
-        if (journalPrimed || op.isNoOp) return
-        val tree = text.text
-        op.inverse().applyTo(tree)
-        try {
-            open.prepareForEdit()
-        } finally {
-            op.applyTo(tree)
-        }
-        journalPrimed = true
     }
 
     override fun onSelectionChanged(
@@ -187,11 +178,21 @@ class ActiveDocument(
         before: Snapshot,
         ops: List<EditOp>,
     ) {
-        // Buffer edits are journalled by OpenDocument itself (it starts the journal before applying).
-        journalPrimed = true
-        recorder.reset(text.snapshot())
         outline.invalidateAll()
+        // The buffer surface reports its own "before"; the ops it applied were also tapped.
+        this.before = null
+        applied.clear()
         if (ops.isNotEmpty()) changes?.onTextChanged(before, ops)
         listener.onEdited()
+    }
+
+    /** Hands the ops applied since the last report, with the text they were applied to, to [changes]. */
+    private fun dispatchChanges() {
+        val start = before
+        before = null
+        if (applied.isEmpty() || start == null) return
+        val ops = applied.toList()
+        applied.clear()
+        changes?.onTextChanged(start, ops)
     }
 }

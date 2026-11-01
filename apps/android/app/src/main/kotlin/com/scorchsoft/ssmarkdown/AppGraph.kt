@@ -2,14 +2,13 @@ package com.scorchsoft.ssmarkdown
 
 import android.app.ActivityManager
 import android.content.Context
-import android.os.Handler
-import android.os.Looper
 import android.os.storage.StorageManager
 import com.scorchsoft.ssmarkdown.document.DiskReader
 import com.scorchsoft.ssmarkdown.document.VersionHistoryHook
 import com.scorchsoft.ssmarkdown.editor.EditorDependencies
 import com.scorchsoft.ssmarkdown.editor.EditorViewModel
 import com.scorchsoft.ssmarkdown.files.document.AutosaveScheduler
+import com.scorchsoft.ssmarkdown.files.document.DedicatedJournalThread
 import com.scorchsoft.ssmarkdown.files.document.DocumentStore
 import com.scorchsoft.ssmarkdown.files.drafts.DraftStore
 import com.scorchsoft.ssmarkdown.files.memory.AndroidMemorySource
@@ -36,7 +35,6 @@ import com.scorchsoft.ssmarkdown.history.versions.VersionStore
 import com.scorchsoft.ssmarkdown.media.DocumentPictures
 import com.scorchsoft.ssmarkdown.nav.ScreenStack
 import com.scorchsoft.ssmarkdown.platform.ExitReasons
-import com.scorchsoft.ssmarkdown.platform.HandlerFlushScheduler
 import com.scorchsoft.ssmarkdown.platform.MediaActions
 import com.scorchsoft.ssmarkdown.settings.PersistedSettingsRepository
 import com.scorchsoft.ssmarkdown.settings.PreferencesSettingsStore
@@ -99,7 +97,14 @@ class AppGraph(
             documents = ContentResolverProvider(resolver),
         )
 
-    private val journals = JournalStore(layout.journals, HandlerFlushScheduler(Handler(Looper.getMainLooper())))
+    /**
+     * The one thread every journal write and `fsync` runs on, and the
+     * journal's group-commit timer (docs/robustness.md §1). The main thread
+     * only queues work there, in the order the edits happened.
+     */
+    private val journalThread = DedicatedJournalThread()
+
+    private val journals = JournalStore(layout.journals, journalThread)
 
     val governor =
         MemoryGovernor(
@@ -110,7 +115,17 @@ class AppGraph(
             ),
         )
 
-    val store = DocumentStore(provider, journals, BaseCopyStore(layout.baseCopies), governor, io, historyHook)
+    val store =
+        DocumentStore(
+            provider,
+            journals,
+            BaseCopyStore(layout.baseCopies),
+            governor,
+            io,
+            historyHook,
+            journalThread = journalThread,
+            callbacks = app.mainExecutor,
+        )
 
     val autosave =
         AutosaveScheduler(mainScope, store, isEnabled = { uri: DocumentUri ->

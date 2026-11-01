@@ -14,8 +14,9 @@ import com.scorchsoft.ssmarkdown.text.Snapshot
  * While the Code pane is on screen, edits must go **through the view**,
  * so its layout cache, tokenizer and keyboard connection see each change
  * ([CodeViewSurface]). With no view (Preview mode, tests, the share
- * sheet), they go straight to the store's buffer ([BufferSurface]),
- * which journals them itself.
+ * sheet), they go straight to the store's buffer ([BufferSurface]).
+ * Either way the store's [OpenDocument] journals every op as the buffer
+ * applies it.
  */
 interface EditorSurface {
     /** The current selection, ordered. */
@@ -93,10 +94,10 @@ class CodeViewSurface(
 }
 
 /**
- * Edits straight into the store's buffer. [OpenDocument.replace] journals
- * each op; [onChanged] lets the session refresh what it derives (outline,
- * the edit recorder's snapshot, the Preview) with the text before the
- * change and the ops applied to it, in order.
+ * Edits straight into the store's buffer. The [OpenDocument] journals
+ * each op as it is applied; [onChanged] lets the session refresh what it
+ * derives (outline, the Preview) with the text before the change and the
+ * ops applied to it, in order.
  */
 class BufferSurface(
     private val document: OpenDocument,

@@ -94,6 +94,9 @@ sealed interface EditorAction {
 
     data object UndoDiscard : EditorAction
 
+    /** "Discard them" on the banner for edits an earlier session could not apply. */
+    data object DiscardKeptEdits : EditorAction
+
     data object ReviewConflict : EditorAction
 
     data object SaveAsFromBanner : EditorAction

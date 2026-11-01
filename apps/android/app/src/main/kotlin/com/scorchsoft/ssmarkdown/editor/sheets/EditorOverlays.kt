@@ -46,15 +46,15 @@ fun EditorOverlays(
     val name = state.title.ifEmpty { stringResource(R.string.untitled) }
     when (val overlay = state.overlay) {
         is EditorOverlay.Conflict -> {
-            ConflictSheet(name, overlay.summary, onAction)
+            ConflictSheet(name, overlay.summary, onAction, historyOn = state.historyOn)
         }
 
         EditorOverlay.ConfirmUseMine -> {
-            UseMineDialog(onAction)
+            UseMineDialog(onAction, historyOn = state.historyOn)
         }
 
         is EditorOverlay.DirtyPrompt -> {
-            LeaveSheet(name, onAction)
+            LeaveSheet(name, onAction, historyOn = state.historyOn)
         }
 
         EditorOverlay.Display -> {
@@ -142,6 +142,8 @@ private fun messageText(message: UserMessage): String =
         MessageKind.CopiedRichText -> stringResource(R.string.msg_copied_rich)
         MessageKind.CopyTooLarge -> stringResource(R.string.msg_copy_too_large)
         MessageKind.EditsDiscarded -> stringResource(R.string.msg_edits_discarded)
+        MessageKind.EditsDiscardedNoHistory -> stringResource(R.string.msg_edits_discarded_no_history)
+        MessageKind.DraftDeleted -> stringResource(R.string.msg_draft_deleted)
         MessageKind.SectionCopied -> stringResource(R.string.msg_section_copied)
         MessageKind.ReplacedAll -> stringResource(R.string.msg_replaced_all, message.argument)
         MessageKind.Restored -> stringResource(R.string.msg_restored)

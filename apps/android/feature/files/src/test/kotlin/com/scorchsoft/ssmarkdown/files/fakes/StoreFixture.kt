@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.files.fakes
 
 import com.scorchsoft.ssmarkdown.files.document.DocumentStore
+import com.scorchsoft.ssmarkdown.files.document.JournalExecutor
 import com.scorchsoft.ssmarkdown.files.memory.MemoryGovernor
 import com.scorchsoft.ssmarkdown.files.provider.DocumentProvider
 import com.scorchsoft.ssmarkdown.files.save.BaseCopyStore
@@ -21,11 +22,12 @@ class StoreFixture(
     io: CoroutineDispatcher,
     val memory: FakeMemorySource = FakeMemorySource(),
     val history: RecordingHistory = RecordingHistory(),
+    val journalThread: JournalExecutor = JournalExecutor.INLINE,
 ) {
     // Deferred flushes never run by themselves; tests flush explicitly, as onPause does.
     private val scheduler = FlushScheduler { _, _ -> Cancellable { } }
     val journals = JournalStore(File(root, "journal"), scheduler)
     val baseCopies = BaseCopyStore(File(root, "base"))
     val governor = MemoryGovernor(memory)
-    val store = DocumentStore(provider, journals, baseCopies, governor, io, history)
+    val store = DocumentStore(provider, journals, baseCopies, governor, io, history, journalThread = journalThread)
 }

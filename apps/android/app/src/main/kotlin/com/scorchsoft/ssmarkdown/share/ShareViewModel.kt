@@ -5,6 +5,7 @@ import com.scorchsoft.ssmarkdown.editor.EditorViewModel
 import com.scorchsoft.ssmarkdown.files.document.DocumentStore
 import com.scorchsoft.ssmarkdown.files.document.OpenDocument
 import com.scorchsoft.ssmarkdown.files.document.OpenOutcome
+import com.scorchsoft.ssmarkdown.files.document.Recovery
 import com.scorchsoft.ssmarkdown.files.drafts.DraftStore
 import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.files.save.SaveOutcome
@@ -100,9 +101,10 @@ class ShareViewModel(
         val doc =
             (outcome as? OpenOutcome.Opened)?.document ?: return ui.update { it.copy(phase = SharePhase.Failed("")) }
         doc.replace(0, 0, state.text)
-        store.save(uri)
+        val saved = store.save(uri) is SaveOutcome.Saved
+        // A failed save leaves the note in memory, journalled: closing keeps a dirty buffer (DS-15).
         store.close(uri)
-        ui.update { it.copy(phase = SharePhase.Done("", uri.value)) }
+        ui.update { it.copy(phase = if (saved) SharePhase.Done("", uri.value) else SharePhase.Failed("")) }
     }
 
     @Suppress("ReturnCount") // Each refusal (not open, read-only, conflicted, failed) ends the flow its own way.
@@ -117,9 +119,10 @@ class ShareViewModel(
             insert(alreadyOpen, state)
             return ui.update { it.copy(phase = SharePhase.Done(name, target)) }
         }
-        val doc =
-            (store.open(uri) as? OpenOutcome.Opened)?.document
-                ?: return ui.update { it.copy(phase = SharePhase.Failed(name)) }
+        val opened =
+            store.open(uri) as? OpenOutcome.Opened ?: return ui.update { it.copy(phase = SharePhase.Failed(name)) }
+        val doc = opened.document
+        if (recovered(opened, uri, name, target, state)) return
         if (doc.readOnly != null || doc.conflict != null) {
             if (alreadyOpen == null) store.close(uri)
             return ui.update { it.copy(phase = SharePhase.Blocked(name, conflict = doc.conflict != null)) }
@@ -147,6 +150,40 @@ class ShareViewModel(
             )
         }
     }
+
+    /**
+     * Unsaved edits from an earlier session came back with this open. The
+     * user has not seen them yet, so they are never saved from here
+     * (DS-15): restored edits take the append unsaved and journalled, and
+     * stay in memory with their unsaved dot; edits that could not be
+     * applied stay held, untouched, since appending would set them aside.
+     * Returns true when this ended the flow.
+     */
+    private suspend fun recovered(
+        opened: OpenOutcome.Opened,
+        uri: DocumentUri,
+        name: String,
+        target: String,
+        state: ShareUiState,
+    ): Boolean =
+        when (opened.recovery) {
+            is Recovery.Restored -> {
+                insert(opened.document, state)
+                store.close(uri) // Dirty, so it stays in memory: KeptUnsaved.
+                ui.update { it.copy(phase = SharePhase.Done(name, target)) }
+                true
+            }
+
+            is Recovery.Kept -> {
+                store.close(uri)
+                ui.update { it.copy(phase = SharePhase.Blocked(name, conflict = true)) }
+                true
+            }
+
+            is Recovery.Conflicted, null -> {
+                false
+            }
+        }
 
     /** Inserts through the editor's surface when it shows this buffer, so its view sees the change. */
     private fun insert(

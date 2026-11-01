@@ -126,7 +126,7 @@ class DocumentStoreTest {
             assertTrue(after.store.save(uri) is SaveOutcome.Conflict)
             assertEquals("# Note\n\nfirst line\ntheirs\n", provider.text(uri))
 
-            assertEquals(ResolveOutcome.Resolved, after.store.useText(uri, merged))
+            assertEquals(ResolveOutcome.Resolved, after.store.useText(uri, merged, doc.document.version))
             assertTrue(after.store.save(uri) is SaveOutcome.Saved)
             assertEquals(merged, provider.text(uri))
         }

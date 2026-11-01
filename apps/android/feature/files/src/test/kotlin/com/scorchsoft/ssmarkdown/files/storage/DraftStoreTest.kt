@@ -48,4 +48,25 @@ class DraftStoreTest {
         assertNull(drafts.resolve(DocumentUri("ssmd-draft:../../etc/passwd")))
         assertNull(drafts.resolve(DocumentUri("content://x/y")))
     }
+
+    @Test
+    fun `a trashed draft leaves the list and comes back on restore, once`() {
+        var id = 0
+        val drafts = DraftStore(tmp.newFolder("trash-drafts"), nowMillis = { 0L }, newId = { "d-${id++}" })
+        val first = drafts.create() ?: error("no draft")
+        val second = drafts.create() ?: error("no draft")
+        drafts.resolve(first)?.writeText("# Keep me")
+
+        assertTrue(drafts.trash(first))
+        assertEquals(listOf(second), drafts.list().map { it.uri })
+        assertTrue(drafts.restore(first))
+        assertEquals("# Keep me", drafts.resolve(first)?.readText())
+        assertEquals(setOf(first, second), drafts.list().map { it.uri }.toSet())
+
+        // Only the newest deletion is undoable; trashing another empties the older one.
+        assertTrue(drafts.trash(first))
+        assertTrue(drafts.trash(second))
+        assertTrue(!drafts.restore(first))
+        assertTrue(drafts.restore(second))
+    }
 }

@@ -49,6 +49,8 @@ data class MergeUiState(
     val overlaps: List<Overlap>,
     val current: Int = 0,
     val editing: Boolean = false,
+    val historyOn: Boolean = true,
+    val madeFromVersion: Long = 0,
 ) {
     /** Overlaps still undecided: "Done (1 left)". */
     val remaining: Int get() = overlaps.count { it.choice == null }

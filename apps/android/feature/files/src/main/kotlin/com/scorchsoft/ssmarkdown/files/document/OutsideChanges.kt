@@ -2,6 +2,7 @@ package com.scorchsoft.ssmarkdown.files.document
 
 import com.scorchsoft.ssmarkdown.files.fingerprint.DiskState
 import com.scorchsoft.ssmarkdown.files.provider.ProviderResult
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
 /**
@@ -51,6 +52,12 @@ internal class OutsideChanges(
      * Loads the new disk version once, then decides: a clean buffer is
      * replaced silently; a dirty one (including one that became dirty
      * while the load ran) gets a pending conflict and is never touched.
+     *
+     * The dirty check and the swap happen in one step on the owner thread,
+     * after the last suspension, so a keystroke typed while the disk was
+     * read turns the reload into a conflict instead of being thrown away
+     * (DS-4). The base copy is committed after the swap: until it lands,
+     * a journal started on the new base still replays onto the disk.
      */
     @Suppress("ReturnCount") // Unreadable, dirty and clean each end differently.
     suspend fun diskChanged(entry: OpenDocument): OutsideChange {
@@ -73,53 +80,66 @@ internal class OutsideChanges(
             context.notify(DocumentEvent.ConflictDetected(entry.uri))
             return OutsideChange.Conflicted
         }
-        withContext(context.io) { staged.commit() }
         context.history.onChangedOutside(entry.uri, loaded.document.snapshot(), loaded.fingerprint)
+        entry.journal.endClean() // A clean buffer runs no journal; never let one outlive its base.
         swapIn(entry, loaded, dirty = false)
         entry.readOnly = loaded.readOnly
+        withContext(NonCancellable + context.io) { staged.commit() }
         return OutsideChange.Reloaded
     }
 
     /** "Keep the file as it is": mine goes to History, the disk version becomes the clean buffer. */
     suspend fun keepTheirs(entry: OpenDocument): ResolveOutcome =
-        resolve(entry) { loaded ->
-            context.history.onCheckpoint(entry.uri, entry.document.snapshot(), CheckpointReason.KeptTheirs)
-            withContext(context.io) { entry.journal.endClean() }
+        resolve(entry) { loaded, _ ->
+            checkpointSettled(entry, CheckpointReason.KeptTheirs)
+            entry.journal.endClean()
             swapIn(entry, loaded, dirty = false)
+            ResolveOutcome.Resolved
         }
 
     /**
-     * "Merge my edits" or "Use my version": [text] becomes an unsaved edit
-     * on top of the disk version, which is recorded in History first and
-     * becomes the new base. Nothing is written until the user saves.
+     * "Merge my edits" or "Use my version": [textOf] gives the new text,
+     * an unsaved edit on top of the disk version, which is recorded in
+     * History first and becomes the new base. Nothing is written until the
+     * user saves.
+     *
+     * The buffer as it was is checkpointed first (DS-8), and the text is
+     * taken in the same step as the swap, after the last suspension, so
+     * nothing typed after the tap is lost (DS-7). [madeFromVersion], when
+     * given, is the buffer version [textOf]'s text was made from; if the
+     * buffer moved since, nothing is applied.
      */
     suspend fun useText(
         entry: OpenDocument,
-        text: String,
+        madeFromVersion: Long?,
+        textOf: (ConflictState) -> String?,
     ): ResolveOutcome =
-        resolve(entry) { loaded ->
+        resolve(entry) { loaded, conflict ->
+            checkpointSettled(entry, CheckpointReason.BeforeMerge)
+            val moved = madeFromVersion != null && entry.document.version != madeFromVersion
+            val text = if (moved) null else textOf(conflict)
+            if (text == null) return@resolve ResolveOutcome.BufferChanged
             context.history.onChangedOutside(entry.uri, loaded.document.snapshot(), loaded.fingerprint)
             loaded.document.replaceAllWith(text)
             swapIn(entry, loaded, dirty = true)
-            withContext(context.io) { entry.journal.restartOn(loaded.fingerprint, text) }
+            entry.journal.resume(loaded.fingerprint, entry.document.snapshot())
+            ResolveOutcome.Resolved
         }
 
     /** "Discard edits" on recovered work: checkpoint, then the disk version, clean. */
     @Suppress("ReturnCount") // Conflict, unreadable disk and success each end differently.
     suspend fun discard(entry: OpenDocument): ResolveOutcome {
         if (entry.conflict != null) return keepTheirsAfterDiscard(entry)
-        context.history.onCheckpoint(entry.uri, entry.document.snapshot(), CheckpointReason.DiscardedEdits)
         val staged = context.baseCopies.stage(entry.uri)
         val loaded = withContext(context.io) { context.loader.load(entry.uri, staged) }
         if (loaded !is LoadResult.Loaded) {
             staged.abandon()
             return ResolveOutcome.Unavailable(unavailable(loaded))
         }
-        withContext(context.io) {
-            staged.commit()
-            entry.journal.endClean()
-        }
+        checkpointSettled(entry, CheckpointReason.DiscardedEdits)
+        entry.journal.endClean()
         swapIn(entry, loaded, dirty = false)
+        withContext(NonCancellable + context.io) { staged.commit() }
         return ResolveOutcome.Resolved
     }
 
@@ -128,11 +148,32 @@ internal class OutsideChanges(
         return keepTheirs(entry)
     }
 
-    /** Re-reads the disk; resolves only if it is still the version the user looked at. */
-    @Suppress("ReturnCount") // No conflict, unreadable, changed again and resolved are the four answers.
+    /**
+     * Records the buffer in History and waits until it is durable, again if
+     * typing moved it meanwhile, so the version kept is the one about to be
+     * replaced. The caller replaces it in the same step as this returns.
+     */
+    private suspend fun checkpointSettled(
+        entry: OpenDocument,
+        reason: CheckpointReason,
+    ): CheckpointResult {
+        var attempts = 0
+        while (true) {
+            val version = entry.document.version
+            val result = context.history.onCheckpoint(entry.uri, entry.document.snapshot(), reason)
+            if (entry.document.version == version || ++attempts >= MAX_CHECKPOINT_ATTEMPTS) return result
+        }
+    }
+
+    /**
+     * Re-reads the disk; resolves only if it is still the version the user
+     * looked at, and only if [apply] says so. The base copy moves to the
+     * disk version only once the resolution has been applied.
+     */
+    @Suppress("ReturnCount") // No conflict, unreadable, changed again and applied are the four answers.
     private suspend fun resolve(
         entry: OpenDocument,
-        apply: suspend (LoadResult.Loaded) -> Unit,
+        apply: suspend (LoadResult.Loaded, ConflictState) -> ResolveOutcome,
     ): ResolveOutcome {
         val conflict = entry.conflict ?: return ResolveOutcome.NoConflict
         val staged = context.baseCopies.stage(entry.uri)
@@ -148,11 +189,15 @@ internal class OutsideChanges(
             context.notify(DocumentEvent.ConflictDetected(entry.uri))
             return ResolveOutcome.ChangedAgain
         }
-        withContext(context.io) { staged.commit() }
+        val outcome = apply(loaded, conflict)
+        if (outcome != ResolveOutcome.Resolved) {
+            staged.abandon()
+            return outcome
+        }
         entry.conflict = null
-        apply(loaded)
         if (entry.readOnly == ReadOnlyReason.NewerRecoveryData) entry.readOnly = null
-        return ResolveOutcome.Resolved
+        withContext(NonCancellable + context.io) { staged.commit() }
+        return outcome
     }
 
     private fun swapIn(
@@ -181,4 +226,9 @@ internal class OutsideChanges(
                 OutsideChange.Unavailable(ProviderResult.Failed(IllegalStateException("cannot load: $result")))
             }
         }
+
+    private companion object {
+        /** Continuous typing could move the buffer forever; after this many tries the newest checkpoint stands. */
+        const val MAX_CHECKPOINT_ATTEMPTS = 3
+    }
 }

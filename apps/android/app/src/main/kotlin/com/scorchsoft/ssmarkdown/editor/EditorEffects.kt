@@ -67,8 +67,22 @@ internal object EditorEffects {
                 vm.recovery.discard()
             }
 
-            EditorAction.UndoDiscard, EditorAction.MessageUndo -> {
+            EditorAction.UndoDiscard -> {
                 vm.recovery.undoDiscard()
+            }
+
+            EditorAction.MessageUndo -> {
+                if (before.message?.kind ==
+                    MessageKind.DraftDeleted
+                ) {
+                    vm.navigator.undoDeleteDraft()
+                } else {
+                    vm.recovery.undoDiscard()
+                }
+            }
+
+            EditorAction.DiscardKeptEdits -> {
+                vm.recovery.discardKept()
             }
 
             EditorAction.ReviewConflict -> {

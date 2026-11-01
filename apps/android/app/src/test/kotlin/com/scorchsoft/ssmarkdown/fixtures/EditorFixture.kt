@@ -44,6 +44,8 @@ class EditorFixture(
     settings: AppSettings = AppSettings(),
     var now: Long = 1_000_000L,
     viewStates: ViewStateStore = InMemoryViewStates(),
+    /** Where disk work runs; an [InterleavingDispatcher] lets a test type while it waits. */
+    io: CoroutineDispatcher = dispatcher,
 ) {
     val files = File(root, "files").apply { mkdirs() }
     val scope = CoroutineScope(SupervisorJob() + dispatcher)
@@ -65,7 +67,7 @@ class EditorFixture(
             journals,
             BaseCopyStore(File(root, "base")),
             MemoryGovernor(RoomyMemory),
-            dispatcher,
+            io,
             history,
         )
     val settings = InMemorySettingsRepository(settings)
@@ -84,12 +86,12 @@ class EditorFixture(
                 history = history,
                 versions = versions,
                 settings = this.settings,
-                diskReader = DiskReader(provider, dispatcher),
+                diskReader = DiskReader(provider, io),
                 folders = NoFolders,
                 permissions = { _, _ -> true },
                 clock = { now },
                 scope = scope,
-                io = dispatcher,
+                io = io,
                 viewStates = viewStates,
             ),
         ).also { vm ->

@@ -57,7 +57,8 @@ class RecoveryController(
             }
 
             is Recovery.Kept -> {
-                host.message(MessageKind.ActionFailed)
+                // Not a failure toast: the edits exist and are kept; the user decides (DS-3).
+                host.update { it.copy(banner = EditorBanner.EditsKeptAside) }
             }
         }
     }
@@ -73,16 +74,30 @@ class RecoveryController(
         }
     }
 
-    /** "Discard edits": History keeps a checkpoint, the file comes back clean, and Undo is offered. */
+    /** "Discard them" for edits an earlier session could not apply: set aside, never deleted outright. */
+    fun discardKept() {
+        val open = host.active?.open ?: return
+        deps.store.discardHeldEdits(open.uri)
+    }
+
+    /**
+     * "Discard edits": History keeps a checkpoint (when History is on; the
+     * message says so only then, DS-9), the file comes back clean, and
+     * Undo is offered.
+     */
     fun discard() {
         val doc = host.active ?: return
-        val kept = doc.text.snapshot().toString()
+        val kept = doc.text.snapshot()
         host.update { it.copy(banner = null) }
         deps.scope.launch {
             if (deps.store.discardEdits(doc.open.uri) == ResolveOutcome.Resolved) {
-                discarded = kept
+                discarded = kept.toString()
                 host.rebind()
-                host.message(MessageKind.EditsDiscarded, undo = true)
+                val historyOn = deps.settings.settings.value.history.recording
+                host.message(
+                    if (historyOn) MessageKind.EditsDiscarded else MessageKind.EditsDiscardedNoHistory,
+                    undo = true,
+                )
             } else {
                 host.message(MessageKind.ActionFailed)
             }

@@ -15,7 +15,9 @@ internal class DocumentOpener(
 ) {
     @Suppress("ReturnCount") // Load failure and "no journal" end early; the rest is the replay dispatch.
     suspend fun open(uri: DocumentUri): OpenOutcome {
-        val hasJournal = withContext(context.io) { context.journals.fileFor(uri.value).exists() }
+        // Journal files are only ever touched on the journal thread, so this waits for any queued
+        // work on this document (a close that is still ending its journal) before looking.
+        val hasJournal = context.journalThread.call { context.journals.fileFor(uri.value).exists() }
         val staged = context.baseCopies.stage(uri)
         val loaded = withContext(context.io) { context.loader.load(uri, staged) }
         if (loaded !is LoadResult.Loaded) {
@@ -29,9 +31,9 @@ internal class DocumentOpener(
             return OpenOutcome.Opened(entry)
         }
         val replay =
-            withContext(
-                context.io,
-            ) { context.journals.replay(uri.value, loaded.document.text.toString(), loaded.fingerprint) }
+            context.journalThread.call {
+                context.journals.replay(uri.value, loaded.document.text.toString(), loaded.fingerprint)
+            }
         return when (replay) {
             is ReplayResult.Ok -> {
                 restored(uri, loaded, replay.text, damaged = false, staged)
@@ -80,7 +82,8 @@ internal class DocumentOpener(
         withContext(context.io) { staged.commit() }
         loaded.document.replaceAllWith(text)
         val entry = register(uri, loaded, dirty = true)
-        withContext(context.io) { entry.journal.resume(loaded.fingerprint, text) }
+        entry.journal.adopt()
+        entry.journal.resume(loaded.fingerprint, entry.document.snapshot(), replacing = loaded.fingerprint)
         return OpenOutcome.Opened(entry, Recovery.Restored(context.journalTimes[uri] ?: 0, damaged))
     }
 
@@ -103,7 +106,16 @@ internal class DocumentOpener(
                 ?: return kept(uri, loaded, null, "file changed and no base copy to replay onto", readOnly = false)
         val baseText = baseDocument.text.toString()
         val mine =
-            when (val replay = withContext(context.io) { context.journals.replay(uri.value, baseText, journalBase) }) {
+            when (
+                val replay =
+                    context.journalThread.call {
+                        context.journals.replay(
+                            uri.value,
+                            baseText,
+                            journalBase,
+                        )
+                    }
+            ) {
                 is ReplayResult.Ok -> replay.text
                 is ReplayResult.Corrupt -> replay.recoveredText
                 else -> return kept(uri, loaded, null, "journal could not be replayed onto its base", readOnly = false)
@@ -116,7 +128,8 @@ internal class DocumentOpener(
                 dirty = true,
             )
         entry.conflict = ConflictState(baseText, loaded.document.text.toString(), loaded.fingerprint, recovered = true)
-        withContext(context.io) { entry.journal.resume(journalBase, mine) }
+        entry.journal.adopt()
+        entry.journal.resume(journalBase, entry.document.snapshot(), replacing = journalBase)
         return OpenOutcome.Opened(entry, Recovery.Conflicted(context.journalTimes[uri] ?: 0))
     }
 
@@ -131,7 +144,12 @@ internal class DocumentOpener(
         return OpenOutcome.Opened(entry)
     }
 
-    /** Opens the disk version and leaves the journal untouched. */
+    /**
+     * Opens the disk version and leaves the journal untouched, *held*: no
+     * close, save or discard of this entry deletes it (DS-3). It stays
+     * where the next launch finds it again until the user edits this
+     * document, when it moves into quarantine, or chooses to discard it.
+     */
     private suspend fun kept(
         uri: DocumentUri,
         loaded: LoadResult.Loaded,
@@ -141,6 +159,7 @@ internal class DocumentOpener(
     ): OpenOutcome {
         staged?.abandon()
         val entry = register(uri, loaded)
+        entry.journal.hold()
         if (readOnly) entry.readOnly = ReadOnlyReason.NewerRecoveryData
         return OpenOutcome.Opened(entry, Recovery.Kept(reason))
     }

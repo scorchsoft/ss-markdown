@@ -67,7 +67,7 @@ fun MergeResolveScreen(
             modifier = Modifier.padding(16.dp),
         )
         state.overlaps.getOrNull(state.current)?.let { Overlap(it, state, onAction) }
-        NoteText(stringResource(R.string.merge_note))
+        NoteText(stringResource(if (state.historyOn) R.string.merge_note else R.string.merge_note_history_off))
         Column(Modifier.padding(horizontal = 16.dp)) {
             SheetButton(
                 pluralStringResource(R.plurals.merge_done_left, state.remaining, state.remaining).takeIf {

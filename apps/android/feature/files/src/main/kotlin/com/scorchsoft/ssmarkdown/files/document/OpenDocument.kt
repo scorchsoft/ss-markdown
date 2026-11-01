@@ -3,9 +3,9 @@ package com.scorchsoft.ssmarkdown.files.document
 import com.scorchsoft.ssmarkdown.files.memory.Budget
 import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.files.save.SaveOutcome
-import com.scorchsoft.ssmarkdown.history.TextEdit
 import com.scorchsoft.ssmarkdown.history.journal.BaseFingerprint
 import com.scorchsoft.ssmarkdown.text.EditGroup
+import com.scorchsoft.ssmarkdown.text.EditObserver
 import com.scorchsoft.ssmarkdown.text.EditOp
 import com.scorchsoft.ssmarkdown.text.TextDocument
 import kotlinx.coroutines.sync.Mutex
@@ -15,10 +15,13 @@ import kotlinx.coroutines.sync.Mutex
  * (robustness §5a: views never own text). It outlives Activities and is
  * owned by the [DocumentStore].
  *
- * Every edit goes through [replace], [undo], [redo] or [recordApplied],
- * which journal it before returning: that is the whole of the
- * never-lose-work promise at the keystroke level. Owned by the main
- * thread, like the [TextDocument] inside it.
+ * Every op applied to [document], by any caller (the code view typing
+ * straight into it, [replace], [undo], [redo]), is journalled through an
+ * [EditObserver] **before** it is applied, with its exact chars: that is
+ * the whole of the never-lose-work promise at the keystroke level, and
+ * it does not depend on any caller remembering to report an edit. The
+ * journal's file work happens on the [JournalExecutor], never here.
+ * Owned by the main thread, like the [TextDocument] inside it.
  */
 @Suppress("LongParameterList") // Built in one place (DocumentOpener) from a load result.
 class OpenDocument internal constructor(
@@ -35,6 +38,15 @@ class OpenDocument internal constructor(
     /** Where the document lives. Changes only on Save as. */
     var uri: DocumentUri = uri
         internal set
+
+    private val journalObserver =
+        object : EditObserver {
+            // Qualified: in an initializer, a bare `base` would be the constructor's first value, forever.
+            override fun beforeEdit(op: EditOp) {
+                val owner = this@OpenDocument
+                owner.journal.beforeEdit(op, owner.base, owner.isDirty) { owner.document.snapshot() }
+            }
+        }
 
     /** The live text. Replaced (never mutated behind your back) by a reload or a conflict resolution. */
     var document: TextDocument = document
@@ -63,6 +75,12 @@ class OpenDocument internal constructor(
     /** False once a journal write failed: the UI warns that recovery copies may stop. */
     val journalHealthy: Boolean get() = journal.healthy
 
+    /**
+     * True while an earlier session's edits that could not be applied
+     * ([Recovery.Kept]) are held in place, untouched, for the user to decide.
+     */
+    val holdsUnappliedEdits: Boolean get() = journal.isHolding
+
     /** True while there are unsaved edits. */
     val isDirty: Boolean get() = forcedDirty || document.version != cleanVersion
 
@@ -71,6 +89,10 @@ class OpenDocument internal constructor(
     private var cleanVersion = document.version
     private var forcedDirty = false
 
+    init {
+        document.addEditObserver(journalObserver)
+    }
+
     /** Replaces `[offset, offset + length)` with [text]; null if the document is read-only. */
     fun replace(
         offset: Int,
@@ -78,9 +100,8 @@ class OpenDocument internal constructor(
         text: CharSequence,
     ): EditOp? {
         if (readOnly != null) return null
-        startJournal()
         val op = document.replace(offset, length, text)
-        if (!op.isNoOp) journalOps(listOf(op))
+        if (!op.isNoOp) onEditsApplied()
         return op
     }
 
@@ -88,9 +109,8 @@ class OpenDocument internal constructor(
     @Suppress("ReturnCount") // Read-only and nothing-to-undo are both null.
     fun undo(): EditGroup? {
         if (readOnly != null || !document.canUndo) return null
-        startJournal()
         val group = document.undo() ?: return null
-        journalOps(group.ops.asReversed().map(EditOp::inverse))
+        onEditsApplied()
         return group
     }
 
@@ -98,20 +118,17 @@ class OpenDocument internal constructor(
     @Suppress("ReturnCount") // Read-only and nothing-to-redo are both null.
     fun redo(): EditGroup? {
         if (readOnly != null || !document.canRedo) return null
-        startJournal()
         val group = document.redo() ?: return null
-        journalOps(group.ops)
+        onEditsApplied()
         return group
     }
 
     /**
-     * Journals [ops] that the editor applied straight to [document], in
-     * the order applied. Call [prepareForEdit] before applying the first.
+     * Tells listeners that edits were applied straight to [document] (the
+     * code view types into it): the unsaved dot and autosave hear it. The
+     * edits themselves were journalled as they were applied.
      */
-    fun recordApplied(ops: List<EditOp>) = journalOps(ops.filterNot(EditOp::isNoOp))
-
-    /** Starts the journal before an edit the caller applies itself; see [recordApplied]. */
-    fun prepareForEdit() = startJournal()
+    fun onEditsApplied() = notify(DocumentEvent.Edited(uri))
 
     /** Makes journalled edits durable now: on pause, before a view switch or opening another file. */
     fun flushJournal() = journal.flush()
@@ -132,18 +149,12 @@ class OpenDocument internal constructor(
         newBase: BaseFingerprint,
         dirty: Boolean,
     ) {
+        document.removeEditObserver(journalObserver)
+        replacement.addEditObserver(journalObserver)
         document = replacement
         base = newBase
         cleanVersion = replacement.version
         forcedDirty = dirty
         fileMissing = false
-    }
-
-    private fun startJournal() = journal.ensureStarted(base) { document.text.toString() }
-
-    private fun journalOps(ops: List<EditOp>) {
-        if (ops.isEmpty()) return
-        ops.forEach { journal.append(TextEdit(it.offset, it.deleted.toString(), it.inserted.toString())) }
-        notify(DocumentEvent.Edited(uri))
     }
 }

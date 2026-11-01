@@ -14,6 +14,21 @@ enum class CheckpointReason {
 
     /** The document is being closed without saving ("Don't save"). */
     ClosedWithoutSaving,
+
+    /** "Merge my edits" or "Use my version": the buffer as it was, before the result replaced it. */
+    BeforeMerge,
+}
+
+/** Whether a checkpoint is in History, so the UI may say so (DS-9). */
+enum class CheckpointResult {
+    /** Recorded and durable: "kept in History" is true. */
+    Recorded,
+
+    /** History is switched off: nothing was kept, and the UI must not claim otherwise. */
+    Off,
+
+    /** History could not record it (disk full, damaged index). */
+    Failed,
 }
 
 /**
@@ -46,12 +61,16 @@ interface HistoryHook {
         fingerprint: BaseFingerprint,
     )
 
-    /** A checkpoint of unsaved work, before it is discarded or set aside. */
-    fun onCheckpoint(
+    /**
+     * A checkpoint of unsaved work, before it is discarded or set aside.
+     * Suspends until the version is durable (or refused), because the
+     * caller is about to delete the only other copy (DS-12).
+     */
+    suspend fun onCheckpoint(
         uri: DocumentUri,
         text: Snapshot,
         reason: CheckpointReason,
-    )
+    ): CheckpointResult
 
     /** History switched off. */
     companion object {
@@ -76,11 +95,11 @@ interface HistoryHook {
                     fingerprint: BaseFingerprint,
                 ) = Unit
 
-                override fun onCheckpoint(
+                override suspend fun onCheckpoint(
                     uri: DocumentUri,
                     text: Snapshot,
                     reason: CheckpointReason,
-                ) = Unit
+                ) = CheckpointResult.Off
             }
     }
 }

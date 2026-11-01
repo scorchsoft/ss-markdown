@@ -93,7 +93,11 @@ class EditorViewModel(
     fun start(request: LaunchRequest? = null) {
         if (request != null) explicitOpen = true
         if (started) {
-            request?.let(::openRequested)
+            if (request != null) {
+                openRequested(request)
+            } else {
+                rebindIfOrphaned()
+            }
             return
         }
         started = true
@@ -125,11 +129,31 @@ class EditorViewModel(
         EditorEffects.run(this, action, before)
     }
 
-    /** `onPause`: make the journal durable now and let autosave write before we may die. */
+    /**
+     * `onPause`: make the journal durable now and let autosave write
+     * before we may die. The journal is written on its own thread; this
+     * waits for it, briefly, because a backgrounded process may be killed
+     * next (docs/robustness.md §1).
+     */
     fun onPause() {
         views.capture()
         deps.store.flushJournals()
+        deps.store.awaitJournals(PAUSE_JOURNAL_WAIT_MILLIS)
         active?.open?.uri?.let(deps.autosave::onLeave)
+    }
+
+    /**
+     * The activity came back to a view model whose document has left the
+     * store ("Don't save", then Exit, with the process kept alive). That
+     * buffer can be neither saved nor journalled, so it must not be shown
+     * (DS-10): open the file again from disk, or a fresh draft.
+     */
+    private fun rebindIfOrphaned() {
+        val open = active?.open ?: return
+        if (deps.store[open.uri] === open) return
+        active?.release()
+        activeFlow.value = null
+        if (open.uri.isDraft) newDraft() else openDocument(open.uri.value)
     }
 
     /** `onResume`: the disk is the truth; look for an outside change. */
@@ -176,6 +200,13 @@ class EditorViewModel(
         fromAnotherApp: Boolean,
         readOnlySource: String?,
     ) {
+        val current = active?.open
+        if (current != null && current.uri.value == uri && deps.store[current.uri] === current) {
+            // Already on screen: joining the entry again would count a second window that never closes (CC-12).
+            updateMeta(uri) { it.copy(fromAnotherApp = fromAnotherApp, readOnlySource = readOnlySource) }
+            refresh()
+            return
+        }
         deps.scope.launch {
             ui.update { it.copy(loading = true, tooLarge = null) }
             val outcome = deps.store.open(DocumentUri(uri))
@@ -225,7 +256,6 @@ class EditorViewModel(
         val uri = open.uri.value
         val meta = meta(uri)
         val settings = deps.settings.settings.value
-        if (!open.isDirty) doc.onClean()
         val facts =
             SaveFacts(
                 isDraft = open.uri.isDraft,
@@ -247,6 +277,7 @@ class EditorViewModel(
                 bigFile = open.budget == Budget.Lean,
                 isMarkdown = open.displayName?.endsWith(".txt", ignoreCase = true) != true,
                 canUndo = doc.text.canUndo,
+                historyOn = settings.history.recording,
             )
         }
         updateBreadcrumb()
@@ -263,6 +294,7 @@ class EditorViewModel(
             deps.autosave.onLeave(uri)
             deps.scope.launch { deps.store.close(uri) }
         }
+        previous?.release()
         val document = ActiveDocument(open, this)
         activeFlow.value = document
         preview.bind(document)
@@ -297,6 +329,7 @@ class EditorViewModel(
         }
     }
 
+    @Suppress("CyclomaticComplexMethod") // One small branch per store event.
     private fun onStoreEvent(event: DocumentEvent) {
         val activeUri = active?.open?.uri
         when (event) {
@@ -327,6 +360,10 @@ class EditorViewModel(
             is DocumentEvent.Moved -> {
                 metas[event.from.value]?.let { metas[event.uri.value] = it }
                 if (event.uri == activeUri) refresh()
+            }
+
+            is DocumentEvent.JournalHealthChanged -> {
+                if (event.uri == activeUri) onJournalHealth()
             }
         }
     }
@@ -429,8 +466,24 @@ class EditorViewModel(
         )
     }
 
+    /** Recovery copies stopped (or came back): say so, never fail silently (robustness §1). */
+    private fun onJournalHealth() {
+        val healthy = active?.open?.journalHealthy ?: return
+        ui.update {
+            when {
+                !healthy && it.banner == null -> it.copy(banner = EditorBanner.RecoveryCopiesStopped)
+                healthy && it.banner == EditorBanner.RecoveryCopiesStopped -> it.copy(banner = null)
+                else -> it
+            }
+        }
+        refresh()
+    }
+
     private companion object {
         const val OUTLINE_SLICE_MILLIS = 16L
+
+        /** Long enough for an `fsync` under load, short enough never to feel like a hang on leaving. */
+        const val PAUSE_JOURNAL_WAIT_MILLIS = 300L
     }
 }
 

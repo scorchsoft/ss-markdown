@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.editor
 
+import com.scorchsoft.ssmarkdown.files.document.CloseOutcome
 import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.files.saf.SuggestedFileName
 import com.scorchsoft.ssmarkdown.navigator.FileRow
@@ -22,6 +23,7 @@ class NavigatorController(
     private val host: EditorHost,
 ) {
     private val vm get() = host as? EditorViewModel
+    private var lastDeleted: DocumentUri? = null
 
     /** Opens the sheet: tapping the title, Ctrl+K or Ctrl+P. */
     fun open() {
@@ -143,17 +145,39 @@ class NavigatorController(
         host.emit(EditorEvent.PickExportLocation(SuggestedFileName.forText(text), text))
     }
 
+    /**
+     * The Drafts list's delete. A draft is often the only copy of its text,
+     * so this is never instant and permanent (DS-16, UX-1): the draft moves
+     * to a trash and "Draft deleted · Undo" brings it back. A draft open
+     * in memory but not on screen is saved and closed first, so its last
+     * edits go with it and no orphan entry is left behind.
+     */
     private fun deleteDraft(uri: String) {
-        if (uri ==
-            host.active
-                ?.open
-                ?.uri
-                ?.value
-        ) {
-            return
+        val target = DocumentUri(uri)
+        if (target == host.active?.open?.uri) return
+        host.deps.scope.launch {
+            val store = host.deps.store
+            if (store[target]?.isDirty == true) store.save(target)
+            val closed = store[target]?.let { store.close(target) } ?: CloseOutcome.NotOpen
+            val canDelete = closed == CloseOutcome.Closed || closed == CloseOutcome.NotOpen
+            if (canDelete && withContext(host.deps.io) { host.deps.drafts.trash(target) }) {
+                lastDeleted = target
+                host.message(MessageKind.DraftDeleted, undo = true)
+            } else {
+                host.message(MessageKind.ActionFailed)
+            }
+            loadDrafts()
         }
-        host.deps.drafts.delete(DocumentUri(uri))
-        loadDrafts()
+    }
+
+    /** Undo on "Draft deleted": the draft comes back as it was. */
+    fun undoDeleteDraft() {
+        val target = lastDeleted ?: return
+        lastDeleted = null
+        host.deps.scope.launch {
+            if (!withContext(host.deps.io) { host.deps.drafts.restore(target) }) host.message(MessageKind.ActionFailed)
+            loadDrafts()
+        }
     }
 
     private fun outlineRows(): List<OutlineRow> {

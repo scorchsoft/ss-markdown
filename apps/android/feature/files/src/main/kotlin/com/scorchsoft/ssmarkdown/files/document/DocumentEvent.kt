@@ -58,4 +58,12 @@ sealed interface DocumentEvent {
         override val uri: DocumentUri,
         val from: DocumentUri,
     ) : DocumentEvent
+
+    /**
+     * The recovery journal stopped working, or recovered: read
+     * [OpenDocument.journalHealthy] and warn that recovery copies may stop.
+     */
+    data class JournalHealthChanged(
+        override val uri: DocumentUri,
+    ) : DocumentEvent
 }

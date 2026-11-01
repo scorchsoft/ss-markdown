@@ -17,8 +17,14 @@ import kotlinx.coroutines.launch
  * change. Whether a document autosaves at all is [isEnabled]'s call:
  * the global mode, a per-file override, and always for drafts.
  *
+ * A save that has started is never cancelled: an edit during it only
+ * books another save for after it (DS-5). Cancelling it once the bytes
+ * were written skipped the bookkeeping that marks the buffer clean and
+ * settles the journal. Only the idle wait is a debounce.
+ *
  * Time comes from [scope]'s dispatcher, so tests drive it with virtual time.
  */
+@Suppress("TooManyFunctions") // Listen, schedule, save, pause and resume: one small step each.
 class AutosaveScheduler(
     private val scope: CoroutineScope,
     private val store: DocumentStore,
@@ -27,6 +33,8 @@ class AutosaveScheduler(
 ) {
     private val pending = HashMap<DocumentUri, Job>()
     private val paused = HashMap<DocumentUri, SaveOutcome>()
+    private val saving = HashSet<DocumentUri>()
+    private val again = HashSet<DocumentUri>()
     private val listener: (DocumentEvent) -> Unit = { event ->
         when (event) {
             is DocumentEvent.Edited -> onEdited(event.uri)
@@ -55,12 +63,24 @@ class AutosaveScheduler(
 
     /** Leaving the file or the app: save now rather than after the idle wait. */
     fun onLeave(uri: DocumentUri) {
+        if (uri in saving) {
+            again += uri
+            return
+        }
         pending.remove(uri)?.cancel()
         if (shouldSave(uri)) pending[uri] = scope.launch { saveNow(uri) }
     }
 
     private fun onEdited(uri: DocumentUri) {
         if (!isEnabled(uri) || uri in paused) return
+        if (uri in saving) {
+            again += uri // Never cancel a save in flight; save again after it.
+            return
+        }
+        schedule(uri)
+    }
+
+    private fun schedule(uri: DocumentUri) {
         pending.remove(uri)?.cancel()
         pending[uri] =
             scope.launch {
@@ -72,9 +92,20 @@ class AutosaveScheduler(
     private fun shouldSave(uri: DocumentUri): Boolean = isEnabled(uri) && uri !in paused && store[uri]?.isDirty == true
 
     private suspend fun saveNow(uri: DocumentUri) {
-        val outcome = store.save(uri)
-        pending.remove(uri)
-        if (outcome !is SaveOutcome.Saved) pause(uri, outcome)
+        saving += uri
+        val outcome =
+            try {
+                store.save(uri)
+            } finally {
+                saving -= uri
+                pending.remove(uri)
+            }
+        val rerun = again.remove(uri)
+        if (outcome !is SaveOutcome.Saved) {
+            pause(uri, outcome)
+        } else if (rerun && shouldSave(uri)) {
+            schedule(uri)
+        }
     }
 
     private fun pauseForConflict(uri: DocumentUri) {
@@ -87,7 +118,8 @@ class AutosaveScheduler(
         outcome: SaveOutcome,
     ) {
         paused[uri] = outcome
-        pending.remove(uri)?.cancel()
+        again -= uri
+        if (uri !in saving) pending.remove(uri)?.cancel()
     }
 
     /** The default idle wait. */

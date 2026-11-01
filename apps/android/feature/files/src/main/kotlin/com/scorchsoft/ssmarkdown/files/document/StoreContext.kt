@@ -15,6 +15,7 @@ import com.scorchsoft.ssmarkdown.text.Utf8Decoder
 import kotlinx.coroutines.CoroutineDispatcher
 import java.io.IOException
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.Executor
 
 /**
  * What the store's collaborators share: the dependencies, the open
@@ -32,6 +33,8 @@ internal class StoreContext(
     val history: HistoryHook,
     val cursorMapper: CursorMapper,
     saveTimeout: SaveTimeout,
+    val journalThread: JournalExecutor,
+    private val callbacks: Executor,
 ) {
     val entries = LinkedHashMap<DocumentUri, OpenDocument>()
     val listeners = CopyOnWriteArrayList<(DocumentEvent) -> Unit>()
@@ -44,7 +47,11 @@ internal class StoreContext(
 
     fun notify(event: DocumentEvent) = listeners.forEach { it(event) }
 
-    fun journalFor(uri: DocumentUri) = JournalLink(journals, uri.value)
+    /** A journal link for [uri]; its health changes reach listeners on the owner thread. */
+    fun journalFor(uri: DocumentUri) =
+        JournalLink(journals, uri.value, journalThread, onHealthChanged = {
+            callbacks.execute { notify(DocumentEvent.JournalHealthChanged(uri)) }
+        })
 
     /**
      * The base copy's text, if the copy holds exactly [base]'s bytes and

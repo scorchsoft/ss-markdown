@@ -82,6 +82,11 @@
     <string name="recovered_got_it">Got it</string>
     <string name="recovered_compare">Compare</string>
     <string name="recovered_discard">Discard edits</string>
+    <string name="kept_title">Edits from last time couldn\'t be restored</string>
+    <string name="kept_body">The file changed since, and the copy they were made on is gone, so they can\'t be applied safely. They\'re kept, untouched. Editing this file moves them aside, still kept.</string>
+    <string name="kept_discard">Discard them</string>
+    <string name="recovery_stopped_title">Recovery copies have stopped</string>
+    <string name="recovery_stopped_body">Your text is safe on screen, but if the app is closed now, recent typing could be lost. Save now, or Save as… somewhere else.</string>
     <string name="changed_outside_banner">%1$s changed in another app. Nothing is overwritten.</string>
     <string name="review">Review</string>
     <string name="save_failed_banner">Your text is safe on this phone.</string>
@@ -98,6 +103,8 @@
     <string name="msg_copied_rich">Copied as rich text</string>
     <string name="msg_copy_too_large">Too large to copy. Share as file instead.</string>
     <string name="msg_edits_discarded">Edits discarded · kept in History</string>
+    <string name="msg_edits_discarded_no_history">Edits discarded · History is off, so only Undo brings them back</string>
+    <string name="msg_draft_deleted">Draft deleted</string>
     <string name="msg_section_copied">Section copied</string>
     <string name="msg_replaced_all">Replaced %1$s</string>
     <string name="msg_restored">Restored · your previous text is in History</string>
@@ -116,6 +123,7 @@
     <string name="leave_discard">Don\'t save</string>
     <string name="leave_keep">Keep editing</string>
     <string name="leave_note">“Don\'t save” keeps a copy in History, so it can be undone.</string>
+    <string name="leave_note_history_off">History is off, so “Don\'t save” can\'t be undone.</string>
 
     <!-- Conflict sheet -->
     <string name="conflict_title">%1$s changed since your unsaved edits</string>
@@ -127,10 +135,12 @@
     <string name="conflict_compare">Compare side by side</string>
     <string name="conflict_keep_theirs">Keep the file\'s version</string>
     <string name="conflict_keep_theirs_hint">Your edits stay in History, restorable any time</string>
+    <string name="conflict_keep_theirs_hint_history_off">History is off, so your edits will be gone</string>
     <string name="conflict_use_mine">Use my version instead…</string>
     <string name="conflict_no_base">The copy your edits started from was lost, so Merge isn\'t available. Compare to choose.</string>
     <string name="use_mine_title">Use your version?</string>
     <string name="use_mine_body">This replaces the other app\'s changes with your text when you save. Their version stays in History.</string>
+    <string name="use_mine_body_history_off">This replaces the other app\'s changes with your text when you save. History is off, so their version isn\'t kept.</string>
     <string name="use_mine_confirm">Use my version</string>
     <string name="cancel">Cancel</string>
 
@@ -146,6 +156,7 @@
     <string name="merge_edit">Edit by hand</string>
     <string name="merge_edit_apply">Use this text</string>
     <string name="merge_note">Nothing is written to the file until you save. You can undo the whole merge, and both originals are in History.</string>
+    <string name="merge_note_history_off">Nothing is written to the file until you save. History is off, so the originals aren\'t kept.</string>
     <string name="merge_done">Done</string>
     <string name="merge_previous">Previous overlap</string>
     <string name="merge_next">Next overlap</string>

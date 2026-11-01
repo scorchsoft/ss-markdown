@@ -41,19 +41,37 @@ internal class SaveCoordinator(
         val from = entry.uri
         val outcome = write(entry, target, targetBase, ignoreReadOnly = true)
         if (outcome is SaveOutcome.Saved) {
-            withContext(context.io) {
-                entry.journal.endClean()
-                context.baseCopies.delete(from)
-            }
-            context.entries.remove(from)
-            entry.uri = target
-            entry.journal = context.journalFor(target)
-            entry.readOnly = null
-            entry.conflict = null
-            context.entries[target] = entry
+            moveTo(entry, from, target, outcome.fingerprint)
+            withContext(context.io) { context.baseCopies.delete(from) }
             context.notify(DocumentEvent.Moved(target, from))
         }
         return finish(entry, outcome)
+    }
+
+    /**
+     * Save as succeeded: the entry now lives at [target]. Runs in one step
+     * on the owner thread, so no keystroke can fall between the old
+     * journal and the new one. Edits typed during the write are already in
+     * the buffer (it is dirty); the target's journal starts from a snapshot
+     * of them *before* the old journal is retired, so at every moment one
+     * journal holds them (DS-6).
+     */
+    private fun moveTo(
+        entry: OpenDocument,
+        from: DocumentUri,
+        target: DocumentUri,
+        saved: BaseFingerprint,
+    ) {
+        val old = entry.journal
+        val fresh = context.journalFor(target)
+        if (entry.isDirty) fresh.resume(saved, entry.document.snapshot(), replacing = null)
+        old.endClean()
+        context.entries.remove(from)
+        entry.uri = target
+        entry.journal = fresh
+        entry.readOnly = null
+        entry.conflict = null
+        context.entries[target] = entry
     }
 
     @Suppress("ReturnCount") // A precedence list: conflict, then read-only, then nothing to do.
@@ -88,7 +106,18 @@ internal class SaveCoordinator(
         return outcome
     }
 
-    private suspend fun applySaved(
+    /**
+     * A verified save: the saved version is clean, and the journal either
+     * ends or starts again from what was typed during the write.
+     *
+     * Not a suspend function, on purpose. It runs in one step on the owner
+     * thread, right after the write returns, so the version check and the
+     * journal decision see the same text: a keystroke either happened
+     * before it (and is in the new journal's snapshot) or happens after it
+     * (and is journalled on the new base). There is no window between
+     * (DS-1, DS-2). The journal's file work is queued, in that order.
+     */
+    private fun applySaved(
         entry: OpenDocument,
         target: DocumentUri,
         snapshot: Snapshot,
@@ -98,10 +127,11 @@ internal class SaveCoordinator(
         val typedDuringSave = entry.document.version != version
         entry.markClean(saved.fingerprint, version)
         context.history.onSaved(target, snapshot, saved.fingerprint)
-        if (target != entry.uri) return // Save as: the caller retires the old journal and starts afresh.
-        val text = if (typedDuringSave) entry.document.text.toString() else null
-        withContext(context.io) {
-            if (text == null) entry.journal.endClean() else entry.journal.restartOn(saved.fingerprint, text)
+        if (target != entry.uri) return // Save as: moveTo hands the journal over.
+        if (typedDuringSave) {
+            entry.journal.resume(saved.fingerprint, entry.document.snapshot())
+        } else {
+            entry.journal.endClean()
         }
     }
 

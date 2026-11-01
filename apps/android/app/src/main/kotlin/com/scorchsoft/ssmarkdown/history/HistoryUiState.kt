@@ -2,6 +2,7 @@ package com.scorchsoft.ssmarkdown.history
 
 import androidx.compose.runtime.Immutable
 import com.scorchsoft.ssmarkdown.history.versions.DiffLine
+import com.scorchsoft.ssmarkdown.history.versions.ExportedDocument
 import com.scorchsoft.ssmarkdown.history.versions.VersionId
 import com.scorchsoft.ssmarkdown.history.versions.VersionInfo
 import com.scorchsoft.ssmarkdown.history.versions.VersionKind
@@ -131,6 +132,7 @@ object HistoryTimeline {
  * @property pinning the version being pinned and named (long-press).
  * @property recording false shows "Version history is off · Turn on".
  * @property autosaveThisFile null means "uses your Settings default".
+ * @property importChoices an imported export with no certain match: which document is this file's?
  */
 @Immutable
 data class HistoryUiState(
@@ -148,4 +150,5 @@ data class HistoryUiState(
     val loading: Boolean = true,
     val unreadable: Boolean = false,
     val isDraft: Boolean = false,
+    val importChoices: List<ExportedDocument> = emptyList(),
 )

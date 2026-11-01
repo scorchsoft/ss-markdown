@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.share
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -104,13 +105,25 @@ class ShareActivity : ComponentActivity() {
 
     private fun openResult(phase: SharePhase) {
         val done = phase as? SharePhase.Done ?: return
-        graph.editor.openDocument(done.uri)
-        startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        startActivity(openIntent(done.uri))
         finish()
     }
 
-    private companion object {
+    companion object {
         /** "Added to <file> · Open" stays this long, then the sheet closes (ux-spec). */
-        const val CONFIRMATION_MILLIS = 1_500L
+        private const val CONFIRMATION_MILLIS = 1_500L
+
+        /** The editor, asked to open [uri] through its launch sequence (see [MainActivity.EXTRA_OPEN_URI]). */
+        fun openIntent(
+            context: Context,
+            uri: String,
+        ): Intent =
+            Intent(context, MainActivity::class.java)
+                .putExtra(MainActivity.EXTRA_OPEN_URI, uri)
+                .addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP,
+                )
     }
+
+    private fun openIntent(uri: String): Intent = openIntent(this, uri)
 }

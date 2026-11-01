@@ -36,6 +36,7 @@ import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
 import com.scorchsoft.ssmarkdown.history.versions.DiffLine
 import com.scorchsoft.ssmarkdown.history.versions.DiffLineType
+import com.scorchsoft.ssmarkdown.history.versions.ExportedDocument
 import com.scorchsoft.ssmarkdown.history.versions.VersionInfo
 import com.scorchsoft.ssmarkdown.history.versions.VersionKind
 import com.scorchsoft.ssmarkdown.storage.MenuEntry
@@ -113,6 +114,50 @@ fun HistoryScreen(
         NoteText(stringResource(R.string.history_restore_note))
     }
     state.pinning?.let { PinDialog(it, onAction) }
+    if (state.importChoices.isNotEmpty()) ImportChoiceDialog(state.fileName, state.importChoices, onAction)
+}
+
+/** "Which file's history is this?": an export with no certain match never attaches by guesswork. */
+@Composable
+private fun ImportChoiceDialog(
+    fileName: String,
+    choices: List<ExportedDocument>,
+    onAction: (HistoryAction) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = { onAction(HistoryAction.CancelImport) },
+        containerColor = SS.colors.chrome,
+        title = { Text(stringResource(R.string.history_import_which), style = SS.type.title, color = SS.colors.ink) },
+        text = {
+            Column {
+                Text(
+                    stringResource(R.string.history_import_which_body, fileName),
+                    style = SS.type.meta,
+                    color = SS.colors.inkMuted,
+                )
+                choices.forEach { doc ->
+                    TextButton(onClick = { onAction(HistoryAction.ImportAs(doc.uri)) }) {
+                        Text(
+                            pluralStringResource(
+                                R.plurals.history_import_choice,
+                                doc.versions,
+                                doc.displayName,
+                                doc.versions,
+                            ),
+                            style = SS.type.body,
+                            color = SS.colors.ink,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = {
+                onAction(HistoryAction.CancelImport)
+            }) { Text(stringResource(R.string.cancel), color = SS.colors.ink) }
+        },
+    )
 }
 
 @Composable

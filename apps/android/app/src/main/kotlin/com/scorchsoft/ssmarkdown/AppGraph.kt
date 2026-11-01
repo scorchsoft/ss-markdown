@@ -38,6 +38,7 @@ import com.scorchsoft.ssmarkdown.settings.PreferencesSettingsStore
 import com.scorchsoft.ssmarkdown.settings.SettingsRepository
 import com.scorchsoft.ssmarkdown.storage.StorageDependencies
 import com.scorchsoft.ssmarkdown.storage.StorageViewModel
+import com.scorchsoft.ssmarkdown.viewstate.JsonViewStateStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -166,6 +167,7 @@ class AppGraph(
                 lastExitWasSwipe = exitReasons::lastExitWasUserSwipe,
                 scope = mainScope,
                 io = io,
+                viewStates = JsonViewStateStore(File(app.filesDir, "view-state.json")),
             ),
         ).also { autosave.start() }
     }

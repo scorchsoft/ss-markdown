@@ -72,6 +72,10 @@ class MainActivity : ComponentActivity() {
     @Suppress("ReturnCount") // No intent and an unsupported one both mean nothing to open.
     private fun launchRequest(intent: Intent?): LaunchRequest? {
         intent ?: return null
+        intent.getStringExtra(EXTRA_OPEN_URI)?.let { uri ->
+            // Our own share sheet's "Open": a file this app already holds a grant for.
+            return LaunchRequest(uri, writable = true, source = null, fromAnotherApp = false)
+        }
         val request = IncomingRequests.parse(IntentFields.from(intent)) as? IncomingRequest.OpenInPlace ?: return null
         return LaunchRequest(request.uri.value, request.writable, sourceAppName())
     }
@@ -100,7 +104,15 @@ class MainActivity : ComponentActivity() {
             ""
         }
 
-    private companion object {
-        const val LICENCES_ASSET = "licences.txt"
+    companion object {
+        private const val LICENCES_ASSET = "licences.txt"
+
+        /**
+         * The document to open, from our own share sheet. Passed through the
+         * launch intent, never by calling the editor directly, so it goes
+         * through the same start-up sequence as any other request and can
+         * not race the "reopen the last file" default.
+         */
+        const val EXTRA_OPEN_URI: String = "com.scorchsoft.ssmarkdown.OPEN_URI"
     }
 }

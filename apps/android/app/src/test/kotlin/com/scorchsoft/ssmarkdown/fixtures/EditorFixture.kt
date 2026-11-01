@@ -24,6 +24,8 @@ import com.scorchsoft.ssmarkdown.history.journal.JournalStore
 import com.scorchsoft.ssmarkdown.history.versions.VersionStore
 import com.scorchsoft.ssmarkdown.settings.AppSettings
 import com.scorchsoft.ssmarkdown.settings.InMemorySettingsRepository
+import com.scorchsoft.ssmarkdown.viewstate.InMemoryViewStates
+import com.scorchsoft.ssmarkdown.viewstate.ViewStateStore
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -41,6 +43,7 @@ class EditorFixture(
     dispatcher: CoroutineDispatcher,
     settings: AppSettings = AppSettings(),
     var now: Long = 1_000_000L,
+    viewStates: ViewStateStore = InMemoryViewStates(),
 ) {
     val files = File(root, "files").apply { mkdirs() }
     val scope = CoroutineScope(SupervisorJob() + dispatcher)
@@ -87,6 +90,7 @@ class EditorFixture(
                 clock = { now },
                 scope = scope,
                 io = dispatcher,
+                viewStates = viewStates,
             ),
         ).also { vm ->
             autosave.start()

@@ -6,6 +6,7 @@ import com.scorchsoft.ssmarkdown.editor.EditorAction
 import com.scorchsoft.ssmarkdown.editor.EditorViewModel
 import com.scorchsoft.ssmarkdown.editor.MessageKind
 import com.scorchsoft.ssmarkdown.history.versions.DocumentKey
+import com.scorchsoft.ssmarkdown.history.versions.ExportContents
 import com.scorchsoft.ssmarkdown.history.versions.ExportResult
 import com.scorchsoft.ssmarkdown.history.versions.HistoryListing
 import com.scorchsoft.ssmarkdown.history.versions.LineDiff
@@ -33,6 +34,14 @@ import java.time.ZoneId
 /** What the History screen can do. */
 sealed interface HistoryAction {
     data object Back : HistoryAction
+
+    /** The user said which document in an imported export is this file's. */
+    data class ImportAs(
+        val sourceUri: String,
+    ) : HistoryAction
+
+    /** The import choice was dismissed: nothing is imported. */
+    data object CancelImport : HistoryAction
 
     data class Expand(
         val id: VersionId,
@@ -89,6 +98,7 @@ class HistoryViewModel(
     private val ui = MutableStateFlow(HistoryUiState())
     private val eventChannel = Channel<ScreenEvent>(Channel.BUFFERED)
     private var listed: List<VersionInfo> = emptyList()
+    private var pendingImport: File? = null
     private val deps get() = editor.deps
 
     /** The screen state. */
@@ -202,6 +212,18 @@ class HistoryViewModel(
                 eventChannel.trySend(ScreenEvent.PickImportZip)
             }
 
+            is HistoryAction.ImportAs -> {
+                val zip = pendingImport
+                pendingImport = null
+                ui.update { it.copy(importChoices = emptyList()) }
+                if (zip != null) deps.scope.launch { importFrom(zip, action.sourceUri) }
+            }
+
+            HistoryAction.CancelImport -> {
+                pendingImport = null
+                ui.update { it.copy(importChoices = emptyList()) }
+            }
+
             HistoryAction.TurnOn -> {
                 turnOn()
             }
@@ -210,10 +232,44 @@ class HistoryViewModel(
 
     /** The import picker answered with a local copy of the zip. */
     fun onImportPicked(zip: File?) {
-        val document = key ?: return
+        val doc = editor.active ?: return
         if (zip == null) return
+        val name = doc.open.displayName.orEmpty()
+        val text = doc.text.snapshot()
         deps.scope.launch {
-            withContext(io) { versions.import(zip, document) }
+            val match =
+                withContext(io) {
+                    when (val contents = versions.listExport(zip)) {
+                        is ExportContents.Listed -> {
+                            ImportMatcher.match(contents.documents, name, ImportMatcher.sha256Hex(text))
+                        }
+
+                        else -> {
+                            ImportMatch.Empty
+                        }
+                    }
+                }
+            when (match) {
+                is ImportMatch.Matched -> {
+                    importFrom(zip, match.document.uri)
+                }
+
+                is ImportMatch.Ask -> {
+                    pendingImport = zip
+                    ui.update { it.copy(importChoices = match.choices) }
+                }
+
+                ImportMatch.Empty -> {
+                    editor.message(MessageKind.ActionFailed)
+                }
+            }
+        }
+    }
+
+    /** Attaches one document of an export (by its source URI) to this file's history, as new branches. */
+    private val importFrom: suspend (File, String) -> Unit = { zip, sourceUri ->
+        key?.let { document ->
+            withContext(io) { versions.import(zip, document, sourceUri) }
             load()
         }
     }

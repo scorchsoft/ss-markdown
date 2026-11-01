@@ -5,6 +5,8 @@ import com.scorchsoft.ssmarkdown.editor.LineChange
 import com.scorchsoft.ssmarkdown.editor.MarkdownCodeView
 import com.scorchsoft.ssmarkdown.files.document.OpenDocument
 import com.scorchsoft.ssmarkdown.markdown.edit.DocumentStyle
+import com.scorchsoft.ssmarkdown.text.EditOp
+import com.scorchsoft.ssmarkdown.text.Snapshot
 import com.scorchsoft.ssmarkdown.text.TextDocument
 
 /**
@@ -42,6 +44,18 @@ interface ActiveDocumentListener {
 }
 
 /**
+ * Hears every change to the buffer with the text it was made on: what the
+ * Preview needs to send the page minimal line edits it can rebase over.
+ */
+fun interface TextChangeListener {
+    /** [ops] were applied one after another to [before]. */
+    fun onTextChanged(
+        before: Snapshot,
+        ops: List<EditOp>,
+    )
+}
+
+/**
  * The document on screen, bound to its view: the bridge between
  * `MarkdownCodeView` (which edits the [TextDocument] directly) and the
  * store's [OpenDocument] (which must journal every edit before anything
@@ -51,6 +65,7 @@ interface ActiveDocumentListener {
  * (a reload or a resolved conflict) the session builds a new one, so the
  * old undo stack and snapshots never reach into new content.
  */
+@Suppress("TooManyFunctions") // The EditorListener contract plus the journal and change bridges.
 class ActiveDocument(
     val open: OpenDocument,
     private val listener: ActiveDocumentListener,
@@ -66,7 +81,13 @@ class ActiveDocument(
 
     private val recorder = EditRecorder(text.snapshot())
     private var view: MarkdownCodeView? = null
-    private val buffer = BufferSurface(open) { afterBufferEdit() }
+    private val buffer = BufferSurface(open) { before, ops -> afterBufferEdit(before, ops) }
+
+    /** True once the journal is known to be running for the current run of unsaved edits. */
+    private var journalPrimed = false
+
+    /** Hears every change, from any surface; the Preview session sets it. */
+    var changes: TextChangeListener? = null
 
     /** Where programmatic edits go: the Code view while it is attached, else the buffer. */
     val surface: EditorSurface get() = view?.let(::CodeViewSurface) ?: buffer
@@ -85,13 +106,45 @@ class ActiveDocument(
         change: LineChange,
         version: Long,
     ) {
+        val before = recorder.snapshot
         val op = recorder.record(text.text, change.firstLine, change.removedBreaks, change.addedBreaks)
-        // The journal starts lazily on the first edit (JournalLink). The view has
-        // already applied this edit, so the op is recorded immediately after.
-        open.prepareForEdit()
+        startJournalBefore(op)
         open.recordApplied(listOf(op))
         outline.onLinesChanged(change.firstLine, change.removedBreaks, change.addedBreaks)
+        if (!op.isNoOp) changes?.onTextChanged(before, listOf(op))
         listener.onEdited()
+    }
+
+    /**
+     * The document is clean again (saved, discarded or reloaded): the next
+     * edit starts a new run, so the journal may need starting before it.
+     */
+    fun onClean() {
+        journalPrimed = false
+    }
+
+    /**
+     * Starts the journal on the text **before** [op] (docs/robustness.md §1).
+     *
+     * The Code view applies keystrokes to the buffer itself and only then
+     * reports them, but the journal starts lazily and, when an earlier
+     * session's journal had to be set aside, it snapshots "the text before
+     * the coming edit". Snapshotting after the view's edit and then
+     * appending that edit would replay it twice after a crash. So the raw
+     * text steps back over [op] while the journal starts (no undo record,
+     * no version change: the view never sees it) and forward again after.
+     * This runs once per run of unsaved edits, not per keystroke.
+     */
+    private fun startJournalBefore(op: EditOp) {
+        if (journalPrimed || op.isNoOp) return
+        val tree = text.text
+        op.inverse().applyTo(tree)
+        try {
+            open.prepareForEdit()
+        } finally {
+            op.applyTo(tree)
+        }
+        journalPrimed = true
     }
 
     override fun onSelectionChanged(
@@ -114,10 +167,15 @@ class ActiveDocument(
         shift: Boolean,
     ): Boolean = listener.onShortcut(keyCode, ctrl, shift)
 
-    private fun afterBufferEdit() {
-        // Buffer edits are journalled by OpenDocument itself; only derived state needs refreshing.
+    private fun afterBufferEdit(
+        before: Snapshot,
+        ops: List<EditOp>,
+    ) {
+        // Buffer edits are journalled by OpenDocument itself (it starts the journal before applying).
+        journalPrimed = true
         recorder.reset(text.snapshot())
         outline.invalidateAll()
+        if (ops.isNotEmpty()) changes?.onTextChanged(before, ops)
         listener.onEdited()
     }
 }

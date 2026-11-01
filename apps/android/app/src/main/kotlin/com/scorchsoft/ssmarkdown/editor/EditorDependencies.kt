@@ -9,6 +9,8 @@ import com.scorchsoft.ssmarkdown.files.drafts.DraftStore
 import com.scorchsoft.ssmarkdown.folder.FolderSource
 import com.scorchsoft.ssmarkdown.history.versions.VersionStore
 import com.scorchsoft.ssmarkdown.settings.SettingsRepository
+import com.scorchsoft.ssmarkdown.viewstate.InMemoryViewStates
+import com.scorchsoft.ssmarkdown.viewstate.ViewStateStore
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 
@@ -21,6 +23,7 @@ import kotlinx.coroutines.CoroutineScope
  * @property lastExitWasSwipe true when the previous process was swiped from Recents.
  * @property scope the main-thread scope the store and its callers live on.
  * @property io where blocking file-system calls run.
+ * @property viewStates each file's mode, zoom, selection and scroll, kept across restarts (R7).
  */
 data class EditorDependencies(
     val store: DocumentStore,
@@ -36,6 +39,7 @@ data class EditorDependencies(
     val lastExitWasSwipe: () -> Boolean = { false },
     val scope: CoroutineScope,
     val io: CoroutineDispatcher,
+    val viewStates: ViewStateStore = InMemoryViewStates(),
 )
 
 /**

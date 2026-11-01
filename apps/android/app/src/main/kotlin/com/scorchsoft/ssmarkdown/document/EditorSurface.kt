@@ -6,6 +6,7 @@ import com.scorchsoft.ssmarkdown.editor.undo
 import com.scorchsoft.ssmarkdown.files.document.OpenDocument
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.text.EditOp
+import com.scorchsoft.ssmarkdown.text.Snapshot
 
 /**
  * Where programmatic edits go: the strip, find & replace, restore, merge.
@@ -94,11 +95,12 @@ class CodeViewSurface(
 /**
  * Edits straight into the store's buffer. [OpenDocument.replace] journals
  * each op; [onChanged] lets the session refresh what it derives (outline,
- * the edit recorder's snapshot).
+ * the edit recorder's snapshot, the Preview) with the text before the
+ * change and the ops applied to it, in order.
  */
 class BufferSurface(
     private val document: OpenDocument,
-    private val onChanged: () -> Unit,
+    private val onChanged: (Snapshot, List<EditOp>) -> Unit,
 ) : EditorSurface {
     private var current = TextSelection.caret(0)
 
@@ -111,19 +113,32 @@ class BufferSurface(
         after: TextSelection,
     ) {
         val text = document.document
+        val before = text.snapshot()
+        val applied = ArrayList<EditOp>(ops.size)
         text.beginEditGroup()
         try {
-            ops.forEach { document.replace(it.offset, it.deleted.length, it.inserted) }
+            ops.forEach { op -> document.replace(op.offset, op.deleted.length, op.inserted)?.let(applied::add) }
         } finally {
             text.endEditGroup()
         }
         current = after
-        if (ops.isNotEmpty()) onChanged()
+        if (applied.isNotEmpty()) onChanged(before, applied)
     }
 
-    override fun undo(): Boolean = (document.undo() != null).also { if (it) onChanged() }
+    override fun undo(): Boolean {
+        val before = document.document.snapshot()
+        val group = document.undo() ?: return false
+        // Undo applies the group's inverses, last first.
+        onChanged(before, group.ops.asReversed().map(EditOp::inverse))
+        return true
+    }
 
-    override fun redo(): Boolean = (document.redo() != null).also { if (it) onChanged() }
+    override fun redo(): Boolean {
+        val before = document.document.snapshot()
+        val group = document.redo() ?: return false
+        onChanged(before, group.ops)
+        return true
+    }
 
     override fun select(
         start: Int,

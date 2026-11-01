@@ -8,6 +8,7 @@ import com.scorchsoft.ssmarkdown.files.document.OpenDocument
 import com.scorchsoft.ssmarkdown.files.document.OpenOutcome
 import com.scorchsoft.ssmarkdown.files.memory.Budget
 import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
+import com.scorchsoft.ssmarkdown.settings.LocationLabel
 import com.scorchsoft.ssmarkdown.settings.OnLaunch
 import com.scorchsoft.ssmarkdown.settings.RecentFile
 import com.scorchsoft.ssmarkdown.settings.withRecent
@@ -43,6 +44,7 @@ class EditorViewModel(
     private val metas = HashMap<String, DocumentMeta>()
     private var outlineJob: Job? = null
     private var started = false
+    private var explicitOpen = false
 
     /** The screen state. */
     val uiState: StateFlow<EditorUiState> = ui.asStateFlow()
@@ -63,6 +65,7 @@ class EditorViewModel(
     val find = FindController(this)
     val navigator = NavigatorController(this)
     val folder = FolderController(this)
+    val views = ViewMemory(this)
 
     override val active: ActiveDocument? get() = activeFlow.value
     override val state: EditorUiState get() = ui.value
@@ -76,8 +79,9 @@ class EditorViewModel(
      * then open what was asked for, else the last file, else a draft.
      */
     fun start(request: LaunchRequest? = null) {
+        if (request != null) explicitOpen = true
         if (started) {
-            request?.let { openDocument(it.uri, fromAnotherApp = true, readOnlySource = it.source) }
+            request?.let(::openRequested)
             return
         }
         started = true
@@ -85,13 +89,20 @@ class EditorViewModel(
             val recovered = recovery.recoverOnLaunch()
             val settings = deps.settings.settings.value
             when {
-                request != null -> openDocument(request.uri, fromAnotherApp = true, readOnlySource = request.source)
-                recovered -> Unit
+                request != null -> openRequested(request)
+
+                // A file asked for while recovery ran (Share → Open, a second VIEW intent) wins over the default.
+                recovered || explicitOpen -> Unit
+
                 settings.onLaunch == OnLaunch.ReopenLast && settings.lastFile != null -> openDocument(settings.lastFile)
+
                 else -> newDraft()
             }
         }
     }
+
+    private fun openRequested(request: LaunchRequest) =
+        openDocument(request.uri, fromAnotherApp = request.fromAnotherApp, readOnlySource = request.source)
 
     /** The single entry point for user actions. */
     fun onAction(action: EditorAction) {
@@ -102,6 +113,7 @@ class EditorViewModel(
 
     /** `onPause`: make the journal durable now and let autosave write before we may die. */
     fun onPause() {
+        views.capture()
         deps.store.flushJournals()
         active?.open?.uri?.let(deps.autosave::onLeave)
     }
@@ -113,8 +125,12 @@ class EditorViewModel(
         deps.scope.launch { deps.store.checkOutside(uri, CheckReason.Resume) }
     }
 
-    /** The Code view is on screen. */
-    fun attach(view: MarkdownCodeView) = active?.attach(view)
+    /** The Code view is on screen: it takes the document's remembered cursor and scroll, once. */
+    fun attach(view: MarkdownCodeView) {
+        val doc = active ?: return
+        doc.attach(view)
+        views.applyPendingTo(doc)
+    }
 
     /** The Code view left the composition. */
     fun detach(view: MarkdownCodeView) = active?.detach(view)
@@ -194,6 +210,7 @@ class EditorViewModel(
         val uri = open.uri.value
         val meta = meta(uri)
         val settings = deps.settings.settings.value
+        if (!open.isDirty) doc.onClean()
         val facts =
             SaveFacts(
                 isDraft = open.uri.isDraft,
@@ -226,6 +243,7 @@ class EditorViewModel(
     ) {
         val previous = active
         if (switching && previous != null && previous.open.uri != open.uri) {
+            views.capture()
             val uri = previous.open.uri
             deps.autosave.onLeave(uri)
             deps.scope.launch { deps.store.close(uri) }
@@ -235,11 +253,12 @@ class EditorViewModel(
         val uri = open.uri.value
         val meta = meta(uri)
         val settings = deps.settings.settings.value
+        val saved = if (switching) views.restore(document) else null
         ui.update {
             it.copy(
-                mode = meta.mode ?: settings.firstViewFor(meta.fromAnotherApp),
-                codeZoom = meta.codeZoom ?: settings.defaultZoomCode,
-                previewZoom = meta.previewZoom ?: settings.defaultZoomPreview,
+                mode = meta.mode ?: saved?.mode ?: settings.firstViewFor(meta.fromAnotherApp),
+                codeZoom = meta.codeZoom ?: saved?.codeZoom ?: settings.defaultZoomCode,
+                previewZoom = meta.previewZoom ?: saved?.previewZoom ?: settings.defaultZoomPreview,
                 defaultCodeZoom = settings.defaultZoomCode,
                 defaultPreviewZoom = settings.defaultZoomPreview,
                 codeWrap = settings.codeWrap,
@@ -247,7 +266,7 @@ class EditorViewModel(
                 navigator = null,
             )
         }
-        if (switching) anchorFlow.value = 0
+        if (switching) anchorFlow.value = saved?.anchorLine ?: 0
         if (!open.uri.isDraft) rememberRecent(open)
         refresh()
         scheduleOutline()
@@ -257,7 +276,7 @@ class EditorViewModel(
         val name = open.displayName ?: return
         deps.settings.update {
             it.withRecent(
-                RecentFile(open.uri.value, name, location = "", openedAtMillis = deps.clock()),
+                RecentFile(open.uri.value, name, LocationLabel.of(open.uri.value), openedAtMillis = deps.clock()),
             )
         }
     }
@@ -382,12 +401,14 @@ class EditorViewModel(
 }
 
 /**
- * What another app asked us to open.
+ * What another app (or our own share sheet) asked us to open.
  *
  * @property source the sending app's name, for "Read-only · from Gmail".
+ * @property fromAnotherApp first open shows Preview; false for our own share sheet's "Open".
  */
 data class LaunchRequest(
     val uri: String,
     val writable: Boolean,
     val source: String?,
+    val fromAnotherApp: Boolean = true,
 )

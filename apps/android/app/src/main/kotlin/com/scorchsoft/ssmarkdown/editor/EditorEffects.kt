@@ -161,4 +161,5 @@ internal fun EditorViewModel.rememberView(change: (DocumentMeta) -> DocumentMeta
     val uri = active?.open?.uri?.value ?: return
     val now = state
     updateMeta(uri) { change(it.copy(mode = now.mode, codeZoom = now.codeZoom, previewZoom = now.previewZoom)) }
+    views.capture()
 }

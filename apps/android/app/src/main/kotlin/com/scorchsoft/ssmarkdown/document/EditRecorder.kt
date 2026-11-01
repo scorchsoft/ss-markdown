@@ -20,6 +20,9 @@ class EditRecorder(
 ) {
     private var before: Snapshot = initial
 
+    /** The text as it was before the next edit to be recorded. */
+    val snapshot: Snapshot get() = before
+
     /** Forgets the old snapshot: the document was replaced or reloaded. */
     fun reset(snapshot: Snapshot) {
         before = snapshot

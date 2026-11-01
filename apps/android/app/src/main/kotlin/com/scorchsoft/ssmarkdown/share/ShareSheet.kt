@@ -39,6 +39,7 @@ import com.scorchsoft.ssmarkdown.core.ui.SS
 import com.scorchsoft.ssmarkdown.core.ui.components.SSSegmentedControl
 import com.scorchsoft.ssmarkdown.settings.AppendPosition
 import com.scorchsoft.ssmarkdown.settings.AppendPrefix
+import com.scorchsoft.ssmarkdown.settings.LocationLabel
 
 private val SheetShape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
 private val QuoteShape = RoundedCornerShape(10.dp)
@@ -117,7 +118,9 @@ private fun Choosing(
     val recent = stringResource(R.string.share_recent)
     state.targets.forEachIndexed { index, file ->
         val selected = state.target == file.uri
-        val detail = if (index == 0 && selected) lastUsed else recent
+        val kind = if (index == 0 && selected) lastUsed else recent
+        val where = file.location.ifEmpty { LocationLabel.of(file.uri) }
+        val detail = if (where.isEmpty()) kind else "$kind · $where"
         TargetRow(file.name, detail, selected) { onAction(ShareAction.ChooseTarget(file.uri)) }
     }
     TargetRow(stringResource(R.string.share_new_note), null, state.target == null) {

@@ -8,6 +8,7 @@ import com.scorchsoft.ssmarkdown.navigator.NavigatorAction
 import com.scorchsoft.ssmarkdown.navigator.NavigatorTab
 import com.scorchsoft.ssmarkdown.navigator.NavigatorUiState
 import com.scorchsoft.ssmarkdown.navigator.OutlineRow
+import com.scorchsoft.ssmarkdown.settings.LocationLabel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -178,7 +179,16 @@ class NavigatorController(
         return host.deps.settings.settings.value.recentFiles
             .filter { it.uri != activeUri }
             .sortedByDescending { it.pinned }
-            .map { FileRow(it.uri, it.name, it.location, FileRowKind.Recent, now - it.openedAtMillis, it.uri in dirty) }
+            .map {
+                FileRow(
+                    it.uri,
+                    it.name,
+                    it.location.ifEmpty { LocationLabel.of(it.uri) },
+                    FileRowKind.Recent,
+                    now - it.openedAtMillis,
+                    it.uri in dirty,
+                )
+            }
     }
 
     private fun folderRows(): List<FileRow> =

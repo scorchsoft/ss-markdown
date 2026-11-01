@@ -132,4 +132,8 @@
         <item quantity="one">%1$d character</item>
         <item quantity="other">%1$d characters</item>
     </plurals>
+    <plurals name="history_import_choice">
+        <item quantity="one">%1$s · %2$d version</item>
+        <item quantity="other">%1$s · %2$d versions</item>
+    </plurals>
 </resources>

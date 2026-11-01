@@ -172,4 +172,6 @@
     <string name="share_failed">Couldn\'t add to %1$s.</string>
     <string name="share_too_large">This is too large to add (%1$s).</string>
     <string name="share_not_text">This doesn\'t look like text.</string>
+    <string name="history_import_which">Which file\'s history is this?</string>
+    <string name="history_import_which_body">Nothing in the export matches %1$s by name or content. Pick the one to attach to this file, as extra branches. Nothing is overwritten.</string>
 </resources>

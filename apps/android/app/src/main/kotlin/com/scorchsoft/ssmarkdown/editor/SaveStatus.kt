@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.editor
 
 import com.scorchsoft.ssmarkdown.files.save.SaveOutcome
+import com.scorchsoft.ssmarkdown.files.save.isTimedOut
 
 /** Why a save did not happen; the "<reason>" in "Couldn't save · <reason>". */
 enum class SaveProblem {
@@ -10,6 +11,9 @@ enum class SaveProblem {
     VerifyFailed,
     BackupFailed,
     ProviderError,
+
+    /** The storage app took too long; nothing is marked saved, and Retry or Save as… are offered. */
+    TimedOut,
     ChangedOutside,
     ReadOnly,
     ;
@@ -26,7 +30,7 @@ enum class SaveProblem {
                 is SaveOutcome.VerifyFailed -> VerifyFailed
                 SaveOutcome.ReadOnly -> ReadOnly
                 is SaveOutcome.BackupFailed -> if (outcome.storageFull) StorageFull else BackupFailed
-                is SaveOutcome.ProviderError -> ProviderError
+                is SaveOutcome.ProviderError -> if (outcome.isTimedOut) TimedOut else ProviderError
             }
     }
 }

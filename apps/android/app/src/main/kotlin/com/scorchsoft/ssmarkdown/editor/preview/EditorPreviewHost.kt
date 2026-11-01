@@ -127,7 +127,7 @@ class EditorPreviewHost(
         val pressed = StripController.pressedKeys(event.state)
         vm.update {
             it.copy(
-                strip = it.strip.copy(pressed = pressed),
+                strip = it.strip.copy(pressed = pressed, inTable = event.inTable),
                 preview = it.preview.copy(inHeading = event.state.headingLevel > 0),
             )
         }

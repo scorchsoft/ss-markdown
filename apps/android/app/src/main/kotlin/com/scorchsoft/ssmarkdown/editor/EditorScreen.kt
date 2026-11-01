@@ -40,6 +40,7 @@ import com.scorchsoft.ssmarkdown.editor.chrome.ModeBar
 import com.scorchsoft.ssmarkdown.editor.chrome.TopBar
 import com.scorchsoft.ssmarkdown.editor.panes.EditorPanes
 import com.scorchsoft.ssmarkdown.editor.panes.PreviewHostState
+import com.scorchsoft.ssmarkdown.editor.preview.PreviewStripKeys
 import com.scorchsoft.ssmarkdown.editor.sheets.DisplayFacts
 import com.scorchsoft.ssmarkdown.editor.sheets.EditorOverlays
 import com.scorchsoft.ssmarkdown.editor.sheets.MessageBar
@@ -186,6 +187,9 @@ private fun Footer(
                 onSymbol = { onAction(EditorAction.SymbolTapped(it)) },
                 onCursor = { onAction(EditorAction.CursorStepped(it)) },
                 onSave = { onAction(EditorAction.SaveTapped) },
+                onTableAction = { action ->
+                    PreviewStripKeys.tableOp(action)?.let { onAction(EditorAction.Table(it)) }
+                },
                 modifier = Modifier.imePadding(),
             )
         }

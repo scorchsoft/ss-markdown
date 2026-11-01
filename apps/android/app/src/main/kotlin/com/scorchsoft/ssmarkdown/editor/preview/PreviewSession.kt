@@ -155,7 +155,7 @@ class PreviewSession(
         inTable: Boolean,
         baseRev: Int,
     ) {
-        editor?.formatState(from, to, baseRev)?.let { host.onPreviewEvent(PreviewEvent.Format(it)) }
+        editor?.formatState(from, to, baseRev)?.let { host.onPreviewEvent(PreviewEvent.Format(it, inTable)) }
     }
 
     override fun onFormatRequest(request: PreviewFormatRequest) {

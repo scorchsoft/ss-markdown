@@ -65,6 +65,7 @@ fun problemText(problem: SaveProblem): String =
             SaveProblem.VerifyFailed -> R.string.problem_verify
             SaveProblem.BackupFailed -> R.string.problem_backup
             SaveProblem.ProviderError -> R.string.problem_provider
+            SaveProblem.TimedOut -> R.string.problem_timed_out
             SaveProblem.ChangedOutside -> R.string.problem_changed
             SaveProblem.ReadOnly -> R.string.problem_read_only
         },

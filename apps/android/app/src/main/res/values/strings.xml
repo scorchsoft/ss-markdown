@@ -47,6 +47,7 @@
     <string name="problem_verify">the check after writing failed</string>
     <string name="problem_backup">couldn\'t make a backup first</string>
     <string name="problem_provider">the storage app reported an error</string>
+    <string name="problem_timed_out">the storage app took too long</string>
     <string name="problem_changed">changed in another app</string>
     <string name="problem_read_only">read-only</string>
 

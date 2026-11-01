@@ -120,6 +120,8 @@ class EditorViewModel(
     fun onAction(action: EditorAction) {
         val before = ui.value
         ui.update { EditorReducer.reduce(it, action) }
+        // Back or a mode change closed the find bar: its highlights go with it.
+        if (before.find != null && ui.value.find == null) active?.clearHighlights()
         EditorEffects.run(this, action, before)
     }
 

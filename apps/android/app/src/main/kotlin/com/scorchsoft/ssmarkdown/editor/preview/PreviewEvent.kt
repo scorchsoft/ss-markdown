@@ -57,6 +57,7 @@ sealed interface PreviewEvent {
     /** The formatting under the page's selection, for the strip's pressed keys. */
     data class Format(
         val state: FormatState,
+        val inTable: Boolean,
     ) : PreviewEvent
 
     /** A change Preview could not write back was undone on screen. */

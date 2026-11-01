@@ -6,6 +6,7 @@ import com.scorchsoft.ssmarkdown.markdown.edit.FormatState
 import com.scorchsoft.ssmarkdown.markdown.edit.InlineFormat
 import com.scorchsoft.ssmarkdown.markdown.edit.ListKind
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
+import com.scorchsoft.ssmarkdown.preview.bridge.HostMessage
 import com.scorchsoft.ssmarkdown.ui.strip.CursorStep
 import com.scorchsoft.ssmarkdown.ui.strip.StripKey
 import com.scorchsoft.ssmarkdown.ui.strip.StripPage
@@ -49,6 +50,8 @@ class StripController(
             StripKey.Undo -> surface.undo()
             StripKey.Redo -> surface.redo()
             StripKey.Done -> host.preview.endEditing().also { host.emit(EditorEvent.HideKeyboard) }
+            StripKey.PrevCell -> host.preview.send(HostMessage.TableNav(next = false))
+            StripKey.NextCell -> host.preview.send(HostMessage.TableNav(next = true))
             else -> PreviewStripKeys.actionFor(key, host.state.preview.inHeading)?.let(host.preview::format)
         }
         host.refresh()

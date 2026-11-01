@@ -3,6 +3,8 @@ package com.scorchsoft.ssmarkdown.document
 import com.scorchsoft.ssmarkdown.editor.EditorListener
 import com.scorchsoft.ssmarkdown.editor.LineChange
 import com.scorchsoft.ssmarkdown.editor.MarkdownCodeView
+import com.scorchsoft.ssmarkdown.editor.clearFindMatches
+import com.scorchsoft.ssmarkdown.editor.setFindMatches
 import com.scorchsoft.ssmarkdown.files.document.OpenDocument
 import com.scorchsoft.ssmarkdown.markdown.edit.DocumentStyle
 import com.scorchsoft.ssmarkdown.text.EditOp
@@ -95,6 +97,20 @@ class ActiveDocument(
     /** The Code view is on screen (or moved by `movableContentOf`; it is the same instance). */
     fun attach(codeView: MarkdownCodeView) {
         view = codeView
+    }
+
+    /** Highlights find matches in the Code view, if it is on screen; [current] is an index or -1. */
+    fun highlight(
+        starts: IntArray,
+        ends: IntArray,
+        current: Int,
+    ) {
+        view?.setFindMatches(starts, ends, current)
+    }
+
+    /** Removes the find highlights: the bar closed. */
+    fun clearHighlights() {
+        view?.clearFindMatches()
     }
 
     /** The Code view left the composition. */

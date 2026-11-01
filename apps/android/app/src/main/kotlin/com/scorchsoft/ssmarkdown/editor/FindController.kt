@@ -18,10 +18,10 @@ class FindController(
     /** A find-bar action; the reducer has already applied its pure part. */
     fun onAction(action: FindAction) {
         when (action) {
-            FindAction.Close -> Unit
+            FindAction.Close -> host.active?.clearHighlights()
             FindAction.Open, is FindAction.Query -> search()
             FindAction.ToggleMatchCase, FindAction.ToggleWholeWord, FindAction.ToggleRegex -> search()
-            FindAction.Next, FindAction.Previous -> showCurrent()
+            FindAction.Next, FindAction.Previous -> showCurrent().also { highlight() }
             FindAction.ReplaceOne -> replaceOne()
             FindAction.ReplaceAll -> replaceAll()
             else -> Unit
@@ -39,7 +39,16 @@ class FindController(
         val result = FindEngine.find(doc.text.snapshot(), find.query, find.options)
         val caret = doc.surface.selection.start
         host.update { it.copy(find = it.find?.withResult(result, caret)) }
+        highlight()
         if (select) showCurrent()
+    }
+
+    /** Every match drawn in the Code view, the current one stronger (ux-spec "Find & replace"). */
+    private fun highlight() {
+        val find = host.state.find ?: return
+        val starts = IntArray(find.matches.size) { find.matches[it].start }
+        val ends = IntArray(find.matches.size) { find.matches[it].end }
+        host.active?.highlight(starts, ends, find.current)
     }
 
     private fun showCurrent() {

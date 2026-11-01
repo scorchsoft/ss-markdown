@@ -36,6 +36,7 @@ import com.scorchsoft.ssmarkdown.media.DocumentPictures
 import com.scorchsoft.ssmarkdown.nav.ScreenStack
 import com.scorchsoft.ssmarkdown.platform.ExitReasons
 import com.scorchsoft.ssmarkdown.platform.MediaActions
+import com.scorchsoft.ssmarkdown.platform.OpenTokens
 import com.scorchsoft.ssmarkdown.settings.PersistedSettingsRepository
 import com.scorchsoft.ssmarkdown.settings.PreferencesSettingsStore
 import com.scorchsoft.ssmarkdown.settings.SettingsRepository
@@ -195,8 +196,8 @@ class AppGraph(
         ).also { autosave.start() }
     }
 
-    /** Pictures next to the open document, inside the folder the user granted. */
-    private val pictures =
+    /** Pictures next to the open document, inside the folder the user granted; also the preview's `/doc/` resolver. */
+    val pictures =
         DocumentPictures(
             resolver,
             documentUri = {
@@ -207,6 +208,9 @@ class AppGraph(
             },
             treeUri = { editor.state.folder?.treeUri },
         )
+
+    /** One-time tickets for the share sheet's "Open" (SEC-2: no URI travels in an extra). */
+    val openTokens = OpenTokens(clock)
 
     /** Downloads, ZIPs, sharing and the clipboard for exported images and rich text. */
     val media = MediaActions(app, io)

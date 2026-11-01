@@ -78,7 +78,13 @@ object IncomingRequests {
     /** `Intent.ACTION_SEND_MULTIPLE`. */
     const val ACTION_SEND_MULTIPLE: String = "android.intent.action.SEND_MULTIPLE"
 
-    private val OPENABLE_SCHEMES = setOf("content", "file")
+    /**
+     * `content:` only. A `file:` URI would be opened with this app's own
+     * identity, so another app could make us read our private files (drafts,
+     * journals) into the share sheet; senders on API 24+ cannot legitimately
+     * send one anyway (SEC-3).
+     */
+    private val OPENABLE_SCHEMES = setOf("content")
 
     /** Parses [fields]. Streams win over text, as the sender meant the file. */
     fun parse(fields: IntentFields): IncomingRequest =

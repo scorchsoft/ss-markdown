@@ -19,7 +19,9 @@
         tools:targetApi="tiramisu"
         android:theme="@style/Theme.SSMarkdown">
 
-        <!-- configChanges: rotation, folding, resizing, dark mode and font
+        <!-- Exported for the launcher, Files and the share sheet, so no extra
+             is trusted: our own "Open" carries a one-time ticket (OpenTokens).
+             configChanges: rotation, folding, resizing, dark mode and font
              scale re-lay out instead of recreating the Activity
              (docs/robustness.md §5a, rule 3). Compose picks up the new
              Configuration itself. -->
@@ -32,14 +34,14 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Open .md and .txt from Files, Drive and email in place (R2, J1). -->
+            <!-- Open .md and .txt from Files, Drive and email in place (R2, J1).
+                 content: only, and not BROWSABLE: a file: URI would be read with
+                 this app's identity, and no browser sends either (SEC-2, SEC-3). -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <action android:name="android.intent.action.EDIT" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="content" />
-                <data android:scheme="file" />
                 <data android:mimeType="text/markdown" />
                 <data android:mimeType="text/x-markdown" />
                 <data android:mimeType="text/plain" />
@@ -49,9 +51,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <action android:name="android.intent.action.EDIT" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="content" />
-                <data android:scheme="file" />
                 <data android:host="*" />
                 <data android:mimeType="application/octet-stream" />
                 <data android:pathPattern=".*\\.md" />

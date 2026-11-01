@@ -23,6 +23,8 @@ import com.scorchsoft.ssmarkdown.files.saf.IntentFields
 import com.scorchsoft.ssmarkdown.files.saf.MarkdownFiles
 import com.scorchsoft.ssmarkdown.files.saf.SharedContent
 import com.scorchsoft.ssmarkdown.files.saf.from
+import com.scorchsoft.ssmarkdown.platform.LaunchIntents
+import com.scorchsoft.ssmarkdown.platform.OpenTokens
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -113,17 +115,22 @@ class ShareActivity : ComponentActivity() {
         /** "Added to <file> · Open" stays this long, then the sheet closes (ux-spec). */
         private const val CONFIRMATION_MILLIS = 1_500L
 
-        /** The editor, asked to open [uri] through its launch sequence (see [MainActivity.EXTRA_OPEN_URI]). */
+        /**
+         * The editor, asked to open [uri] through its launch sequence, so it
+         * cannot race the "reopen the last file" default. The intent carries a
+         * one-time ticket from [tokens], never the URI itself (SEC-2).
+         */
         fun openIntent(
             context: Context,
+            tokens: OpenTokens,
             uri: String,
         ): Intent =
             Intent(context, MainActivity::class.java)
-                .putExtra(MainActivity.EXTRA_OPEN_URI, uri)
+                .putExtra(LaunchIntents.EXTRA_OPEN_TOKEN, tokens.issue(uri))
                 .addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP,
                 )
     }
 
-    private fun openIntent(uri: String): Intent = openIntent(this, uri)
+    private fun openIntent(uri: String): Intent = openIntent(this, graph.openTokens, uri)
 }

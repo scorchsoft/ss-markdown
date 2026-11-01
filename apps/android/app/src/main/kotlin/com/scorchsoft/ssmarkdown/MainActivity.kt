@@ -12,15 +12,16 @@ import androidx.compose.runtime.getValue
 import com.scorchsoft.ssmarkdown.about.Licences
 import com.scorchsoft.ssmarkdown.core.ui.SSMarkdownTheme
 import com.scorchsoft.ssmarkdown.editor.LaunchRequest
-import com.scorchsoft.ssmarkdown.files.saf.IncomingRequest
-import com.scorchsoft.ssmarkdown.files.saf.IncomingRequests
 import com.scorchsoft.ssmarkdown.files.saf.IntentFields
 import com.scorchsoft.ssmarkdown.files.saf.from
+import com.scorchsoft.ssmarkdown.fonts.AndroidFonts
 import com.scorchsoft.ssmarkdown.nav.AppRoot
+import com.scorchsoft.ssmarkdown.platform.LaunchIntents
 import com.scorchsoft.ssmarkdown.platform.PlatformActions
 import com.scorchsoft.ssmarkdown.preview.PreviewView
 import com.scorchsoft.ssmarkdown.settings.Appearance
 import com.scorchsoft.ssmarkdown.ui.TickingNow
+import java.io.File
 import java.io.IOException
 
 /**
@@ -39,7 +40,13 @@ class MainActivity : ComponentActivity() {
      * is placed wherever the Preview pane is (robustness §5a, rule 2).
      * Created on first use; nothing starts a WebView until Preview shows.
      */
-    val previewView: PreviewView by lazy { PreviewView(this) }
+    val previewView: PreviewView by lazy {
+        PreviewView(this).apply {
+            // Relative pictures (`![](img/a.png)`) through the folder grant, and the theme's installed fonts.
+            resourceResolver = graph.pictures
+            fontDirectory = File(filesDir, AndroidFonts.DIRECTORY)
+        }
+    }
     private var previewCreated = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -98,17 +105,16 @@ class MainActivity : ComponentActivity() {
         super.onPause()
     }
 
-    /** VIEW / EDIT from another app: edit in place (R2), read-only with "Save as…" when no write grant came. */
-    @Suppress("ReturnCount") // No intent and an unsupported one both mean nothing to open.
-    private fun launchRequest(intent: Intent?): LaunchRequest? {
-        intent ?: return null
-        intent.getStringExtra(EXTRA_OPEN_URI)?.let { uri ->
-            // Our own share sheet's "Open": a file this app already holds a grant for.
-            return LaunchRequest(uri, writable = true, source = null, fromAnotherApp = false)
+    /** What [intent] asks to open: see [LaunchIntents] (SEC-2: no URI is taken from an extra). */
+    private fun launchRequest(intent: Intent?): LaunchRequest? =
+        intent?.let {
+            LaunchIntents.request(
+                IntentFields.from(it),
+                it.getStringExtra(LaunchIntents.EXTRA_OPEN_TOKEN),
+                graph.openTokens::redeem,
+                ::sourceAppName,
+            )
         }
-        val request = IncomingRequests.parse(IntentFields.from(intent)) as? IncomingRequest.OpenInPlace ?: return null
-        return LaunchRequest(request.uri.value, request.writable, sourceAppName())
-    }
 
     /** The sending app's name for "Read-only · from Gmail", when Android tells us who it was. */
     private fun sourceAppName(): String? {
@@ -136,13 +142,5 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val LICENCES_ASSET = "licences.txt"
-
-        /**
-         * The document to open, from our own share sheet. Passed through the
-         * launch intent, never by calling the editor directly, so it goes
-         * through the same start-up sequence as any other request and can
-         * not race the "reopen the last file" default.
-         */
-        const val EXTRA_OPEN_URI: String = "com.scorchsoft.ssmarkdown.OPEN_URI"
     }
 }

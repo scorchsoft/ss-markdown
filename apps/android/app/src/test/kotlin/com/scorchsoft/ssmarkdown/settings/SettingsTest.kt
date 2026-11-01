@@ -19,11 +19,17 @@ class SettingsTest {
                 openWith = OpenWith.Preview,
                 saveMode = SaveMode.Autosave,
                 defaultZoomCode = 120,
+                previewWrap = PreviewWrap.NoWrap,
                 history = AppSettings().history.copy(totalLimit = StorageLimit.None, forgetUnusedAfterDays = 90),
                 autosaveOverrides = mapOf("content://a" to false),
                 share = ShareDefaults("content://a", AppendPosition.Top, AppendPrefix.DateHeading),
             ).withRecent(RecentFile("content://a", "a.md", "Documents", 5, pinned = true))
         assertEquals(settings, SettingsJson.decode(JSONObject(SettingsJson.encode(settings).toString())))
+    }
+
+    @Test
+    fun `the old A4 page flag still reads as the page`() {
+        assertEquals(PreviewWrap.Page, SettingsJson.decode(JSONObject("{\"pageMode\":true}")).previewWrap)
     }
 
     @Test

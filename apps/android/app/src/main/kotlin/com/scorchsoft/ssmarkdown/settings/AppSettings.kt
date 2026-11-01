@@ -26,7 +26,7 @@ enum class Appearance { System, Light, Dark }
  * @property recentFiles most recent first; Navigator → Files and Share → Append to.
  * @property lastFile the document reopened on launch, if any.
  * @property previewThemeId the preview theme (Display → Preview theme): a built-in or custom theme's id.
- * @property previewPageMode Preview wrapping: false is Fluid, true is A4 page.
+ * @property previewWrap Display → Preview wrapping: Fluid, the A4 page, or No wrap.
  * @property export Export images' remembered choices.
  */
 data class AppSettings(
@@ -46,7 +46,7 @@ data class AppSettings(
     val lastFile: String? = null,
     val share: ShareDefaults = ShareDefaults(),
     val previewThemeId: String = "clean",
-    val previewPageMode: Boolean = false,
+    val previewWrap: PreviewWrap = PreviewWrap.Fluid,
     val export: ExportDefaults = ExportDefaults(),
 ) {
     /** Whether [uri] autosaves: drafts always do; otherwise its override, else the global mode. */
@@ -150,4 +150,15 @@ fun AppSettings.withRecent(file: RecentFile): AppSettings {
     val rest = recentFiles.filterNot { it.uri == file.uri }
     val list = (listOf(file.copy(pinned = pinned)) + rest).take(AppSettings.MAX_RECENT_FILES)
     return copy(recentFiles = list, lastFile = file.uri)
+}
+
+/**
+ * How Preview lays out its lines (ux-spec "Display sheet"): [Fluid] wraps
+ * to the pane, [Page] shows the A4 page as it will print, and [NoWrap]
+ * keeps code lines and tables at full width with a horizontal scroll.
+ */
+enum class PreviewWrap {
+    Fluid,
+    Page,
+    NoWrap,
 }

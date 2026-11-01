@@ -67,11 +67,12 @@ fun PreviewPaneHost(
     state.look?.let { look ->
         LaunchedEffect(look) { view.setTheme(look.themeJson, look.dark, look.background, look.fonts) }
     }
-    LaunchedEffect(state.tapToEdit, state.pageMode, state.zoomPercent, state.readOnly) {
+    LaunchedEffect(state.tapToEdit, state.pageMode, state.noWrap, state.zoomPercent, state.readOnly) {
         view.applySettings(
             PreviewSettings(
                 tapToEdit = state.tapToEdit,
                 pageMode = state.pageMode,
+                noWrap = state.noWrap,
                 zoom = state.zoomPercent / PERCENT,
                 readOnly = state.readOnly,
             ),

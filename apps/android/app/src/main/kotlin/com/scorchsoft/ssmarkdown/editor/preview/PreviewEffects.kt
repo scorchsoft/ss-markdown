@@ -59,8 +59,8 @@ internal object PreviewEffects {
                 vm.preview.view?.retry()
             }
 
-            is EditorAction.SetPageMode -> {
-                vm.deps.settings.update { it.copy(previewPageMode = action.pageMode) }
+            is EditorAction.SetPreviewWrap -> {
+                vm.deps.settings.update { it.copy(previewWrap = action.wrap) }
             }
 
             is EditorAction.SetPreviewTheme -> {

@@ -1,7 +1,9 @@
 package com.scorchsoft.ssmarkdown.ui
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -15,6 +17,7 @@ import com.scorchsoft.ssmarkdown.media.ExportImagesAction
 import com.scorchsoft.ssmarkdown.media.MediaMenuAction
 import com.scorchsoft.ssmarkdown.media.ViewerAction
 import com.scorchsoft.ssmarkdown.media.ViewerScreen
+import com.scorchsoft.ssmarkdown.settings.PreviewWrap
 import com.scorchsoft.ssmarkdown.themes.ThemeEditorAction
 import com.scorchsoft.ssmarkdown.themes.ThemeEditorScreen
 import org.junit.Assert.assertTrue
@@ -84,7 +87,18 @@ class PreviewScreensRenderTest(
         rule.setContent { Themed(dark) { EditorFor(PreviewSamples.display) { actions += it } } }
         rule.onNodeWithText("Code · 15 sp").assertIsDisplayed()
         rule.onNodeWithText("A4 page").performScrollTo().performClick()
-        assertTrue(EditorAction.SetPageMode(true) in actions)
+        assertTrue(EditorAction.SetPreviewWrap(PreviewWrap.Page) in actions)
+    }
+
+    @Test
+    fun `Display offers No wrap for Preview`() {
+        val actions = ArrayList<EditorAction>()
+        rule.setContent { Themed(dark) { EditorFor(PreviewSamples.display) { actions += it } } }
+        // Code's "No wrap" comes first; Preview's is the last of Fluid / A4 page / No wrap.
+        val noWrap = rule.onAllNodesWithText("No wrap")
+        noWrap.assertCountEquals(2)
+        noWrap[1].performScrollTo().performClick()
+        assertTrue(EditorAction.SetPreviewWrap(PreviewWrap.NoWrap) in actions)
     }
 
     @Test

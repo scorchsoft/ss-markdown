@@ -7,6 +7,7 @@ import com.scorchsoft.ssmarkdown.media.MediaMenuAction
 import com.scorchsoft.ssmarkdown.navigator.NavigatorAction
 import com.scorchsoft.ssmarkdown.preview.bridge.TableOp
 import com.scorchsoft.ssmarkdown.settings.Appearance
+import com.scorchsoft.ssmarkdown.settings.PreviewWrap
 import com.scorchsoft.ssmarkdown.ui.strip.CursorStep
 import com.scorchsoft.ssmarkdown.ui.strip.StripKey
 
@@ -189,9 +190,9 @@ sealed interface EditorAction {
     /** "Preview paused · Retry". */
     data object RetryPreview : EditorAction
 
-    /** Preview wrapping: Fluid, or the A4 page. */
-    data class SetPageMode(
-        val pageMode: Boolean,
+    /** Display → Preview wrapping: Fluid, the A4 page, or No wrap. */
+    data class SetPreviewWrap(
+        val wrap: PreviewWrap,
     ) : EditorAction
 
     /** Display → Preview theme. */

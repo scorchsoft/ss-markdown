@@ -55,7 +55,7 @@ internal object SettingsJson {
             .put("lastFile", s.lastFile)
             .put("share", encodeShare(s.share))
             .put("previewTheme", s.previewThemeId)
-            .put("pageMode", s.previewPageMode)
+            .put("previewWrap", s.previewWrap.name)
             .put("export", encodeExport(s.export))
 
     fun decode(o: JSONObject): AppSettings {
@@ -77,7 +77,12 @@ internal object SettingsJson {
             lastFile = o.optString("lastFile").takeIf { it.isNotEmpty() && o.has("lastFile") && !o.isNull("lastFile") },
             share = o.optJSONObject("share")?.let(::decodeShare) ?: d.share,
             previewThemeId = o.optString("previewTheme").ifEmpty { d.previewThemeId },
-            previewPageMode = o.optBoolean("pageMode", d.previewPageMode),
+            // Before No wrap existed this was a boolean, "pageMode"; it still reads.
+            previewWrap =
+                enumOr(
+                    o.optString("previewWrap"),
+                    if (o.optBoolean("pageMode", false)) PreviewWrap.Page else d.previewWrap,
+                ),
             export = o.optJSONObject("export")?.let(::decodeExport) ?: d.export,
         )
     }

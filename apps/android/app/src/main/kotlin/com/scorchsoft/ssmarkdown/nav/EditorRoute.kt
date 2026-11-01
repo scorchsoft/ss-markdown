@@ -33,6 +33,7 @@ import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.navigator.NavigatorAction
 import com.scorchsoft.ssmarkdown.platform.PlatformActions
 import com.scorchsoft.ssmarkdown.preview.PreviewView
+import com.scorchsoft.ssmarkdown.settings.PreviewWrap
 import com.scorchsoft.ssmarkdown.settings.SettingsAction
 import com.scorchsoft.ssmarkdown.settings.SettingsReducer
 import com.scorchsoft.ssmarkdown.settings.SettingsScreen
@@ -73,7 +74,8 @@ internal fun EditorRoute(
             onEdit = { start, end, text -> previewEdit(vm, start, end, text) },
             onHeadingLongPress = { vm.onAction(EditorAction.Navigator(NavigatorAction.HeadingMenu(it))) },
             look = look,
-            pageMode = settings.previewPageMode,
+            pageMode = settings.previewWrap == PreviewWrap.Page,
+            noWrap = settings.previewWrap == PreviewWrap.NoWrap,
             readOnly = active?.open?.readOnly != null,
             renderer = state.preview.renderer,
             onTouched = { vm.onAction(EditorAction.PaneTouched(Pane.Preview)) },
@@ -94,7 +96,7 @@ internal fun EditorRoute(
                 graph.themes
                     .byId(settings.previewThemeId)
                     .size.base,
-                settings.previewPageMode,
+                settings.previewWrap,
             ),
     )
 }

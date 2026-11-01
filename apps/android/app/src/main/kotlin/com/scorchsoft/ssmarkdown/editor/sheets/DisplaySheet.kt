@@ -22,6 +22,7 @@ import com.scorchsoft.ssmarkdown.editor.EditorAction
 import com.scorchsoft.ssmarkdown.editor.EditorUiState
 import com.scorchsoft.ssmarkdown.editor.Pane
 import com.scorchsoft.ssmarkdown.settings.Appearance
+import com.scorchsoft.ssmarkdown.settings.PreviewWrap
 import java.util.Locale
 
 /** Code's 100 % is 12.5 sp (ux-spec "Text size: one model"). */
@@ -32,19 +33,19 @@ private const val PERCENT = 100f
  * The display facts the sheet shows that are not in the editor's state.
  *
  * @property previewBasePx the preview theme's base size: what Preview's 100 % means.
- * @property pageMode Preview wrapping: false is Fluid, true is the A4 page.
+ * @property previewWrap Preview wrapping: Fluid, the A4 page or No wrap.
  */
 data class DisplayFacts(
     val appearance: Appearance,
     val previewBasePx: Double = 15.0,
-    val pageMode: Boolean = false,
+    val previewWrap: PreviewWrap = PreviewWrap.Fluid,
 )
 
 /**
  * ⋮ → Display (ux-spec "Display sheet"; mockup Display): Appearance, the
  * preview theme ([themeControls]), this file's text size for each pane
  * with the real size beside it and a reset to your default, and line
- * wrapping for Code (Wrap / No wrap) and Preview (Fluid / A4 page).
+ * wrapping for Code (Wrap / No wrap) and Preview (Fluid / A4 page / No wrap).
  */
 @Composable
 fun DisplaySheet(
@@ -94,9 +95,14 @@ fun DisplaySheet(
         }
         WrapRow(stringResource(R.string.mode_preview)) {
             SSSegmentedControl(
-                options = listOf(stringResource(R.string.wrap_fluid), stringResource(R.string.wrap_a4)),
-                selectedIndex = if (facts.pageMode) 1 else 0,
-                onSelect = { onAction(EditorAction.SetPageMode(it == 1)) },
+                options =
+                    listOf(
+                        stringResource(R.string.wrap_fluid),
+                        stringResource(R.string.wrap_a4),
+                        stringResource(R.string.wrap_off),
+                    ),
+                selectedIndex = facts.previewWrap.ordinal,
+                onSelect = { onAction(EditorAction.SetPreviewWrap(PreviewWrap.entries[it])) },
             )
         }
     }

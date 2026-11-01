@@ -39,6 +39,7 @@ import com.scorchsoft.ssmarkdown.themes.PreviewLook
  * @property onHeadingLongPress long-press on a heading: its source line (the section menu, J10).
  * @property look the preview theme as the page draws it; null until themes have loaded.
  * @property pageMode Display → Preview wrapping: the A4 page instead of Fluid.
+ * @property noWrap Display → Preview wrapping: No wrap, code lines and tables scroll sideways.
  * @property readOnly the file refuses edits, so the page must too.
  * @property renderer running, restarted, or paused with Retry.
  * @property onTouched a finger went down on the pane: in Split, it now leads the scrolling.
@@ -59,6 +60,7 @@ class PreviewHostState(
     val onHeadingLongPress: (Int) -> Unit,
     val look: PreviewLook? = null,
     val pageMode: Boolean = false,
+    val noWrap: Boolean = false,
     val readOnly: Boolean = false,
     val renderer: RendererState = RendererState.RUNNING,
     val onTouched: () -> Unit = {},

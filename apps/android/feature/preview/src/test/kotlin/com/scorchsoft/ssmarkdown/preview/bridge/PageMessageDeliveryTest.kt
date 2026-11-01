@@ -73,9 +73,9 @@ class PageMessageDeliveryTest {
     @Test
     fun `png exports arrive as bytes and svg as utf-8 text`() {
         val r = Recorder()
-        PageMessage.ExportResult(1, "image/png", "iVBORw==").deliverTo(r)
+        PageMessage.ExportResult.of(1, "image/png", "iVBORw==").deliverTo(r)
         assertArrayEquals(byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47), r.exported)
-        PageMessage.ExportResult(2, "image/svg+xml", "<svg/>").deliverTo(r)
+        PageMessage.ExportResult.of(2, "image/svg+xml", "<svg/>").deliverTo(r)
         assertArrayEquals("<svg/>".toByteArray(), r.exported)
     }
 }

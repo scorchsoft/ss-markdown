@@ -61,6 +61,8 @@ object BridgeCodec {
             decoders[json.optString("type")]?.invoke(json)
         } catch (_: JSONException) {
             null
+        } catch (_: IllegalArgumentException) {
+            null // An export whose base64 does not decode: dropped here, never thrown on the main thread.
         }
 
     private val decoders: Map<String, (JSONObject) -> PageMessage> =
@@ -95,7 +97,7 @@ object BridgeCodec {
             "mediaLongPress" to { j -> PageMessage.MediaLongPress(kind(j), j.getInt("index"), j.getInt("line")) },
             "tableMenu" to { j -> PageMessage.TableMenu(j.getInt("line"), j.getInt("row"), j.getInt("column")) },
             "exportResult" to
-                { j -> PageMessage.ExportResult(j.getInt("requestId"), j.getString("mime"), j.getString("data")) },
+                { j -> PageMessage.ExportResult.of(j.getInt("requestId"), j.getString("mime"), j.getString("data")) },
             "printReady" to { _ -> PageMessage.PrintReady },
             "htmlResult" to { j ->
                 PageMessage.HtmlResult(j.getInt("requestId"), if (j.isNull("html")) null else j.getString("html"))

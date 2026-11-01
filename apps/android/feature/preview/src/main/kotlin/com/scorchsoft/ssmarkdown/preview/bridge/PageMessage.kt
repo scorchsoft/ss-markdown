@@ -198,16 +198,33 @@ sealed interface PageMessage {
         override fun deliverTo(listener: PreviewListener) = listener.onTableMenu(line, row, column)
     }
 
-    /** An export: [data] is SVG text, or base64 PNG bytes when [mime] is `image/png`. */
-    data class ExportResult(
+    /**
+     * An export, already as bytes: the page sends SVG text, or base64 PNG
+     * bytes when [mime] is `image/png`, and [of] decodes them when the
+     * message is decoded, which for a large one is off the main thread
+     * ([com.scorchsoft.ssmarkdown.preview.OrderedDecoder]). Delivery only
+     * hands [bytes] on, so a 2x diagram PNG never decodes on the main
+     * thread (PERF-23).
+     */
+    class ExportResult(
         val requestId: Int,
         val mime: String,
-        val data: String,
+        val bytes: ByteArray,
     ) : PageMessage {
-        override fun deliverTo(listener: PreviewListener) = listener.onExportResult(requestId, mime, bytes())
+        override fun deliverTo(listener: PreviewListener) = listener.onExportResult(requestId, mime, bytes)
 
-        /** The payload as bytes: PNG decoded from base64, SVG as UTF-8 text. */
-        fun bytes(): ByteArray = if (mime == "image/png") Base64.getDecoder().decode(data) else data.toByteArray()
+        /** How the page's export messages are read. */
+        companion object {
+            /** [data] as the page sent it, decoded: PNG from base64, SVG as UTF-8. Throws on bad base64. */
+            fun of(
+                requestId: Int,
+                mime: String,
+                data: String,
+            ): ExportResult {
+                val bytes = if (mime == "image/png") Base64.getDecoder().decode(data) else data.toByteArray()
+                return ExportResult(requestId, mime, bytes)
+            }
+        }
     }
 
     data object PrintReady : PageMessage

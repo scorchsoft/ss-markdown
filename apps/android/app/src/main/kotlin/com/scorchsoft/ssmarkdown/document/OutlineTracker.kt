@@ -10,17 +10,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
- * Where the outline works and where it reports back.
- *
- * @property worker runs the outline tokenizer; any background dispatcher (its passes never overlap).
- * @property main the main thread's scope: published outlines are installed there.
- */
-class OutlineThreads(
-    val worker: CoroutineDispatcher,
-    val main: CoroutineScope,
-)
-
-/**
  * The document's heading index for the Navigator, the breadcrumb and
  * "Copy section", kept current from every edit to the buffer.
  *
@@ -48,7 +37,7 @@ class OutlineThreads(
  */
 class OutlineTracker(
     private val document: TextDocument,
-    private val threads: OutlineThreads,
+    private val threads: DocumentThreads,
     /** Called on the main thread when a new outline is installed. */
     private val onChanged: () -> Unit,
 ) {

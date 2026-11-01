@@ -2,7 +2,7 @@ package com.scorchsoft.ssmarkdown.editor
 
 import com.scorchsoft.ssmarkdown.document.ActiveDocument
 import com.scorchsoft.ssmarkdown.document.ActiveDocumentListener
-import com.scorchsoft.ssmarkdown.document.OutlineThreads
+import com.scorchsoft.ssmarkdown.document.DocumentThreads
 import com.scorchsoft.ssmarkdown.editor.preview.EditorPreviewHost
 import com.scorchsoft.ssmarkdown.editor.preview.PreviewSession
 import com.scorchsoft.ssmarkdown.editor.preview.ScrollLink
@@ -360,7 +360,7 @@ class EditorViewModel(
             deps.scope.launch { deps.store.close(uri) }
         }
         previous?.release()
-        val document = ActiveDocument(open, this, OutlineThreads(deps.outlineWork, deps.scope))
+        val document = ActiveDocument(open, this, DocumentThreads(deps.outlineWork, deps.scope))
         activeFlow.value = document
         preview.bind(document)
         val uri = open.uri.value

@@ -83,16 +83,19 @@ fun interface TextChangeListener {
 class ActiveDocument(
     val open: OpenDocument,
     private val listener: ActiveDocumentListener,
-    outlineThreads: OutlineThreads,
+    threads: DocumentThreads,
 ) : EditorListener {
     /** The buffer this session is bound to. */
     val text: TextDocument = open.document
 
     /** Headings for the Navigator, breadcrumb and Copy section. */
-    val outline: OutlineTracker = OutlineTracker(text, outlineThreads) { listener.onOutlineChanged(this) }
+    val outline: OutlineTracker = OutlineTracker(text, threads) { listener.onOutlineChanged(this) }
 
     /** The file's own Markdown dialect, detected once (ux-spec "Editing in Preview"). */
     val style: DocumentStyle = DocumentStyle.detect(text.snapshot())
+
+    /** Re-packs the text when editing has fragmented it (PERF-F). */
+    val compactor: TreeCompactor = TreeCompactor(text.text, threads)
 
     private var view: MarkdownCodeView? = null
     private val buffer = BufferSurface(open) { before, ops -> afterBufferEdit(before, ops) }
@@ -173,6 +176,7 @@ class ActiveDocument(
     ) {
         open.onEditsApplied()
         outline.flush()
+        compactor.maybeCompact()
         dispatchChanges()
         listener.onEdited()
     }
@@ -203,6 +207,7 @@ class ActiveDocument(
     ) {
         // The outline heard each op as it was applied (PERF-A: incremental, never a full re-read).
         outline.flush()
+        compactor.maybeCompact()
         // The buffer surface reports its own "before"; the ops it applied were also tapped.
         this.before = null
         applied.clear()

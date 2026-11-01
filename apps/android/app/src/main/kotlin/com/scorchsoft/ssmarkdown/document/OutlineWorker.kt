@@ -25,7 +25,7 @@ internal class Handoff(
 /**
  * The background half of [OutlineTracker] (performance review PERF-D):
  * an outline tokenizer over the latest [Snapshot] it was handed, run on
- * [OutlineThreads.worker] in slices, publishing [Outline] copies now and
+ * [DocumentThreads.worker] in slices, publishing [Outline] copies now and
  * then through [publish] (called on the worker; the tracker moves them
  * to the main thread).
  *
@@ -36,7 +36,7 @@ internal class Handoff(
  */
 internal class OutlineWorker(
     initial: Snapshot,
-    private val threads: OutlineThreads,
+    private val threads: DocumentThreads,
     private val publish: (copy: Outline, upTo: Long) -> Unit,
 ) {
     private val source = SnapshotSource(initial)

@@ -159,4 +159,22 @@ class PieceTreeTest {
         tree.insert(1, empty)
         assertEquals("abc", tree.toString())
     }
+
+    @Test
+    fun `an off-thread compaction applies only to the text it copied (PERF-F)`() {
+        val tree = PieceTree.of("abcdefghij".repeat(1_000))
+        repeat(3_000) { tree.insert((it * 7_919) % tree.length, "<$it>") }
+        assertTrue(tree.needsCompaction)
+        val text = tree.toString()
+        val stale = tree.beginCompaction().also { it.pack() }
+        tree.insert(0, "y")
+        assertFalse("an edit since it began makes it stale", tree.finishCompaction(stale))
+        val fresh = tree.beginCompaction()
+        assertFalse("not packed yet", tree.finishCompaction(fresh))
+        fresh.pack()
+        assertTrue(tree.finishCompaction(fresh))
+        assertEquals("y$text", tree.toString())
+        assertFalse(tree.needsCompaction)
+        tree.checkInvariants()
+    }
 }

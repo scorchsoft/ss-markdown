@@ -199,6 +199,25 @@ public class PieceTree internal constructor(
         rebuild(packer.finish())
     }
 
+    /**
+     * Starts a compaction whose O(length) copy runs off this thread
+     * (performance review PERF-F): this call is O(pieces), [Compaction.pack]
+     * may run anywhere, and [finishCompaction] swaps the result in here.
+     */
+    public fun beginCompaction(): Compaction = Compaction(snapshot(), version)
+
+    /**
+     * Swaps in [compaction]'s packed chunks if the text has not changed
+     * since [beginCompaction]; O(chunks). Returns false, changing nothing,
+     * if it has (the next idle moment tries again) or if it was not packed.
+     */
+    public fun finishCompaction(compaction: Compaction): Boolean {
+        val chunks = compaction.chunks ?: return false
+        if (compaction.version != version) return false
+        rebuild(chunks)
+        return true
+    }
+
     /** Checks the tree's structural invariants; O(n), for tests. */
     internal fun checkInvariants() {
         tree.checkInvariants()
@@ -295,5 +314,25 @@ public class PieceTree internal constructor(
 
         /** A new, empty document. */
         public fun empty(): PieceTree = PieceTree(emptyList())
+    }
+}
+
+/**
+ * A compaction in progress: the text as it was when it began, and, once
+ * [pack]ed, the same text in fresh full chunks. See
+ * [PieceTree.beginCompaction].
+ */
+public class Compaction internal constructor(
+    private val text: Snapshot,
+    internal val version: Int,
+) {
+    @Volatile internal var chunks: List<TextBuffer>? = null
+        private set
+
+    /** Copies the text into full chunks: O(length), reads only an immutable snapshot, so any thread may run it. */
+    public fun pack() {
+        val packer = ChunkPacker()
+        text.forEachChunk { chars, start, count -> packer.putAll(chars, start, count) }
+        chunks = packer.finish()
     }
 }

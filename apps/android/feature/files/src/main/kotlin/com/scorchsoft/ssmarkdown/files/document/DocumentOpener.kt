@@ -2,7 +2,9 @@ package com.scorchsoft.ssmarkdown.files.document
 
 import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.files.save.BaseCopyStore.StagedCopy
+import com.scorchsoft.ssmarkdown.history.journal.BaseFingerprint
 import com.scorchsoft.ssmarkdown.history.journal.ReplayResult
+import com.scorchsoft.ssmarkdown.history.journal.Salvage
 import kotlinx.coroutines.withContext
 
 /**
@@ -103,7 +105,8 @@ internal class DocumentOpener(
         val journalBase = mismatch.journalBase
         val baseDocument =
             withContext(context.io) { context.readBaseText(uri, journalBase) }
-                ?: return kept(uri, loaded, null, "file changed and no base copy to replay onto", readOnly = false)
+                ?: return fromSnapshot(uri, loaded, journalBase)
+                    ?: kept(uri, loaded, null, "file changed and no base copy to replay onto", readOnly = false)
         // Full-text copies are built off the main thread: 40 MB of chars for a 20 MB file (PERF-22).
         val baseText = withContext(context.io) { baseDocument.text.toString() }
         val mine =
@@ -130,6 +133,36 @@ internal class DocumentOpener(
             )
         val theirs = withContext(context.io) { loaded.document.text.toString() }
         entry.conflict = ConflictState(baseText, theirs, loaded.fingerprint, recovered = true)
+        entry.journal.adopt()
+        entry.journal.resume(journalBase, entry.document.snapshot(), replacing = journalBase)
+        return OpenOutcome.Opened(entry, Recovery.Conflicted(context.journalTimes[uri] ?: 0))
+    }
+
+    /**
+     * [conflicted] without a base copy: a journal that starts from a
+     * snapshot (as every journal restarted after a save, a recovery or a
+     * resolved conflict does) carries the whole text and needs no base.
+     * Mine is that text and theirs the disk; with no base the merge is
+     * unavailable, but nothing is held back. Null when the journal has no
+     * snapshot to start from.
+     */
+    private suspend fun fromSnapshot(
+        uri: DocumentUri,
+        loaded: LoadResult.Loaded,
+        journalBase: BaseFingerprint,
+    ): OpenOutcome? {
+        val salvage = context.journalThread.call { context.journals.salvage(uri.value) { null } }
+        val mine = (salvage as? Salvage.Text)?.text ?: return null
+        val theirs = withContext(context.io) { loaded.document.text.toString() }
+        val document = loaded.document
+        document.replaceAllWith(mine)
+        val entry =
+            register(
+                uri,
+                LoadResult.Loaded(document, journalBase, loaded.metadata, loaded.readOnly, loaded.budget),
+                dirty = true,
+            )
+        entry.conflict = ConflictState(base = null, theirs, loaded.fingerprint, recovered = true)
         entry.journal.adopt()
         entry.journal.resume(journalBase, entry.document.snapshot(), replacing = journalBase)
         return OpenOutcome.Opened(entry, Recovery.Conflicted(context.journalTimes[uri] ?: 0))

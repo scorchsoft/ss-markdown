@@ -91,16 +91,20 @@ class DocumentStore(
 
     /**
      * The launch scan: every document with unsaved edits from an earlier
-     * session. Opening one restores them. Base copies that no journal
-     * needs are cleared on the way.
+     * session. Opening one restores them. First, every save the last
+     * process died in the middle of is settled ([InterruptedSaves]): a
+     * torn file is put back to its old bytes, and a journal left on the
+     * version a completed save replaced is moved to the saved one. Base
+     * copies that no journal or unsettled save needs are cleared on the way.
      */
     suspend fun scanForRecovery(): RecoveryScan =
         withContext(context.io) {
+            val repaired = InterruptedSaves(context).settleAll()
             val scan = context.journals.scan()
             val offers = scan.unclean.map { RecoveryOffer(DocumentUri(it.documentKey), it.createdAtMillis, it.base) }
             offers.forEach { context.journalTimes[it.uri] = it.editedAtMillis }
             context.baseCopies.retainOnly(offers.map { it.uri } + context.entries.keys)
-            RecoveryScan(offers, scan.unsupported.size, scan.quarantined.size, scan.failures.size)
+            RecoveryScan(offers, scan.unsupported.size, scan.quarantined.size, scan.failures.size, repaired)
         }
 
     /** Opens [uri], or joins the entry already open for it (a second window gets the same buffer). */
@@ -291,7 +295,7 @@ class DocumentStore(
         context.entries.remove(uri)
         // A held journal (edits an earlier session could not apply) is never ours to end: close keeps it.
         if (entry.journal.isHolding) entry.journal.close() else entry.journal.endClean()
-        withContext(context.io) { context.baseCopies.delete(uri) }
+        context.deleteBaseCopyAfterJournal(uri)
         return CloseOutcome.Closed
     }
 
@@ -332,12 +336,14 @@ class DocumentStore(
  * @property unsupported journals from a newer app version, kept untouched.
  * @property quarantined unparseable files moved aside this time.
  * @property failures files that could not be read or moved.
+ * @property repairedSaves files a save was torn in the middle of, put back to their last saved bytes.
  */
 data class RecoveryScan(
     val offers: List<RecoveryOffer>,
     val unsupported: Int,
     val quarantined: Int,
     val failures: Int,
+    val repairedSaves: Int = 0,
 )
 
 /** What [DocumentStore.close] did. */

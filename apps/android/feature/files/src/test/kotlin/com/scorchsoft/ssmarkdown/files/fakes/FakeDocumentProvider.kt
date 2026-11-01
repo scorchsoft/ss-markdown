@@ -70,6 +70,12 @@ class FakeDocumentProvider : DocumentProvider {
     /** Called on every open for reading: a test advances its clock here to fake a slow download. */
     var onOpenInput: (() -> Unit)? = null
 
+    /**
+     * Called when a write opens [DocumentUri], before anything is truncated:
+     * the file still holds what the write is about to replace.
+     */
+    var onOpenOutput: ((DocumentUri) -> Unit)? = null
+
     /** Writes opened so far, for asserting nothing was written. */
     var writesOpened = 0
         private set
@@ -150,6 +156,7 @@ class FakeDocumentProvider : DocumentProvider {
             val file = find(uri)
             if (!file.writable) throw SecurityException("no write grant")
             require(mode != WriteMode.Truncate || !rejectTruncateMode) { "Unsupported mode: wt" }
+            onOpenOutput?.invoke(uri)
             writesOpened++
             if (!ignoreTruncation) file.bytes = ByteArray(0)
             FakeChannel(file)

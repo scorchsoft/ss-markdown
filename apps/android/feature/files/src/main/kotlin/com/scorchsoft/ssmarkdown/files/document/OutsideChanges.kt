@@ -2,7 +2,6 @@ package com.scorchsoft.ssmarkdown.files.document
 
 import com.scorchsoft.ssmarkdown.files.fingerprint.DiskState
 import com.scorchsoft.ssmarkdown.files.provider.ProviderResult
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
 /**
@@ -56,8 +55,8 @@ internal class OutsideChanges(
      * The dirty check and the swap happen in one step on the owner thread,
      * after the last suspension, so a keystroke typed while the disk was
      * read turns the reload into a conflict instead of being thrown away
-     * (DS-4). The base copy is committed after the swap: until it lands,
-     * a journal started on the new base still replays onto the disk.
+     * (DS-4). The base copy is committed after the swap, on the journal
+     * thread behind the journal's own step (see [StoreContext.commitAfterJournal]).
      */
     @Suppress("ReturnCount") // Unreadable, dirty and clean each end differently.
     suspend fun diskChanged(entry: OpenDocument): OutsideChange {
@@ -82,7 +81,7 @@ internal class OutsideChanges(
         entry.journal.endClean() // A clean buffer runs no journal; never let one outlive its base.
         swapIn(entry, loaded, dirty = false)
         entry.readOnly = loaded.readOnly
-        withContext(NonCancellable + context.io) { staged.commit() }
+        context.commitAfterJournal(staged)
         return OutsideChange.Reloaded
     }
 
@@ -159,7 +158,7 @@ internal class OutsideChanges(
             }
         entry.journal.endClean()
         swapIn(entry, loaded, dirty = false)
-        withContext(NonCancellable + context.io) { staged.commit() }
+        context.commitAfterJournal(staged)
         return ResolveOutcome.Resolved(kept)
     }
 
@@ -212,7 +211,7 @@ internal class OutsideChanges(
         }
         entry.conflict = null
         if (entry.readOnly == ReadOnlyReason.NewerRecoveryData) entry.readOnly = null
-        withContext(NonCancellable + context.io) { staged.commit() }
+        context.commitAfterJournal(staged)
         return outcome
     }
 

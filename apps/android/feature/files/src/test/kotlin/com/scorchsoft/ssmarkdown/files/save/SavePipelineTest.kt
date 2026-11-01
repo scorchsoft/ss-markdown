@@ -1,12 +1,14 @@
 package com.scorchsoft.ssmarkdown.files.save
 
 import com.scorchsoft.ssmarkdown.files.fakes.FakeDocumentProvider
+import com.scorchsoft.ssmarkdown.files.fingerprint.ByteDigest
 import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.history.journal.BaseFingerprint
 import com.scorchsoft.ssmarkdown.text.PieceTree
 import com.scorchsoft.ssmarkdown.text.TextFileFormat
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -36,7 +38,8 @@ class SavePipelineTest {
     private fun assertFileIsOld() = assertEquals(OLD, provider.text(uri))
 
     @Test
-    fun `a clean save writes, verifies and refreshes the backup`() {
+    fun `a clean save writes, verifies and, once finished, refreshes the backup`() {
+        val old = base()
         val outcome = pipeline.save(request())
 
         assertTrue(outcome is SaveOutcome.Saved)
@@ -44,7 +47,51 @@ class SavePipelineTest {
         val saved = (outcome as SaveOutcome.Saved).fingerprint
         assertTrue(saved.matches(BaseFingerprint.of(NEW.toByteArray(), 0)))
         assertEquals(provider.lastModified(uri), saved.lastModified)
+        // Until the caller's journal has moved on, the backup is still the old version.
+        assertTrue(baseCopies.matches(uri, old))
+        assertTrue(baseCopies.pendingSaves.find(uri) != null)
+
+        pipeline.finish(uri, saved)
         assertTrue(baseCopies.matches(uri, saved))
+        assertNull(baseCopies.pendingSaves.find(uri))
+    }
+
+    @Test
+    fun `the new bytes and both digests are durable before the file is opened`() {
+        var recorded: PendingSaves.Record? = null
+        provider.onOpenOutput = { recorded = baseCopies.pendingSaves.find(it) }
+
+        pipeline.save(request())
+
+        val record = requireNotNull(recorded) { "no intent record when the write began" }
+        assertArrayEquals(NEW.toByteArray(), record.openNew().use { it.readBytes() })
+        assertTrue(record.old.sameBytesAs(ByteDigest.of(OLD.toByteArray())))
+        assertTrue(baseCopies.matches(uri, record.oldFingerprint))
+    }
+
+    @Test
+    fun `a failed save whose file is back to the old bytes drops its record, an unknown one keeps it`() {
+        provider.failNextWriteAfter = 5
+        assertEquals(FileIntegrity.Restored, (pipeline.save(request()) as SaveOutcome.ProviderError).file)
+        assertNull(baseCopies.pendingSaves.find(uri))
+
+        // The write and the restore both fail: the file may be torn, so the record stays for the next launch.
+        provider.failNextWriteAfter = 5
+        provider.onOpenOutput = { if (provider.failNextWriteAfter == null) provider.failNextWriteAfter = 0 }
+        assertEquals(FileIntegrity.Unknown, (pipeline.save(request()) as SaveOutcome.ProviderError).file)
+        assertTrue(baseCopies.pendingSaves.find(uri) != null)
+    }
+
+    @Test
+    fun `finishing an older save after a newer one began changes nothing`() {
+        val first = (pipeline.save(request()) as SaveOutcome.Saved).fingerprint
+        val second = pipeline.save(request(text = "third\n", base = first))
+        assertTrue(second is SaveOutcome.Saved)
+
+        pipeline.finish(uri, BaseFingerprint.of(OLD.toByteArray(), 0)) // A stale finish: not this save.
+        assertTrue(baseCopies.pendingSaves.find(uri) != null)
+        pipeline.finish(uri, (second as SaveOutcome.Saved).fingerprint)
+        assertTrue(baseCopies.matches(uri, second.fingerprint))
     }
 
     @Test

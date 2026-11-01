@@ -11,6 +11,8 @@ import com.scorchsoft.ssmarkdown.files.provider.ProviderResult
 import com.scorchsoft.ssmarkdown.files.provider.valueOrNull
 import com.scorchsoft.ssmarkdown.history.journal.BaseFingerprint
 import com.scorchsoft.ssmarkdown.text.Utf8Encoder
+import java.io.IOException
+import java.io.OutputStream
 
 /**
  * The safe save (docs/robustness.md §2), in this order and no other:
@@ -20,16 +22,22 @@ import com.scorchsoft.ssmarkdown.text.Utf8Encoder
  *    pass takes the backup if there is no valid one yet.
  * 2. **Backup.** The last-saved bytes are in [BaseCopyStore] before any
  *    write starts. If they cannot be, nothing is written.
- * 3. **Write** in `"wt"` mode, falling back to `"rwt"` + truncate.
- * 4. **Verify.** Read the file back; length and SHA-256 must equal what
+ * 3. **Record the intent.** The new bytes and the digests of old and new
+ *    go to [PendingSaves], durably, before the file is opened, so a kill
+ *    in the middle of the write is repaired at the next launch
+ *    ([com.scorchsoft.ssmarkdown.files.document.DocumentStore.scanForRecovery]).
+ * 4. **Write** those bytes in `"wt"` mode, falling back to `"rwt"` + truncate.
+ * 5. **Verify.** Read the file back; length and SHA-256 must equal what
  *    was written. A longer read-back is a provider that ignored
  *    truncation: rewrite once with an explicit truncate.
- * 5. Only then is the result [SaveOutcome.Saved]. Any failure after the
+ * 6. Only then is the result [SaveOutcome.Saved]. Any failure after the
  *    file was opened writes the backup back, so the file ends as the old
  *    version or the new one, never a mixture.
  *
  * Blocking: run it on the I/O dispatcher. The caller marks the document
- * clean, records history and ends the journal, and only on [SaveOutcome.Saved].
+ * clean, records history and ends the journal, and only on [SaveOutcome.Saved];
+ * then, once the journal has moved on, it calls [finish], which makes the
+ * new bytes the base copy. Until then the base copy is the old version.
  * A save that runs past [timeout] ends as [SaveOutcome.TimedOut] with the
  * file untouched or restored; see [SaveTimeout] for where it is enforced.
  */
@@ -41,6 +49,7 @@ class SavePipeline(
 ) {
     private val probe = DiskProbe(provider)
     private val writer = ProviderWriter(provider)
+    private val pendingSaves = baseCopies.pendingSaves
 
     /** Saves [request]; see the class description for the steps. */
     @Suppress("ReturnCount") // The steps of the class description, each able to end the save.
@@ -50,16 +59,71 @@ class SavePipeline(
         checkDiskAndBackup(request.uri, request.base)?.let { return it }
         if (deadline.expired) return SaveOutcome.TimedOut(FileIntegrity.Untouched)
         lastLook(request.uri, request.base)?.let { return it }
-        val first =
-            writer.write(request.uri) { Utf8Encoder.write(request.text, request.format, deadline.guard(it)) }
+        val pending =
+            try {
+                pendingSaves.begin(request.uri, request.base) { Utf8Encoder.write(request.text, request.format, it) }
+            } catch (e: IOException) {
+                pendingSaves.clear(request.uri)
+                return SaveOutcome.BackupFailed(isStorageFull(e))
+            }
+        val first = writer.write(request.uri) { out -> copyPending(pending, out, deadline) }
         val written =
             when (first) {
                 is WriteAttempt.Written -> first.digest
-                is WriteAttempt.NotOpened -> return failure(first.failure, FileIntegrity.Untouched)
-                is WriteAttempt.FailedAfterOpen -> return failure(first.failure, restore(request))
+                is WriteAttempt.NotOpened -> return settled(request, failure(first.failure, FileIntegrity.Untouched))
+                is WriteAttempt.FailedAfterOpen -> return settled(request, failure(first.failure, restore(request)))
             }
-        return verifyOrRepair(request, written, deadline)
+        return settled(request, verifyOrRepair(request, pending, written, deadline))
     }
+
+    /**
+     * The save of [saved] to [uri] has settled (the caller's journal has
+     * moved to it): the new bytes become the base copy and the intent
+     * record goes. Does nothing if a later save has begun since.
+     */
+    fun finish(
+        uri: DocumentUri,
+        saved: BaseFingerprint,
+    ) {
+        pendingSaves.finish(uri, ByteDigest(saved.size, saved.sha256))
+    }
+
+    /** Streams the pending bytes into [out], stopping at the deadline, including right after the last byte. */
+    private fun copyPending(
+        pending: PendingSaves.Record,
+        out: OutputStream,
+        deadline: SaveDeadline,
+    ) {
+        pending.openNew().use { it.copyTo(deadline.guard(out)) }
+        deadline.checkpoint()
+    }
+
+    /**
+     * A failed save whose file holds its old bytes again needs no repair,
+     * so its record goes; one whose file may be damaged
+     * ([FileIntegrity.Unknown]) keeps it for the next launch to repair.
+     */
+    private fun settled(
+        request: SaveRequest,
+        outcome: SaveOutcome,
+    ): SaveOutcome {
+        if (outcome !is SaveOutcome.Saved &&
+            outcome.fileAfter() != FileIntegrity.Unknown
+        ) {
+            pendingSaves.clear(request.uri)
+        }
+        return outcome
+    }
+
+    private fun SaveOutcome.fileAfter(): FileIntegrity? =
+        when (this) {
+            is SaveOutcome.Missing -> file
+            is SaveOutcome.PermissionLost -> file
+            is SaveOutcome.StorageFull -> file
+            is SaveOutcome.VerifyFailed -> file
+            is SaveOutcome.ProviderError -> file
+            else -> null
+        }
 
     /** Steps 1 and 2. Null means "carry on"; anything else ends the save. */
     @Suppress("ReturnCount") // Valid backup, blocked precondition and backup result are three endings.
@@ -108,6 +172,7 @@ class SavePipeline(
     /** Step 4, with one repair attempt for providers that ignore truncation. */
     private fun verifyOrRepair(
         request: SaveRequest,
+        pending: PendingSaves.Record,
         written: ByteDigest,
         deadline: SaveDeadline,
     ): SaveOutcome {
@@ -115,9 +180,7 @@ class SavePipeline(
         val tooLong = readBack.valueOrNull()?.let { it.size > written.size } == true
         if (tooLong) {
             val retry =
-                writer.write(request.uri, forceExplicitTruncate = true) {
-                    Utf8Encoder.write(request.text, request.format, deadline.guard(it))
-                }
+                writer.write(request.uri, forceExplicitTruncate = true) { out -> copyPending(pending, out, deadline) }
             if (retry !is WriteAttempt.Written) return failure(retry.failureOrNull(), restore(request))
             readBack = probe.digest(request.uri)
         }
@@ -139,33 +202,17 @@ class SavePipeline(
         }
     }
 
-    /** The new base: verified bytes plus the provider's new `lastModified`. Refreshes the backup. */
+    /**
+     * The new base: verified bytes plus the provider's new `lastModified`.
+     * The base copy is still the old version; [finish] replaces it with the
+     * pending bytes, which are exactly what was verified.
+     */
     private fun saved(
         uri: DocumentUri,
         written: ByteDigest,
     ): SaveOutcome.Saved {
         val lastModified = provider.metadata(uri).valueOrNull()?.lastModified ?: 0L
-        val fingerprint = BaseFingerprint(written.size, lastModified, written.sha256)
-        refreshBaseCopy(uri, fingerprint)
-        return SaveOutcome.Saved(fingerprint)
-    }
-
-    /**
-     * Copies what is now on disk into the base copy. If that fails the
-     * save still stands: the stale copy is dropped, and the next save's
-     * precondition takes a fresh one before writing.
-     */
-    private fun refreshBaseCopy(
-        uri: DocumentUri,
-        fingerprint: BaseFingerprint,
-    ) {
-        val staged = baseCopies.stage(uri)
-        val copied = probe.digest(uri, staged.stream).valueOrNull()
-        val good = copied != null && copied.sameBytesAs(ByteDigest(fingerprint.size, fingerprint.sha256))
-        if (!good || !staged.commit()) {
-            staged.abandon()
-            baseCopies.delete(uri)
-        }
+        return SaveOutcome.Saved(BaseFingerprint(written.size, lastModified, written.sha256))
     }
 
     /** Writes the backup over a file a failed save may have damaged, and checks it took. */

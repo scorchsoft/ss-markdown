@@ -5,6 +5,7 @@ import com.scorchsoft.ssmarkdown.files.memory.MemoryGovernor
 import com.scorchsoft.ssmarkdown.files.provider.DocumentProvider
 import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.files.save.BaseCopyStore
+import com.scorchsoft.ssmarkdown.files.save.ProviderWriter
 import com.scorchsoft.ssmarkdown.files.save.SavePipeline
 import com.scorchsoft.ssmarkdown.files.save.SaveTimeout
 import com.scorchsoft.ssmarkdown.history.journal.BaseFingerprint
@@ -41,6 +42,7 @@ internal class StoreContext(
     val loader = DocumentLoader(provider, governor)
     val probe = DiskProbe(provider)
     val pipeline = SavePipeline(provider, baseCopies, saveTimeout)
+    val writer = ProviderWriter(provider)
 
     /** Edit times from the last launch scan, for the recovery banner. */
     val journalTimes = HashMap<DocumentUri, Long>()
@@ -71,6 +73,27 @@ internal class StoreContext(
             if (entry.document.version == version) return result
         }
         return null
+    }
+
+    /**
+     * Puts [staged] in place as the base copy once the journal work queued
+     * so far has run. The base copy is what a journal on the old base
+     * replays onto after a crash, so it may only change after the journal
+     * has left that base: committed earlier, a kill in between strands the
+     * journal with no text to apply to (found by the random kill test).
+     */
+    fun commitAfterJournal(staged: BaseCopyStore.StagedCopy) {
+        journalThread.execute { staged.commit() }
+    }
+
+    /**
+     * Deletes [uri]'s base copy once the journal work queued so far has
+     * run, and only if no journal is left for it then: a journal that
+     * outlives its run (a crash before `endClean` ran, a held or
+     * quarantine-bound journal) still needs the copy to replay onto.
+     */
+    fun deleteBaseCopyAfterJournal(uri: DocumentUri) {
+        journalThread.execute { if (!journals.fileFor(uri.value).exists()) baseCopies.delete(uri) }
     }
 
     /**

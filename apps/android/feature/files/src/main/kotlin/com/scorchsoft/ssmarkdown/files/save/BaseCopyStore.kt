@@ -26,6 +26,9 @@ import java.io.OutputStream
 class BaseCopyStore(
     val root: File,
 ) {
+    /** Saves in flight, recorded beside the copies so a torn write can be repaired (see [PendingSaves]). */
+    val pendingSaves: PendingSaves = PendingSaves(this)
+
     /** The copy's file for [uri], whether or not it exists. */
     fun fileFor(uri: DocumentUri): File = File(root, nameFor(uri))
 
@@ -67,9 +70,14 @@ class BaseCopyStore(
     /**
      * Deletes every copy except those for [keep]: run at launch, after the
      * journal scan, so copies of documents with recoverable edits survive.
+     * A save still recorded in [pendingSaves] keeps its record and its
+     * copy (the old bytes) too: it could not be settled yet, and they are
+     * what will repair it.
      */
     fun retainOnly(keep: Collection<DocumentUri>) {
-        val kept = keep.mapTo(HashSet(), ::nameFor)
+        val records = pendingSaves.all()
+        val kept = (keep + records.map { it.uri }).mapTo(HashSet(), ::nameFor)
+        kept += pendingSaves.keptNames(records)
         root.listFiles()?.filter { it.isFile && it.name !in kept }?.forEach { it.delete() }
     }
 

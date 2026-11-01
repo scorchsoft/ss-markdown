@@ -63,6 +63,11 @@ internal class SaveDeadline(
 ) {
     val expired: Boolean get() = at != Long.MAX_VALUE && clock() >= at
 
+    /** Throws [SaveTimedOut] if the deadline has passed: after the last write, before the file is closed. */
+    fun checkpoint() {
+        if (expired) throw SaveTimedOut()
+    }
+
     /** [stream] that throws [SaveTimedOut] on the first write after the deadline. */
     fun guard(stream: OutputStream): OutputStream =
         if (at == Long.MAX_VALUE) {

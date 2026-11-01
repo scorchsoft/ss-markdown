@@ -53,7 +53,8 @@ internal class SaveCoordinator(
         val outcome = write(entry, target, picked.base, ignoreReadOnly = true)
         if (outcome is SaveOutcome.Saved) {
             moveTo(entry, from, target, outcome.fingerprint, picked.displayName)
-            withContext(context.io) { context.baseCopies.delete(from) }
+            settleAfterJournal(target, outcome.fingerprint)
+            context.deleteBaseCopyAfterJournal(from)
             context.notify(DocumentEvent.Moved(target, from))
         }
         return finish(entry, outcome, aboutSource = false)
@@ -109,6 +110,9 @@ internal class SaveCoordinator(
         ignoreReadOnly: Boolean = false,
     ): SaveOutcome {
         entry.flushJournal()
+        // The journal is durable before the file is touched, and the last save's settling has run, so
+        // the base copy is the version this write replaces (robustness §1: flush before any risky step).
+        context.journalThread.call { }
         val document = entry.document
         val version = document.version
         val snapshot = document.snapshot()
@@ -153,6 +157,20 @@ internal class SaveCoordinator(
         } else {
             entry.journal.endClean()
         }
+        settleAfterJournal(target, saved.fingerprint)
+    }
+
+    /**
+     * Queued after the journal step, on the journal thread: only once the
+     * journal has moved to the saved version may the base copy become it.
+     * Until then a kill leaves the old bytes beside the old journal, and
+     * the launch scan can still apply one to the other (robustness §2).
+     */
+    private fun settleAfterJournal(
+        target: DocumentUri,
+        saved: BaseFingerprint,
+    ) {
+        context.journalThread.execute { context.pipeline.finish(target, saved) }
     }
 
     /** [aboutSource] is false for Save as, whose conflicts and missing files are the target's. */

@@ -4,6 +4,15 @@ package com.scorchsoft.ssmarkdown.files.merge
  * Text as lines that keep their own terminators, so joining them gives
  * back the exact text: "a\nb" is ["a\n", "b"], and a missing final
  * newline survives a merge untouched.
+ *
+ * Only `\n` ends a line here, while History's `versions.Lines` also ends
+ * one at a lone `\r` (CC-9). The two never disagree in practice: every
+ * text a merge sees (base, mine and theirs) comes from a `TextDocument`,
+ * and `core:text` turns every `\r\n` and lone `\r` into `\n` on the way
+ * in (`LineBreaks`, `TextBufferBuilder`), keeping the file's own endings
+ * in its `TextFileFormat`. History keeps the wider rule because it also
+ * reads imported texts. A `\r` reaching this function would stay inside
+ * its line, still round-tripping exactly.
  */
 internal object Lines {
     fun split(text: CharSequence): List<String> {

@@ -82,6 +82,17 @@ describe("rendering the corpus", () => {
         expect(pageErrors(page)).toEqual([]);
     });
 
+    it("names every task checkbox by its item's text (UX2-11)", async () => {
+        const page = await openPreview(h);
+        await loadMarkdown(page, "- [ ] Open **task** with `code`\n- [x] Done task\n");
+        // TalkBack reads the accessible name: "Open task with code, checkbox, not checked".
+        expect(await page.getByRole("checkbox", { name: "Open task with code", exact: true }).count()).toBe(1);
+        expect(await page.getByRole("checkbox", { name: "Done task", exact: true }).isChecked()).toBe(true);
+        // A name, not a <label>: tapping the item's text must still edit it, never toggle the box.
+        expect(await count(page, "li.task-list-item label")).toBe(0);
+        expect(pageErrors(page)).toEqual([]);
+    });
+
     it("anchors every block to its source line", async () => {
         for (const file of ["basics.md", "extended.md", "tables.md", "unicode.md"]) {
             const text = corpus(file);

@@ -64,6 +64,7 @@ export function createMarkdown(): MarkdownIt {
         .use(abbr)
         .use(emoji)
         .use(taskLists, { enabled: true })
+        .use(taskLabels)
         .use(alerts)
         .use(mathPlugin)
         .use(tocPlugin)
@@ -74,6 +75,34 @@ export function createMarkdown(): MarkdownIt {
     md.core.ruler.disable("footnote_tail");
     installBlockRules(md);
     return md;
+}
+
+const CHECKBOX = '<input class="task-list-item-checkbox"';
+
+/**
+ * Gives each task checkbox an accessible name, its item's text (UX2-11), so
+ * TalkBack says "Write the spec, checkbox, not checked" rather than a bare
+ * "checkbox". The plugin's own `label: true` would wrap the text in a
+ * `<label>`, and a tap on the text would then toggle the box instead of
+ * placing the caret; `aria-label` names it without changing what a tap does.
+ */
+function taskLabels(md: MarkdownIt): void {
+    md.core.ruler.after("github-task-lists", "task-labels", (state) => {
+        for (const token of state.tokens) {
+            const box = token.type === "inline" ? token.children?.[0] : undefined;
+            if (box?.type !== "html_inline" || !box.content.startsWith(CHECKBOX)) continue;
+            const text = (token.children ?? [])
+                .slice(1)
+                .filter((c) => c.type === "text" || c.type === "code_inline")
+                .map((c) => c.content)
+                .join("")
+                .replace(/\s+/g, " ")
+                .trim();
+            if (text.length === 0) continue;
+            box.content = `${box.content.slice(0, -1)} aria-label="${md.utils.escapeHtml(text)}">`;
+        }
+        return false;
+    });
 }
 
 function headingsOf(tokens: Token[]): HeadingInfo[] {

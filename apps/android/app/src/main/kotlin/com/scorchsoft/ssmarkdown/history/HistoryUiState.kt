@@ -151,4 +151,5 @@ data class HistoryUiState(
     val unreadable: Boolean = false,
     val isDraft: Boolean = false,
     val importChoices: List<ExportedDocument> = emptyList(),
+    val versionDamaged: Boolean = false,
 )

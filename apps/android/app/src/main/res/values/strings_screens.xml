@@ -140,6 +140,7 @@
     <string name="history_options">History options</string>
     <string name="history_export">Export history (.zip)</string>
     <string name="history_import">Import history (.zip)</string>
+    <string name="history_version_damaged">That version is damaged and can\'t be read. The others are unaffected, and nothing was changed.</string>
     <string name="history_unreadable">This history can\'t be read. It has been left untouched.</string>
 
     <!-- About -->

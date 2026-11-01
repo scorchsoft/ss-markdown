@@ -110,6 +110,7 @@ fun HistoryScreen(
                 ),
             )
         }
+        if (state.versionDamaged) NoteText(stringResource(R.string.history_version_damaged))
         Body(state, onAction)
         NoteText(stringResource(R.string.history_restore_note))
     }

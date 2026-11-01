@@ -5,6 +5,7 @@ import com.scorchsoft.ssmarkdown.conflict.CompareUiState
 import com.scorchsoft.ssmarkdown.editor.EditorAction
 import com.scorchsoft.ssmarkdown.editor.EditorViewModel
 import com.scorchsoft.ssmarkdown.editor.MessageKind
+import com.scorchsoft.ssmarkdown.files.saf.SafeFileName
 import com.scorchsoft.ssmarkdown.history.versions.DocumentKey
 import com.scorchsoft.ssmarkdown.history.versions.ExportContents
 import com.scorchsoft.ssmarkdown.history.versions.ExportResult
@@ -294,15 +295,15 @@ class HistoryViewModel(
         deps.scope.launch {
             val lines =
                 withContext(io) {
-                    val now = (versions.read(document, id) as? ReadResult.Text)?.text ?: return@withContext emptyList()
-                    val before = previous?.let { (versions.read(document, it.id) as? ReadResult.Text)?.text }.orEmpty()
+                    val now = versions.textOf(document, id) ?: return@withContext null
+                    val before = previous?.let { versions.textOf(document, it.id) }.orEmpty()
                     LineDiff
                         .compute(before, now, context = 1)
                         .hunks
                         .flatMap { it.lines }
                         .take(MAX_DIFF_LINES)
                 }
-            ui.update { it.copy(expanded = id, diff = lines) }
+            ui.update { it.copy(expanded = id, diff = lines.orEmpty(), versionDamaged = lines == null) }
         }
     }
 
@@ -314,7 +315,11 @@ class HistoryViewModel(
                 ?.snapshot()
                 ?.toString() ?: return
         deps.scope.launch {
-            val old = (withContext(io) { versions.read(document, id) } as? ReadResult.Text)?.text ?: return@launch
+            val old = withContext(io) { versions.textOf(document, id) }
+            if (old == null) {
+                ui.update { it.copy(versionDamaged = true) }
+                return@launch
+            }
             editor.conflicts.showCompare(CompareUiState.of(ui.value.fileName, CompareOrigin.History, old, current))
         }
     }
@@ -323,7 +328,11 @@ class HistoryViewModel(
         val document = key ?: return
         val doc = editor.active ?: return
         deps.scope.launch {
-            val text = (withContext(io) { versions.read(document, id) } as? ReadResult.Text)?.text ?: return@launch
+            val text = withContext(io) { versions.textOf(document, id) }
+            if (text == null) {
+                ui.update { it.copy(versionDamaged = true) }
+                return@launch
+            }
             val current = doc.text.snapshot()
             deps.history.record(doc.open.uri, current, VersionKind.BeforeRestore)
             doc.surface.apply(listOf(EditOp(0, current, text)), TextSelection.caret(0))
@@ -349,7 +358,12 @@ class HistoryViewModel(
         val document = key ?: return
         deps.scope.launch {
             exportsDir.mkdirs()
-            val zip = File(exportsDir, "${ui.value.fileName.ifEmpty { "draft" }}-history.zip")
+            // The display name comes from the file's provider and may say "../" (SEC-1).
+            val zip =
+                SafeFileName.inside(
+                    exportsDir,
+                    "${SafeFileName.of(ui.value.fileName.ifEmpty { "draft" })}-history.zip",
+                )
             val result = withContext(io) { versions.export(listOf(document), zip) }
             if (result is ExportResult.Exported) eventChannel.trySend(ScreenEvent.SaveZip(zip, zip.name))
         }
@@ -365,3 +379,9 @@ class HistoryViewModel(
         const val MAX_DIFF_LINES = 12
     }
 }
+
+/** The text of a version, or null when it is damaged, missing or from a newer app: callers say so (CC-17). Blocking. */
+private fun VersionStore.textOf(
+    document: DocumentKey,
+    id: VersionId,
+): String? = (read(document, id) as? ReadResult.Text)?.text

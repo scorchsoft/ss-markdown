@@ -93,6 +93,19 @@ internal class DocumentHistory private constructor(
     /** True while the index file exists: false once [deleteAll] has run. */
     val exists: Boolean get() = File(directory, INDEX_FILE).isFile
 
+    /**
+     * If the head's text hashes to [sha256Hex], notes the open and returns
+     * the head; null otherwise, and nothing is written. Throws [IOException].
+     */
+    fun openedUnchanged(
+        sha256Hex: String,
+        nowMillis: Long,
+    ): VersionId? {
+        val head = index.head()?.takeIf { it.info.sha256Hex == sha256Hex } ?: return null
+        commit(index.copy(lastOpenedMillis = nowMillis))
+        return head.id
+    }
+
     /** Records [draft] as the new head of the main branch. Throws [IOException]. */
     fun append(draft: VersionDraft): RecordResult {
         val head = index.head()

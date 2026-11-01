@@ -86,6 +86,34 @@ public class VersionStore(
         }
 
     /**
+     * Records an "Opened" version of [document] whose file bytes hash to
+     * [fileSha256Hex], building the text with [text] only when it is
+     * needed (PERF-14). Re-opening an unchanged file, the common case,
+     * then costs one index read instead of a copy and a hash of the whole
+     * text. The shortcut is exact: a version's hash is of its text's
+     * UTF-8 bytes, so it equals the file's hash only when those are the
+     * file's bytes. A file with a BOM or CRLF endings never matches and is
+     * recorded the ordinary way.
+     */
+    public fun recordOpened(
+        document: DocumentKey,
+        fileSha256Hex: String,
+        text: () -> String,
+    ): RecordResult =
+        synchronized(lock) {
+            if (!policy.recording) return RecordResult.Off
+            val unchanged =
+                try {
+                    (directory.open(document) as? OpenHistory.Ready)
+                        ?.history
+                        ?.openedUnchanged(fileSha256Hex, clock.nowMillis())
+                } catch (e: IOException) {
+                    return RecordResult.Failed(e)
+                }
+            unchanged?.let { RecordResult.Unchanged(it) } ?: record(document, text(), VersionKind.Opened)
+        }
+
+    /**
      * Compacts after a record when the pack is mostly garbage. The version
      * is already committed, so a failure here only postpones compaction.
      */

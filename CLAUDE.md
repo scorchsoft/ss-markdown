@@ -13,6 +13,8 @@ reasons behind every decision so far. Then:
 - `docs/robustness.md` — the never-lose-work and large-file contract.
   Required reading before touching files, saving or the editor.
 - `docs/research-findings.md` — what users hate and love in other editors, and the requirements (R1–R13) we took from it.
+- `docs/edge-cases.md` — every known hostile case, how it's handled, and its test. Add a row for every new bug.
+- `docs/engineering.md` — open-source code standards (Apache-2.0, showcase quality).
 - `docs/rubric.md` — the definition of good. Score it at the end of
   every iteration.
 
@@ -22,18 +24,12 @@ Iteration 0 (design) is in progress: the mockups are under review and
 there is no app code yet. Do not start the Android app until the mockups
 are signed off.
 
-## Planned layout (`apps/android`)
+## Planned layout
 
-```
-app/            single Activity, Compose screens, view models
-  editor/       MarkdownEditText + visible-range span highlighter, pinch → text size
-  preview/      WebView host, JS bridge (anchor sync, long-press, copy), print → PDF
-  files/        SAF open/save/tree, conflict check, drafts + recovery journal
-  fonts/        Google Fonts download + cache, served via WebViewAssetLoader
-  assets/preview/  markdown-it + plugins, mermaid, katex, highlight.js, dompurify (pinned, LICENSES)
-core/markdown   PURE JVM: tokenizer, line/anchor maths, theme JSON → CSS, settings model
-core/ui         design system (light + dark, Scorchsoft red = "unsaved")
-```
+The module map and code standards are in `docs/engineering.md`. In short:
+pure-JVM `core/*` (text, markdown, history, theme), `core/ui`, then
+`feature/*` (editor, preview, files), with a thin `app` on top.
+Dependencies point inwards only.
 
 ## Conventions
 

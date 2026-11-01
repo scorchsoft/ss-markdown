@@ -177,67 +177,152 @@ views, which is the classic way an Android editor loses text. Our rules:
   dirty files always prompts. Back gesture included.
 - Dirty buffers in folder mode are journaled exactly like single files.
 
-## Part 2 — Large files: what's guaranteed at each size
+## Part 2 — Large files: virtualised everywhere
 
-The document lives in one model. The editor, preview and journal read
-from it; they don't each keep their own full copy. We avoid holding
-several full `String` copies, because each copy of a 20 MB file costs
-about 40 MB of memory as UTF-16.
+**Requirement:** a file's size decides how much *memory* we need, never
+how much *work* each frame or keystroke costs. Both panes draw only
+what's on screen, plus a small margin, the way a well-built list scrolls
+a million rows.
 
-| Size | Mode | What changes |
-|---|---|---|
-| < 1 MB (almost every file) | Normal | Everything on. |
-| 1–5 MB | Large | Syntax colours only for the visible region (always true), with fewer kinds. Spell-check suggestions off. Preview updates on pause rather than every keystroke. A quiet "Large file" chip in the status line. |
-| 5–20 MB | Very large | Live preview paused (tap to render). Diagrams render only when scrolled into view. Line-number gutter is drawn lazily. |
-| > 20 MB | Read-mostly | Opens in a view-and-search mode with a clear message. Editing is still offered, but the user is warned it may be slow. We check free memory **before** loading and never risk an out-of-memory crash. |
+### Text model (pure JVM, in `core/text`)
 
-The thresholds are starting points. The benchmark spike below sets the
-real numbers.
+- The text is a **piece table** (an original buffer, an append buffer and
+  a piece list) with a **line index** kept as a balanced tree of line
+  lengths.
+- An edit costs O(log n) regardless of file size. Finding the offset of
+  line 80,000 costs O(log n). Opening a file never copies its text: the
+  original buffer *is* the decoded file.
+- Undo/redo and the journal record piece-table operations, not snapshots.
+- This module is the heart of the app. It's Android-free, so it is
+  property-tested on the host against a naïve `StringBuilder` reference
+  with millions of random edits.
 
-### Editor (Code pane)
+### Editor view (Code pane): virtualised
 
-- Highlighting is incremental: lines are tokenised individually, results
-  are cached by line content, and colour spans are applied only to the
-  visible region ±1 screen. The span count stays capped however long
-  the file is.
-- The line-number gutter and no-wrap mode are computed from the layout
-  only for visible lines.
-- Undo stores diffs, not snapshots, so memory stays bounded. Undo history
-  survives a switch to Preview and back.
-- All file input/output, hashing and journal writes run off the main
-  thread. StrictMode is on in debug builds, so any slip shows up.
-- The keyboard is told not to request the full text
-  (`flagNoExtractUi`, no extracted text), because some keyboards copy
-  the whole document on every keystroke.
+- A custom `MarkdownCodeView` draws only the visible lines plus about
+  one screen above and below. Each line is laid out on its own and cached
+  by (line content hash, width, font size). Scroll height comes from the
+  line index: fixed line height in No wrap mode; in Wrap mode, measured
+  wrap counts for lines already seen and estimates for the rest, refined
+  as you scroll, with the scroll position anchored so nothing jumps.
+- Syntax highlighting is a per-line tokenizer whose state carries from
+  one line to the next (for code fences and front matter). Results are
+  cached per line, and editing a line re-tokenises forward only until
+  the carried state matches the cached state again.
+- The keyboard connection is a custom `InputConnection` with full
+  composing support. It never hands the keyboard more than a window of
+  text around the cursor, which is safe however big the file. This is
+  the highest-risk component, so it carries the keyboard matrix (Gboard,
+  Samsung, HeliBoard, plus a hardware keyboard) and its own tests.
+- Native selection handles, the magnifier, the text-action toolbar,
+  accessibility (a virtual node tree for visible lines) and drag-scroll
+  are all implemented against the platform APIs.
 
-**Gate — the editor-engine spike (first task of iteration 1).**
-Benchmark the platform `EditText` against a 1 MB, 5 MB and 20 MB corpus
-on a mid-range phone (Pixel 6a class). The corpus includes a single 1 MB
-line and 100k short lines. Measure:
+**Gate — the editor-engine spike (first task of iteration 1).** Build a
+minimal `MarkdownCodeView` on `core/text` and benchmark it against the
+platform `EditText` and Sora Editor on a 1 MB, 20 MB and 100 MB corpus.
+The corpus includes a single 5 MB line and 1M short lines. The
+benchmarks run on a Pixel 6a-class phone and a 3 GB low-end phone, and
+measure:
 - open time,
-- keystroke-to-screen latency,
-- scrolling at 60 fps,
-- memory use.
+- keystroke latency,
+- 60 fps scrolling,
+- peak memory,
+- the keyboard matrix.
 
-If `EditText` misses the targets in rubric criterion 4, the Code pane
-switches to **Sora Editor** (`io.github.Rosemoe.sora-editor`,
-Apache-2.0). It is a virtualised Android code editor built for large
-files. The editor sits behind an `EditorEngine` interface from day one,
-so the swap is local and the rest of the app doesn't change.
+The decision and its numbers are recorded in an ADR
+(`docs/adr/0001-editor-engine.md`).
 
-### Preview (WebView)
+Default expectation: our own view wins, because `EditText` lays out the
+whole document. Note that **Sora Editor is LGPL-2.1**, not Apache. Using
+it in an Apache-2.0 app is possible but brings relinking obligations. It
+is a benchmark baseline, not the plan.
 
-- **No whole-document handover on every keystroke.** Kotlin sends the
-  changed line range over a `WebMessagePort`; it never pushes a 5 MB
-  string through `evaluateJavascript`.
-- **Incremental render.** Blocks are hashed, and only changed blocks are
-  re-parsed and patched in the page.
-- Parsing runs in a Web Worker, so the preview page never freezes.
-- Off-screen blocks use `content-visibility: auto`.
-- Mermaid and KaTeX render only when near the viewport, and results are
-  cached by source hash so they never re-render unchanged.
-- Each diagram has a render timeout. A diagram that fails or times out
-  shows an inline error box with its source; it never blanks the page.
+### Preview (WebView): virtualised too
+
+- The page keeps a **block index** from markdown-it, with each block's
+  source line range and a measured or estimated height.
+- Only blocks within about two screens of the viewport are in the page;
+  spacer elements stand in for the rest. Scrolling mounts and unmounts
+  blocks, and the scroll position is anchored to a block so nothing
+  jumps.
+- Parsing runs in a Web Worker on changed line ranges only. Kotlin sends
+  edits over a `WebMessagePort`, never the whole document.
+- Mermaid and KaTeX render only in mounted blocks. The SVGs are cached
+  by source hash with a byte budget (oldest evicted first). Each diagram
+  has a render timeout: a failing or timed-out diagram shows an inline
+  error box with its source and never blanks the page.
+- Print/PDF is the only path that renders every block, and it shows a
+  progress indicator.
+
+### What still varies with size
+
+With virtualisation in place, editing stays smooth at any size. What
+changes with size is the **memory budget**, managed below. Optional
+extras are dropped before anything essential:
+
+1. Line-level diffs in the history view (a whole-file comparison is
+   still offered).
+2. Live preview while typing (it updates on pause instead).
+3. Spell-check suggestions.
+4. The diagram cache.
+5. Syntax colouring of very long lines: colouring is limited to the
+   first 10k characters of a line, and the rest draws plain.
+
+A file is never refused for being large. It is refused only if it won't
+fit in memory, and we say so before trying.
+
+## Part 2a — The memory governor
+
+Android tells us how much memory we have, so we use that information
+instead of hoping. A small `MemoryGovernor` service owns it.
+
+**Ceilings we read**
+- `Runtime.maxMemory()` — this app's Java heap limit (often 256–512 MB).
+  This is the real ceiling for our text.
+- `ActivityManager.getMemoryInfo()` — available system memory, the
+  `lowMemory` flag and its threshold.
+- `ActivityManager.isLowRamDevice()` and `memoryClass` — on low-RAM
+  devices we start in the conservative budget.
+- `ComponentCallbacks2.onTrimMemory(level)` — the system's own
+  memory-pressure signals.
+- `StorageManager.getAllocatableBytes()` — free disk space, which is
+  needed for the journal, history and saves.
+
+**Admission control before loading**
+- Estimate the cost of opening a file: decoded size × 2 (UTF-16) plus
+  the line index, caches and a safety margin.
+- If that fits within 40% of the free heap, open normally.
+- If it fits within 70%, open in the lean budget (caches capped, live
+  preview off), with a quiet notice.
+- If it doesn't fit, explain: "This 180 MB file needs about 400 MB and
+  this phone allows 256 MB." Offer a read-only streamed view (paged from
+  disk) and nothing worse.
+- Opening a second large file in folder mode counts against the same
+  budget. Dirty buffers are never evicted; clean ones are, and they
+  reload from disk on demand.
+
+**Under pressure**
+- When `onTrimMemory` fires or free heap drops below 15%, we shed in
+  order: the diagram cache, line-layout caches, the tokenizer cache,
+  inactive clean buffers, and the preview's mounted window. A quiet
+  "Low memory — preview paused" notice may appear.
+- Unsaved work isn't touched. It's already journalled, so even if the
+  system kills the process, the recovery path above restores it.
+
+**The WebView runs in a separate process. Its crash must not be ours.**
+- We implement `onRenderProcessGone`. If we don't, the WebView renderer
+  being killed for memory, or by a WebView update, **crashes the app**.
+  Instead we drop that WebView, create a fresh one, re-render around
+  the current anchor, and show "Preview restarted".
+- A renderer that has crashed twice in a minute keeps the preview off
+  until you tap "Retry". The editor keeps working throughout.
+
+**Last resort**
+- `OutOfMemoryError` is caught only at a few known allocation points:
+  file load, export, image decode and ZIP. There we can unwind safely,
+  release the partial allocation and report. It is never swallowed
+  anywhere else.
 
 ## Part 3 — How we prove it
 
@@ -247,7 +332,8 @@ so the swap is local and the rest of the app doesn't change.
 | **Save-fault injection**: a fake provider that fails mid-write, ignores truncation, or revokes permission | The document stays dirty, the backup survives, and the user sees the error and a way out. |
 | **Journal property tests** (JVM, randomised ops) | Replay equals the live buffer; compaction keeps that true; a torn final record is ignored safely. |
 | **Round-trip corpus** | Opening and saving without edits is byte-identical, including CRLF, BOM, no final newline and odd encodings. A Preview edit changes only its own block. |
-| **Large-file benchmarks** (macrobenchmark) | The size targets in the table above, plus no out-of-memory crash on 20 MB with a 256 MB heap. |
+| **Large-file benchmarks** (macrobenchmark, Pixel 6a-class and a 3 GB low-end phone) | Open, type and scroll targets at 1, 20 and 100 MB. Frame cost doesn't grow with file size. |
+| **Memory-pressure tests**: a 128 MB heap emulator, `am send-trim-memory`, killing the WebView renderer (`chrome://crash` / `am kill`), and opening several large files | No out-of-memory crash; admission control refuses cleanly; the preview restarts after a renderer death; no unsaved work lost. |
 | **Clipboard/share at 5 MB** | No `TransactionTooLargeException`; the fallback works. |
 | **Rotation matrix** (instrumented): every view mode × {typing a half-finished word, mid-selection, a Preview paragraph edit, mid table-cell edit, find open, a sheet open, unsaved prompt open} × {rotate, fold/unfold, split-screen resize, dark-mode toggle, font-scale change, "Don't keep activities", `am kill`} | The text, cursor, selection, scroll, undo stack and dirty state are identical before and after. Zero characters lost. Runs on every PR. |
 | **Keyboard matrix** (manual, each release): Gboard, Samsung Keyboard, HeliBoard | Toolbar actions and Preview edits respect the in-progress word; autocorrect never lands text in the wrong place. |

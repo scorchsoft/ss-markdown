@@ -136,9 +136,12 @@ class DeviceEdgeCasesTest {
     fun aCriticalTrimKeepsUnsavedWorkAndTheEditorKeepsWorking() {
         awaitEditor()
         typeIntoActive("Unsaved before the trim\n")
-        instrumentation.uiAutomation
-            .executeShellCommand("am send-trim-memory ${rule.activity.packageName} RUNNING_CRITICAL")
-            .close()
+        // API 34 no longer sends RUNNING_* on its own, so send the strongest level too.
+        listOf("RUNNING_CRITICAL", "COMPLETE").forEach { level ->
+            instrumentation.uiAutomation
+                .executeShellCommand("am send-trim-memory ${rule.activity.packageName} $level")
+                .close()
+        }
         // The shell command returns before the app has handled the signal.
         Thread.sleep(TRIM_SETTLE_MILLIS)
         rule.waitForIdle()

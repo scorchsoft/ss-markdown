@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- LeakCanary reads its settings from these, in the TEST APK's resources
+     (see LeakCheckRunner). The app under test has no LeakCanary activity,
+     so no launcher shortcut to one. -->
+<resources>
+    <bool name="leak_canary_add_dynamic_shortcut">false</bool>
+    <bool name="leak_canary_add_launcher_icon">false</bool>
+</resources>

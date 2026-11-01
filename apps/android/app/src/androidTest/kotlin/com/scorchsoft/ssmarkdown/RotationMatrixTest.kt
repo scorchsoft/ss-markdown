@@ -12,6 +12,7 @@ import com.scorchsoft.ssmarkdown.document.ActiveDocument
 import com.scorchsoft.ssmarkdown.editor.MarkdownCodeView
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.text.EditOp
+import leakcanary.DetectLeaksAfterTestSuccess
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
@@ -39,7 +40,12 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class RotationMatrixTest {
-    @get:Rule val rule = createAndroidComposeRule<MainActivity>()
+    // Outermost, so it checks for leaks after the Activity has been closed.
+    @get:Rule(order = 0)
+    val leaks = DetectLeaksAfterTestSuccess()
+
+    @get:Rule(order = 1)
+    val rule = createAndroidComposeRule<MainActivity>()
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
 

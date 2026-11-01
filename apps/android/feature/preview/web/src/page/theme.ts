@@ -6,6 +6,7 @@
  * colours: dark themes print light (docs/ux-spec.md, "PDF").
  */
 import type { ThemeColours, ThemeSpec } from "../protocol";
+import { cssViolation } from "../core/cssPolicy";
 import { BUILT_IN_THEMES } from "./themes";
 
 const COLOUR_KEYS: readonly (keyof ThemeColours)[] = ["bg", "text", "heading", "link", "codeBg", "muted", "border"];
@@ -29,12 +30,13 @@ export function resolveTheme(spec: ThemeSpec): ThemeSpec {
     };
 }
 
-/** Theme CSS may restyle the page but never load anything. */
+/**
+ * Theme CSS may restyle the page but never load anything. CSS that breaks
+ * the policy is dropped whole rather than patched: a half-applied theme is
+ * confusing, and the CSP would block its loads anyway (core/cssPolicy.ts).
+ */
 export function sanitizeThemeCss(css: string): string {
-    return css
-        .replace(/@import[^;]*;?/gi, "")
-        .replace(/url\s*\([^)]*\)/gi, "none")
-        .replace(/<\/?style/gi, "");
+    return cssViolation(css) === null ? css : "";
 }
 
 export function applyTheme(root: HTMLElement, spec: ThemeSpec, dark: boolean): void {

@@ -24,6 +24,26 @@ const FORBID_TAGS = [
 const SAFE_HREF = /^(?:https?:|mailto:|tel:|#|\/doc\/|[^:]*$)/i;
 const SAFE_SRC = /^(?:\/doc\/|data:image\/(?:gif|png|jpeg|webp);|blob:|[^:]*$)/i;
 
+/**
+ * The only `data-*` attributes a section may carry: the ones the render
+ * worker emits. Document HTML gets its reserved names renamed in the worker
+ * (core/userHtml.ts); anything else, renamed or not, is dropped here, so a
+ * spelling the worker missed still cannot reach the page (SEC-6).
+ */
+const SECTION_DATA_ATTRS = [
+    "data-s",
+    "data-e",
+    "data-rl",
+    "data-rle",
+    "data-edit-rl",
+    "data-mermaid-key",
+    "data-viewer",
+    "data-toc",
+];
+
+/** Positions that let raw HTML leave its block and draw over the page or its controls (SEC-6). */
+const ESCAPING_POSITION = /^(?:fixed|sticky|absolute)$/i;
+
 let hooked = false;
 
 function installHooks(): void {
@@ -37,7 +57,22 @@ function installHooks(): void {
         if (src !== null && !SAFE_SRC.test(src.trim())) node.removeAttribute("src");
         node.removeAttribute("target");
         if (node.tagName === "INPUT" && node.getAttribute("type") !== "checkbox") node.remove();
+        if (node instanceof HTMLElement || node instanceof SVGElement) containStyle(node);
     });
+    DOMPurify.addHook("uponSanitizeAttribute", (_node, data) => {
+        // The worker only ever emits contenteditable="false"; only the page's editor turns it on.
+        if (data.attrName === "contenteditable" && data.attrValue.trim().toLowerCase() !== "false")
+            data.keepAttr = false;
+    });
+}
+
+/** Keeps an inline style inside its block: no fixed, sticky or absolute boxes and no stacking order. */
+function containStyle(node: HTMLElement | SVGElement): void {
+    const style = node.style;
+    if (!node.hasAttribute("style")) return;
+    if (ESCAPING_POSITION.test(style.position)) style.removeProperty("position");
+    style.removeProperty("z-index");
+    if (style.length === 0) node.removeAttribute("style");
 }
 
 /** Sanitises a rendered section into a fragment ready to append. */
@@ -45,10 +80,10 @@ export function sanitizeSection(html: string): DocumentFragment {
     installHooks();
     return DOMPurify.sanitize(html, {
         RETURN_DOM_FRAGMENT: true,
-        ADD_ATTR: ["contenteditable"],
+        ADD_ATTR: ["contenteditable", ...SECTION_DATA_ATTRS],
         FORBID_TAGS,
         FORBID_ATTR: ["srcset", "formaction", "action", "xlink:href"],
-        ALLOW_DATA_ATTR: true,
+        ALLOW_DATA_ATTR: false,
     });
 }
 

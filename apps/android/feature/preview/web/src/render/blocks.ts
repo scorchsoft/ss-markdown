@@ -5,6 +5,7 @@
  */
 import type { Env, MarkdownIt, Token } from "./mdTypes";
 import { contentHash } from "../core/hash";
+import { neutralizeUserHtml } from "../core/userHtml";
 import type { CrMap } from "../core/sourceMap";
 import { highlightCode } from "./highlight";
 import { renderTex } from "./mathPlugin";
@@ -101,20 +102,6 @@ const codeBlock: Rule = (tokens, idx) => {
     if (!token) return "";
     return `<pre class="code-block"${lineAttrs(token)}><code contenteditable="false">${escape(token.content)}</code></pre>\n`;
 };
-
-/**
- * Raw HTML in a document must not be able to forge the page's own attributes:
- * a hand-written `data-s` would point tap-to-edit at the wrong bytes. They are
- * renamed out of the way; DOMPurify still sanitises everything else.
- */
-export function neutralizeUserHtml(html: string): string {
-    return html
-        .replace(
-            /(\s)data-(s|e|rl|rle|line|line-end|offset|edit-rl|mermaid-key|viewer|toc|toc-line|state)(?=[\s=>/])/gi,
-            "$1data-user-$2",
-        )
-        .replace(/(\s)contenteditable(?=[\s=>/])/gi, "$1data-user-contenteditable");
-}
 
 const VOID_TAGS = /^(?:area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr)$/i;
 

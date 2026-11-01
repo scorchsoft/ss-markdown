@@ -54,6 +54,26 @@ internal class StoreContext(
         })
 
     /**
+     * Records [entry]'s buffer in History and waits until it is durable,
+     * again if typing moved it meanwhile, so the version kept is the one
+     * about to be replaced; the caller replaces it in the same step as
+     * this returns. Null when the buffer was still moving after the last
+     * attempt: the newest keystrokes are in no checkpoint, so the caller
+     * must not replace or drop the buffer (R2-DS-5).
+     */
+    suspend fun checkpointSettled(
+        entry: OpenDocument,
+        reason: CheckpointReason,
+    ): CheckpointResult? {
+        repeat(MAX_CHECKPOINT_ATTEMPTS) {
+            val version = entry.document.version
+            val result = history.onCheckpoint(entry.uri, entry.document.snapshot(), reason)
+            if (entry.document.version == version) return result
+        }
+        return null
+    }
+
+    /**
      * The base copy's text, if the copy holds exactly [base]'s bytes and
      * they are valid UTF-8. Blocking.
      */
@@ -71,6 +91,9 @@ internal class StoreContext(
         return (decoded as? DecodeResult.Decoded)?.let(TextDocument::from)
     }
 }
+
+/** Continuous typing could move the buffer forever; after this many checkpoints the step is asked again. */
+private const val MAX_CHECKPOINT_ATTEMPTS = 3
 
 /**
  * Edits [document] into [target] with one replace over the span that

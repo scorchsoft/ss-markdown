@@ -126,7 +126,10 @@ class DocumentStoreTest {
             assertTrue(after.store.save(uri) is SaveOutcome.Conflict)
             assertEquals("# Note\n\nfirst line\ntheirs\n", provider.text(uri))
 
-            assertEquals(ResolveOutcome.Resolved, after.store.useText(uri, merged, doc.document.version))
+            assertEquals(
+                ResolveOutcome.Resolved(CheckpointResult.Recorded),
+                after.store.useText(uri, merged, doc.document.version),
+            )
             assertTrue(after.store.save(uri) is SaveOutcome.Saved)
             assertEquals(merged, provider.text(uri))
         }
@@ -163,7 +166,7 @@ class DocumentStoreTest {
             assertEquals(OutsideChange.Conflicted, fixture.store.checkOutside(uri, CheckReason.Periodic))
             assertEquals("mine # Note\n\nfirst line\n", doc.document.text.toString())
 
-            assertEquals(ResolveOutcome.Resolved, fixture.store.keepTheirs(uri))
+            assertEquals(ResolveOutcome.Resolved(CheckpointResult.Recorded), fixture.store.keepTheirs(uri))
             assertEquals("theirs\n", doc.document.text.toString())
             assertFalse(doc.isDirty)
             assertTrue(fixture.history.entries.any { it == "checkpoint-KeptTheirs:mine # Note\n\nfirst line\n" })
@@ -285,7 +288,7 @@ class DocumentStoreTest {
             after.store.scanForRecovery()
             val doc = after.store.opened()
 
-            assertEquals(ResolveOutcome.Resolved, after.store.discardEdits(uri))
+            assertEquals(ResolveOutcome.Resolved(CheckpointResult.Recorded), after.store.discardEdits(uri))
             assertEquals("# Note\n\nfirst line\n", doc.document.text.toString())
             assertFalse(doc.isDirty)
             assertTrue(after.history.entries.contains("checkpoint-DiscardedEdits:oops # Note\n\nfirst line\n"))

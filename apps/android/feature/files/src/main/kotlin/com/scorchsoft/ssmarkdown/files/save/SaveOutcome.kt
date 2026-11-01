@@ -83,6 +83,14 @@ sealed interface SaveOutcome {
     data object ReadOnly : SaveOutcome
 
     /**
+     * Save as picked a file that is already open here, with unsaved edits
+     * or in a window. Nothing was written: overwriting it would orphan
+     * that document's edits (R2-DS-4). Save or close it first, or pick
+     * another name.
+     */
+    data object TargetOpen : SaveOutcome
+
+    /**
      * The backup of the last-saved bytes could not be written to app
      * storage, so nothing was overwritten.
      *

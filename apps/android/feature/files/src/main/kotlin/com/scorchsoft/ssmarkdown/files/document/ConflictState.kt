@@ -30,8 +30,27 @@ class ConflictState(
 
 /** How a conflict resolution went. */
 sealed interface ResolveOutcome {
-    /** Done; the document now reflects the choice. */
-    data object Resolved : ResolveOutcome
+    /**
+     * Done; the document now reflects the choice.
+     *
+     * @property checkpoint whether History holds the version that was replaced. The only
+     *   truth the UI may tell about it: word "kept in History" from this, never from the setting.
+     */
+    data class Resolved(
+        val checkpoint: CheckpointResult,
+    ) : ResolveOutcome
+
+    /**
+     * History could not keep a copy of the version this choice would
+     * replace ([CheckpointResult.Off] or [CheckpointResult.Failed]), so
+     * nothing changed: the buffer, the journal and any conflict are as
+     * they were (R2-DS-1). Ask the user, then retry with `evenIfNotKept`.
+     *
+     * @property checkpoint what History answered.
+     */
+    data class NotKept(
+        val checkpoint: CheckpointResult,
+    ) : ResolveOutcome
 
     /** The file changed again in the meantime; the conflict now holds the newer version. */
     data object ChangedAgain : ResolveOutcome
@@ -41,7 +60,9 @@ sealed interface ResolveOutcome {
 
     /**
      * The buffer was edited after the user chose, so the chosen text no
-     * longer contains every edit; nothing changed. Review again (DS-7).
+     * longer contains every edit, or typing never stopped long enough for
+     * History to hold the version being replaced; nothing changed. Review
+     * again (DS-7, R2-DS-5).
      */
     data object BufferChanged : ResolveOutcome
 

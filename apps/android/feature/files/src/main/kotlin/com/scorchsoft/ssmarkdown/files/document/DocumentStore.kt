@@ -68,6 +68,7 @@ class DocumentStore(
     private val changes = OutsideChanges(context)
     private val saves = SaveCoordinator(context, changes)
     private val openLock = Mutex()
+    private val copies = RecoveryCopies(context, ::open, ::save)
 
     /** Every open document, in opening order. */
     val openDocuments: List<OpenDocument> get() = context.entries.values.toList()
@@ -122,13 +123,20 @@ class DocumentStore(
         return entry.lock.withLock { withContext(NonCancellable) { saves.save(entry) } }
     }
 
-    /** Save as: writes [uri]'s buffer to [target] and moves the entry there. */
+    /**
+     * Save as: writes [uri]'s buffer to [target] and moves the entry there.
+     * [SaveOutcome.TargetOpen] if [target] is open here with anything to
+     * lose (R2-DS-4). Holds the open lock throughout, so the target cannot
+     * be opened while it is being written.
+     */
     suspend fun saveAs(
         uri: DocumentUri,
         target: DocumentUri,
     ): SaveOutcome {
         val entry = context.entries[uri] ?: return SaveOutcome.Missing(FileIntegrity.Untouched)
-        return entry.lock.withLock { withContext(NonCancellable) { saves.saveAs(entry, target) } }
+        return openLock.withLock {
+            entry.lock.withLock { withContext(NonCancellable) { saves.saveAs(entry, target) } }
+        }
     }
 
     /** Looks for an outside change now: on resume, on a timer, on a `ContentObserver` ping. */
@@ -140,20 +148,31 @@ class DocumentStore(
         return entry.lock.withLock { changes.check(entry, reason) }
     }
 
-    /** "Keep the file as it is". */
-    suspend fun keepTheirs(uri: DocumentUri): ResolveOutcome = resolving(uri) { changes.keepTheirs(it) }
+    /**
+     * "Keep the file as it is". Mine goes to History first; if History
+     * could not keep it the answer is [ResolveOutcome.NotKept] and nothing
+     * changes, unless [evenIfNotKept] (the user accepted losing mine).
+     */
+    suspend fun keepTheirs(
+        uri: DocumentUri,
+        evenIfNotKept: Boolean = false,
+    ): ResolveOutcome = resolving(uri) { changes.keepTheirs(it, evenIfNotKept) }
 
     /**
      * "Merge my edits" with a merge the user settled by hand: [text] was
      * made from the buffer at [madeFromVersion]. If the buffer moved since
      * (typing while the disk was re-read), nothing is applied and the
      * answer is [ResolveOutcome.BufferChanged]: review again (DS-7).
+     * A hand-settled merge may drop lines of mine, so it is refused
+     * ([ResolveOutcome.NotKept]) when History could not keep the buffer,
+     * unless [evenIfNotKept].
      */
     suspend fun useText(
         uri: DocumentUri,
         text: String,
         madeFromVersion: Long,
-    ): ResolveOutcome = resolving(uri) { changes.useText(it, madeFromVersion) { text } }
+        evenIfNotKept: Boolean = false,
+    ): ResolveOutcome = resolving(uri) { changes.useText(it, madeFromVersion, requireKept = !evenIfNotKept) { text } }
 
     /**
      * "Merge my edits" with no overlaps: merged from the buffer as it is
@@ -162,19 +181,27 @@ class DocumentStore(
      */
     suspend fun useCleanMerge(uri: DocumentUri): ResolveOutcome =
         resolving(uri) { entry ->
-            changes.useText(entry, madeFromVersion = null) { conflict ->
+            // A clean merge keeps every change of mine, so it does not depend on History.
+            changes.useText(entry, madeFromVersion = null, requireKept = false) { conflict ->
                 conflict.merge(entry.document.snapshot())?.cleanText()
             }
         }
 
     /** "Use my version…": the buffer as it is when the resolution applies, every keystroke included. */
     suspend fun useMine(uri: DocumentUri): ResolveOutcome =
-        resolving(
-            uri,
-        ) { entry -> changes.useText(entry, madeFromVersion = null) { entry.document.snapshot().toString() } }
+        resolving(uri) { entry ->
+            changes.useText(entry, madeFromVersion = null, requireKept = false) { entry.document.snapshot().toString() }
+        }
 
-    /** "Discard edits" on the recovery banner: History keeps them, the file comes back clean. */
-    suspend fun discardEdits(uri: DocumentUri): ResolveOutcome = resolving(uri) { changes.discard(it) }
+    /**
+     * "Discard edits" on the recovery banner: History keeps them, the file
+     * comes back clean. [ResolveOutcome.NotKept], with nothing changed,
+     * when History could not keep them, unless [evenIfNotKept] (R2-DS-1).
+     */
+    suspend fun discardEdits(
+        uri: DocumentUri,
+        evenIfNotKept: Boolean = false,
+    ): ResolveOutcome = resolving(uri) { changes.discard(it, evenIfNotKept) }
 
     /** Syncs every journal: `onPause` / `onStop`. Queues the work; see [awaitJournals]. */
     fun flushJournals() = context.entries.values.forEach(OpenDocument::flushJournal)
@@ -196,22 +223,70 @@ class DocumentStore(
     }
 
     /**
+     * Edits that cannot reach their file, rebuilt into [draft] (a new,
+     * empty draft the caller made) and saved there; then [uri]'s journal
+     * is set aside, never deleted (R2-DS-2, R2-DS-3). For a document whose
+     * open failed with [OpenOutcome.Failed.hasUnsavedEdits] after a
+     * restart, or one open with [Recovery.Kept] edits. The draft joins the
+     * store like any opened document.
+     */
+    suspend fun recoverAsCopy(
+        uri: DocumentUri,
+        draft: DocumentUri,
+    ): CopyOutcome = copies.copy(uri, draft)
+
+    /** Edits set aside into quarantine, newest first: the Storage screen's list (R2-DS-3). */
+    suspend fun setAsideEdits(): List<SetAsideEdits> = copies.setAsideEdits()
+
+    /** [edits]' text, rebuilt into [draft]; the set-aside journal stays where it is. */
+    suspend fun recoverSetAsideAsCopy(
+        edits: SetAsideEdits,
+        draft: DocumentUri,
+    ): CopyOutcome = copies.copySetAside(edits, draft)
+
+    /**
      * A window lets go of [uri]. The entry stays while another window
      * shows it, and a dirty entry stays regardless unless [discardUnsaved]
      * (the "Don't save" answer, which records a History checkpoint first).
+     *
+     * "Don't save" deletes the journal only once History holds the text;
+     * if it could not ([CheckpointResult.Off] or [CheckpointResult.Failed])
+     * the answer is [CloseOutcome.NotKept], the entry stays open in its
+     * window and nothing is deleted, unless [evenIfNotKept] (R2-DS-1).
+     * Runs under the entry's lock, after any save or check in progress, so
+     * a save that lands afterwards can never start a journal for a
+     * document the user chose not to keep (R2-DS-6).
      */
-    @Suppress("ReturnCount") // Not open, still shown and kept-unsaved are the three reasons not to close.
     suspend fun close(
         uri: DocumentUri,
         discardUnsaved: Boolean = false,
+        evenIfNotKept: Boolean = false,
     ): CloseOutcome {
         val entry = context.entries[uri] ?: return CloseOutcome.NotOpen
+        return entry.lock.withLock { closeLocked(entry, discardUnsaved, evenIfNotKept) }
+    }
+
+    @Suppress("ReturnCount") // Moved, still shown, kept unsaved, still moving and not kept: five reasons to stay.
+    private suspend fun closeLocked(
+        entry: OpenDocument,
+        discardUnsaved: Boolean,
+        evenIfNotKept: Boolean,
+    ): CloseOutcome {
+        val uri = entry.uri
+        if (context.entries[uri] !== entry) return CloseOutcome.NotOpen // Closed or moved while we waited.
         entry.windows = (entry.windows - 1).coerceAtLeast(0)
         if (entry.windows > 0) return CloseOutcome.StillShown
         if (entry.isDirty && !discardUnsaved) return CloseOutcome.KeptUnsaved
         if (entry.isDirty) {
-            // Durable before the journal goes: it may be the only other copy (DS-12).
-            context.history.onCheckpoint(uri, entry.document.snapshot(), CheckpointReason.ClosedWithoutSaving)
+            // Durable before the journal goes: it may be the only other copy (DS-12). Typing that never
+            // stops is in no checkpoint, so the entry stays in memory, journalled (R2-DS-5).
+            val kept =
+                context.checkpointSettled(entry, CheckpointReason.ClosedWithoutSaving)
+                    ?: return CloseOutcome.KeptUnsaved
+            if (kept != CheckpointResult.Recorded && !evenIfNotKept) {
+                entry.windows++ // Still on screen: the user is asked, not left.
+                return CloseOutcome.NotKept(kept)
+            }
         }
         context.entries.remove(uri)
         // A held journal (edits an earlier session could not apply) is never ours to end: close keeps it.
@@ -223,12 +298,21 @@ class DocumentStore(
     /**
      * The memory governor's "inactive clean buffers" step: drops clean
      * entries no window shows; they reload from disk on demand. Dirty
-     * buffers are never evicted. Returns how many went.
+     * buffers are never evicted, and neither is an entry a save or check
+     * is working on (its lock is held), whose base copy that step may be
+     * about to commit (R2-DS-6). Returns how many went.
      */
     suspend fun evictInactiveClean(): Int {
-        val idle = context.entries.values.filter { it.windows == 0 && !it.isDirty && it.conflict == null }
-        idle.forEach { context.entries.remove(it.uri) }
-        withContext(context.io) { idle.forEach { context.baseCopies.delete(it.uri) } }
+        val idle =
+            context.entries.values.filter {
+                it.windows == 0 && !it.isDirty && it.conflict == null && it.lock.tryLock()
+            }
+        try {
+            idle.forEach { context.entries.remove(it.uri) }
+            withContext(context.io) { idle.forEach { context.baseCopies.delete(it.uri) } }
+        } finally {
+            idle.forEach { it.lock.unlock() }
+        }
         return idle.size
     }
 
@@ -257,16 +341,27 @@ data class RecoveryScan(
 )
 
 /** What [DocumentStore.close] did. */
-enum class CloseOutcome {
+sealed interface CloseOutcome {
     /** Gone from memory; the journal and base copy are retired. */
-    Closed,
+    data object Closed : CloseOutcome
 
     /** Another window still shows it. */
-    StillShown,
+    data object StillShown : CloseOutcome
 
     /** It has unsaved edits, so it stays in memory, journalled. Ask Save / Don't save / Keep editing. */
-    KeptUnsaved,
+    data object KeptUnsaved : CloseOutcome
+
+    /**
+     * "Don't save", but History could not keep a copy, so nothing was
+     * closed or deleted: the document is still open, dirty and
+     * journalled. Ask "Discard anyway?" (R2-DS-1).
+     *
+     * @property checkpoint what History answered: [CheckpointResult.Off] or [CheckpointResult.Failed].
+     */
+    data class NotKept(
+        val checkpoint: CheckpointResult,
+    ) : CloseOutcome
 
     /** It was not open. */
-    NotOpen,
+    data object NotOpen : CloseOutcome
 }

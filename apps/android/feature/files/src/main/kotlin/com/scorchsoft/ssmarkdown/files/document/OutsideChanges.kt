@@ -86,13 +86,21 @@ internal class OutsideChanges(
         return OutsideChange.Reloaded
     }
 
-    /** "Keep the file as it is": mine goes to History, the disk version becomes the clean buffer. */
-    suspend fun keepTheirs(entry: OpenDocument): ResolveOutcome =
+    /**
+     * "Keep the file as it is": mine goes to History, the disk version
+     * becomes the clean buffer. Refused ([ResolveOutcome.NotKept]) when
+     * History could not keep mine, unless [evenIfNotKept] (R2-DS-1).
+     */
+    suspend fun keepTheirs(
+        entry: OpenDocument,
+        evenIfNotKept: Boolean,
+        reason: CheckpointReason = CheckpointReason.KeptTheirs,
+    ): ResolveOutcome =
         resolve(entry) { loaded, _ ->
-            checkpointSettled(entry, CheckpointReason.KeptTheirs)
+            val kept = keptOrStop(entry, reason, evenIfNotKept) { return@resolve it }
             entry.journal.endClean()
             swapIn(entry, loaded, dirty = false)
-            ResolveOutcome.Resolved
+            ResolveOutcome.Resolved(kept)
         }
 
     /**
@@ -105,15 +113,18 @@ internal class OutsideChanges(
      * taken in the same step as the swap, after the last suspension, so
      * nothing typed after the tap is lost (DS-7). [madeFromVersion], when
      * given, is the buffer version [textOf]'s text was made from; if the
-     * buffer moved since, nothing is applied.
+     * buffer moved since, nothing is applied. [requireKept] refuses when
+     * History could not keep the buffer: a merge settled by hand may drop
+     * lines of mine, while "Use my version" and a clean merge keep them all.
      */
     suspend fun useText(
         entry: OpenDocument,
         madeFromVersion: Long?,
+        requireKept: Boolean,
         textOf: (ConflictState) -> String?,
     ): ResolveOutcome =
         resolve(entry) { loaded, conflict ->
-            checkpointSettled(entry, CheckpointReason.BeforeMerge)
+            val kept = keptOrStop(entry, CheckpointReason.BeforeMerge, !requireKept) { return@resolve it }
             val moved = madeFromVersion != null && entry.document.version != madeFromVersion
             val text = if (moved) null else textOf(conflict)
             if (text == null) return@resolve ResolveOutcome.BufferChanged
@@ -121,46 +132,53 @@ internal class OutsideChanges(
             loaded.document.replaceAllWith(text)
             swapIn(entry, loaded, dirty = true)
             entry.journal.resume(loaded.fingerprint, entry.document.snapshot())
-            ResolveOutcome.Resolved
+            ResolveOutcome.Resolved(kept)
         }
 
-    /** "Discard edits" on recovered work: checkpoint, then the disk version, clean. */
-    @Suppress("ReturnCount") // Conflict, unreadable disk and success each end differently.
-    suspend fun discard(entry: OpenDocument): ResolveOutcome {
-        if (entry.conflict != null) return keepTheirsAfterDiscard(entry)
+    /**
+     * "Discard edits" on recovered work: checkpoint, then the disk
+     * version, clean. Refused when History could not keep the edits,
+     * unless [evenIfNotKept] (R2-DS-1).
+     */
+    @Suppress("ReturnCount") // Conflict, unreadable disk, not kept and success each end differently.
+    suspend fun discard(
+        entry: OpenDocument,
+        evenIfNotKept: Boolean,
+    ): ResolveOutcome {
+        if (entry.conflict != null) return keepTheirs(entry, evenIfNotKept, CheckpointReason.DiscardedEdits)
         val staged = context.baseCopies.stage(entry.uri)
         val loaded = withContext(context.io) { context.loader.load(entry.uri, staged) }
         if (loaded !is LoadResult.Loaded) {
             staged.abandon()
             return ResolveOutcome.Unavailable(unavailable(loaded))
         }
-        checkpointSettled(entry, CheckpointReason.DiscardedEdits)
+        val kept =
+            keptOrStop(entry, CheckpointReason.DiscardedEdits, evenIfNotKept) {
+                staged.abandon()
+                return it
+            }
         entry.journal.endClean()
         swapIn(entry, loaded, dirty = false)
         withContext(NonCancellable + context.io) { staged.commit() }
-        return ResolveOutcome.Resolved
-    }
-
-    private suspend fun keepTheirsAfterDiscard(entry: OpenDocument): ResolveOutcome {
-        context.history.onCheckpoint(entry.uri, entry.document.snapshot(), CheckpointReason.DiscardedEdits)
-        return keepTheirs(entry)
+        return ResolveOutcome.Resolved(kept)
     }
 
     /**
-     * Records the buffer in History and waits until it is durable, again if
-     * typing moved it meanwhile, so the version kept is the one about to be
-     * replaced. The caller replaces it in the same step as this returns.
+     * Checkpoints the buffer until it holds still (see [StoreContext.checkpointSettled])
+     * and returns History's answer, or hands [stop] the outcome that ends
+     * the step: [ResolveOutcome.BufferChanged] when typing never stopped,
+     * [ResolveOutcome.NotKept] when History kept nothing and the caller
+     * did not accept that.
      */
-    private suspend fun checkpointSettled(
+    private suspend inline fun keptOrStop(
         entry: OpenDocument,
         reason: CheckpointReason,
+        evenIfNotKept: Boolean,
+        stop: (ResolveOutcome) -> Nothing,
     ): CheckpointResult {
-        var attempts = 0
-        while (true) {
-            val version = entry.document.version
-            val result = context.history.onCheckpoint(entry.uri, entry.document.snapshot(), reason)
-            if (entry.document.version == version || ++attempts >= MAX_CHECKPOINT_ATTEMPTS) return result
-        }
+        val kept = context.checkpointSettled(entry, reason) ?: stop(ResolveOutcome.BufferChanged)
+        if (kept != CheckpointResult.Recorded && !evenIfNotKept) stop(ResolveOutcome.NotKept(kept))
+        return kept
     }
 
     /**
@@ -188,7 +206,7 @@ internal class OutsideChanges(
             return ResolveOutcome.ChangedAgain
         }
         val outcome = apply(loaded, conflict)
-        if (outcome != ResolveOutcome.Resolved) {
+        if (outcome !is ResolveOutcome.Resolved) {
             staged.abandon()
             return outcome
         }
@@ -224,9 +242,4 @@ internal class OutsideChanges(
                 OutsideChange.Unavailable(ProviderResult.Failed(IllegalStateException("cannot load: $result")))
             }
         }
-
-    private companion object {
-        /** Continuous typing could move the buffer forever; after this many tries the newest checkpoint stands. */
-        const val MAX_CHECKPOINT_ATTEMPTS = 3
-    }
 }

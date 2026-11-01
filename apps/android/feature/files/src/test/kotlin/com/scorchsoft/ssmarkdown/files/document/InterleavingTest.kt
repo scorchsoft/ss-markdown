@@ -206,7 +206,7 @@ class InterleavingTest {
             assertNotNull(doc.conflict)
             typeAt { (world.store[world.uri] ?: doc).type("TYPED AFTER TAP") }
 
-            assertEquals(ResolveOutcome.Resolved, world.store.useMine(world.uri))
+            assertEquals(ResolveOutcome.Resolved(CheckpointResult.Recorded), world.store.useMine(world.uri))
 
             val current = world.store[world.uri] ?: error("closed")
             val expected = if (world.typed) "mine TYPED AFTER TAP" else "mine "
@@ -231,7 +231,7 @@ class InterleavingTest {
             assertNotNull(doc.conflict)
             assertTrue(doc.live().startsWith("mine late "))
 
-            assertEquals(ResolveOutcome.Resolved, world.store.useCleanMerge(world.uri))
+            assertEquals(ResolveOutcome.Resolved(CheckpointResult.Recorded), world.store.useCleanMerge(world.uri))
             val current = world.store[world.uri] ?: error("closed")
             assertTrue(current.live(), current.live().startsWith("mine late alpha"))
             assertTrue(current.live(), current.live().contains("theirs"))

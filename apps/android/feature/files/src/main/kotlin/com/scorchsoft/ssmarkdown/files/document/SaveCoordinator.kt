@@ -31,11 +31,19 @@ internal class SaveCoordinator(
      *
      * A failure is about the target, never the source: it is reported,
      * but the source is not marked missing or in conflict because of it.
+     *
+     * A target that is already open here is never overwritten while it
+     * has unsaved edits, a conflict, held edits or a window
+     * ([SaveOutcome.TargetOpen], R2-DS-4); a clean one nobody shows is
+     * simply replaced. The caller holds the store's open lock, so no
+     * window can open the target while the write runs.
      */
     suspend fun saveAs(
         entry: OpenDocument,
         target: DocumentUri,
     ): SaveOutcome {
+        val occupant = context.entries[target]?.takeIf { it !== entry }
+        if (occupant != null && !occupant.replaceable) return finish(entry, SaveOutcome.TargetOpen, aboutSource = false)
         val picked =
             when (val current = withContext(context.io) { targetOf(target) }) {
                 is ProviderResult.Ok -> current.value
@@ -71,6 +79,8 @@ internal class SaveCoordinator(
         if (entry.isDirty) fresh.resume(saved, entry.document.snapshot(), replacing = null)
         old.endClean()
         context.entries.remove(from)
+        // Checked before the write: clean, no window, nothing held. It reloads from disk if opened again.
+        context.entries[target]?.takeIf { it !== entry }?.let { context.entries.remove(target) }
         entry.uri = target
         // A draft's own name is its file id: never show it once the text has a real home.
         entry.displayName = targetName
@@ -79,6 +89,10 @@ internal class SaveCoordinator(
         entry.conflict = null
         context.entries[target] = entry
     }
+
+    /** An entry Save as may replace: nothing in it exists anywhere else, and no window shows it. */
+    private val OpenDocument.replaceable: Boolean
+        get() = windows == 0 && !isDirty && conflict == null && !holdsUnappliedEdits
 
     @Suppress("ReturnCount") // A precedence list: conflict, then read-only, then nothing to do.
     private fun blockedOutcome(entry: OpenDocument): SaveOutcome? {

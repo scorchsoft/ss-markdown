@@ -27,8 +27,8 @@ import com.scorchsoft.ssmarkdown.text.Snapshot
  * ### Never silently dropped
  * If the journal cannot run (the disk refused, a record was too large),
  * the link turns unhealthy, tells the owner through [onHealthChanged],
- * and starts again from a full snapshot of the text at the next edit, at
- * most once per [retryMillis]. It never returns quietly with an edit
+ * and starts again from a full snapshot of the text at the next edit or
+ * [flush], at most once per [retryMillis]. It never returns quietly with an edit
  * unjournalled.
  *
  * ### A journal that is not ours
@@ -147,9 +147,16 @@ internal class JournalLink(
         replacing: BaseFingerprint? = journalBase,
     ) = begin(base, text, replacing)
 
-    /** Makes everything durable now: on pause and before any risky step. */
-    fun flush() {
+    /**
+     * Makes everything durable now: on pause and before any risky step.
+     * A run that broke is started again here from [current], the text as
+     * it is now, once [retryMillis] have passed, so edits typed and then
+     * left alone are journalled when the disk recovers, not only at the
+     * next keystroke (R2-DS-8).
+     */
+    fun flush(current: (() -> Snapshot)? = null) {
         if (!isRunning) return
+        if (current != null && broken && clock() - lastRetryAt >= retryMillis) resync(current())
         executor.execute { guarded { flushNow() } }
     }
 

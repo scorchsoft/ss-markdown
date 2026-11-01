@@ -139,7 +139,7 @@ class OpenDocument internal constructor(
     fun onEditsApplied() = notify(DocumentEvent.Edited(uri))
 
     /** Makes journalled edits durable now: on pause, before a view switch or opening another file. */
-    fun flushJournal() = journal.flush()
+    fun flushJournal() = journal.flush { document.snapshot() }
 
     internal fun markClean(
         fingerprint: BaseFingerprint,

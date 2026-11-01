@@ -1,0 +1,5 @@
+# The bundled font binaries are produced by apps/android/tools/fetch-fonts.sh.
+# The licence-correct set is about 4 MB, over the 3 MB budget agreed for
+# committing them, so they stay out of git until that is decided. The
+# manifest, licences and catalogue ARE committed.
+/src/main/assets/fonts/bundled/*.ttf

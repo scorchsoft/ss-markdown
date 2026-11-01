@@ -51,3 +51,6 @@ include(
 // depend on (checkModuleGraph). Never shipped. The editor-engine benchmark
 // carries Sora Editor (LGPL-2.1) as a baseline, which is why it lives here.
 include(":tools:editor-bench")
+
+// Fonts: bundled registry, Google Fonts catalogue and downloader, import.
+include(":feature:fonts")

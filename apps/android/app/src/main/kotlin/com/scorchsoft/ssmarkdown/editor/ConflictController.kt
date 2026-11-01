@@ -118,7 +118,21 @@ class ConflictController(
         val text = state.mergedText(result)
         mergeState.value = null
         pendingMerge = null
-        resolve { uri -> host.deps.store.useText(uri, text, state.madeFromVersion) }
+        // Its note said the originals are not kept when History was off: the user has accepted that.
+        applyMerge(text, state.madeFromVersion, evenIfNotKept = !state.historyOn)
+    }
+
+    /**
+     * Applies a hand-settled merge. If History could not keep the buffer
+     * it would replace, nothing is applied and the user is asked first,
+     * unless [evenIfNotKept] (R2-DS-1).
+     */
+    fun applyMerge(
+        text: String,
+        madeFromVersion: Long,
+        evenIfNotKept: Boolean,
+    ) = resolve(NotKeptStep.FinishMerge(text, madeFromVersion)) { uri ->
+        host.deps.store.useText(uri, text, madeFromVersion, evenIfNotKept)
     }
 
     /** "Compare side by side" (one scrolling diff on a phone). */
@@ -147,8 +161,13 @@ class ConflictController(
     /** The Compare screen's Changes / File's version / My version toggle. */
     fun setCompareView(view: CompareView) = compareState.update { it?.copy(view = view) }
 
-    /** "Keep the file's version": your edits stay in History. */
-    fun keepTheirs() = resolve { uri -> host.deps.store.keepTheirs(uri) }
+    /**
+     * "Keep the file's version": your edits stay in History. If History
+     * could not keep them, nothing changes and the user is asked first
+     * (R2-DS-1); the sheet already said so when History was off.
+     */
+    fun keepTheirs(evenIfNotKept: Boolean = !host.state.historyOn) =
+        resolve(NotKeptStep.KeepTheirs) { uri -> host.deps.store.keepTheirs(uri, evenIfNotKept) }
 
     /**
      * "Use my version…", after its confirmation: the buffer as it is when
@@ -159,12 +178,20 @@ class ConflictController(
 
     private fun historyOn(): Boolean = host.deps.settings.settings.value.history.recording
 
-    private fun resolve(block: suspend (com.scorchsoft.ssmarkdown.files.provider.DocumentUri) -> ResolveOutcome) {
+    private fun resolve(
+        step: NotKeptStep? = null,
+        block: suspend (com.scorchsoft.ssmarkdown.files.provider.DocumentUri) -> ResolveOutcome,
+    ) {
         val open = host.active?.open ?: return
         host.update { it.copy(overlay = null) }
         host.deps.scope.launch {
-            when (block(open.uri)) {
-                ResolveOutcome.Resolved, ResolveOutcome.NoConflict -> {
+            when (val outcome = block(open.uri)) {
+                is ResolveOutcome.NotKept -> {
+                    // Nothing changed; ask before dropping edits History could not keep (R2-DS-1).
+                    step?.let { s -> host.update { it.copy(overlay = EditorOverlay.NotKept(s, outcome.checkpoint)) } }
+                }
+
+                is ResolveOutcome.Resolved, ResolveOutcome.NoConflict -> {
                     host.deps.autosave.resume(open.uri)
                     host.update { if (it.banner == EditorBanner.ChangedOutside) it.copy(banner = null) else it }
                     host.rebind()

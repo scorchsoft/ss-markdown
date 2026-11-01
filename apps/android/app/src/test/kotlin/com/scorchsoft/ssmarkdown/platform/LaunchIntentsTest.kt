@@ -65,4 +65,18 @@ class LaunchIntentsTest {
             )
         assertTrue(send is IncomingRequest.Unsupported)
     }
+
+    @Test
+    fun `R2-DS-2 an Open with grant the sender made persistable is kept, a ticket's never`() {
+        val view = IntentFields(action = "android.intent.action.VIEW", data = "content://p/doc.md", type = null)
+        val persistable = view.copy(grantsWrite = true, grantsPersistable = true)
+
+        val kept = LaunchIntents.grantToPersist(persistable, request(persistable))
+
+        assertEquals("content://p/doc.md", kept?.uri)
+        assertTrue(kept?.writable == true)
+        assertNull("a temporary grant cannot be kept", LaunchIntents.grantToPersist(view, request(view)))
+        val ticket = request(main, tokens.issue("content://tree/doc"))
+        assertNull(LaunchIntents.grantToPersist(main.copy(grantsPersistable = true), ticket))
+    }
 }

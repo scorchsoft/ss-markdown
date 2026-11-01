@@ -250,5 +250,9 @@ private fun onScreenEvent(
         is ScreenEvent.Open -> {
             graph.screens.push(event.screen)
         }
+
+        ScreenEvent.ToEditor -> {
+            graph.screens.popToEditor()
+        }
     }
 }

@@ -2,8 +2,12 @@ package com.scorchsoft.ssmarkdown.editor
 
 import com.scorchsoft.ssmarkdown.conflict.CompareOrigin
 import com.scorchsoft.ssmarkdown.conflict.CompareUiState
+import com.scorchsoft.ssmarkdown.files.document.CheckpointResult
+import com.scorchsoft.ssmarkdown.files.document.CopyOutcome
 import com.scorchsoft.ssmarkdown.files.document.Recovery
 import com.scorchsoft.ssmarkdown.files.document.ResolveOutcome
+import com.scorchsoft.ssmarkdown.files.document.SetAsideEdits
+import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.text.EditOp
 import kotlinx.coroutines.launch
@@ -14,6 +18,7 @@ import kotlinx.coroutines.withContext
  * zero taps to see "Your unsaved edits are back", then Got it, Compare,
  * or Discard edits with an Undo.
  */
+@Suppress("TooManyFunctions") // The banner's actions plus the three ways a copy is made: one small function each.
 class RecoveryController(
     private val host: EditorHost,
 ) {
@@ -85,28 +90,109 @@ class RecoveryController(
     }
 
     /**
-     * "Discard edits": History keeps a checkpoint (when History is on; the
-     * message says so only then, DS-9), the file comes back clean, and
-     * Undo is offered.
+     * "Open as a copy" for edits an earlier session could not apply
+     * (R2-DS-3): rebuilt into a new draft, shown with its banner; the
+     * file on screen before stays as it is on disk.
      */
-    fun discard() {
-        val doc = host.active ?: return
-        val kept = doc.text.snapshot()
-        host.update { it.copy(banner = null) }
+    fun openKeptAsCopy() {
+        val open = host.active?.open ?: return
+        val name = open.displayName
         deps.scope.launch {
-            if (deps.store.discardEdits(doc.open.uri) == ResolveOutcome.Resolved) {
-                discarded = withContext(deps.compute) { kept.toString() }
-                host.rebind()
-                val historyOn = deps.settings.settings.value.history.recording
-                host.message(
-                    if (historyOn) MessageKind.EditsDiscarded else MessageKind.EditsDiscardedNoHistory,
-                    undo = true,
+            val shown = copy(CopyReason.NotApplied, name) { draft -> deps.store.recoverAsCopy(open.uri, draft) }
+            if (!shown) host.message(MessageKind.ActionFailed)
+        }
+    }
+
+    /**
+     * Edits to [uri] whose file cannot be reached after a restart (grant
+     * gone, moved, deleted, provider gone): rebuilt into a new draft and
+     * shown as "Recovered from <name>" (R2-DS-2). False if nothing could be
+     * read; the journal then stays where it is.
+     */
+    suspend fun openUnreachableAsCopy(uri: DocumentUri): Boolean {
+        val name =
+            deps.settings.settings.value.recentFiles
+                .firstOrNull { it.uri == uri.value }
+                ?.name
+        return copy(CopyReason.Unreachable, name) { draft -> deps.store.recoverAsCopy(uri, draft) }
+    }
+
+    /** Storage → Set-aside edits → "Open as a copy" (R2-DS-3). */
+    fun openSetAsideAsCopy(edits: SetAsideEdits) {
+        val name =
+            deps.settings.settings.value.recentFiles
+                .firstOrNull { it.uri == edits.uri?.value }
+                ?.name
+        deps.scope.launch {
+            val shown = copy(CopyReason.SetAside, name) { draft -> deps.store.recoverSetAsideAsCopy(edits, draft) }
+            if (!shown) host.message(MessageKind.ActionFailed)
+        }
+    }
+
+    private suspend fun copy(
+        reason: CopyReason,
+        sourceName: String?,
+        make: suspend (DocumentUri) -> CopyOutcome,
+    ): Boolean {
+        val draft = deps.drafts.create() ?: return false
+        return when (val copy = make(draft)) {
+            is CopyOutcome.Copied -> {
+                (host as? EditorViewModel)?.show(
+                    copy.document,
+                    EditorBanner.RecoveredCopy(sourceName, reason, copy.complete),
                 )
-            } else {
-                host.message(MessageKind.ActionFailed)
+                true
+            }
+
+            is CopyOutcome.Unavailable -> {
+                deps.drafts.delete(draft) // Still empty: nothing was written to it.
+                false
             }
         }
     }
+
+    /**
+     * "Discard edits": History keeps a checkpoint, the file comes back
+     * clean, and Undo is offered. The message is worded from History's
+     * answer, never from the setting (DS-9, R2-DS-1); if History kept
+     * nothing, nothing is discarded until the user says so.
+     */
+    fun discard(evenIfNotKept: Boolean = !host.state.historyOn) {
+        val doc = host.active ?: return
+        val kept = doc.text.snapshot()
+        val banner = host.state.banner
+        host.update { it.copy(banner = null) }
+        deps.scope.launch {
+            when (val outcome = deps.store.discardEdits(doc.open.uri, evenIfNotKept)) {
+                is ResolveOutcome.Resolved -> {
+                    discarded = withContext(deps.compute) { kept.toString() }
+                    host.rebind()
+                    host.message(discardedMessage(outcome.checkpoint), undo = true)
+                }
+
+                is ResolveOutcome.NotKept -> {
+                    host.update {
+                        it.copy(
+                            banner = banner,
+                            overlay = EditorOverlay.NotKept(NotKeptStep.DiscardRecovered, outcome.checkpoint),
+                        )
+                    }
+                }
+
+                else -> {
+                    host.update { it.copy(banner = banner) }
+                    host.message(MessageKind.ActionFailed)
+                }
+            }
+        }
+    }
+
+    private fun discardedMessage(checkpoint: CheckpointResult): MessageKind =
+        when (checkpoint) {
+            CheckpointResult.Recorded -> MessageKind.EditsDiscarded
+            CheckpointResult.Off -> MessageKind.EditsDiscardedNoHistory
+            CheckpointResult.Failed -> MessageKind.EditsDiscardedNotKept
+        }
 
     /** Undo on "Edits discarded · kept in History": the discarded text comes back, unsaved. */
     fun undoDiscard() {

@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.storage
 
 import androidx.compose.runtime.Immutable
+import com.scorchsoft.ssmarkdown.files.document.SetAsideEdits
 import com.scorchsoft.ssmarkdown.files.storage.StorageBreakdown
 import com.scorchsoft.ssmarkdown.history.versions.CleanupEntry
 import com.scorchsoft.ssmarkdown.history.versions.ClearPreview
@@ -73,6 +74,7 @@ sealed interface StorageMessage {
  * @property notOpenedDays the "History of files not opened in" choice.
  * @property olderThanDays the "Versions older than" choice.
  * @property lowStorage under 500 MB free on the device: a warning, never a silent delete.
+ * @property setAside edits set aside into the journal's quarantine, newest first (R2-DS-3).
  */
 @Immutable
 data class StorageUiState(
@@ -93,6 +95,7 @@ data class StorageUiState(
     val lowStorage: Boolean = false,
     val message: StorageMessage? = null,
     val busy: Boolean = false,
+    val setAside: List<SetAsideEdits> = emptyList(),
 ) {
     /** History by file, in the chosen order. */
     val sortedFiles: List<FileUsage>

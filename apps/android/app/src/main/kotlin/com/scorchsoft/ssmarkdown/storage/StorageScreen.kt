@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
 import com.scorchsoft.ssmarkdown.files.storage.StorageCategory
+import com.scorchsoft.ssmarkdown.history.versions.DocumentKey
 import com.scorchsoft.ssmarkdown.history.versions.FileUsage
 import com.scorchsoft.ssmarkdown.ui.AppIcons
 import com.scorchsoft.ssmarkdown.ui.InfoNote
@@ -68,6 +69,7 @@ fun StorageScreen(
         if (state.lowStorage) NoteText(stringResource(R.string.storage_low))
         FreeUpSpace(state, onAction)
         HistoryByFile(state, onAction)
+        if (state.setAside.isNotEmpty()) SetAside(state, onAction)
         Automatic(state, onAction)
         InfoNote(stringResource(R.string.storage_android_title), stringResource(R.string.storage_android_body))
     }
@@ -188,6 +190,25 @@ private fun HistoryByFile(
         )
     }
     state.sortedFiles.forEach { FileRow(it, state.fileMenu == it.document.uri, onAction) }
+}
+
+/** Edits set aside into quarantine: never deleted on their own, and always one tap from a copy (R2-DS-3). */
+@Composable
+private fun SetAside(
+    state: StorageUiState,
+    onAction: (StorageAction) -> Unit,
+) {
+    SectionLabel(stringResource(R.string.storage_set_aside))
+    NoteText(stringResource(R.string.storage_set_aside_note))
+    state.setAside.forEachIndexed { index, edits ->
+        val name = edits.uri?.let { DocumentKey(it.value).displayName } ?: stringResource(R.string.copy_unknown_file)
+        val time = relativeTimeText(RelativeTime.between(edits.setAsideAtMillis, LocalNow.current))
+        SettingRow(stringResource(R.string.storage_set_aside_row, name, time), value = bytesText(edits.sizeBytes)) {
+            TextButton(onClick = { onAction(StorageAction.OpenSetAside(index)) }) {
+                Text(stringResource(R.string.storage_set_aside_open), style = SS.type.label, color = SS.colors.ink)
+            }
+        }
+    }
 }
 
 @Composable

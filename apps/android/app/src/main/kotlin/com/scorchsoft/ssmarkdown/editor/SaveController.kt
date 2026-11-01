@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.editor
 
+import com.scorchsoft.ssmarkdown.files.document.CloseOutcome
 import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.files.saf.SuggestedFileName
 import com.scorchsoft.ssmarkdown.files.save.SaveOutcome
@@ -227,15 +228,28 @@ class SaveController(
     /** "Save" at the prompt: leave only once the save has verified. */
     fun saveThenLeave(leave: PendingLeave) = save { leave(leave, discard = false) }
 
-    /** Carries out [leave]; with [discard], "Don't save" (a History checkpoint keeps the edits). */
+    /**
+     * Carries out [leave]; with [discard], "Don't save" (a History
+     * checkpoint keeps the edits). If History could not keep them, the
+     * document stays and the user is asked first, unless [evenIfNotKept]
+     * (R2-DS-1).
+     */
     fun leave(
         leave: PendingLeave,
         discard: Boolean,
+        evenIfNotKept: Boolean = false,
     ) {
         host.update { it.copy(overlay = null) }
         val open = host.active?.open
         deps.scope.launch {
-            if (discard && open != null) deps.store.close(open.uri, discardUnsaved = true)
+            if (discard && open != null) {
+                val closed = deps.store.close(open.uri, discardUnsaved = true, evenIfNotKept = evenIfNotKept)
+                if (closed is CloseOutcome.NotKept) {
+                    val ask = EditorOverlay.NotKept(NotKeptStep.DontSave(leave), closed.checkpoint)
+                    host.update { it.copy(overlay = ask) }
+                    return@launch
+                }
+            }
             when (leave) {
                 PendingLeave.Exit -> {
                     open?.uri?.let(deps.autosave::onLeave)

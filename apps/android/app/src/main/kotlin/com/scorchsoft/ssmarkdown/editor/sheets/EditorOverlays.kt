@@ -89,6 +89,10 @@ fun EditorOverlays(
             BigFileInfoDialog { onAction(EditorAction.DismissOverlay) }
         }
 
+        is EditorOverlay.NotKept -> {
+            NotKeptDialog(overlay, onAction)
+        }
+
         is EditorOverlay.SaveFailureDetails -> {
             SaveFailureDialog(
                 overlay.problem,
@@ -180,6 +184,7 @@ private fun messageText(message: UserMessage): String =
         MessageKind.CopyTooLarge -> stringResource(R.string.msg_copy_too_large)
         MessageKind.EditsDiscarded -> stringResource(R.string.msg_edits_discarded)
         MessageKind.EditsDiscardedNoHistory -> stringResource(R.string.msg_edits_discarded_no_history)
+        MessageKind.EditsDiscardedNotKept -> stringResource(R.string.msg_edits_discarded_not_kept)
         MessageKind.DraftDeleted -> stringResource(R.string.msg_draft_deleted)
         MessageKind.SectionCopied -> stringResource(R.string.msg_section_copied)
         MessageKind.ReplacedAll -> stringResource(R.string.msg_replaced_all, message.argument)

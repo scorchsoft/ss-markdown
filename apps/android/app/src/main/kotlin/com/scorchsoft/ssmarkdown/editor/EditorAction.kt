@@ -98,6 +98,12 @@ sealed interface EditorAction {
     /** "Discard them" on the banner for edits an earlier session could not apply. */
     data object DiscardKeptEdits : EditorAction
 
+    /** "Open as a copy" on that banner: the edits, rebuilt into a new draft (R2-DS-3). */
+    data object OpenKeptAsCopy : EditorAction
+
+    /** "Discard anyway" when History could not keep a copy (R2-DS-1). */
+    data object ConfirmNotKept : EditorAction
+
     data object ReviewConflict : EditorAction
 
     data object SaveAsFromBanner : EditorAction

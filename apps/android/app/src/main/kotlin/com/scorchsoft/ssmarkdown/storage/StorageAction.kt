@@ -72,6 +72,11 @@ sealed interface StorageAction {
 
     data object ImportHistory : StorageAction
 
+    /** "Open as a copy" on the set-aside edits at [index] (R2-DS-3). */
+    data class OpenSetAside(
+        val index: Int,
+    ) : StorageAction
+
     data object DismissMessage : StorageAction
 }
 

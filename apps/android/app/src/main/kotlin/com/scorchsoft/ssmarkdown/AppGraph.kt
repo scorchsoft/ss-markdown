@@ -168,6 +168,7 @@ class AppGraph(
                 clock = clock,
                 scope = mainScope,
                 io = io,
+                openSetAsideAsCopy = { editor.recovery.openSetAsideAsCopy(it) },
             ),
         )
     }

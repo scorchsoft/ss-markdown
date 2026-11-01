@@ -22,6 +22,7 @@ data class IntentFields(
     val text: CharSequence? = null,
     val subject: String? = null,
     val grantsWrite: Boolean = false,
+    val grantsPersistable: Boolean = false,
 ) {
     /** Home of the Android adapter, `IntentFields.from(intent)`. */
     companion object

@@ -16,6 +16,9 @@ sealed interface ScreenEvent {
     /** "Import history (.zip)": the system picker. */
     data object PickImportZip : ScreenEvent
 
+    /** Back to the editor, which is showing something new. */
+    data object ToEditor : ScreenEvent
+
     /** Show another screen. */
     data class Open(
         val screen: AppScreen,

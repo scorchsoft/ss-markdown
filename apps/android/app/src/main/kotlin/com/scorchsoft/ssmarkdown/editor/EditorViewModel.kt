@@ -247,6 +247,13 @@ class EditorViewModel(
                     outcome.recovery?.let { recovery.onRecovered(it) }
                 }
 
+                is OpenOutcome.Failed -> {
+                    // Unsaved edits whose file is out of reach come back as a copy, never as an empty draft (R2-DS-2).
+                    if (outcome.hasUnsavedEdits && recovery.openUnreachableAsCopy(DocumentUri(uri))) return@launch
+                    message(MessageKind.ActionFailed)
+                    if (active == null) newDraft()
+                }
+
                 is OpenOutcome.TooLarge -> {
                     val a = outcome.admission
                     ui.update { it.copy(tooLarge = TooLargeInfo(a.fileBytes, a.neededBytes, a.allowedBytes)) }
@@ -278,6 +285,29 @@ class EditorViewModel(
             return
         }
         openDocument(uri.value)
+    }
+
+    /**
+     * Shows [open], an entry the store has already opened for this window
+     * (a recovered copy), with [banner]. Opening it again would count a
+     * second window that never closes (CC-12).
+     */
+    fun show(
+        open: OpenDocument,
+        banner: EditorBanner,
+    ) {
+        bind(open)
+        ui.update { it.copy(banner = banner) }
+    }
+
+    /** "Discard anyway" / "Merge anyway": [step] again, accepting that History kept no copy (R2-DS-1). */
+    fun goOnWithoutCopy(step: NotKeptStep) {
+        when (step) {
+            NotKeptStep.KeepTheirs -> conflicts.keepTheirs(evenIfNotKept = true)
+            NotKeptStep.DiscardRecovered -> recovery.discard(evenIfNotKept = true)
+            is NotKeptStep.FinishMerge -> conflicts.applyMerge(step.text, step.madeFromVersion, evenIfNotKept = true)
+            is NotKeptStep.DontSave -> saves.leave(step.leave, discard = true, evenIfNotKept = true)
+        }
     }
 
     override fun rebind() {

@@ -36,6 +36,17 @@ object LaunchIntents {
         return LaunchRequest(open.uri.value, open.writable, sourceApp())
     }
 
+    /**
+     * The grant to keep for [request], when [fields] say the sender made it
+     * persistable: an "Open with" grant is otherwise gone after a restart,
+     * stranding any unsaved edits' file (R2-DS-2). Null when there is none
+     * to keep, including for our own share sheet's tickets.
+     */
+    fun grantToPersist(
+        fields: IntentFields,
+        request: LaunchRequest?,
+    ): LaunchRequest? = request?.takeIf { fields.grantsPersistable && it.fromAnotherApp }
+
     /** The share sheet's one-time ticket for the document to open (see [OpenTokens]). */
     const val EXTRA_OPEN_TOKEN: String = "com.scorchsoft.ssmarkdown.OPEN_TOKEN"
 }

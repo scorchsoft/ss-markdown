@@ -72,7 +72,9 @@ class EditorFixture(
                 ) { failWrites },
         )
     private val journals = JournalStore(File(root, "journal"), FlushScheduler { _, _ -> Cancellable { } })
-    val versions = VersionStore(File(root, "history"))
+
+    // As the app builds it: History records only while the setting says so.
+    val versions = VersionStore(File(root, "history"), policy = settings.history)
     val history = VersionHistoryHook(versions, scope)
     val store =
         DocumentStore(

@@ -68,6 +68,7 @@ fun problemText(problem: SaveProblem): String =
             SaveProblem.TimedOut -> R.string.problem_timed_out
             SaveProblem.ChangedOutside -> R.string.problem_changed
             SaveProblem.ReadOnly -> R.string.problem_read_only
+            SaveProblem.TargetOpen -> R.string.problem_target_open
         },
     )
 

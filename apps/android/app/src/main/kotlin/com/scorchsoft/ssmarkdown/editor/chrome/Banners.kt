@@ -73,10 +73,11 @@ fun EditorBannerView(
         }
 
         EditorBanner.EditsKeptAside -> {
-            Callout(stringResource(R.string.kept_title), stringResource(R.string.kept_body), Tone.Caution, modifier) {
-                BannerButton(R.string.kept_discard) { onAction(EditorAction.DiscardKeptEdits) }
-                BannerButton(R.string.recovered_got_it) { onAction(EditorAction.DismissBanner) }
-            }
+            KeptAsideBanner(onAction, modifier)
+        }
+
+        is EditorBanner.RecoveredCopy -> {
+            RecoveredCopyBanner(banner, onAction, modifier)
         }
 
         EditorBanner.RecoveryCopiesStopped -> {
@@ -120,10 +121,10 @@ private fun SaveAllBanner(
     }
 }
 
-private enum class Tone { Info, Caution, Error }
+internal enum class Tone { Info, Caution, Error }
 
 @Composable
-private fun Callout(
+internal fun Callout(
     title: String,
     body: String?,
     tone: Tone,
@@ -158,7 +159,7 @@ private fun Callout(
 }
 
 @Composable
-private fun BannerButton(
+internal fun BannerButton(
     label: Int,
     onClick: () -> Unit,
 ) {

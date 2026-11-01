@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.storage
 
 import com.scorchsoft.ssmarkdown.files.document.DocumentStore
+import com.scorchsoft.ssmarkdown.files.document.SetAsideEdits
 import com.scorchsoft.ssmarkdown.files.storage.StorageAccountant
 import com.scorchsoft.ssmarkdown.history.versions.ClearRequest
 import com.scorchsoft.ssmarkdown.history.versions.ClearResult
@@ -31,6 +32,7 @@ import java.io.File
  * @property exportsDir where exports wait (in app storage, so a clear never depends on the picker).
  * @property cacheDir the diagram and preview cache, the one rebuildable clear.
  * @property storageLow true under 500 MB free on the device.
+ * @property openSetAsideAsCopy opens set-aside edits as a copy in the editor (R2-DS-3).
  */
 data class StorageDependencies(
     val versions: VersionStore,
@@ -43,6 +45,7 @@ data class StorageDependencies(
     val clock: () -> Long,
     val scope: CoroutineScope,
     val io: CoroutineDispatcher,
+    val openSetAsideAsCopy: (SetAsideEdits) -> Unit = {},
 )
 
 /**
@@ -74,8 +77,10 @@ class StorageViewModel(
                 withContext(deps.io) {
                     Triple(deps.versions.usage(), deps.versions.cleanupLog.read(), deps.storageLow())
                 }
+            val setAside = deps.store.setAsideEdits()
             ui.update {
                 it.copy(
+                    setAside = setAside,
                     breakdown = breakdown,
                     historyFiles = usage.files,
                     cleanups =
@@ -107,8 +112,19 @@ class StorageViewModel(
             is StorageAction.ExportFile -> export(action.document)
             is StorageAction.OpenHistory -> eventChannel.trySend(ScreenEvent.Open(AppScreen.History))
             StorageAction.ImportHistory -> eventChannel.trySend(ScreenEvent.PickImportZip)
+            is StorageAction.OpenSetAside -> openSetAside(before, action.index)
             else -> Unit
         }
+    }
+
+    /** "Open as a copy" on a set-aside journal: the editor shows it in a new draft (R2-DS-3). */
+    private fun openSetAside(
+        state: StorageUiState,
+        index: Int,
+    ) {
+        val edits = state.setAside.getOrNull(index) ?: return
+        deps.openSetAsideAsCopy(edits)
+        eventChannel.trySend(ScreenEvent.ToEditor)
     }
 
     /** The import picker answered: [zip] is a local copy, attached to [document]'s history. */

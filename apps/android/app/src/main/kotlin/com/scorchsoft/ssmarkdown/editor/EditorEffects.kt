@@ -88,6 +88,14 @@ internal object EditorEffects {
                 vm.recovery.discardKept()
             }
 
+            EditorAction.OpenKeptAsCopy -> {
+                vm.recovery.openKeptAsCopy()
+            }
+
+            EditorAction.ConfirmNotKept -> {
+                (before.overlay as? EditorOverlay.NotKept)?.let { vm.goOnWithoutCopy(it.step) }
+            }
+
             EditorAction.ReviewConflict -> {
                 vm.conflicts.review()
             }
@@ -121,7 +129,10 @@ internal object EditorEffects {
             }
 
             EditorAction.LeaveDiscard -> {
-                (before.overlay as? EditorOverlay.DirtyPrompt)?.let { vm.saves.leave(it.leave, discard = true) }
+                // The sheet said "can't be undone" when History was off: the user has accepted no copy.
+                (before.overlay as? EditorOverlay.DirtyPrompt)?.let {
+                    vm.saves.leave(it.leave, discard = true, evenIfNotKept = !before.historyOn)
+                }
             }
 
             is EditorAction.StripKeyTapped -> {

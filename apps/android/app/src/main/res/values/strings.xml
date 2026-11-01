@@ -84,7 +84,6 @@
     <string name="recovered_compare">Compare</string>
     <string name="recovered_discard">Discard edits</string>
     <string name="kept_title">Edits from last time couldn\'t be restored</string>
-    <string name="kept_body">The file changed since, and the copy they were made on is gone, so they can\'t be applied safely. They\'re kept, untouched. Editing this file moves them aside, still kept.</string>
     <string name="kept_discard">Discard them</string>
     <string name="recovery_stopped_title">Recovery copies have stopped</string>
     <string name="recovery_stopped_body">Your text is safe on screen, but if the app is closed now, recent typing could be lost. Save now, or Save as… somewhere else.</string>

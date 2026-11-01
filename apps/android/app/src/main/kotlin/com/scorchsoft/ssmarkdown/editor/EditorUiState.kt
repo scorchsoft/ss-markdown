@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.editor
 
 import androidx.compose.runtime.Immutable
+import com.scorchsoft.ssmarkdown.files.document.CheckpointResult
 import com.scorchsoft.ssmarkdown.find.FindUiState
 import com.scorchsoft.ssmarkdown.folder.FolderUiState
 import com.scorchsoft.ssmarkdown.media.ExportImagesState
@@ -116,11 +117,56 @@ sealed interface EditorBanner {
     /** The recovery journal stopped working: "Recovery copies have stopped · Save as…". */
     data object RecoveryCopiesStopped : EditorBanner
 
+    /**
+     * Edits that could not go back to their file, shown in a new draft
+     * (R2-DS-2, R2-DS-3): "Recovered from <name> · Save as… · Got it".
+     *
+     * @property source the file's name, or null if it is not known.
+     * @property complete false when only the typed text could be read.
+     */
+    data class RecoveredCopy(
+        val source: String?,
+        val reason: CopyReason,
+        val complete: Boolean,
+    ) : EditorBanner
+
     /** "Saved 3 files · Skipped roadmap.md: changed in another app · Review". */
     data class SaveAllResult(
         val saved: Int,
         val skipped: List<String>,
     ) : EditorBanner
+}
+
+/** Why edits are shown as a copy rather than in their own file. */
+enum class CopyReason {
+    /** The file cannot be reached after a restart: grant lost, moved, deleted, provider gone. */
+    Unreachable,
+
+    /** Recovery could not apply them to the file (`Recovery.Kept`). */
+    NotApplied,
+
+    /** Opened from Storage's set-aside edits. */
+    SetAside,
+}
+
+/** A step that would drop unsaved edits, waiting on "History couldn't keep a copy · go on?" (R2-DS-1). */
+sealed interface NotKeptStep {
+    /** "Keep the file's version". */
+    data object KeepTheirs : NotKeptStep
+
+    /** "Discard edits" on the recovery banner. */
+    data object DiscardRecovered : NotKeptStep
+
+    /** MergeResolve's Done, with the merge it would apply. */
+    data class FinishMerge(
+        val text: String,
+        val madeFromVersion: Long,
+    ) : NotKeptStep
+
+    /** "Don't save", then [leave]. */
+    data class DontSave(
+        val leave: PendingLeave,
+    ) : NotKeptStep
 }
 
 /** Why a dirty buffer is about to leave memory: the Save / Don't save / Keep editing prompt. */
@@ -213,6 +259,17 @@ sealed interface EditorOverlay {
     data class SaveFailureDetails(
         val problem: SaveProblem,
     ) : EditorOverlay
+
+    /**
+     * History could not keep a copy of edits [step] would drop, so nothing
+     * has happened yet: go on, or keep the edits (R2-DS-1).
+     *
+     * @property checkpoint what History answered, which words the question.
+     */
+    data class NotKept(
+        val step: NotKeptStep,
+        val checkpoint: CheckpointResult,
+    ) : EditorOverlay
 }
 
 /**
@@ -260,6 +317,7 @@ enum class MessageKind {
     CopyTooLarge,
     EditsDiscarded,
     EditsDiscardedNoHistory,
+    EditsDiscardedNotKept,
     DraftDeleted,
     SectionCopied,
     ReplacedAll,

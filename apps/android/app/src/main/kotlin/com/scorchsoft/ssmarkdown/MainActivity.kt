@@ -12,6 +12,7 @@ import androidx.compose.runtime.getValue
 import com.scorchsoft.ssmarkdown.about.Licences
 import com.scorchsoft.ssmarkdown.core.ui.SSMarkdownTheme
 import com.scorchsoft.ssmarkdown.editor.LaunchRequest
+import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.files.saf.IntentFields
 import com.scorchsoft.ssmarkdown.files.saf.from
 import com.scorchsoft.ssmarkdown.fonts.AndroidFonts
@@ -107,15 +108,32 @@ class MainActivity : ComponentActivity() {
     }
 
     /** What [intent] asks to open: see [LaunchIntents] (SEC-2: no URI is taken from an extra). */
-    private fun launchRequest(intent: Intent?): LaunchRequest? =
-        intent?.let {
+    private fun launchRequest(intent: Intent?): LaunchRequest? {
+        intent ?: return null
+        val fields = IntentFields.from(intent)
+        val request =
             LaunchIntents.request(
-                IntentFields.from(it),
-                it.getStringExtra(LaunchIntents.EXTRA_OPEN_TOKEN),
+                fields,
+                intent.getStringExtra(LaunchIntents.EXTRA_OPEN_TOKEN),
                 graph.openTokens::redeem,
                 ::sourceAppName,
             )
+        // Keep a persistable grant, so unsaved edits can still reach their file after a restart (R2-DS-2).
+        LaunchIntents.grantToPersist(fields, request)?.let { keep ->
+            val uri = DocumentUri(keep.uri)
+            if (!(
+                    keep.writable &&
+                        graph.permissions.take(
+                            uri,
+                            write = true,
+                        )
+                )
+            ) {
+                graph.permissions.take(uri, write = false)
+            }
         }
+        return request
+    }
 
     /** The sending app's name for "Read-only · from Gmail", when Android tells us who it was. */
     private fun sourceAppName(): String? {

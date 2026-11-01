@@ -14,6 +14,7 @@ fun IntentFields.Companion.from(intent: Intent): IntentFields =
         text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT),
         subject = intent.getStringExtra(Intent.EXTRA_SUBJECT),
         grantsWrite = intent.flags and Intent.FLAG_GRANT_WRITE_URI_PERMISSION != 0,
+        grantsPersistable = intent.flags and Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION != 0,
     )
 
 private fun streamsOf(intent: Intent): List<Uri> =

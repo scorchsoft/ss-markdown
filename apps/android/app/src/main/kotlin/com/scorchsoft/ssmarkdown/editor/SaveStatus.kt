@@ -16,6 +16,9 @@ enum class SaveProblem {
     TimedOut,
     ChangedOutside,
     ReadOnly,
+
+    /** Save as picked a file open here with unsaved edits; nothing was written (R2-DS-4). */
+    TargetOpen,
     ;
 
     companion object {
@@ -29,6 +32,7 @@ enum class SaveProblem {
                 is SaveOutcome.StorageFull -> StorageFull
                 is SaveOutcome.VerifyFailed -> VerifyFailed
                 SaveOutcome.ReadOnly -> ReadOnly
+                SaveOutcome.TargetOpen -> TargetOpen
                 is SaveOutcome.BackupFailed -> if (outcome.storageFull) StorageFull else BackupFailed
                 is SaveOutcome.ProviderError -> if (outcome.isTimedOut) TimedOut else ProviderError
             }

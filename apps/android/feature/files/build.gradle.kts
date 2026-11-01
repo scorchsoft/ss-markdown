@@ -4,6 +4,13 @@
 // everything else runs on the host JVM against injected fakes.
 plugins {
     id("ssmarkdown.android.library")
+    id("ssmarkdown.coverage")
+}
+
+// The never-lose-work pipeline is gated too (code-craft review CC-B), at what it passes:
+// 88.5% when the gate went in (2026-11-01). Raise it as tests land; never lower it.
+ssmarkdownCoverage {
+    minLineCoverage = 88
 }
 
 android {

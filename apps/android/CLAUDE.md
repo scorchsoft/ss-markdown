@@ -30,9 +30,10 @@ Convention plugins (`build-logic/convention`):
 - `ssmarkdown.static-analysis` — ktlint, detekt and Android lint
   (`warningsAsErrors`), all in `check`. Applied by both of the above and
   by `:app` directly.
-- `ssmarkdown.coverage` — Kover on one core module, with `koverVerify`
-  (>= 90% lines, docs/engineering.md) in `check`. Applied by
-  `ssmarkdown.jvm.library` and by `core:ui`.
+- `ssmarkdown.coverage` — Kover on one module, with `koverVerify`
+  (>= 90% lines, docs/engineering.md) in `check`; `*.benchmark.*` is
+  excluded. Applied by `ssmarkdown.jvm.library`, by `core:ui`, and by
+  `feature:files` with its own floor (`ssmarkdownCoverage { minLineCoverage = 88 }`).
 - `ssmarkdown.coverage-report` — root only: the merged core report
   (`koverHtmlReport`, `koverXmlReport` → `build/reports/kover/`) and the
   same bar on the total.

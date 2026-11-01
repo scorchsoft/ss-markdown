@@ -21,7 +21,9 @@ class CoverageReportConventionPlugin : Plugin<Project> {
         target.extensions.configure<KoverProjectExtension> {
             reports {
                 total {
-                    filters { excludes { classes(CoverageConventionPlugin.COMPOSE_SINGLETONS) } }
+                    filters {
+                        excludes { classes(CoverageConventionPlugin.COMPOSE_SINGLETONS, CoverageConventionPlugin.BENCHMARKS) }
+                    }
                     verify { rule("core line coverage") { minBound(CoverageConventionPlugin.MIN_LINE_COVERAGE) } }
                 }
             }

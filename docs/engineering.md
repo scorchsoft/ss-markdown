@@ -81,7 +81,8 @@ when they are next reworked. The module graph and its rules are in
 
 | Layer | Tooling | Bar |
 |---|---|---|
-| `core/*` | JUnit + property tests (hand-rolled, seeded random loops with the seed in the failure message) | ≥ 90% line coverage per module, measured by Kover and gated in `check`; property tests for text, journal and history |
+| `core/*` | JUnit + property tests (hand-rolled, seeded random loops with the seed in the failure message) | ≥ 90% line coverage per module, measured by Kover and gated in `check` (benchmark harnesses excluded); property tests for text, journal and history |
+| `feature/files` | JUnit + Robolectric against the fake provider | ≥ 88% line coverage, gated in `check` (the never-lose-work pipeline; set at what it passed when gated, 88.5%, and only ever raised). `feature/editor` and `app` are not gated yet |
 | Screens | Robolectric + Compose UI tests + screenshots (our own harness: every window drawn into a software bitmap, `ScreenshotTest`) | Every screen and sheet in light and dark; 2.0× font for the editor. Phone only so far; tablet is planned |
 | Preview bundle | Vitest + Playwright (Chromium), in CI | Rendering corpus, security corpus, edit protocol, anchor mapping; the committed bundle must match a fresh build |
 | Device | Instrumented tests on an API 34 emulator | Run in CI on every push; the kill test, rotation matrix and fault-injection provider are planned |

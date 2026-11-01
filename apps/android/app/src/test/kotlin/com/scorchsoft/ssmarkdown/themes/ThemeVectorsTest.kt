@@ -29,12 +29,23 @@ import java.io.File
 class ThemeVectorsTest {
     private val vectors = File("../feature/preview/web/test/vectors/themes.json")
 
-    /** The bundled fonts at the harness's `/assets/fonts/bundled/` path. */
+    /**
+     * The bundled fonts at the harness's `/assets/fonts/bundled/` path. A
+     * family listed in [BundledFonts] whose files are not in the APK (IBM
+     * Plex Sans and Lora are downloads, to keep the APK small) is drawn in
+     * its category's bundled fallback ([BundledFonts.fallbackFor]), the face
+     * the app shows while it is missing; Chromium's own sans would make the
+     * measurement depend on the machine that runs it.
+     */
     private object BundledOnly : FontFaceSource {
-        override fun faces(family: String): List<FontFace> =
-            BundledFonts.byFamily(family)?.files.orEmpty().map {
+        override fun faces(family: String): List<FontFace> {
+            val font = BundledFonts.byFamily(family) ?: return emptyList()
+            val present = font.takeIf { f -> f.files.all { File(BUNDLED_DIR, it.file).exists() } }
+            val files = present ?: BundledFonts.fallbackFor(font.category)
+            return files.files.map {
                 FontFace(family, "/assets/fonts/bundled/${it.file}", it.italic, it.weights, FontFormat.TRUETYPE)
             }
+        }
 
         override fun generic(family: String): GenericFamily =
             BundledFonts.byFamily(family)?.category?.generic ?: GenericFamily.SANS_SERIF
@@ -60,6 +71,11 @@ class ThemeVectorsTest {
             )
         }
         return JSONObject().put("themes", themes)
+    }
+
+    private companion object {
+        /** Where the bundled files are in the source tree. */
+        val BUNDLED_DIR = File("../feature/fonts/src/main/assets/${BundledFonts.ASSET_DIR}")
     }
 
     @Test

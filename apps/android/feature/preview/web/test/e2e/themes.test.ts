@@ -93,20 +93,6 @@ const SYNTAX = [
     "```",
 ].join("\n");
 
-/**
- * Print typography is fixed in physical units (docs/ux-spec.md, "PDF"): 11 pt
- * over a 170 mm column. The spec's "≈ 75 characters" is optimistic: Inter
- * (Clean) sets about 87, and Literata (Reader), IBM Plex Sans (Compact) and
- * Atkinson Hyperlegible Next (Contrast) about 97-101. Changing the printed
- * size or column is a design decision, not a test's; until it is taken, those
- * three are held where they are so the measure cannot drift wider unnoticed.
- */
-const A4_MEASURE: Readonly<Record<string, readonly [number, number]>> = {
-    reader: [45, 102],
-    compact: [45, 100],
-    contrast: [45, 100],
-};
-
 /** A long English paragraph: line length is measured on real prose, not on one repeated word. */
 const PROSE =
     "Line length decides how comfortable a page is to read. When a line runs too long the eye loses its place on " +
@@ -116,17 +102,32 @@ const PROSE =
     "This paragraph is long enough to wrap across many lines at any sensible size, so the measurement below " +
     "averages over whole lines and ignores the short last one.";
 
-/** Sends [b] as the app does, and waits until its fonts have loaded. */
+/**
+ * Sends [b] as the app does. The vector's font URLs are origin-relative; the
+ * page accepts `@font-face` only from its own origin, written absolutely (the
+ * app sends `https://appassets.androidplatform.net/…`), so they are made
+ * absolute against the harness's origin here.
+ */
 async function applyTheme(page: Page, b: BuiltIn, dark: boolean): Promise<void> {
-    await send(page, { type: "theme", theme: b.theme, dark, fonts: b.fonts });
+    const origin = new URL(page.url()).origin;
+    const fonts = { ...b.fonts, faces: b.fonts.faces.replace(/url\("\//g, `url("${origin}/`) };
+    await send(page, { type: "theme", theme: b.theme, dark, fonts });
     await page.waitForFunction((d) => document.documentElement.dataset.dark === String(d), dark);
 }
 
-/** Waits for the theme's own faces: a measurement in a fallback font would measure the wrong thing. */
+/**
+ * Loads the theme's own body face and fails unless it really loaded: a
+ * measurement in a fallback font measures the machine, not the theme
+ * (`document.fonts.check` is true for a family with no faces at all).
+ */
 async function fontsReady(page: Page, b: BuiltIn): Promise<void> {
-    await page.evaluate(() => document.fonts.ready);
     const family = b.theme.fonts?.body ?? "";
-    expect(await page.evaluate((f) => document.fonts.check(`16px "${f}"`), family), family).toBe(true);
+    const loaded = await page.evaluate(async (f) => {
+        await document.fonts.load(`16px "${f}"`);
+        await document.fonts.ready;
+        return [...document.fonts].some((face) => face.family.replace(/"/g, "") === f && face.status === "loaded");
+    }, family);
+    expect(loaded, `${family} loaded from the bundled file`).toBe(true);
 }
 
 interface Sample {
@@ -219,22 +220,32 @@ async function contrasts(page: Page): Promise<Sample[]> {
     });
 }
 
-/** Characters per full line of the first paragraph: line boxes counted from the text's own rects. */
+/**
+ * Characters per full line of the first paragraph: each character's own box
+ * says which line it is on, so the count is exact whatever spans the
+ * renderer wraps the text in. The short last line is left out.
+ */
 async function charactersPerLine(page: Page): Promise<number> {
     return page.evaluate(() => {
         const p = document.querySelector("section.sec p");
         if (!p) return 0;
+        const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+        const perLine = new Map<number, number>();
         const range = document.createRange();
-        range.selectNodeContents(p);
-        const tops = new Set<number>();
-        for (const r of range.getClientRects()) if (r.width > 0) tops.add(Math.round(r.top));
-        const lines = tops.size;
-        // Every line but the last is full; spread the text over them.
-        const text = (p.textContent ?? "").length;
-        const lastLine = [...range.getClientRects()].filter((r) => Math.round(r.top) === Math.max(...tops));
-        const lastWidth = lastLine.reduce((w, r) => w + r.width, 0);
-        const fullWidth = p.getBoundingClientRect().width;
-        return text / (lines - 1 + lastWidth / fullWidth);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            const text = node.textContent ?? "";
+            for (let i = 0; i < text.length; i++) {
+                range.setStart(node, i);
+                range.setEnd(node, i + 1);
+                const box = range.getClientRects()[0];
+                if (!box) continue;
+                const top = Math.round(box.top + box.height / 2);
+                perLine.set(top, (perLine.get(top) ?? 0) + 1);
+            }
+        }
+        const lines = [...perLine.entries()].sort((a, b) => a[0] - b[0]).map((e) => e[1]);
+        const full = lines.slice(0, -1);
+        return full.reduce((a, b) => a + b, 0) / Math.max(1, full.length);
     });
 }
 
@@ -287,12 +298,13 @@ describe("line length", () => {
         await loadMarkdown(page, PROSE);
         await fontsReady(page, b);
         const cpl = await charactersPerLine(page);
+        console.log(`line length: ${theme.name} ${cpl.toFixed(1)} characters per line`);
         expect(cpl, `${theme.name}: ${cpl.toFixed(1)} characters per line`).toBeGreaterThanOrEqual(45);
         expect(cpl).toBeLessThanOrEqual(90);
         await page.close();
     });
 
-    it.each(BUILT_INS)("holds a comfortable measure on the 170 mm A4 column: $id", async (b) => {
+    it.each(BUILT_INS)("holds 45-90 characters per line on the 170 mm A4 column: $id", async (b) => {
         const { theme } = b;
         const page = await openPreview(h, { width: 390, height: 844 });
         await applyTheme(page, b, false);
@@ -302,15 +314,19 @@ describe("line length", () => {
         });
         await loadMarkdown(page, PROSE);
         await fontsReady(page, b);
-        // The text column is A4 less 20 mm margins in every theme: 170 mm.
-        const column = await page.evaluate(
-            () => document.querySelector("section.sec p")?.getBoundingClientRect().width,
-        );
+        // The text column is A4 less 20 mm margins in every theme: 170 mm. Prose
+        // stops short of it at a readable measure; tables and code use all of it.
+        const column = await page.evaluate(() => {
+            const doc = document.querySelector<HTMLElement>(".doc");
+            if (!doc) return 0;
+            const style = getComputedStyle(doc);
+            return doc.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+        });
         expect(column).toBeCloseTo((170 / 25.4) * 96, 0);
         const cpl = await charactersPerLine(page);
-        const [low, high] = A4_MEASURE[b.id] ?? [45, 90];
-        expect(cpl, `${theme.name}: ${cpl.toFixed(1)} characters per line`).toBeGreaterThanOrEqual(low);
-        expect(cpl, `${theme.name}: ${cpl.toFixed(1)} characters per line`).toBeLessThanOrEqual(high);
+        console.log(`line length: ${theme.name} ${cpl.toFixed(1)} characters per line`);
+        expect(cpl, `${theme.name}: ${cpl.toFixed(1)} characters per line`).toBeGreaterThanOrEqual(45);
+        expect(cpl, `${theme.name}: ${cpl.toFixed(1)} characters per line`).toBeLessThanOrEqual(90);
         await page.close();
     });
 });

@@ -45,14 +45,18 @@ public object BuiltInThemes {
                 ),
         )
 
-    /** Serif and sepia, for long reading. */
+    /**
+     * Serif and sepia, for long reading. 15 px, not 17: Literata's wide
+     * set held only 41 characters a line on a 390 px phone, under the
+     * comfortable 45 (rubric #7; preview web `themes.test.ts`).
+     */
     public val READER: Theme =
         Theme(
             id = "reader",
             name = "Reader",
             base = null,
             fonts = ThemeFonts(body = "Literata", heading = "Literata", code = JETBRAINS_MONO),
-            size = ThemeSize(base = 17.0, headingScale = 1.25, lineHeight = 1.7),
+            size = ThemeSize(base = 15.0, headingScale = 1.25, lineHeight = 1.7),
             light =
                 palette(
                     bg = 0xFBF7EF,

@@ -599,7 +599,7 @@ the theme's on-screen base size never change it.
 | Element | Size | Notes |
 |---|---|---|
 | Page | A4 (210 × 297 mm); US Letter when the locale is en-US/CA | Chosen in the system dialog |
-| Margins | 20 mm all round; 15 mm bottom with the page number | Text width ≈ 170 mm ≈ 75 characters |
+| Margins | 20 mm all round; 15 mm bottom with the page number | Text column 170 mm; prose stops at 39 em, about 80–86 characters (11 pt over the full 170 mm set 91–99) |
 | Body | **11 pt**, line height 1.45 | The theme's font; serif themes stay serif |
 | H1 / H2 / H3 / H4 | 20 / 16 / 13 / 11.5 pt bold | Keep with next; no orphan headings at the foot of a page |
 | Code and tables | 9.5 pt | Code wraps (no clipped lines); table rows never split across pages; wide tables shrink to fit down to 8 pt, then wrap |
@@ -621,7 +621,7 @@ the theme's on-screen base size never change it.
 
 Built-in themes, each with a light and a dark variant:
 - **Clean** (default): a GitHub-like sans, 1.6 line height.
-- **Reader**: serif, sepia.
+- **Reader**: serif (Literata), sepia, 15 px (17 px held only 41 characters a line on a 390 px phone).
 - **Compact**: dense, for technical docs.
 - **Contrast**: AAA, for accessibility.
 

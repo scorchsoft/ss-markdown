@@ -35,7 +35,7 @@ export const BUILT_IN_THEMES: Readonly<Record<string, ThemeSpec>> = {
     reader: {
         name: "Reader",
         fonts: { body: SERIF, heading: SERIF, code: MONO },
-        size: { base: 17, headingScale: 1.22, lineHeight: 1.7 },
+        size: { base: 15, headingScale: 1.22, lineHeight: 1.7 },
         light: {
             bg: "#FBF7EF",
             text: "#2B2620",

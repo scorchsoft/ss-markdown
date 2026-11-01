@@ -20,9 +20,11 @@ Each layer assumes every layer above it has failed.
   CRC. The journal header names the base file's SHA-256, so a journal
   can never be replayed onto the wrong file.
 - The journal is flushed with `fsync` (group commit, never per
-  keystroke) after about 1 s of idle typing, on
-  `onPause`/`onStop`, and before any risky step (save, view switch,
-  opening another file). Worst case, you lose the last second of typing.
+  keystroke) after about 1 s of idle typing, at least once a second
+  during steady typing, on `onPause`/`onStop`, and before any risky step
+  (save, view switch, opening another file); a save waits for that
+  flush. Worst case, you lose the last second of typing (measured:
+  `RandomKillTest`, max 1000 ms over 1000 kills).
 - When a run's operations outgrow the text (twice its length, and at
   least 1 MiB), the journal is replaced by one snapshot in a single
   atomic step, so replay stays fast and the file stays small.
@@ -63,7 +65,17 @@ work: keystrokes against disk work"):
   and only then moves the journal into `quarantine/`. The kept-aside
   banner offers **Open as a copy**, and Settings → Storage lists every
   set-aside journal with **Open as a copy**. Nothing in `quarantine/` is
-  ever deleted by the app.
+  ever deleted by the app on its own. The only way out is Storage →
+  **Clear set-aside edits**, behind the "This can't be undone"
+  confirmation with **Export their text first** ticked; a failed export
+  deletes nothing, and only the sets the confirmation listed go. Above
+  32 MB (`SET_ASIDE_CAP_BYTES`) the Storage screen says so and points at
+  that clear; the cap decides when to ask, never what to drop.
+- **The base copy moves only after the journal.** A journal's edits
+  replay onto its base copy, so a base copy is replaced (after a save, a
+  reload or a resolved conflict) or deleted (on close, after Save as)
+  only on the journal thread, behind the journal step that leaves that
+  base. A journal restarted from a snapshot needs no base copy at all.
 - **Saves finish their bookkeeping.** A save that holds the document's
   lock is not cancellable, and autosave never cancels a save in flight.
 - **A failing journal is said out loud.** If the journal cannot be
@@ -113,6 +125,16 @@ work: keystrokes against disk work"):
   never plain `"w"`: on Android 10+ some providers don't truncate with
   `"w"`, which leaves stale bytes at the end of a shorter file. If a provider
   rejects `"wt"`, we fall back to `"rwt"` plus `FileChannel.truncate`.
+- **Record the intent first** (`PendingSaves`). Before the file is
+  opened, the new bytes and the digests of the old and new versions are
+  written to app storage and synced. A kill part way through the write
+  leaves a file made only of old and new bytes; the next launch
+  (`InterruptedSaves`, before any journal is read) puts the old bytes
+  back and the journal brings the edits back. A write that completed
+  before the journal moved is recognised as ours, not as a change made
+  outside: the journal is moved onto it. Anything else on disk is
+  another app's edit and is never touched. Tested by `InterruptedSaveTest`
+  and `RandomKillTest`.
 - **Verify after writing.** After the write we read the file back and
   compare its length and hash. The document is marked clean only after
   that check passes. If it fails, Save shows an error state, the backup
@@ -613,19 +635,24 @@ instead of hoping. A small `MemoryGovernor` service owns it.
 
 ## Part 3 — How we prove it
 
-| Test | What it proves |
-|---|---|
-| **Kill test** (instrumented, ×1000): kill the process with `kill -9` at random moments while typing, saving, switching views and doing Save all | After relaunch, recovered text equals the expected text to within the last ~1 s. The file on disk is always either the old version or the new one, never partial. |
-| **Save-fault injection**: a fake provider that fails mid-write, ignores truncation, or revokes permission | The document stays dirty, the backup survives, and the user sees the error and a way out. |
-| **Journal property tests** (JVM, randomised ops) | Replay equals the live buffer; compaction keeps that true; a torn final record is ignored safely. |
-| **Interleaving tests** (JVM, `InterleavingDispatcher`): a keystroke after every disk hop of save, autosave, Save as, reload, Use mine, merge and discard, then a crash | Recovery brings back exactly the live text, nothing typed is missing, and no journal is left on the wrong base. |
-| **Round-trip corpus** | Opening and saving without edits is byte-identical, including CRLF, BOM, no final newline and odd encodings. A Preview edit changes only its own block. |
-| **Large-file benchmarks** (macrobenchmark, Pixel 6a-class and a 3 GB low-end phone) | Open, type and scroll targets at 1, 20 and 100 MB. Frame cost doesn't grow with file size. |
-| **Memory-pressure tests**: a 128 MB heap emulator, `am send-trim-memory`, killing the WebView renderer (`chrome://crash` / `am kill`), and opening several large files | No out-of-memory crash; admission control refuses cleanly; the preview restarts after a renderer death; no unsaved work lost. |
-| **Clipboard/share at 5 MB** | No `TransactionTooLargeException`; the fallback works. |
-| **Outside-change scenarios** (instrumented + JVM): change the file externally (a) while open and clean, (b) while open and dirty, (c) between sessions with no journal, (d) between sessions with a journal, (e) same size and same second, (f) on a provider that reports `lastModified = 0`; plus delete, rename and replace with a different file of the same name | Stale text is never written or shown as current. The old undo stack is never used against new content. Every case ends in the matrix outcome above. |
-| **Three-way merge property tests** (JVM) | Non-overlapping edits merge exactly as git's `merge-file` would; overlaps are always reported, never silently resolved. |
-| **Rotation matrix** (instrumented): every view mode × {typing a half-finished word, mid-selection, a Preview paragraph edit, mid table-cell edit, find open, a sheet open, unsaved prompt open} × {rotate, fold/unfold, split-screen resize, dark-mode toggle, font-scale change, "Don't keep activities", `am kill`} | The text, cursor, selection, scroll, undo stack and dirty state are identical before and after. Zero characters lost. Runs on every PR. |
-| **Keyboard matrix** (manual, each release): Gboard, Samsung Keyboard, HeliBoard | Toolbar actions and Preview edits respect the in-progress word; autocorrect never lands text in the wrong place. |
-| **History property tests** (JVM): random edit sequences, then record, prune and restore | Every kept version rebuilds byte-identically; pruning never breaks a chain; a corrupt delta loses only the versions after it up to the next keyframe. |
-| **StrictMode** in every debuggable build (thread and VM policies, `detectAll` + `penaltyLog`) | Main-thread disk access and leaked closeables show in logcat during development. Not `penaltyDeath`: WebView's own start-up reads disk on the main thread. The host tests that matter assert the same thing by count (`ThemeLibraryTest`, `ViewMemoryTest`: no file touched on the caller's thread). **Planned:** a monkey run and a StrictMode-death run on the CI emulator, and LeakCanary, which needs a build type of its own because the hand-over build is a debug build. None of the three could be verified from the build container, so none is claimed. |
+Status: **tested** means a test named here is green; **host** means it
+runs on the JVM in `check`; **device** means it needs an emulator or a
+phone. Rubric #1 is scored against the first five rows and the last.
+
+| Test | What it proves | Status |
+|---|---|---|
+| **Kill test** (host ×1000, device ×50): kill the process at random moments while typing, pasting, undoing, saving, autosaving, Save as, resolving outside changes and "Don't save" | After relaunch, recovered text equals the expected text to within the last ~1 s. The file on disk is always either the old version or the new one, never partial. No outside edit is overwritten. | **tested, host**: `RandomKillTest` (feature/files): 1000 seeded runs, each killed once at a uniformly chosen point (any main- or journal-thread task, any disk hop, any byte of a write), sometimes with the journal's last write torn or zero-filled, half-written temporaries left behind, or another app writing the file before relaunch; recovered through the real launch scan. 1000/1000 pass, max loss 1000 ms of typing (the group-commit bound). `check` runs 100 seeds; CI runs the thousand. **Device**: `KillLoopTest` + `tools/kill-loop.sh`, 50 SIGKILLs of the real app typed into through its `InputConnection`, in CI's emulator job, reporting without gating until it has been seen green there. Not covered by either: view switching and Save all mid-kill (UI), and power loss (the host cannot prove `fsync` reaches flash). |
+| **Save-fault injection**: a fake provider that fails mid-write, ignores truncation, or revokes permission | The document stays dirty, the backup survives, and the user sees the error and a way out. | **tested, host**: `SavePipelineTest` (300 random one-shot faults), `SaveTimeoutTest`, `InterruptedSaveTest` (a kill mid-write is repaired at the next launch; an outside edit after it is never touched), `DocumentStoreTest` |
+| **Journal property tests** (JVM, randomised ops) | Replay equals the live buffer; compaction keeps that true; a torn final record is ignored safely. | **tested, host**: `JournalRoundTripTest`, `CompactionTest`, `TornAndCorruptTest`, `FlushPolicyTest` (steady typing is synced every second) |
+| **Interleaving tests** (JVM, `InterleavingDispatcher`): a keystroke after every disk hop of save, autosave, Save as, reload, Use mine, merge and discard, then a crash | Recovery brings back exactly the live text, nothing typed is missing, and no journal is left on the wrong base. | **tested, host**: `InterleavingTest`, `DataSafetyRound2Test`, and every run of `RandomKillTest` (keystrokes land at random disk hops) |
+| **Round-trip corpus** | Opening and saving without edits is byte-identical, including CRLF, BOM, no final newline and odd encodings. Editing one line changes only that line's bytes. Invalid UTF-8 and NUL bytes open read-only and are never written. A Preview edit changes only its own block. | **tested, host**: `RoundTripCorpusTest` (feature/files, through the store and the safe save: LF, CRLF, CR-only, mixed, BOM, no final newline, emoji/ZWJ/flags/RTL, a 300 000-char line; five kinds of invalid UTF-8), `Utf8CodecTest` (core/text). Preview blocks: `CoveringEditTest` and the Playwright editing tests |
+| **Large-file benchmarks** (macrobenchmark, Pixel 6a-class and a 3 GB low-end phone) | Open, type and scroll targets at 1, 20 and 100 MB. Frame cost doesn't grow with file size. | planned (device) |
+| **Memory-pressure tests**: a 128 MB heap emulator, `am send-trim-memory`, killing the WebView renderer (`chrome://crash` / `am kill`), and opening several large files | No out-of-memory crash; admission control refuses cleanly; the preview restarts after a renderer death; no unsaved work lost. | host part tested (`MemoryGovernorTest`); device part planned |
+| **Clipboard/share at 5 MB** | No `TransactionTooLargeException`; the fallback works. | planned (device) |
+| **Outside-change scenarios** (instrumented + JVM): change the file externally (a) while open and clean, (b) while open and dirty, (c) between sessions with no journal, (d) between sessions with a journal, (e) same size and same second, (f) on a provider that reports `lastModified = 0`; plus delete, rename and replace with a different file of the same name | Stale text is never written or shown as current. The old undo stack is never used against new content. Every case ends in the matrix outcome above. | **tested, host**: `DocumentStoreTest`, `SchedulingTest`, `RandomKillTest` (outside edits while clean, dirty and dead, checked against every write); instrumented part planned |
+| **Three-way merge property tests** (JVM) | Non-overlapping edits merge exactly as git's `merge-file` would; overlaps are always reported, never silently resolved. | **tested, host**: `ThreeWayMergePropertyTest` |
+| **Rotation matrix** (instrumented): every view mode × {typing a half-finished word, mid-selection, a Preview paragraph edit, mid table-cell edit, find open, a sheet open, unsaved prompt open} × {rotate, fold/unfold, split-screen resize, dark-mode toggle, font-scale change, "Don't keep activities", `am kill`} | The text, cursor, selection, scroll, undo stack and dirty state are identical before and after. Zero characters lost. Runs on every PR. | tested (device, every PR): `RotationTest`, `RotationMatrixTest`; mid-composition and the remaining states planned |
+| **Keyboard matrix** (manual, each release): Gboard, Samsung Keyboard, HeliBoard | Toolbar actions and Preview edits respect the in-progress word; autocorrect never lands text in the wrong place. | manual |
+| **History property tests** (JVM): random edit sequences, then record, prune and restore | Every kept version rebuilds byte-identically; pruning never breaks a chain; a corrupt delta loses only the versions after it up to the next keyframe. | **tested, host**: `VersionStorePropertyTest`, `CorruptionAndCrashTest`; `RandomKillTest` reads back every version after each kill |
+| **Unsaved state at a glance**: the first edit on every screen that shows a document | Something TalkBack reads as "Unsaved" appears within one frame (16 ms) in Code, Split and Preview, portrait and landscape, in the phone's folder drawer and the tablet's docked panel. | **tested, host**: `UnsavedIndicatorTest` (Robolectric, end to end through the view model and store) |
+| **StrictMode** in every debuggable build (thread and VM policies, `detectAll` + `penaltyLog`) | Main-thread disk access and leaked closeables show in logcat during development. Not `penaltyDeath`: WebView's own start-up reads disk on the main thread. The host tests that matter assert the same thing by count (`ThemeLibraryTest`, `ViewMemoryTest`: no file touched on the caller's thread). **Planned:** a monkey run and a StrictMode-death run on the CI emulator, and LeakCanary, which needs a build type of its own because the hand-over build is a debug build. None of the three could be verified from the build container, so none is claimed. | StrictMode logging on (debuggable builds); monkey and StrictMode-death runs planned (device) |

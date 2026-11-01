@@ -63,9 +63,11 @@ class PreviewView
         private var nextHtmlRequest = 1
 
         private val recovery = RendererRecovery()
+        private val refreshTrace = RefreshTrace()
         private val channel: PreviewChannel =
             PreviewChannel(Executor { backgroundExecutor.execute(it) }, onMessage = { message ->
                 when (message) {
+                    is PageMessage.Rendered -> refreshTrace.onRendered(message.rev)
                     is PageMessage.TopLine -> topLine = message.line
                     is PageMessage.PrintReady -> printing.onPageReady(webView)
                     is PageMessage.HtmlResult -> htmlRequests.remove(message.requestId)?.invoke(message.html)
@@ -90,6 +92,7 @@ class PreviewView
          */
         fun send(message: HostMessage) {
             ensureWebView()
+            refreshTrace.onSent(message)
             channel.send(message)
         }
 

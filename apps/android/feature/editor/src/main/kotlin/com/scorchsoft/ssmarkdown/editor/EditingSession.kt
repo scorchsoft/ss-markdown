@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.editor
 
+import com.scorchsoft.ssmarkdown.core.perf.PerfTrace
 import com.scorchsoft.ssmarkdown.text.GraphemeBoundaries
 import com.scorchsoft.ssmarkdown.text.TextDocument
 
@@ -145,18 +146,21 @@ class EditingSession(
     fun commitText(
         text: CharSequence,
         newCursorPosition: Int,
-    ) {
+    ) = PerfTrace.section(PerfTrace.COMMIT) {
         val (start, end) = replacementRange()
         val inserted = replaceRange(start, end, text)
         clearComposing()
         placeCursor(start, start + inserted, newCursorPosition)
     }
 
-    /** Replaces the composing region (or the selection) with [text] and marks it as composing. */
+    /**
+     * Replaces the composing region (or the selection) with [text] and marks it as composing.
+     * Traced as a keystroke too: a soft keyboard types most letters this way.
+     */
     fun setComposingText(
         text: CharSequence,
         newCursorPosition: Int,
-    ) {
+    ) = PerfTrace.section(PerfTrace.COMMIT) {
         val (start, end) = replacementRange()
         val inserted = replaceRange(start, end, text)
         if (inserted == 0) clearComposing() else setComposing(start, start + inserted)

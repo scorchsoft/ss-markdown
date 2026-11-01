@@ -4,6 +4,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.ReportDrawnWhen
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -61,6 +62,11 @@ class MainActivity : ComponentActivity() {
         // Parsed when the Licences screen first opens, not on every launch (PERF-21).
         val licences by lazy { Licences.parse(readAsset(LICENCES_ASSET)) }
         setContent {
+            // "Fully drawn" is an editable document, not the first frame: the
+            // cold-start benchmark reports timeToFullDisplayMs from this
+            // (quality-bar §4, cold start to an editable cursor < 800 ms).
+            val editable by graph.editor.activeDocument.collectAsState()
+            ReportDrawnWhen { editable != null }
             val settings by graph.settings.settings.collectAsState()
             val dark =
                 when (settings.appearance) {

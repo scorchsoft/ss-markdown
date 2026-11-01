@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.editor
 
+import com.scorchsoft.ssmarkdown.core.perf.PerfTrace
 import com.scorchsoft.ssmarkdown.document.ActiveDocument
 import com.scorchsoft.ssmarkdown.document.ActiveDocumentListener
 import com.scorchsoft.ssmarkdown.document.DocumentThreads
@@ -52,6 +53,9 @@ class EditorViewModel(
     private var shownTexts: List<String> = emptyList()
     private var started = false
     private var explicitOpen = false
+
+    /** Cookies for the [PerfTrace.OPEN] sections, one per open, so overlapping opens trace apart. */
+    private var openTraces = 0
 
     /** The screen state. */
     val uiState: StateFlow<EditorUiState> = ui.asStateFlow()
@@ -236,33 +240,49 @@ class EditorViewModel(
             refresh()
             return
         }
+        // Measured by the emulator benchmarks: from here to the bound, editable buffer.
+        val traceCookie = ++openTraces
+        PerfTrace.beginAsync(PerfTrace.OPEN, traceCookie)
         deps.scope.launch {
-            ui.update { it.copy(loading = true, tooLarge = null) }
-            val outcome = deps.store.open(DocumentUri(uri))
-            ui.update { it.copy(loading = false) }
-            when (outcome) {
-                is OpenOutcome.Opened -> {
-                    updateMeta(uri) { it.copy(fromAnotherApp = fromAnotherApp, readOnlySource = readOnlySource) }
-                    bind(outcome.document)
-                    outcome.recovery?.let { recovery.onRecovered(it) }
-                }
+            try {
+                ui.update { it.copy(loading = true, tooLarge = null) }
+                val outcome = deps.store.open(DocumentUri(uri))
+                ui.update { it.copy(loading = false) }
+                onOpened(uri, outcome, fromAnotherApp, readOnlySource)
+            } finally {
+                PerfTrace.endAsync(PerfTrace.OPEN, traceCookie)
+            }
+        }
+    }
 
-                is OpenOutcome.Failed -> {
-                    // Unsaved edits whose file is out of reach come back as a copy, never as an empty draft (R2-DS-2).
-                    if (outcome.hasUnsavedEdits && recovery.openUnreachableAsCopy(DocumentUri(uri))) return@launch
-                    message(MessageKind.ActionFailed)
-                    if (active == null) newDraft()
-                }
+    private suspend fun onOpened(
+        uri: String,
+        outcome: OpenOutcome,
+        fromAnotherApp: Boolean,
+        readOnlySource: String?,
+    ) {
+        when (outcome) {
+            is OpenOutcome.Opened -> {
+                updateMeta(uri) { it.copy(fromAnotherApp = fromAnotherApp, readOnlySource = readOnlySource) }
+                bind(outcome.document)
+                outcome.recovery?.let { recovery.onRecovered(it) }
+            }
 
-                is OpenOutcome.TooLarge -> {
-                    val a = outcome.admission
-                    ui.update { it.copy(tooLarge = TooLargeInfo(a.fileBytes, a.neededBytes, a.allowedBytes)) }
-                }
+            is OpenOutcome.Failed -> {
+                // Unsaved edits whose file is out of reach come back as a copy, never as an empty draft (R2-DS-2).
+                if (outcome.hasUnsavedEdits && recovery.openUnreachableAsCopy(DocumentUri(uri))) return
+                message(MessageKind.ActionFailed)
+                if (active == null) newDraft()
+            }
 
-                else -> {
-                    message(MessageKind.ActionFailed)
-                    if (active == null) newDraft()
-                }
+            is OpenOutcome.TooLarge -> {
+                val a = outcome.admission
+                ui.update { it.copy(tooLarge = TooLargeInfo(a.fileBytes, a.neededBytes, a.allowedBytes)) }
+            }
+
+            else -> {
+                message(MessageKind.ActionFailed)
+                if (active == null) newDraft()
             }
         }
     }

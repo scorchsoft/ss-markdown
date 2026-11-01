@@ -28,6 +28,10 @@ jobs:
         with:
           gradle-version: "8.14.3"
       - uses: android-actions/setup-android@v3
+        with:
+          # The action's default list includes the long-removed 'tools'
+          # package, which now fails sdkmanager. AGP fetches the rest.
+          packages: platform-tools
 
       # `check` is the whole gate: module graph, ktlint, detekt, Android
       # lint and every unit test (host JVM and Robolectric).
@@ -87,6 +91,10 @@ jobs:
         with:
           gradle-version: "8.14.3"
       - uses: android-actions/setup-android@v3
+        with:
+          # The action's default list includes the long-removed 'tools'
+          # package, which now fails sdkmanager. AGP fetches the rest.
+          packages: platform-tools
 
       # Compile first, so emulator minutes are spent only on running tests.
       - name: Build app and test APKs

@@ -17,14 +17,18 @@ class FlushPolicyTest {
     @Test
     fun `idle policy waits a second, caps latency and syncs big pastes at once`() {
         assertEquals(1_000L, policy.flushDelayMillis(PendingWrites(records = 1, bytes = 30, millisSinceFirst = 0)))
-        assertEquals(400L, policy.flushDelayMillis(PendingWrites(records = 40, bytes = 900, millisSinceFirst = 4_600)))
-        assertEquals(0L, policy.flushDelayMillis(PendingWrites(records = 90, bytes = 1_000, millisSinceFirst = 9_000)))
+        assertEquals(400L, policy.flushDelayMillis(PendingWrites(records = 4, bytes = 90, millisSinceFirst = 600)))
+        assertEquals(0L, policy.flushDelayMillis(PendingWrites(records = 9, bytes = 100, millisSinceFirst = 1_000)))
         assertEquals(0L, policy.flushDelayMillis(PendingWrites(records = 1, bytes = 256L * 1024, millisSinceFirst = 0)))
+        val relaxed = IdleFlushPolicy(maxLatencyMillis = 5_000)
+        assertEquals(400L, relaxed.flushDelayMillis(PendingWrites(records = 40, bytes = 900, millisSinceFirst = 4_600)))
+        assertEquals(1_000L, relaxed.flushDelayMillis(PendingWrites(records = 4, bytes = 90, millisSinceFirst = 600)))
     }
 
     @Test
     fun `typing never syncs per keystroke, and a pause makes it durable`() {
-        val test = TestStore(folder.root)
+        // The idle rule alone: a latency cap far beyond this burst of typing.
+        val test = TestStore(folder.root, IdleFlushPolicy(maxLatencyMillis = 60_000))
         val writer = test.start("doc", fingerprintOf(""))
         repeat(KEYSTROKES) {
             writer.append(TextEdit(it, "", "k"))
@@ -42,8 +46,8 @@ class FlushPolicyTest {
     }
 
     @Test
-    fun `typing without a pause is still synced every five seconds`() {
-        val test = TestStore(folder.root)
+    fun `typing without a pause is still synced every five seconds when the cap says so`() {
+        val test = TestStore(folder.root, IdleFlushPolicy(maxLatencyMillis = 5_000))
         val writer = test.start("doc", fingerprintOf(""))
         val gap = 200L
         repeat((12_000 / gap).toInt()) {
@@ -51,6 +55,23 @@ class FlushPolicyTest {
             test.scheduler.advanceBy(gap)
         }
         assertEquals(2, test.sinks.forces)
+    }
+
+    @Test
+    fun `by default typing without a pause is synced every second, so a kill loses at most one`() {
+        val test = TestStore(folder.root)
+        val writer = test.start("doc", fingerprintOf(""))
+        val gap = 200L
+        var oldestUnsynced: Long? = null
+        repeat((12_000 / gap).toInt()) {
+            if (oldestUnsynced == null) oldestUnsynced = test.clock.now
+            writer.append(TextEdit(it, "", "k"))
+            test.scheduler.advanceBy(gap)
+            if (writer.durableSeq == writer.lastSeq) oldestUnsynced = null
+            val waited = oldestUnsynced?.let { test.clock.now - it } ?: 0
+            assertTrue("waited $waited ms", waited < IdleFlushPolicy.DEFAULT_MAX_LATENCY_MILLIS)
+        }
+        assertEquals(12, test.sinks.forces)
     }
 
     @Test

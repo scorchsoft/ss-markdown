@@ -68,8 +68,15 @@ public class IdleFlushPolicy(
         /** About a second of idle typing, as VS Code's backup tracker does. */
         public const val DEFAULT_IDLE_MILLIS: Long = 1_000
 
-        /** Continuous typing is still synced at least this often. */
-        public const val DEFAULT_MAX_LATENCY_MILLIS: Long = 5_000
+        /**
+         * Continuous typing is still synced at least this often. One second,
+         * like the idle delay, so a kill loses at most the last second of
+         * typing whether or not the user paused: the bound the random kill
+         * test measures (rubric #1). It was 5 s, which let a kill during
+         * steady typing lose up to five seconds. The cost is one small
+         * `fsync` a second while typing.
+         */
+        public const val DEFAULT_MAX_LATENCY_MILLIS: Long = 1_000
 
         /** 256 KiB: far beyond typing, so only pastes and replace-alls hit it. */
         public const val DEFAULT_MAX_PENDING_BYTES: Long = 256L * 1024

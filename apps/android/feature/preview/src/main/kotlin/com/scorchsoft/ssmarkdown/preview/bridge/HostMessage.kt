@@ -131,12 +131,19 @@ sealed interface HostMessage {
         val rev: Int,
         val text: CharSequence,
         val anchorLine: Int? = null,
+        /**
+         * Which document binding this is; the page stamps its offsets
+         * messages with it so the host never applies an edit typed into one
+         * document to another (DS-13). 0 is unstamped.
+         */
+        val epoch: Int = 0,
     ) : HostMessage {
         override val type = "load"
 
         override fun writeTo(json: JSONObject) {
             json.put("rev", rev).put("text", text.toString())
             anchorLine?.let { json.put("anchorLine", it) }
+            if (epoch != 0) json.put("epoch", epoch)
         }
     }
 
@@ -329,6 +336,17 @@ sealed interface HostMessage {
         override fun writeTo(json: JSONObject) {
             json.put("requestId", requestId).put("fromLine", fromLine).put("toLine", toLine)
         }
+    }
+
+    /**
+     * Writes back any Preview typing still waiting for its 150 ms pause, now:
+     * sent when the app is paused (DS-14) and before the page is given another
+     * document (DS-13). The page stays in editing.
+     */
+    data object Flush : HostMessage {
+        override val type = "flush"
+
+        override fun writeTo(json: JSONObject) = Unit
     }
 
     /** Returns the page to its virtualised reading state after printing. */

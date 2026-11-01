@@ -168,6 +168,11 @@ export class Editor implements SessionHost {
         this.moveCell("next");
     }
 
+    /** Writes back typing waiting for its 150 ms pause, now, and stays in editing (DS-14). */
+    flushTyping(): void {
+        this.session?.flush();
+    }
+
     tableOp(op: TableOp, at?: CellAddress): void {
         const block = this.session?.block;
         const addr = at ?? (block ? cellAddress(block) : null);

@@ -60,6 +60,10 @@ export class PreviewApp {
             post,
         });
         window.addEventListener("scroll", () => this.onScroll(), { passive: true });
+        // Going to the background: typing still waiting for its pause goes now (DS-14).
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "hidden") this.editor.flushTyping();
+        });
         applyTheme(
             document.documentElement,
             BUILT_IN_THEMES.clean ?? { name: "Clean" },
@@ -119,6 +123,9 @@ export class PreviewApp {
                 break;
             case "preparePrint":
                 void this.preparePrint();
+                break;
+            case "flush":
+                this.editor.flushTyping();
                 break;
             case "exportHtml":
                 void this.exportHtml(m.requestId, m.fromLine, m.toLine);

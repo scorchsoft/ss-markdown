@@ -81,6 +81,12 @@ export type HostMessage =
           readonly text?: string;
           readonly chunks?: number;
           readonly anchorLine?: number;
+          /**
+           * The host's binding of this document. The bridge stamps it on every
+           * message that carries offsets, so an edit typed just before a
+           * document switch is never applied to the next document (DS-13).
+           */
+          readonly epoch?: number;
       }
     | {
           readonly type: "edit";
@@ -109,6 +115,8 @@ export type HostMessage =
       }
     | { readonly type: "preparePrint" }
     | { readonly type: "finishPrint" }
+    /** Write back typing still waiting for its pause, now: the app is pausing or switching document (DS-14). */
+    | { readonly type: "flush" }
     /**
      * "Copy as rich text": the page's own rendering of source lines
      * [fromLine, toLine), without editing attributes or chips. Answered by
@@ -170,7 +178,12 @@ export type PageMessage =
     | { readonly type: "ready"; readonly version: number }
     | { readonly type: "rendered"; readonly rev: number; readonly sections: number; readonly millis: number }
     | { readonly type: "topLine"; readonly line: number; readonly crumbs: readonly Crumb[] }
-    | { readonly type: "sourceEdit"; readonly baseRev: number; readonly edits: readonly SourceEdit[] }
+    | {
+          readonly type: "sourceEdit";
+          readonly baseRev: number;
+          readonly edits: readonly SourceEdit[];
+          readonly epoch?: number;
+      }
     | {
           readonly type: "selection";
           readonly from: number;
@@ -179,6 +192,7 @@ export type PageMessage =
           readonly inTable: boolean;
           /** The revision the offsets were taken at; sent only with no edits in flight. */
           readonly baseRev: number;
+          readonly epoch?: number;
       }
     | {
           readonly type: "formatRequest";
@@ -188,16 +202,23 @@ export type PageMessage =
           /** Like an edit's: Kotlin maps the selection over its changes the page has not seen. */
           readonly baseRev: number;
           readonly inTable: boolean;
+          readonly epoch?: number;
       }
     /** The page fell out of step with Kotlin; Kotlin answers with a `load` of its text. */
-    | { readonly type: "resync"; readonly reason: string }
+    | { readonly type: "resync"; readonly reason: string; readonly epoch?: number }
     /**
      * A change the source map cannot write back (typing into an emoji, say) was
      * undone on screen. Kotlin tells the user to use Code for that spot.
      */
     | { readonly type: "editRefused"; readonly line: number }
     | { readonly type: "editingChanged"; readonly editing: boolean }
-    | { readonly type: "taskToggle"; readonly baseRev: number; readonly offset: number; readonly checked: boolean }
+    | {
+          readonly type: "taskToggle";
+          readonly baseRev: number;
+          readonly offset: number;
+          readonly checked: boolean;
+          readonly epoch?: number;
+      }
     | { readonly type: "linkTapped"; readonly href: string; readonly line: number }
     | { readonly type: "headingLongPress"; readonly line: number; readonly level: number; readonly text: string }
     | { readonly type: "editInCode"; readonly line: number }

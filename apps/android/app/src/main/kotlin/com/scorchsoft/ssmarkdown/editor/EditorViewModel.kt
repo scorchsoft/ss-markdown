@@ -137,6 +137,14 @@ class EditorViewModel(
      */
     fun onPause() {
         views.capture()
+        // Preview typing still in its 150 ms pause is asked for now; it arrives
+        // after this returns and is made durable by [persistNow] (DS-14).
+        preview.onPause()
+        persistNow()
+    }
+
+    /** Makes the journal durable now, waiting for it briefly, and lets autosave write. */
+    fun persistNow() {
         deps.store.flushJournals()
         deps.store.awaitJournals(PAUSE_JOURNAL_WAIT_MILLIS)
         active?.open?.uri?.let(deps.autosave::onLeave)
@@ -158,6 +166,7 @@ class EditorViewModel(
 
     /** `onResume`: the disk is the truth; look for an outside change. */
     fun onResume() {
+        preview.onResume()
         val uri = active?.open?.uri ?: return
         if (uri.isDraft) return
         deps.scope.launch { deps.store.checkOutside(uri, CheckReason.Resume) }

@@ -55,7 +55,8 @@ any chosen I/O hop before the store resumes.
 | `fsync` on the main thread (PERF-6, PERF-7) | One dedicated journal thread owns every writer and the group-commit timer; `onPause` waits for it for at most 300 ms. | `InterleavingTest` (ordering on the queued executor); device StrictMode run still planned | handled |
 | Another app writes while our save is hashing the file (DS-17) | A metadata check right before opening the file re-hashes if size or time moved. | `SavePipelineTest` (DS-17) | tested |
 | Deleting a draft from the Navigator (DS-16, UX-1) | Moved to a trash; "Draft deleted · Undo" restores it; a draft open in memory is saved and closed first. | `DraftStoreTest`, `NeverLoseWorkTest` (DS-16) | tested |
-| A Preview edit in flight across a rebind, or in the last 150 ms before pause (DS-13, DS-14) | Not yet handled: needs a session epoch in the page protocol and a page flush on pause (feature/preview). | — | planned |
+| A Preview edit in flight across a rebind (DS-13) | Every binding has an epoch, sent with its `load`; the page stamps edits, task ticks, format requests and resyncs with it. The page is told to `flush` before a switch, and an edit stamped with the previous epoch goes to the previous document's editor (which sends nothing to the page), never to the new one. | `PreviewSessionSafetyTest`, `PageMessageDeliveryTest`, `e2e/bridge.test.ts` | tested |
+| Preview typing in the last 150 ms before the app is paused (DS-14) | `onPause` sends the page `flush` (the page also flushes on `visibilitychange`); a Preview edit that arrives while paused flushes the journal and autosave at once. | `PreviewSessionSafetyTest` (the paused edit is in the journal on disk), `e2e/bridge.test.ts` | tested |
 
 ## Text and input
 

@@ -79,6 +79,10 @@ class EditorPreviewHost(
             is PreviewEvent.History -> {
                 onHistory(event.redo)
             }
+
+            PreviewEvent.EditedWhilePaused -> {
+                vm.persistNow()
+            }
         }
     }
 

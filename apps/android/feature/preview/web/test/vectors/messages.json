@@ -2,7 +2,7 @@
   "comment": "Every bridge message, as JSON on the wire. Kotlin's SharedVectorsTest encodes the named host messages and must produce exactly these objects, and decodes every page message to the named class; vectors.test.ts checks the page accepts every host type. Change with web/src/protocol.ts and Kotlin's bridge/ together (CC-20).",
   "protocolVersion": 1,
   "host": {
-    "load": { "type": "load", "rev": 3, "text": "# Hi\n", "anchorLine": 12 },
+    "load": { "type": "load", "rev": 3, "text": "# Hi\n", "anchorLine": 12, "epoch": 2 },
     "loadChunked": { "type": "load", "rev": 4, "chunks": 2 },
     "edit": {
       "type": "edit",
@@ -30,13 +30,15 @@
     "exportImage": { "type": "exportImage", "requestId": 7, "line": 3, "format": "png", "scale": 2 },
     "preparePrint": { "type": "preparePrint" },
     "finishPrint": { "type": "finishPrint" },
-    "exportHtml": { "type": "exportHtml", "requestId": 8, "fromLine": 2, "toLine": 9 }
+    "exportHtml": { "type": "exportHtml", "requestId": 8, "fromLine": 2, "toLine": 9 },
+    "flush": { "type": "flush" }
   },
   "page": [
     { "kotlin": "Ready", "json": { "type": "ready", "version": 1 } },
     { "kotlin": "Rendered", "json": { "type": "rendered", "rev": 2, "sections": 3, "millis": 40 } },
     { "kotlin": "TopLine", "json": { "type": "topLine", "line": 4, "crumbs": [{ "level": 1, "text": "A", "line": 0 }] } },
     { "kotlin": "SourceEdit", "json": { "type": "sourceEdit", "baseRev": 1, "edits": [{ "from": 0, "to": 1, "insert": "x" }] } },
+    { "kotlin": "SourceEdit", "json": { "type": "sourceEdit", "baseRev": 1, "edits": [], "epoch": 4 } },
     {
       "kotlin": "Selection",
       "json": { "type": "selection", "from": 1, "to": 2, "marks": ["bold"], "inTable": false, "baseRev": 3 }

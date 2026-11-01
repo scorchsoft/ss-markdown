@@ -11,6 +11,7 @@ import com.scorchsoft.ssmarkdown.preview.bridge.Crumb
 import com.scorchsoft.ssmarkdown.preview.bridge.HostMessage
 import com.scorchsoft.ssmarkdown.preview.bridge.LinkTarget
 import com.scorchsoft.ssmarkdown.preview.bridge.MediaKind
+import com.scorchsoft.ssmarkdown.preview.bridge.PageMessage
 import com.scorchsoft.ssmarkdown.preview.bridge.PreviewFormatRequest
 import com.scorchsoft.ssmarkdown.preview.bridge.TextEdit
 import com.scorchsoft.ssmarkdown.preview.editing.FormatAction
@@ -45,8 +46,20 @@ class PreviewSession(
 
     private var sender: ((HostMessage) -> Unit)? = null
     private var editor: PreviewEditor? = null
+
+    /**
+     * The editor of the previous binding, kept so a page edit typed into that
+     * document just before a switch, which arrives stamped with its epoch,
+     * still lands in that document instead of the new one (DS-13). It sends
+     * nothing: the page has moved on.
+     */
+    private var retired: PreviewEditor? = null
+    private var nextEpoch = 1
     private var bound: ActiveDocument? = null
     private var applyingPageEdit = false
+
+    /** Between `onPause` and `onResume`: a page edit arriving now is made durable at once (DS-14). */
+    private var paused = false
 
     /** The revision the page and host agree on next; for tests and logs. */
     val rev: Int get() = editor?.rev ?: 0
@@ -54,11 +67,41 @@ class PreviewSession(
     /** [document] is now on screen (null: nothing is). Reloads the page if one is attached. */
     fun bind(document: ActiveDocument?) {
         if (document === bound) return
+        // Typing still waiting in the page goes out first, stamped with the old epoch (DS-13).
+        send(HostMessage.Flush)
         bound?.changes = null
         bound = document
-        editor = document?.let { PreviewEditor(ActivePreviewDocument(it) { on -> applyingPageEdit = on }, ::send) }
+        retired = editor
+        editor = document?.let(::editorFor)
         document?.changes = TextChangeListener(::onHostChanged)
         open()
+    }
+
+    /** A new binding's editor: its messages reach the page only while it is the current one. */
+    private fun editorFor(document: ActiveDocument): PreviewEditor {
+        lateinit var created: PreviewEditor
+        val target = ActivePreviewDocument(document) { on -> applyingPageEdit = on }
+        created = PreviewEditor(target, { message -> if (editor === created) send(message) }, nextEpoch++)
+        return created
+    }
+
+    /** The editor a page message stamped with [epoch] belongs to; unstamped means the current one. */
+    private fun editorOf(epoch: Int): PreviewEditor? =
+        when (epoch) {
+            PageMessage.UNSTAMPED, editor?.epoch -> editor
+            retired?.epoch -> retired
+            else -> null
+        }
+
+    /** The app is going to the background: the page writes back any typing still waiting (DS-14). */
+    fun onPause() {
+        paused = true
+        send(HostMessage.Flush)
+    }
+
+    /** The app is back. */
+    fun onResume() {
+        paused = false
     }
 
     /** The Preview pane's view is on screen: it reports here and loads the document. */
@@ -142,8 +185,12 @@ class PreviewSession(
     override fun onSourceEdits(
         baseRev: Int,
         edits: List<TextEdit>,
+        epoch: Int,
     ) {
-        editor?.onPageEdits(baseRev, edits)
+        val target = editorOf(epoch) ?: return
+        target.onPageEdits(baseRev, edits)
+        // The pause already flushed the journal; this edit arrived after it.
+        if (paused && target === editor) host.onPreviewEvent(PreviewEvent.EditedWhilePaused)
     }
 
     override fun onEditingChanged(editing: Boolean) = host.onPreviewEvent(PreviewEvent.Editing(editing))
@@ -159,12 +206,17 @@ class PreviewSession(
     }
 
     override fun onFormatRequest(request: PreviewFormatRequest) {
+        if (request.epoch != PageMessage.UNSTAMPED && request.epoch != editor?.epoch) return
         val handled = editor?.onFormatRequest(request) ?: return
         if (!handled) host.onPreviewEvent(PreviewEvent.History(redo = request.action == FormatAction.REDO))
     }
 
-    override fun onResync(reason: String) {
-        editor?.onResync(reason)
+    override fun onResync(
+        reason: String,
+        epoch: Int,
+    ) {
+        // A resync from the previous document's page needs nothing: the page already has a new load.
+        if (epoch == PageMessage.UNSTAMPED || epoch == editor?.epoch) editor?.onResync(reason)
     }
 
     override fun onEditRefused(line: Int) = host.onPreviewEvent(PreviewEvent.EditRefused(line))

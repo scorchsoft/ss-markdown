@@ -51,6 +51,7 @@ object BridgeCodec {
         }
         val header = JSONObject().put("type", message.type).put("rev", message.rev).put("chunks", parts.size)
         message.anchorLine?.let { header.put("anchorLine", it) }
+        if (message.epoch != 0) header.put("epoch", message.epoch)
         return listOf(header.toString()) + parts
     }
 
@@ -67,7 +68,8 @@ object BridgeCodec {
             "ready" to { j -> PageMessage.Ready(j.getInt("version")) },
             "rendered" to { j -> PageMessage.Rendered(j.getInt("rev"), j.getInt("sections"), j.getInt("millis")) },
             "topLine" to { j -> PageMessage.TopLine(j.getInt("line"), crumbs(j.getJSONArray("crumbs"))) },
-            "sourceEdit" to { j -> PageMessage.SourceEdit(j.getInt("baseRev"), edits(j.getJSONArray("edits"))) },
+            "sourceEdit" to
+                { j -> PageMessage.SourceEdit(j.getInt("baseRev"), edits(j.getJSONArray("edits")), epoch(j)) },
             "selection" to { j ->
                 PageMessage.Selection(
                     j.getInt("from"),
@@ -78,11 +80,13 @@ object BridgeCodec {
                 )
             },
             "formatRequest" to { j -> formatRequest(j) },
-            "resync" to { j -> PageMessage.Resync(j.optString("reason")) },
+            "resync" to { j -> PageMessage.Resync(j.optString("reason"), epoch(j)) },
             "editRefused" to { j -> PageMessage.EditRefused(j.getInt("line")) },
             "editingChanged" to { j -> PageMessage.EditingChanged(j.getBoolean("editing")) },
             "taskToggle" to
-                { j -> PageMessage.TaskToggle(j.getInt("baseRev"), j.getInt("offset"), j.getBoolean("checked")) },
+                { j ->
+                    PageMessage.TaskToggle(j.getInt("baseRev"), j.getInt("offset"), j.getBoolean("checked"), epoch(j))
+                },
             "linkTapped" to { j -> PageMessage.LinkTapped(j.getString("href"), j.getInt("line")) },
             "headingLongPress" to
                 { j -> PageMessage.HeadingLongPress(j.getInt("line"), j.getInt("level"), j.getString("text")) },
@@ -109,9 +113,13 @@ object BridgeCodec {
                 j.getInt("to"),
                 j.getInt("baseRev"),
                 j.optBoolean("inTable"),
+                epoch(j),
             ),
         )
     }
+
+    /** The load a message was made in; [PageMessage.UNSTAMPED] from a page that does not say. */
+    private fun epoch(j: JSONObject): Int = j.optInt("epoch", PageMessage.UNSTAMPED)
 
     private fun crumbs(array: JSONArray): List<Crumb> =
         List(array.length()) { i ->

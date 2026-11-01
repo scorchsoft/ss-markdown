@@ -47,9 +47,10 @@ class PreviewEditSync(
     fun load(
         text: CharSequence,
         anchorLine: Int? = null,
+        epoch: Int = 0,
     ): HostMessage.Load {
         rev++
-        return HostMessage.Load(rev, text, anchorLine)
+        return HostMessage.Load(rev, text, anchorLine, epoch)
     }
 
     /**

@@ -115,7 +115,7 @@ class SharedVectorsTest {
     /** The Kotlin twin of each named vector in messages.json. */
     private val hostMessages: Map<String, HostMessage> =
         mapOf(
-            "load" to HostMessage.Load(3, "# Hi\n", 12),
+            "load" to HostMessage.Load(3, "# Hi\n", 12, epoch = 2),
             "loadChunked" to HostMessage.Load(4, "0123456789"),
             "edit" to HostMessage.Edit(9, listOf(LineChange(4, 5, listOf("a", ""))), listOf(TextEdit(10, 11, "a\n"))),
             "ack" to HostMessage.Ack(5),
@@ -142,5 +142,6 @@ class SharedVectorsTest {
             "preparePrint" to HostMessage.PreparePrint,
             "finishPrint" to HostMessage.FinishPrint,
             "exportHtml" to HostMessage.ExportHtml(8, 2, 9),
+            "flush" to HostMessage.Flush,
         )
 }

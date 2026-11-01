@@ -13,6 +13,8 @@ export const INIT_MESSAGE = "ssmd:init";
 export class Bridge {
     private port: MessagePort | null = null;
     private readonly outbox: PageMessage[] = [];
+    /** The epoch of the last `load` handed to the page (DS-13); stamped on messages with offsets. */
+    private epoch: number | undefined;
     /** A chunked `load` waiting for its text frames. */
     private loading: { message: Extract<HostMessage, { type: "load" }>; parts: string[]; left: number } | null = null;
 
@@ -32,8 +34,16 @@ export class Bridge {
     }
 
     post(message: PageMessage): void {
-        if (this.port) this.port.postMessage(JSON.stringify(message));
-        else this.outbox.push(message);
+        const stamped =
+            STAMPED.has(message.type) && this.epoch !== undefined ? { ...message, epoch: this.epoch } : message;
+        if (this.port) this.port.postMessage(JSON.stringify(stamped));
+        else this.outbox.push(stamped);
+    }
+
+    /** Every host message reaches the page through here; a load moves the epoch. */
+    private deliver(message: HostMessage): void {
+        if (message.type === "load") this.epoch = message.epoch;
+        this.onMessage(message);
     }
 
     private receive(data: unknown): void {
@@ -44,7 +54,7 @@ export class Bridge {
             loading.parts.push(data);
             if (--loading.left === 0) {
                 this.loading = null;
-                this.onMessage({ ...loading.message, text: loading.parts.join(""), chunks: undefined });
+                this.deliver({ ...loading.message, text: loading.parts.join(""), chunks: undefined });
             }
             return;
         }
@@ -60,7 +70,7 @@ export class Bridge {
         } else if (parsed.type === "load" && typeof parsed.chunks === "number" && parsed.chunks > 0) {
             this.loading = { message: parsed, parts: [], left: parsed.chunks };
         } else {
-            this.onMessage(parsed);
+            this.deliver(parsed);
         }
     }
 }
@@ -81,7 +91,11 @@ export const HOST_TYPES: ReadonlySet<string> = new Set<string>([
     "preparePrint",
     "finishPrint",
     "exportHtml",
+    "flush",
 ]);
+
+/** Page messages whose offsets belong to one load, so they carry its epoch. */
+const STAMPED: ReadonlySet<string> = new Set(["sourceEdit", "taskToggle", "selection", "formatRequest", "resync"]);
 
 function isHostMessage(value: unknown): value is HostMessage {
     return typeof value === "object" && value !== null && HOST_TYPES.has(String((value as { type?: unknown }).type));

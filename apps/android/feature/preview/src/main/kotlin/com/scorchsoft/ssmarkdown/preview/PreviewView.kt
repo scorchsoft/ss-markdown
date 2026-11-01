@@ -201,7 +201,7 @@ class PreviewView
         private fun rebuild() {
             release()
             ensureWebView()
-            documentSource?.snapshot()?.let { channel.send(HostMessage.Load(it.rev, it.text, topLine)) }
+            documentSource?.snapshot()?.let { channel.send(HostMessage.Load(it.rev, it.text, topLine, it.epoch)) }
         }
 
         private companion object {

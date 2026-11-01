@@ -65,6 +65,12 @@ sealed interface PreviewEvent {
         val line: Int,
     ) : PreviewEvent
 
+    /**
+     * A Preview edit was applied while the app is paused, after `onPause`
+     * made the journal durable: make it durable too (DS-14).
+     */
+    data object EditedWhilePaused : PreviewEvent
+
     /** Keyboard undo or redo inside Preview: the host's history. */
     data class History(
         val redo: Boolean,

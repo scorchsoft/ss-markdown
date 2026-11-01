@@ -98,4 +98,42 @@ describe("bridge", () => {
             "nowrap",
         );
     });
+
+    it("stamps edits with the load's epoch and flushes waiting typing on demand (DS-13, DS-14)", async () => {
+        const page = await openPreview(h);
+        await clearReceived(page);
+        await send(page, { type: "load", rev: 1, text: "Some words here.", epoch: 7 });
+        await waitForMessage(page, (m) => m.type === "rendered");
+        const run = page.locator("span", { hasText: "Some words here." });
+        const box = await run.boundingBox();
+        if (!box) throw new Error("no run");
+        await page.mouse.click(box.x + box.width - 2, box.y + box.height / 2);
+        await waitForMessage(page, (m) => m.type === "editingChanged");
+        await clearReceived(page);
+        // Typing waits 150 ms before it is written back; a flush sends it at once.
+        await page.keyboard.type("X");
+        await send(page, { type: "flush" });
+        const edit = (await waitForMessage(page, (m) => m.type === "sourceEdit", 100)) as Extract<
+            PageMessage,
+            { type: "sourceEdit" }
+        >;
+        expect(edit.epoch).toBe(7);
+        expect(edit.edits.map((e) => e.insert).join("")).toBe("X");
+    });
+
+    it("flushes waiting typing when the page is hidden (DS-14)", async () => {
+        const page = await openPreview(h);
+        await loadMarkdown(page, "Hidden typing.");
+        const box = await page.locator("span", { hasText: "Hidden typing." }).boundingBox();
+        if (!box) throw new Error("no run");
+        await page.mouse.click(box.x + box.width - 2, box.y + box.height / 2);
+        await waitForMessage(page, (m) => m.type === "editingChanged");
+        await clearReceived(page);
+        await page.keyboard.type("Y");
+        await page.evaluate(() => {
+            Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+            document.dispatchEvent(new Event("visibilitychange"));
+        });
+        await waitForMessage(page, (m) => m.type === "sourceEdit", 100);
+    });
 });

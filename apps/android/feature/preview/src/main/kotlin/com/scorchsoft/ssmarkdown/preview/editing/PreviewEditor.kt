@@ -56,6 +56,12 @@ enum class EditOrigin {
 class PreviewEditor(
     private val document: PreviewDocument,
     private val send: (HostMessage) -> Unit,
+    /**
+     * This binding's number, sent with every load and stamped by the page
+     * on what it sends back: a host keeps one editor per document and routes
+     * each page edit to the editor of the epoch it was typed in (DS-13).
+     */
+    val epoch: Int = 0,
 ) {
     private val sync = PreviewEditSync()
 
@@ -65,8 +71,8 @@ class PreviewEditor(
     /** Hands a renderer restart a fresh load at a new revision (`PreviewView.documentSource`). */
     val documentSource: DocumentSource =
         DocumentSource {
-            val load = sync.load(document.text().chars)
-            DocumentSnapshot(load.text, load.rev)
+            val load = sync.load(document.text().chars, epoch = epoch)
+            DocumentSnapshot(load.text, load.rev, epoch)
         }
 
     /**
@@ -76,7 +82,7 @@ class PreviewEditor(
      * off the main thread (PERF-12).
      */
     fun open(anchorLine: Int? = null) {
-        send(sync.load(document.text().chars, anchorLine))
+        send(sync.load(document.text().chars, anchorLine, epoch))
     }
 
     /** The host changed its text (Code pane, undo, replace): [edits] were applied to [before]. */

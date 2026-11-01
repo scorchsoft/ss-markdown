@@ -8,14 +8,17 @@ import org.junit.Test
 class PageMessageDeliveryTest {
     private class Recorder : PreviewListener {
         val edits = mutableListOf<Pair<Int, List<TextEdit>>>()
+        val epochs = mutableListOf<Int>()
         val links = mutableListOf<LinkTarget>()
         var exported: ByteArray? = null
 
         override fun onSourceEdits(
             baseRev: Int,
             edits: List<TextEdit>,
+            epoch: Int,
         ) {
             this.edits += baseRev to edits
+            epochs += epoch
         }
 
         override fun onLinkTapped(
@@ -32,6 +35,15 @@ class PageMessageDeliveryTest {
         ) {
             exported = bytes
         }
+    }
+
+    @Test
+    fun `edits carry the epoch of the load they were typed in (DS-13)`() {
+        val r = Recorder()
+        PageMessage.SourceEdit(1, emptyList(), epoch = 3).deliverTo(r)
+        PageMessage.TaskToggle(1, 0, checked = true, epoch = 4).deliverTo(r)
+        PageMessage.SourceEdit(1, emptyList()).deliverTo(r)
+        assertEquals(listOf(3, 4, PageMessage.UNSTAMPED), r.epochs)
     }
 
     @Test

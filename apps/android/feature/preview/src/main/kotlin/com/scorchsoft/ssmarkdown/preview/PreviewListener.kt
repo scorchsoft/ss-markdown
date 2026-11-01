@@ -3,6 +3,7 @@ package com.scorchsoft.ssmarkdown.preview
 import com.scorchsoft.ssmarkdown.preview.bridge.Crumb
 import com.scorchsoft.ssmarkdown.preview.bridge.LinkTarget
 import com.scorchsoft.ssmarkdown.preview.bridge.MediaKind
+import com.scorchsoft.ssmarkdown.preview.bridge.PageMessage
 import com.scorchsoft.ssmarkdown.preview.bridge.PreviewFormatRequest
 import com.scorchsoft.ssmarkdown.preview.bridge.TextEdit
 
@@ -28,10 +29,15 @@ interface PreviewListener :
 
 /** Editing in Preview: text edits, selection state, formatting and tables. */
 interface PreviewEditingListener {
-    /** Edits typed in Preview, relative to [baseRev]: hand them to `PreviewEditor.onPageEdits`, which rebases them. */
+    /**
+     * Edits typed in Preview, relative to [baseRev]: hand them to the
+     * `PreviewEditor` whose `epoch` is [epoch] (`onPageEdits` rebases them).
+     * [epoch] is `PageMessage.UNSTAMPED` from a page that did not say.
+     */
     fun onSourceEdits(
         baseRev: Int,
         edits: List<TextEdit>,
+        epoch: Int = PageMessage.UNSTAMPED,
     ) = Unit
 
     fun onEditingChanged(editing: Boolean) = Unit
@@ -49,7 +55,10 @@ interface PreviewEditingListener {
     fun onFormatRequest(request: PreviewFormatRequest) = Unit
 
     /** The page lost step with the host: hand it to `PreviewEditor.onResync`, which reloads it. */
-    fun onResync(reason: String) = Unit
+    fun onResync(
+        reason: String,
+        epoch: Int = PageMessage.UNSTAMPED,
+    ) = Unit
 
     /**
      * A change in Preview could not be written back (typing into an emoji or
@@ -114,4 +123,6 @@ fun interface DocumentSource {
 data class DocumentSnapshot(
     val text: CharSequence,
     val rev: Int,
+    /** The binding's epoch, which the reload carries (see `HostMessage.Load.epoch`). */
+    val epoch: Int = 0,
 )

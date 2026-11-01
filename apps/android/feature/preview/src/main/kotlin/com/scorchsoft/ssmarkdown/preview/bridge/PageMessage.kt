@@ -21,6 +21,8 @@ data class PreviewFormatRequest(
     val to: Int,
     val baseRev: Int,
     val inTable: Boolean,
+    /** The load it was made in; see [PageMessage.UNSTAMPED]. */
+    val epoch: Int = PageMessage.UNSTAMPED,
 )
 
 /** One heading in the breadcrumb ("where am I?"). */
@@ -48,6 +50,18 @@ enum class MediaKind {
 sealed interface PageMessage {
     /** Hands this message to [listener]. */
     fun deliverTo(listener: PreviewListener) = Unit
+
+    /** Constants of the protocol. */
+    companion object {
+        /**
+         * The `epoch` of a message from a page that did not stamp one. Every
+         * message that carries offsets (edits, selections, format requests,
+         * resyncs) is stamped with the epoch of the [HostMessage.Load] the page
+         * was showing, so the host can tell an edit typed into the previous
+         * document from one typed into this one (DS-13).
+         */
+        const val UNSTAMPED: Int = -1
+    }
 
     /** The bridge is connected; [version] must equal [PROTOCOL_VERSION]. */
     data class Ready(
@@ -77,8 +91,9 @@ sealed interface PageMessage {
     data class SourceEdit(
         val baseRev: Int,
         val edits: List<TextEdit>,
+        val epoch: Int = UNSTAMPED,
     ) : PageMessage {
-        override fun deliverTo(listener: PreviewListener) = listener.onSourceEdits(baseRev, edits)
+        override fun deliverTo(listener: PreviewListener) = listener.onSourceEdits(baseRev, edits, epoch)
     }
 
     /**
@@ -92,6 +107,7 @@ sealed interface PageMessage {
         val inTable: Boolean,
         val baseRev: Int,
     ) : PageMessage {
+        // Not routed by epoch: a stale selection only colours the strip until the next one.
         override fun deliverTo(listener: PreviewListener) = listener.onSelection(from, to, marks, inTable, baseRev)
     }
 
@@ -108,8 +124,9 @@ sealed interface PageMessage {
     /** The page fell out of step; answer with a fresh load of the host's text. */
     data class Resync(
         val reason: String,
+        val epoch: Int = UNSTAMPED,
     ) : PageMessage {
-        override fun deliverTo(listener: PreviewListener) = listener.onResync(reason)
+        override fun deliverTo(listener: PreviewListener) = listener.onResync(reason, epoch)
     }
 
     /** A change Preview could not write back was undone on screen; suggest Code for [line]. */
@@ -130,18 +147,10 @@ sealed interface PageMessage {
         val baseRev: Int,
         val offset: Int,
         val checked: Boolean,
+        val epoch: Int = UNSTAMPED,
     ) : PageMessage {
         override fun deliverTo(listener: PreviewListener) =
-            listener.onSourceEdits(
-                baseRev,
-                listOf(
-                    TextEdit(
-                        offset,
-                        offset + 1,
-                        if (checked) "x" else " ",
-                    ),
-                ),
-            )
+            listener.onSourceEdits(baseRev, listOf(TextEdit(offset, offset + 1, if (checked) "x" else " ")), epoch)
     }
 
     data class LinkTapped(

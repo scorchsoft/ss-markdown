@@ -27,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
  * @property scope the main-thread scope the store and its callers live on.
  * @property io where blocking file-system calls run.
  * @property compute where CPU-bound work over a whole document runs (find), never the main thread.
+ * @property outlineWork where the outline tokenizes its background snapshot (PERF-D); the test dispatcher in tests.
  * @property viewStates each file's mode, zoom, selection and scroll, kept across restarts (R7).
  * @property pictures pictures next to the document, for the viewer and Export images.
  */
@@ -45,6 +46,7 @@ data class EditorDependencies(
     val scope: CoroutineScope,
     val io: CoroutineDispatcher,
     val compute: CoroutineDispatcher = Dispatchers.Default,
+    val outlineWork: CoroutineDispatcher = compute,
     val viewStates: ViewStateStore = InMemoryViewStates(),
     val pictures: PictureSource = PictureSource { null },
 )

@@ -41,6 +41,9 @@ interface ActiveDocumentListener {
     /** A copy was refused for Binder size; offer Share as file. */
     fun onCopyTooLarge(chars: Int) = Unit
 
+    /** [document]'s outline caught up with its text (it is tokenised in the background). */
+    fun onOutlineChanged(document: ActiveDocument) = Unit
+
     /** A hardware shortcut the editor does not own (Ctrl+S, Ctrl+F, Ctrl+K…). */
     fun onShortcut(
         keyCode: Int,
@@ -80,12 +83,13 @@ fun interface TextChangeListener {
 class ActiveDocument(
     val open: OpenDocument,
     private val listener: ActiveDocumentListener,
+    outlineThreads: OutlineThreads,
 ) : EditorListener {
     /** The buffer this session is bound to. */
     val text: TextDocument = open.document
 
     /** Headings for the Navigator, breadcrumb and Copy section. */
-    val outline: OutlineTracker = OutlineTracker(text.text)
+    val outline: OutlineTracker = OutlineTracker(text, outlineThreads) { listener.onOutlineChanged(this) }
 
     /** The file's own Markdown dialect, detected once (ux-spec "Editing in Preview"). */
     val style: DocumentStyle = DocumentStyle.detect(text.snapshot())
@@ -110,6 +114,7 @@ class ActiveDocument(
 
     init {
         text.addEditObserver(opTap)
+        outline.start()
     }
 
     /** Where programmatic edits go: the Code view while it is attached, else the buffer. */
@@ -156,6 +161,7 @@ class ActiveDocument(
     /** This session is no longer on screen: it stops listening to the buffer. */
     fun release() {
         text.removeEditObserver(opTap)
+        outline.close()
         changes = null
         before = null
         applied.clear()
@@ -166,7 +172,7 @@ class ActiveDocument(
         version: Long,
     ) {
         open.onEditsApplied()
-        outline.onLinesChanged(change.firstLine, change.removedBreaks, change.addedBreaks)
+        outline.flush()
         dispatchChanges()
         listener.onEdited()
     }
@@ -195,7 +201,8 @@ class ActiveDocument(
         before: Snapshot,
         ops: List<EditOp>,
     ) {
-        outline.invalidateAll()
+        // The outline heard each op as it was applied (PERF-A: incremental, never a full re-read).
+        outline.flush()
         // The buffer surface reports its own "before"; the ops it applied were also tapped.
         this.before = null
         applied.clear()

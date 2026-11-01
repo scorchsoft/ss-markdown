@@ -2,6 +2,7 @@ package com.scorchsoft.ssmarkdown.editor
 
 import com.scorchsoft.ssmarkdown.document.ActiveDocument
 import com.scorchsoft.ssmarkdown.document.ActiveDocumentListener
+import com.scorchsoft.ssmarkdown.document.OutlineThreads
 import com.scorchsoft.ssmarkdown.editor.preview.EditorPreviewHost
 import com.scorchsoft.ssmarkdown.editor.preview.PreviewSession
 import com.scorchsoft.ssmarkdown.editor.preview.ScrollLink
@@ -19,9 +20,7 @@ import com.scorchsoft.ssmarkdown.settings.LocationLabel
 import com.scorchsoft.ssmarkdown.settings.OnLaunch
 import com.scorchsoft.ssmarkdown.settings.RecentFile
 import com.scorchsoft.ssmarkdown.settings.withRecent
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,7 +48,6 @@ class EditorViewModel(
     private val activeFlow = MutableStateFlow<ActiveDocument?>(null)
     private val anchorFlow = MutableStateFlow(0)
     private val metas = HashMap<String, DocumentMeta>()
-    private var outlineJob: Job? = null
     private var shownCrumbs: List<Heading> = emptyList()
     private var shownTexts: List<String> = emptyList()
     private var started = false
@@ -332,7 +330,7 @@ class EditorViewModel(
             deps.scope.launch { deps.store.close(uri) }
         }
         previous?.release()
-        val document = ActiveDocument(open, this)
+        val document = ActiveDocument(open, this, OutlineThreads(deps.outlineWork, deps.scope))
         activeFlow.value = document
         preview.bind(document)
         val uri = open.uri.value
@@ -354,7 +352,6 @@ class EditorViewModel(
         if (switching) anchorFlow.value = saved?.anchorLine ?: 0
         rememberRecent(open)
         refresh()
-        scheduleOutline()
     }
 
     /**
@@ -422,7 +419,12 @@ class EditorViewModel(
         refresh()
         strip.afterTyped()
         find.onTextChanged()
-        scheduleOutline()
+    }
+
+    override fun onOutlineChanged(document: ActiveDocument) {
+        if (document !== active) return
+        updateBreadcrumb()
+        navigator.onOutlineChanged()
     }
 
     override fun onSelectionChanged(
@@ -508,16 +510,6 @@ class EditorViewModel(
         ui.update { it.copy(breadcrumb = shownTexts, readingFraction = fraction) }
     }
 
-    private fun scheduleOutline() {
-        if (outlineJob?.isActive == true) return
-        outlineJob =
-            deps.scope.launch {
-                while (active?.outline?.advance() == false) delay(OUTLINE_SLICE_MILLIS)
-                updateBreadcrumb()
-                navigator.onOutlineChanged()
-            }
-    }
-
     private fun initialState(): EditorUiState {
         val settings = deps.settings.settings.value
         return EditorUiState(
@@ -543,8 +535,6 @@ class EditorViewModel(
     }
 
     private companion object {
-        const val OUTLINE_SLICE_MILLIS = 16L
-
         /** The reading line moves in thousandths: a pixel or so on a phone, never once per line of a long file. */
         const val READING_STEPS = 1_000L
 

@@ -43,6 +43,26 @@ mockups agreed with Andrew win, and this file gets updated.
     typing loses the keyboard's two-tap trip to its symbol layer, and
     every key stays ≥ 44 dp.
 
+## Where am I? (the title's second line)
+
+When you scroll past the first heading, the status line under the
+filename becomes a **breadcrumb of the current section**, e.g. "How we
+work › **Code review**". The breadcrumb comes from the block index, is
+shared by Code and Preview, and updates as headings scroll past the top.
+- **Save state stays visible**, appended as text when there is something
+  to say ("· Unsaved", "· Saving…", "· Read-only"), alongside the red dot
+  and the Save pill. Back at the top of the document, the line shows the
+  full save status again ("Saved · 2 min ago").
+- On narrow screens the parent crumbs are truncated first; the current
+  section never truncates before its parents.
+- The header's bottom hairline doubles as a **reading-position line**:
+  a neutral grey fill, 2 dp, full width. It is not an accent colour and
+  doesn't animate on its own.
+- Tapping the title opens the Navigator with the current section
+  highlighted. **Back to top** is the first row of the Outline ("↑ Top of
+  document"), and Ctrl+Home works on hardware keyboards.
+- No third bar and no floating button: the existing title does the job.
+
 ## Navigator (tap the title)
 
 One sheet answers "where am I, and where can I go?". It replaces the

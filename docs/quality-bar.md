@@ -40,6 +40,11 @@ scored by walking these jobs on a device.
 - Never a spinner on a keystroke. Never block typing on I/O, parsing or
   rendering.
 - Never rewrite bytes the user didn't touch.
+- **No one-sided accent borders** (a coloured bar on one edge of a card,
+  row or callout) as a highlight. It's a generic "AI-made UI" tell.
+  Selection and "you are here" use a filled tint plus weight or an
+  icon; callouts use a tinted box with an icon and label. Plain
+  structural dividers between panes are fine.
 - No plugins, scripting, Git, encryption, or a built-in spell checker
   (the keyboard does that).
 - No feature that needs the network, apart from fetching a font the

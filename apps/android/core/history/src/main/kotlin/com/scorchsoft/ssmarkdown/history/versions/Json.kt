@@ -13,10 +13,20 @@ internal object Json {
     private const val UNICODE_ESCAPE_DIGITS = 4
     private const val FIRST_PRINTABLE = 0x20
 
+    /**
+     * Deepest nesting [parse] accepts. Ours never nests past four levels;
+     * the limit only stops a hostile file from overflowing the stack
+     * (SEC-4), which an Android I/O thread does far sooner than a desktop JVM.
+     */
+    const val MAX_DEPTH: Int = 64
+
     /** Serialises [value] (built from the types above). */
     fun write(value: Any?): String = StringBuilder().also { append(it, value) }.toString()
 
-    /** Parses [text], or throws [IllegalArgumentException] when it is not one JSON value. */
+    /**
+     * Parses [text], or throws [IllegalArgumentException] when it is not
+     * one JSON value or nests deeper than [MAX_DEPTH].
+     */
     fun parse(text: String): Any? {
         val parser = Parser(text)
         val value = parser.value()
@@ -85,10 +95,12 @@ internal object Json {
         out.append('"')
     }
 
+    @Suppress("TooManyFunctions") // One small function per JSON production.
     private class Parser(
         private val text: String,
     ) {
         var position = 0
+        private var depth = 0
 
         fun atEnd() = position >= text.length
 
@@ -119,7 +131,16 @@ internal object Json {
             return result
         }
 
-        private fun objectValue(): Map<String, Any?> {
+        private fun objectValue(): Map<String, Any?> = nested { objectBody() }
+
+        private fun arrayValue(): List<Any?> = nested { arrayBody() }
+
+        private inline fun <T> nested(body: () -> T): T {
+            require(++depth <= MAX_DEPTH) { "nested deeper than $MAX_DEPTH at $position" }
+            return body().also { depth-- }
+        }
+
+        private fun objectBody(): Map<String, Any?> {
             position++
             val out = LinkedHashMap<String, Any?>()
             skipSpace()
@@ -136,7 +157,7 @@ internal object Json {
             }
         }
 
-        private fun arrayValue(): List<Any?> {
+        private fun arrayBody(): List<Any?> {
             position++
             val out = ArrayList<Any?>()
             skipSpace()

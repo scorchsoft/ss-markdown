@@ -66,6 +66,11 @@ internal class HistoryImporter(
             ZipFile(zipFile).use { zip -> importFrom(zip, target, sourceUri) }
         } catch (e: IllegalArgumentException) {
             ImportResult.Invalid(e.message ?: "malformed export")
+        } catch (ignored: StackOverflowError) {
+            // A hostile file can still be deep in ways the parser's limit does not see; never crash on one (SEC-4).
+            ImportResult.Invalid("export nested too deeply")
+        } catch (ignored: OutOfMemoryError) {
+            ImportResult.Invalid("export too large to read")
         } catch (e: IOException) {
             ImportResult.Failed(e)
         }

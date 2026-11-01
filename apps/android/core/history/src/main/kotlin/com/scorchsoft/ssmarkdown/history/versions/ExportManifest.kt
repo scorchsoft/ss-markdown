@@ -42,6 +42,7 @@ internal class ExportManifest(
             val version = json.long("formatVersion")
             if (version > ExportFormat.VERSION) return ExportManifest(version, emptyList())
             val documents = json.list("documents").map { document(requireNotNull(it as? Map<*, *>) { "bad document" }) }
+            require(documents.sumOf { it.versions.size } <= ExportFormat.MAX_VERSIONS) { "too many versions" }
             return ExportManifest(version, documents)
         }
 
@@ -77,7 +78,7 @@ internal class ExportManifest(
             val sha = json.string("sha256")
             require(sha.length == SHA_HEX && sha.all { it in '0'..'9' || it in 'a'..'f' }) { "bad sha256" }
             val length = json.int("length")
-            require(length >= 0) { "bad length" }
+            require(length in 0..ExportFormat.MAX_TEXT_CHARS) { "bad length" }
             val info =
                 VersionInfo(
                     id = VersionId(json.long("seq")),

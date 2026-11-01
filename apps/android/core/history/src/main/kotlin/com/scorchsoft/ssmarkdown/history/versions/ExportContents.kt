@@ -78,6 +78,11 @@ internal object ExportContentsReader {
             ZipFile(zipFile).use { zip -> list(ExportManifest.read(zip)) }
         } catch (e: IllegalArgumentException) {
             ExportContents.Invalid(e.message ?: "malformed export")
+        } catch (ignored: StackOverflowError) {
+            // A hostile file can still be deep in ways the parser's limit does not see; never crash on one (SEC-4).
+            ExportContents.Invalid("export nested too deeply")
+        } catch (ignored: OutOfMemoryError) {
+            ExportContents.Invalid("export too large to read")
         } catch (e: IOException) {
             ExportContents.Failed(e)
         }

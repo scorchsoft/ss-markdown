@@ -46,8 +46,22 @@ internal object ExportFormat {
     const val VERSION: Long = 1
     const val MANIFEST: String = "manifest.json"
 
-    /** Upper bound on the manifest, so a hostile zip cannot ask for unbounded memory. */
-    const val MAX_MANIFEST_BYTES: Int = 64 * 1024 * 1024
+    /**
+     * Upper bound on the manifest, so a hostile zip cannot ask for
+     * unbounded memory (SEC-4). About 60,000 versions' worth of entries.
+     */
+    const val MAX_MANIFEST_BYTES: Int = 16 * 1024 * 1024
+
+    /** Most versions one manifest may list, across all its documents. */
+    const val MAX_VERSIONS: Int = 100_000
+
+    /**
+     * Longest text one version may declare, in UTF-16 units. A declared
+     * length sizes the read, so it is capped before it is trusted: far
+     * beyond any file the editor admits, far below what would exhaust a
+     * phone's heap.
+     */
+    const val MAX_TEXT_CHARS: Int = 64 * 1024 * 1024
 
     fun textPath(
         document: Int,

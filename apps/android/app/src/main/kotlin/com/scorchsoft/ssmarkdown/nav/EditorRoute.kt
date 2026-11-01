@@ -59,9 +59,9 @@ internal fun EditorRoute(
         PreviewHostState(
             document = active?.text,
             version = active?.text?.version ?: 0,
-            // Read, not collected: the pane uses it only to land when it appears, and collecting it here
-            // recomposed the whole screen on every frame of a fling (PERF-13).
-            anchorLine = vm.anchorLine.value,
+            // Read when the pane lands, outside composition: observing it here recomposed the whole
+            // screen on every frame of a fling (PERF-13).
+            anchorLine = vm.anchorLine::value,
             zoomPercent = state.previewZoom,
             tapToEdit = settings.tapToEditPreview,
             onAnchorLineChanged = { vm.onPaneTopLine(Pane.Preview, it) },

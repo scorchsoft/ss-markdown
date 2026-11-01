@@ -68,7 +68,7 @@ object Samples {
     }
 
     /** The preview slot's state with nothing to render. */
-    val previewState = PreviewHostState(null, 0, 0, 100, true, {}, { _, _ -> }, { _, _, _ -> }, {})
+    val previewState = PreviewHostState(null, 0, { 0 }, 100, true, {}, { _, _ -> }, { _, _, _ -> }, {})
 
     val sampleLines =
         listOf(

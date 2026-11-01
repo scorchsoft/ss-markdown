@@ -30,7 +30,9 @@ import com.scorchsoft.ssmarkdown.themes.PreviewLook
  *
  * @property document the live buffer; null while nothing is open.
  * @property version the buffer's edit version: re-render the visible section when it changes.
- * @property anchorLine the source line the pane should keep at its top (position continuity).
+ * @property anchorLine the source line the pane should keep at its top (position continuity). A
+ *   function, read when the pane lands, not a value: passing the value made the screen's root
+ *   observe the anchor and recompose on every frame of a fling (PERF-13).
  * @property zoomPercent this file's Preview zoom; 100 % is the theme's base size.
  * @property tapToEdit "Tap to edit in Preview"; off makes Preview read-only and links open on tap.
  * @property onAnchorLineChanged the pane scrolled: the new top source line.
@@ -51,7 +53,7 @@ import com.scorchsoft.ssmarkdown.themes.PreviewLook
 class PreviewHostState(
     val document: TextDocument?,
     val version: Long,
-    val anchorLine: Int,
+    val anchorLine: () -> Int,
     val zoomPercent: Int,
     val tapToEdit: Boolean,
     val onAnchorLineChanged: (Int) -> Unit,

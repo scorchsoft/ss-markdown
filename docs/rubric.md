@@ -4,9 +4,12 @@ Score every criterion from 0 to 5 at the end of each iteration, with
 evidence: a test, a measurement or a screenshot.
 
 **Ship bar:** a weighted average of at least **4.0**, and **no criterion
+below 3**. The ship bar applies to release candidates.
 
-**Design gate** (sign-off before build): no open Critical or Major finding from the latest independent review; J1–J10 pass on paper; no criterion below 3 apart from #4, #5 and #11 (which only code can prove); sign-off. The ship bar applies to release candidates.
-below 3**.
+**Design gate** (sign-off before build): no open Critical or Major
+finding from the latest independent review; J1–J10 pass on paper; no
+criterion below 3 apart from #4, #5 and #11 (which only code can prove);
+sign-off.
 
 Scale: 0 missing · 1 broken · 2 works but frustrating · 3 acceptable ·
 4 good, no friction · 5 delightful and measurably excellent.
@@ -34,3 +37,4 @@ Weighted average = Σ(score × weight) / 23.
 | 0 · review 1 (design) | 3 | 4 | 3 | 3 | 3 | 3 | 3 | 3 | 4 | 2 | 3 | 3.13 |
 | 0 · review 2 (design) | 4 | 4 | 4 | 3 | 3 | 3 | 4 | 3 | 4 | 3 | 3 | 3.52 |
 | 0 · review 3 (design) | 4 | 4 | 4 | 3 | 3 | 3 | 4 | 3 | 4 | 2 | 3 | 3.48 |
+| 0 · review 4 (design gate) | 4 | 4 | 4 | 3 | 3 | 3 | 4 | 3 | 4 | 3 | 3 | 3.52 · **gate passed** after M1/M2 fixes |

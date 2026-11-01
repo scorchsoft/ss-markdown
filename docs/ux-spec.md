@@ -8,12 +8,16 @@ mockups agreed with Andrew win, and this file gets updated.
 **Top bar (56 dp)**
 - Title block: the filename, plus a red dot when unsaved, plus a status
   line underneath:
-  - "Unsaved changes"
+  - "Unsaved"
   - "Saved · 2 min ago"
   - "Draft · kept on this phone"
 - Tapping the title opens the **Navigator** (see below). When a folder
   is open, a `≡` button sits at the left and opens the folder drawer (it
   is docked on tablets).
+  - On a phone in folder mode the header reads: `≡` (48 dp) at the left,
+    then the title, then Copy and Save. The title keeps a minimum width
+    of about 120 dp and truncates with an ellipsis before it can push
+    Copy or Save.
 - **Copy** is always visible and copies the whole document as Markdown.
   Long-pressing it gives "Copy as rich text".
 - **Save** is always visible. One table defines every state:
@@ -63,7 +67,8 @@ mockups agreed with Andrew win, and this file gets updated.
   - **Font scale above 1.5×:** the mode switcher goes icon-only (labels
     kept for TalkBack), Copy moves into ⋮, and Save never moves.
   - In Preview the strip shows formatting only, since there is no raw
-    syntax to type.
+    syntax to type. In Preview the strip pins Undo and Done on the
+    right (Code pins Undo and `{ }`).
   - Rationale: progressive disclosure keeps the strip calm. Code-heavy
     typing loses the keyboard's two-tap trip to its symbol layer, and
     every key stays ≥ 44 dp.
@@ -182,8 +187,9 @@ Never put a one-sided coloured border on anything.
 - **Split divider:** 48 dp invisible touch area around the 14 dp
   handle, plus TalkBack actions "Make top larger / smaller". Task
   checkboxes in Preview get a 48 dp hit area.
-- **Copy doesn't jump:** the Save slot reserves the width of the "Save"
-  pill in every state, so Copy never moves.
+- **Copy doesn't jump:** the Save slot is a fixed 96 dp in every state,
+  sized for the widest label ("Save as…"). The pill is right-aligned in
+  it, and the clean tick is right-aligned inside it, so Copy never moves.
 - **Clean tick:** muted ink (`#636369`). It *is* the Save button in its
   clean state, so it's present in autosave too.
 - **Share-in button label** follows the choice: "Append" or "Create
@@ -218,8 +224,6 @@ Never put a one-sided coloured border on anything.
 
 ## Specified, mockup to follow
 
-- **Compare side by side on a phone.** A single scrolling diff (as in
-  History) with a "Theirs / Mine" toggle. Side-by-side is tablet only.
 - **Tablet Navigator.** A 420 dp popover under the title.
 - **Keyboard-shortcut help** (Ctrl+/). A sheet listing every shortcut.
 - **Split with the keyboard up in portrait.** The preview pane collapses
@@ -230,10 +234,6 @@ Never put a one-sided coloured border on anything.
 - **Rename / delete a file.** Long-press a file in the drawer or the
   Files tab → Rename · Duplicate · Delete. The ⋯ on each row is the
   visible twin. Delete asks for confirmation and keeps the history entry.
-- **Drafts.** Untitled drafts appear as a **Drafts** group at the top of
-  the Navigator's Files tab, with their first line and age, so a draft
-  left behind by "New" is never lost. Drafts older than 30 days and
-  untouched get a gentle "Old draft" label; they are never auto-deleted.
 - **A file too large to open.** A full-width message in the editor area:
   "This 180 MB file needs about 400 MB, and this phone allows 256 MB",
   with Open read-only (streamed) and Share.
@@ -275,7 +275,10 @@ separate Recent menu.
   built incrementally from the block index, so it's cheap even for huge
   files.
 - **Files tab:** recent files (pinned files first), then the folder tree
-  when a folder is open, with unsaved dots.
+  when a folder is open, with unsaved dots. Untitled drafts sit in a
+  **Drafts** group at the top, with their first line and age, so a draft
+  left behind by "New" is never lost. Drafts older than 30 days and
+  untouched get a gentle "Old draft" label; they are never auto-deleted.
 - Every outline row has a **⋯** (the visible twin of long-press). Every
   file and draft row has a ⋯ for Rename · Duplicate · Delete.
 - The Navigator opens **below the header**, so the title, the unsaved
@@ -318,6 +321,11 @@ Appearance (System / Light / Dark) · Preview theme (Clean, Reader,
 Compact, Contrast, + custom) · Text size steppers for Code and Preview,
 with a reset · Line wrapping: Code (Wrap / No wrap) and Preview (Fluid /
 A4 page / No wrap).
+
+**A4 page mode.** On phones the A4 page renders at fit-width. Pinch in
+A4 zooms the page (it doesn't reflow), and the zoom chip resets to
+fit-width. On tablets, at 100% page width, body text is at least the
+theme's base size at 100%.
 
 ## Layouts
 
@@ -557,7 +565,8 @@ See `robustness.md` §2a.
 - With unsaved edits, a sheet shows the file as it is now and offers:
   - **Merge my edits into the new file** (recommended), with a summary
     such as "3 merge cleanly, 1 overlaps".
-  - **Compare side by side.**
+  - **Compare side by side** (tablets). On a phone it is a single
+    scrolling diff, as in History, with a "Theirs / Mine" toggle.
   - **Keep the file as it is** (your edits stay in History).
   - **Use my version…**, behind a confirmation.
 - Nothing is written until you choose and then save.

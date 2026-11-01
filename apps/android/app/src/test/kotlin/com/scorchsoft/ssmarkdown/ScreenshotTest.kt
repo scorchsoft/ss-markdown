@@ -61,6 +61,35 @@ class ScreenshotTest(
 
     @Test fun editorLargeFont() = shot("editor-font-200", fontScale = 2f) { EditorFor(Samples.unsaved) }
 
+    // UX-7: the header at a large font, with a breadcrumb and with a failed save.
+    @Test fun editorLargeFontSection() =
+        shot(
+            "editor-font-200-breadcrumb",
+            fontScale = 2f,
+        ) { EditorFor(Samples.section) }
+
+    @Test fun editorLargeFontFailed() = shot("editor-font-200-failed", fontScale = 2f) { EditorFor(Samples.failed) }
+
+    @Test
+    @Config(qualifiers = "w915dp-h412dp-land-420dpi")
+    fun editorLandscapeFont130() = shot("editor-font-130-landscape", fontScale = 1.3f) { EditorFor(Samples.section) }
+
+    @Test
+    @Config(qualifiers = "w915dp-h412dp-land-420dpi")
+    fun editorLandscapeFont200() = shot("editor-font-200-landscape", fontScale = 2f) { EditorFor(Samples.failed) }
+
+    // UX-8: segmented controls at a large font fall back to radio rows rather than clipping.
+    @Test fun settingsLargeFont() =
+        shot("settings-font-200", fontScale = 2f) {
+            SettingsScreen(AppSettings(), "48.2 MB", {})
+        }
+
+    @Test
+    fun themeEditorLargeFont() =
+        shot("theme-editor-font-200", fontScale = 2f) {
+            ThemeEditorScreen(PreviewSamples.themeColours, {})
+        }
+
     @Test fun preview() = editor("preview", Samples.saved.copy(mode = ViewMode.Preview))
 
     @Test fun splitPortrait() = editor("split-portrait", Samples.saved.copy(mode = ViewMode.Split))

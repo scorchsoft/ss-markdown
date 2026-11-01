@@ -23,8 +23,49 @@ Each layer assumes every layer above it has failed.
   keystroke) after about 1 s of idle typing, on
   `onPause`/`onStop`, and before any risky step (save, view switch,
   opening another file). Worst case, you lose the last second of typing.
-- Every so often the journal is compacted into a full snapshot plus a
-  fresh operation list, so replay stays fast.
+- When a run's operations outgrow the text (twice its length, and at
+  least 1 MiB), the journal is replaced by one snapshot in a single
+  atomic step, so replay stays fast and the file stays small.
+
+**How the journal keeps step with the text.** These rules close the
+races the data-safety review found (`docs/edge-cases.md`, "Never lose
+work: keystrokes against disk work"):
+
+- **Every op, exactly, before it is applied.** `TextDocument` tells an
+  `EditObserver` about each op it applies (typing in the Code view, a
+  command, undo, redo), and `OpenDocument` journals it from there, with
+  its exact offset, removed and inserted chars. No caller has to
+  remember to report an edit, and a keystroke on a 5 MB line costs a
+  few bytes, not the line.
+- **The main thread decides the order; one journal thread does the
+  I/O.** `JournalLink` only queues work, in the order the main thread
+  saw edits, saves and resolutions. A single dedicated thread
+  (`DedicatedJournalThread`) runs the queue and the group-commit timer,
+  and is the only thread that touches a journal writer. No `fsync` runs
+  on the main thread; `onPause` waits for the queue for at most 300 ms.
+- **No decision spans a suspension.** After any disk wait, a flow
+  re-reads the buffer before it acts: a save's bookkeeping, a reload's
+  dirty check, "Use my version" and a merge all run in one main-thread
+  step after their last suspension, so a keystroke typed while the disk
+  was busy is either in that step's snapshot or journalled after it.
+- **One atomic replace per restart.** After a save the user typed
+  through, a recovery or a resolved conflict, the journal is replaced by
+  a snapshot with one `JournalStore.resume`, never "end, then start".
+- **Only the run that wrote a journal may delete it.** `markClean`
+  checks the journal's base, and a journal recovery could not apply
+  (`Recovery.Kept`) is *held*: closing never deletes it, and the first
+  new edit moves it into `quarantine/`. The banner says so.
+- **Saves finish their bookkeeping.** A save that holds the document's
+  lock is not cancellable, and autosave never cancels a save in flight.
+- **A failing journal is said out loud.** If the journal cannot be
+  written, the document turns unhealthy, a "Recovery copies have
+  stopped" banner appears, and the next edit retries from a full
+  snapshot. Edits are never dropped silently.
+- **Checkpoints before destruction are awaited.** History records run
+  through one ordered queue; "Don't save", "Keep the file's version",
+  "Discard edits" and a merge wait for their checkpoint before the
+  journal or buffer goes. With History off, the UI says nothing is
+  kept.
 - On launch, edits from a journal that wasn't cleanly closed are
   **restored automatically**. A non-modal banner (ux-spec "Recovery")
   offers Got it / Compare / Discard edits. Discarding records a History
@@ -517,6 +558,7 @@ instead of hoping. A small `MemoryGovernor` service owns it.
 | **Kill test** (instrumented, ×1000): kill the process with `kill -9` at random moments while typing, saving, switching views and doing Save all | After relaunch, recovered text equals the expected text to within the last ~1 s. The file on disk is always either the old version or the new one, never partial. |
 | **Save-fault injection**: a fake provider that fails mid-write, ignores truncation, or revokes permission | The document stays dirty, the backup survives, and the user sees the error and a way out. |
 | **Journal property tests** (JVM, randomised ops) | Replay equals the live buffer; compaction keeps that true; a torn final record is ignored safely. |
+| **Interleaving tests** (JVM, `InterleavingDispatcher`): a keystroke after every disk hop of save, autosave, Save as, reload, Use mine, merge and discard, then a crash | Recovery brings back exactly the live text, nothing typed is missing, and no journal is left on the wrong base. |
 | **Round-trip corpus** | Opening and saving without edits is byte-identical, including CRLF, BOM, no final newline and odd encodings. A Preview edit changes only its own block. |
 | **Large-file benchmarks** (macrobenchmark, Pixel 6a-class and a 3 GB low-end phone) | Open, type and scroll targets at 1, 20 and 100 MB. Frame cost doesn't grow with file size. |
 | **Memory-pressure tests**: a 128 MB heap emulator, `am send-trim-memory`, killing the WebView renderer (`chrome://crash` / `am kill`), and opening several large files | No out-of-memory crash; admission control refuses cleanly; the preview restarts after a renderer death; no unsaved work lost. |

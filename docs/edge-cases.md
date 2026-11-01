@@ -23,10 +23,39 @@ is green in CI).
 | Slow cloud provider (Drive, OneDrive) | All file I/O runs off the main thread with a progress indicator after 300 ms. A timeout offers Retry or Save locally. We never block the UI. | `SaveTimeoutTest`: a timed-out save is `SaveOutcome.TimedOut` with the file untouched or restored, and can be retried. The Retry / Save locally UI is the app's | tested (library) |
 | Same file open twice (multi-window, or open again from the file manager) | One `DocumentStore` entry per URI; both windows share the same buffer. | `DocumentStoreTest` (one entry per uri, shared by every window). Instrumented test still planned | tested (unit) |
 | Zero-byte, extension-less, or `text/plain` `.MD` (upper case) | Opens normally. MIME and extension matching ignore case. | `SafHelpersTest` (extensions match without regard to case) | tested |
+| A provider's display name with `/` or `..` used as a file name (SEC-1, history export) | `SafeFileName` (feature/files) strips separators, control characters and leading dots, caps the length, and `inside()` checks the result stays in its directory. | `SafeFileNameTest` | tested |
+| A crafted history zip: deep JSON nesting, huge declared lengths (SEC-4) | Parser depth limit 64; manifest ≤ 16 MiB and 100,000 versions; a version ≤ 64 Mi chars; StackOverflowError and OutOfMemoryError become `Invalid`. | `HostileImportTest` | tested |
 | Binary file opened by mistake | NUL bytes or invalid UTF-8 → read-only with "This doesn't look like text". It is never saved over. | `DocumentStoreTest` (invalid UTF-8 and NUL bytes open read-only) | tested |
 | Mixed line endings in one file | Preserved byte-for-byte. New lines use the file's dominant ending. | Round-trip corpus | tested |
 | Mixed-EOL file: a line break deleted then restored by undo | Comes back in the file's dominant style (documented in `TextDocument`); every other line stays byte-exact. Acceptable for now; revisit if seen in the wild | `LineEndingsTest` | tested (known limitation) |
 | A save interrupted by power loss | Backup + verify + journal; on next launch the file is old-or-new, never partial. | Restore path: `SavePipelineTest` (random one-shot faults leave the old version or the new). Kill test still planned (journal half proven: torn-tail tests in core/history) | handled |
+
+## Never lose work: keystrokes against disk work
+
+Every row here was found by the data-safety review: a keystroke that lands
+on the main thread while the store is suspended on disk. The harness is
+`InterleavingDispatcher` (feature/files and app tests), which types after
+any chosen I/O hop before the store resumes.
+
+| Case | Handling | Test | Status |
+|---|---|---|---|
+| Typing while a save ends the journal, or right after a quiet save (DS-1) | Every op is journalled by `OpenDocument`'s `EditObserver` as the buffer applies it; there is no "journal already running" cache to go stale. The save's bookkeeping runs in one step on the main thread after the write. | `InterleavingTest` (DS-1 rows), `NeverLoseWorkTest` (Code-view keystrokes during and after a save) | tested |
+| Typing during the write of a save, then the journal restarts (DS-2) | One atomic `JournalStore.resume(…, replacing = oldBase)` from a snapshot taken in the same main-thread step; the file work is queued in order on the journal thread. | `InterleavingTest`, `JournalOwnershipTest` | tested |
+| Recovery could not apply an earlier journal (`Recovery.Kept`) and the document is closed (DS-3) | The journal is *held*: no close, save or discard deletes it, `markClean` quarantines a journal on another base, and the first new edit moves it into quarantine. A banner says what happened. | `InterleavingTest` (DS-3), `JournalOwnershipTest` | tested |
+| Typing while a clean buffer reloads from an outside change (DS-4) | The dirty check and the swap happen after the last suspension; a keystroke during the read becomes a conflict. | `InterleavingTest` (DS-4, every hop) | tested |
+| Typing during an autosave (DS-5) | An autosave in flight is never cancelled; another is booked after it. A save holding the lock runs its bookkeeping `NonCancellable`. | `InterleavingTest` (DS-5) | tested |
+| Typing during Save as (DS-6) | The target's journal starts from a snapshot before the old one is retired. | `InterleavingTest` (DS-6, every hop) | tested |
+| Typing after "Use my version" or "Merge" while the disk is re-read (DS-7) | Use mine and clean merges take the buffer when the store applies them; a hand-settled merge made from an older buffer is refused (`BufferChanged`) and the sheet comes back. | `InterleavingTest` (DS-7) | tested |
+| A merge or Use mine drops lines of "mine" (DS-8) | The buffer is checkpointed (`BeforeMerge`) and awaited, again if typing moved it, before it is replaced. | `InterleavingTest` (DS-8) | tested |
+| History off, then Don't save, Keep the file's version or Discard edits (DS-9) | The prompts and the message say plainly that nothing is kept; with History on, checkpoints are awaited before the journal goes. | `NeverLoseWorkTest` (DS-9) | tested |
+| Don't save, Exit, then the app is reopened in the same process (DS-10) | A buffer that left the store is never shown; the file is opened again from disk. | `NeverLoseWorkTest` (DS-10) | tested |
+| Typing on a 5 MB line (DS-11, PERF-5) | The journal records the exact chars of each op, not the line; the Preview gets the same char edits. | `InterleavingTest`, `NeverLoseWorkTest` (bytes per keystroke on a 200k-char line) | tested |
+| History records racing each other (DS-12) | One ordered queue; checkpoints return whether they are durable. | `InterleavingTest` (DS-8 checkpoint), `NeverLoseWorkTest` | handled |
+| The journal cannot be written (disk refused, record too large) | The document turns unhealthy, a "Recovery copies have stopped" banner appears, and the next edit retries from a full snapshot. | `InterleavingTest` (a journal that cannot start) | tested |
+| `fsync` on the main thread (PERF-6, PERF-7) | One dedicated journal thread owns every writer and the group-commit timer; `onPause` waits for it for at most 300 ms. | `InterleavingTest` (ordering on the queued executor); device StrictMode run still planned | handled |
+| Another app writes while our save is hashing the file (DS-17) | A metadata check right before opening the file re-hashes if size or time moved. | `SavePipelineTest` (DS-17) | tested |
+| Deleting a draft from the Navigator (DS-16, UX-1) | Moved to a trash; "Draft deleted · Undo" restores it; a draft open in memory is saved and closed first. | `DraftStoreTest`, `NeverLoseWorkTest` (DS-16) | tested |
+| A Preview edit in flight across a rebind, or in the last 150 ms before pause (DS-13, DS-14) | Not yet handled: needs a session epoch in the page protocol and a page flush on pause (feature/preview). | — | planned |
 
 ## Text and input
 

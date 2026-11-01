@@ -3,6 +3,7 @@ package com.scorchsoft.ssmarkdown.document
 import com.scorchsoft.ssmarkdown.editor.EditorListener
 import com.scorchsoft.ssmarkdown.editor.LineChange
 import com.scorchsoft.ssmarkdown.editor.MarkdownCodeView
+import com.scorchsoft.ssmarkdown.editor.PasteProgress
 import com.scorchsoft.ssmarkdown.editor.clearFindMatches
 import com.scorchsoft.ssmarkdown.editor.setFindMatches
 import com.scorchsoft.ssmarkdown.editor.trimLayoutCaches
@@ -40,6 +41,12 @@ interface ActiveDocumentListener {
 
     /** A copy was refused for Binder size; offer Share as file. */
     fun onCopyTooLarge(chars: Int) = Unit
+
+    /** May a large paste of [chars] go in? False refuses it; the listener says why. */
+    fun admitPaste(chars: Int): Boolean = true
+
+    /** A large paste moved on: the moment to poll memory pressure. */
+    fun onPasteProgress(progress: PasteProgress) = Unit
 
     /** [document]'s outline caught up with its text (it is tokenised in the background). */
     fun onOutlineChanged(document: ActiveDocument) = Unit
@@ -194,6 +201,10 @@ class ActiveDocument(
     ) = listener.onZoomChanged(percent, pinching)
 
     override fun onCopyTooLarge(chars: Int) = listener.onCopyTooLarge(chars)
+
+    override fun admitPaste(chars: Int): Boolean = listener.admitPaste(chars)
+
+    override fun onPasteProgress(progress: PasteProgress) = listener.onPasteProgress(progress)
 
     override fun onShortcut(
         keyCode: Int,

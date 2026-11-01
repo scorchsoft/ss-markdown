@@ -51,6 +51,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.concurrent.Executor
+import java.util.concurrent.Executors
 
 /**
  * Builds everything, once per process (docs/engineering.md: constructor
@@ -73,6 +75,17 @@ class AppGraph(
 
     /** Every byte of I/O runs here. */
     val io = Dispatchers.IO
+
+    /**
+     * Prepares large pastes off the main thread (the clip becomes text and
+     * its line breaks are normalised). Rare and never concurrent, so one
+     * thread, created on first use. Injected into the Code view; it used to
+     * be a hidden static executor (code review CC-D).
+     */
+    val pasteExecutor: Executor = singleThread("ss-paste")
+
+    /** Frames and decodes large Preview bridge messages, in order; injected into the Preview view (CC-D). */
+    val previewEncoder: Executor = singleThread("preview-encode")
 
     /** Background work that must finish even if the screen goes (history records, measurements). */
     val ioScope = CoroutineScope(SupervisorJob() + io)
@@ -195,6 +208,7 @@ class AppGraph(
                 io = io,
                 viewStates = JsonViewStateStore(File(app.filesDir, "view-state.json"), ioScope),
                 pictures = pictures,
+                memory = governor,
             ),
         ).also {
             autosave.start()
@@ -246,6 +260,10 @@ class AppGraph(
         FontPickerViewModel({ fonts }, mainScope, io, onChosen = themeEditor::onFontChosen)
     }
 }
+
+/** One daemon thread, started on first use. */
+private fun singleThread(name: String): Executor =
+    Executors.newSingleThreadExecutor { task -> Thread(task, name).apply { isDaemon = true } }
 
 /** The settings file; the Application starts loading it before the graph is built (PERF-21). */
 internal const val SETTINGS_PREFERENCES = "settings"

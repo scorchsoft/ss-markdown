@@ -19,6 +19,8 @@ class ChunkedPasteTest {
     private val frames = ArrayDeque<Runnable>()
     private val progress = mutableListOf<PasteProgress>()
     private var preparedOn: Thread? = null
+    private var admits = true
+    private val asked = mutableListOf<Int>()
 
     init {
         view.paste.background =
@@ -31,6 +33,11 @@ class ChunkedPasteTest {
             object : EditorListener {
                 override fun onPasteProgress(progress: PasteProgress) {
                     this@ChunkedPasteTest.progress += progress
+                }
+
+                override fun admitPaste(chars: Int): Boolean {
+                    asked += chars
+                    return admits
                 }
             }
     }
@@ -123,5 +130,34 @@ class ChunkedPasteTest {
         view.pasteText("z".repeat(ChunkedPaste.THRESHOLD_CHARS + 1))
         assertEquals(Thread.currentThread(), preparedOn)
         pumpFrames()
+    }
+
+    @Test
+    fun `a paste the host will not admit changes nothing and releases typing (PERF-G)`() {
+        view.document = TextDocument(PieceTree.of("head\ntail"))
+        view.setCaret(5)
+        admits = false
+        val pasted = "x".repeat(ChunkedPaste.THRESHOLD_CHARS + 1)
+        view.pasteText(pasted)
+        pumpFrames()
+        // Asked once, up front, with the clip's length; refused, so nothing was prepared or inserted.
+        assertEquals(listOf(pasted.length), asked)
+        assertEquals("head\ntail", text)
+        assertFalse(view.isPasting)
+        assertEquals(null, preparedOn)
+    }
+
+    @Test
+    fun `a clip of unknown length is admitted once it has become text (PERF-G)`() {
+        view.document = TextDocument(PieceTree.of("head\ntail"))
+        view.setCaret(5)
+        admits = false
+        val pasted = "y".repeat(ChunkedPaste.THRESHOLD_CHARS + 1)
+        view.pasteText(-1) { pasted }
+        pumpFrames()
+        assertEquals(listOf(pasted.length), asked)
+        assertEquals("head\ntail", text)
+        assertFalse(view.isPasting)
+        assertTrue("the end was reported", progress.last().done)
     }
 }

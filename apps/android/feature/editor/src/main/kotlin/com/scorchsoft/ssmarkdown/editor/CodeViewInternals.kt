@@ -29,7 +29,7 @@ internal fun MarkdownCodeView.pasteText(
 ) {
     if (length in 0..ChunkedPaste.THRESHOLD_CHARS) {
         applyEdit(session.selectionStart, session.selectionEnd, source())
-    } else {
+    } else if (length < 0 || listener?.admitPaste(length) != false) {
         paste.start(session.selectionStart, session.selectionEnd, source)
     }
 }

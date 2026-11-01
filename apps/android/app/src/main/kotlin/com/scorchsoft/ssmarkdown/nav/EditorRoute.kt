@@ -42,6 +42,7 @@ import com.scorchsoft.ssmarkdown.text.EditOp
 import com.scorchsoft.ssmarkdown.themes.ThemeControls
 import com.scorchsoft.ssmarkdown.themes.isDark
 import com.scorchsoft.ssmarkdown.themes.rememberPreviewLook
+import java.util.concurrent.Executor
 
 @Composable
 internal fun EditorRoute(
@@ -53,7 +54,7 @@ internal fun EditorRoute(
     val active by vm.activeDocument.collectAsState()
     val settings by graph.settings.settings.collectAsState()
     // Remembered once: EditorPanes hosts this with movableContentOf, so its identity must never change.
-    val codePane = remember(vm) { codePaneFor(vm) }
+    val codePane = remember(vm) { codePaneFor(vm, graph.pasteExecutor) }
     val look = rememberPreviewLook(graph.themes, settings.previewThemeId, settings.appearance, graph.fonts.faceSource)
     val preview =
         PreviewHostState(
@@ -123,11 +124,14 @@ internal fun previewPaneFor(
     session: PreviewSession,
 ): @Composable (PreviewHostState) -> Unit = { state -> PreviewPaneHost(state, view, session) }
 
-private fun codePaneFor(vm: EditorViewModel): @Composable (Modifier) -> Unit =
+private fun codePaneFor(
+    vm: EditorViewModel,
+    background: Executor,
+): @Composable (Modifier) -> Unit =
     { modifier ->
         val active by vm.activeDocument.collectAsState()
         val state by vm.uiState.collectAsState()
-        CodePaneHost(active, state.codeWrap, state.codeZoom, vm::attach, vm::detach, modifier)
+        CodePaneHost(active, state.codeWrap, state.codeZoom, vm::attach, vm::detach, background, modifier)
     }
 
 /** A Preview edit becomes a minimal source change through the editor surface (one undo step). */

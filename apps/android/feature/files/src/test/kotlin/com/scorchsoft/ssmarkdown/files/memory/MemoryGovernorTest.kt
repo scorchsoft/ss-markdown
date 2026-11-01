@@ -3,6 +3,7 @@ package com.scorchsoft.ssmarkdown.files.memory
 import com.scorchsoft.ssmarkdown.files.fakes.FakeMemorySource
 import com.scorchsoft.ssmarkdown.files.fakes.MB
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayInputStream
@@ -85,6 +86,14 @@ class MemoryGovernorTest {
             listOf(ShedStep.LineLayoutCaches, ShedStep.TokenizerCache, ShedStep.InactiveCleanBuffers),
             ShedStep.entries,
         )
+    }
+
+    @Test
+    fun `a paste is admitted only while it fits the lean share of free heap (PERF-G)`() {
+        // 200 MB free: the lean line is 140 MB, so 20M chars (140 MB at 7 bytes a char) is the most.
+        assertTrue(governor.admitPaste(20_000_000))
+        assertFalse(governor.admitPaste(21_000_000))
+        assertTrue(governor.admitPaste(-1))
     }
 
     @Test

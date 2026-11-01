@@ -11,7 +11,6 @@ import com.scorchsoft.ssmarkdown.preview.bridge.HostMessage
 import com.scorchsoft.ssmarkdown.preview.bridge.PROTOCOL_VERSION
 import com.scorchsoft.ssmarkdown.preview.bridge.PageMessage
 import java.util.concurrent.Executor
-import java.util.concurrent.Executors
 
 /**
  * The Kotlin end of the bridge: one WebMessagePort pair per page load.
@@ -22,15 +21,17 @@ import java.util.concurrent.Executors
  * Messages sent before the page says it is ready are queued, in order.
  */
 internal class PreviewChannel(
+    /** Where large messages are framed and decoded; the host's thread, injected through the view (CC-D). */
+    background: Executor,
     private val onMessage: (PageMessage) -> Unit,
-    private val queue: FrameQueue = FrameQueue(ENCODER, MainThread),
+    private val queue: FrameQueue = FrameQueue(background, MainThread),
 ) {
     private var port: WebMessagePort? = null
     private var ready = false
 
     private val decoder =
         OrderedDecoder(
-            background = ENCODER,
+            background = background,
             main = MainThread,
             decode = BridgeCodec::decode,
             deliver = { decoded ->
@@ -103,9 +104,5 @@ internal class PreviewChannel(
 
     private companion object {
         const val INIT_MESSAGE = "ssmd:init"
-
-        /** One thread for every preview: loads are rare, and one at a time keeps memory flat. */
-        val ENCODER: Executor =
-            Executors.newSingleThreadExecutor { task -> Thread(task, "preview-encode").apply { isDaemon = true } }
     }
 }

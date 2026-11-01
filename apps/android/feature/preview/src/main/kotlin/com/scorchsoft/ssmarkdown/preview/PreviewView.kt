@@ -15,6 +15,7 @@ import com.scorchsoft.ssmarkdown.preview.bridge.ThemeFonts
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
+import java.util.concurrent.Executor
 import kotlin.coroutines.resume
 
 /**
@@ -48,13 +49,22 @@ class PreviewView
          */
         var fontDirectory: File? = null
 
+        /**
+         * Where large page messages are framed and decoded off the main
+         * thread. The host injects one thread for every preview (AppGraph's
+         * `previewEncoder`: loads are rare, and one at a time keeps memory
+         * flat); the default runs inline, for tests and previews. It used
+         * to be a hidden process-wide executor (code review CC-D).
+         */
+        var backgroundExecutor: Executor = Executor(Runnable::run)
+
         /** Rich-text exports waiting for the page's answer, by request id. Main thread only. */
         private val htmlRequests = HashMap<Int, (String?) -> Unit>()
         private var nextHtmlRequest = 1
 
         private val recovery = RendererRecovery()
         private val channel: PreviewChannel =
-            PreviewChannel(onMessage = { message ->
+            PreviewChannel(Executor { backgroundExecutor.execute(it) }, onMessage = { message ->
                 when (message) {
                     is PageMessage.TopLine -> topLine = message.line
                     is PageMessage.PrintReady -> printing.onPageReady(webView)

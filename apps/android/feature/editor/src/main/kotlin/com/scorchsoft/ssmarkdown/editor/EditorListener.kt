@@ -58,4 +58,13 @@ interface EditorListener {
      * typing during it is applied after it.
      */
     fun onPasteProgress(progress: PasteProgress) = Unit
+
+    /**
+     * May a large paste of [chars] go in? Asked before it starts when the
+     * clip says its length, and again once it has become text (the only
+     * time a clip of unknown length has one). False refuses it, leaving
+     * the document as it was; the host says why (docs/robustness.md Part
+     * 2a, "Admission control"; performance review PERF-G).
+     */
+    fun admitPaste(chars: Int): Boolean = true
 }

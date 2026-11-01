@@ -9,6 +9,7 @@ import com.scorchsoft.ssmarkdown.editor.EditorListener
 import com.scorchsoft.ssmarkdown.editor.EditorTheme
 import com.scorchsoft.ssmarkdown.editor.MarkdownCodeView
 import com.scorchsoft.ssmarkdown.text.TextDocument
+import java.util.concurrent.Executor
 
 /**
  * The Code pane for Compose screens: a [MarkdownCodeView] inside an
@@ -39,12 +40,19 @@ fun MarkdownEditor(
     zoomPercent: Int = 100,
     typeface: Typeface? = null,
     listener: EditorListener? = null,
+    /** Where large pastes are prepared ([MarkdownCodeView.backgroundExecutor]); null keeps its inline default. */
+    background: Executor? = null,
     onViewReady: (MarkdownCodeView) -> Unit = {},
 ) {
     val bound = remember { BoundDocument() }
     AndroidView(
         modifier = modifier,
-        factory = { context -> MarkdownCodeView(context).also(onViewReady) },
+        factory = { context ->
+            MarkdownCodeView(context).also { view ->
+                if (background != null) view.backgroundExecutor = background
+                onViewReady(view)
+            }
+        },
         update = { view ->
             if (bound.document !== document) {
                 bound.document = document

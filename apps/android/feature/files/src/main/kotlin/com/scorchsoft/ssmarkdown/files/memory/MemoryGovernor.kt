@@ -72,6 +72,21 @@ class MemoryGovernor(
         }
     }
 
+    /**
+     * Estimated cost of pasting [chars]: the clip as a `String`, its
+     * normalised copy, the piece tree's add buffer and the undo step's
+     * reference to it (two bytes a char each, the last two shared), plus
+     * the line index and tokenizer states it adds.
+     */
+    fun estimatePasteCost(chars: Long): Long = chars * PASTE_BYTES_PER_CHAR
+
+    /**
+     * May a paste of [chars] go in (PERF-G)? Yes while it fits within the
+     * same 70% of free heap that admits a file lean; no beyond.
+     */
+    fun admitPaste(chars: Long): Boolean =
+        estimatePasteCost(chars.coerceAtLeast(0)) <= freeHeapBytes() * LEAN_SHARE_PERCENT / PERCENT
+
     /** The refusal for a file of [fileBytes], also used when a load runs out of memory part way. */
     fun decline(fileBytes: Long): Admission.Declined =
         Admission.Declined(fileBytes, estimateOpenCost(fileBytes.coerceAtLeast(0)), heapCeilingBytes())
@@ -136,6 +151,9 @@ class MemoryGovernor(
 
         /** One full `String` copy of the text during a recovery replay or a conflict (DS-19). */
         private const val TRANSIENT_COPY_PER_BYTE = 2L
+
+        /** Clip `String`, normalised copy and add buffer (two bytes a char each), plus index and states. */
+        private const val PASTE_BYTES_PER_CHAR = 7L
 
         /** Fixed headroom added to every open estimate. */
         const val SAFETY_MARGIN_BYTES: Long = 8 * MEGABYTE

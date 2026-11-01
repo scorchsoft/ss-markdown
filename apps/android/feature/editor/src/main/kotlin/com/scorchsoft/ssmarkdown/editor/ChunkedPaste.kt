@@ -2,7 +2,6 @@ package com.scorchsoft.ssmarkdown.editor
 
 import com.scorchsoft.ssmarkdown.text.TextDocument
 import java.util.concurrent.Executor
-import java.util.concurrent.Executors
 
 /**
  * How far a large paste has got, for the host's progress indicator.
@@ -67,6 +66,8 @@ internal class ChunkedPaste(
     var background: Executor,
     /** Where each slice goes in: the next animation frame; tests pump them by hand. */
     var main: Executor,
+    /** Asked once the clip is text and its length known; false refuses the paste (PERF-G). */
+    private val admit: (chars: Int) -> Boolean = { true },
     private val onProgress: (PasteProgress) -> Unit,
 ) {
     private var job: Job? = null
@@ -115,7 +116,7 @@ internal class ChunkedPaste(
         text: String,
     ) {
         preparing = false
-        if (session.document !== document) {
+        if (session.document !== document || !admit(text.length)) {
             onProgress(PasteProgress(0, text.length, done = true))
             gate.release()
             return
@@ -159,17 +160,18 @@ internal class ChunkedPaste(
     }
 
     companion object {
-        /** One background thread for every view: preparing a paste is rare and never concurrent. */
-        private val PREPARE: Executor by lazy {
-            Executors.newSingleThreadExecutor { Thread(it, "ss-paste").apply { isDaemon = true } }
-        }
-
-        /** The paste for [view]: prepared on a shared thread, sliced per animation frame, progress to its listener. */
+        /** The paste for [view]: prepared on its injected executor, sliced per frame, progress to its listener. */
         fun forView(
             view: MarkdownCodeView,
             gate: InputGate,
         ): ChunkedPaste =
-            ChunkedPaste(view.session, gate, PREPARE, { view.postOnAnimation(it) }) {
+            ChunkedPaste(
+                view.session,
+                gate,
+                { view.backgroundExecutor.execute(it) },
+                { view.postOnAnimation(it) },
+                admit = { view.listener?.admitPaste(it) != false },
+            ) {
                 view.listener?.onPasteProgress(it)
                 if (it.done) view.onSelectionSettled()
             }

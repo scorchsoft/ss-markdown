@@ -12,6 +12,7 @@ import com.scorchsoft.ssmarkdown.editor.EditorTheme
 import com.scorchsoft.ssmarkdown.editor.MarkdownCodeView
 import com.scorchsoft.ssmarkdown.editor.compose.MarkdownEditor
 import com.scorchsoft.ssmarkdown.ui.ChromeFonts
+import java.util.concurrent.Executor
 
 /**
  * The real Code pane: `feature/editor`'s [MarkdownEditor] bound to the
@@ -30,6 +31,8 @@ fun CodePaneHost(
     zoomPercent: Int,
     onAttach: (MarkdownCodeView) -> Unit,
     onDetach: (MarkdownCodeView) -> Unit,
+    /** Where large pastes are prepared: AppGraph's paste thread. */
+    background: Executor,
     modifier: Modifier = Modifier,
 ) {
     val doc = document ?: return
@@ -46,6 +49,7 @@ fun CodePaneHost(
         zoomPercent = zoomPercent,
         typeface = typeface,
         listener = doc,
+        background = background,
         onViewReady = { view ->
             holder.view = view
             onAttach(view)

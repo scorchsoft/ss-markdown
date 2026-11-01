@@ -182,6 +182,7 @@ private fun messageText(message: UserMessage): String =
         MessageKind.Copied -> stringResource(R.string.msg_copied)
         MessageKind.CopiedRichText -> stringResource(R.string.msg_copied_rich)
         MessageKind.CopyTooLarge -> stringResource(R.string.msg_copy_too_large)
+        MessageKind.PasteTooLarge -> stringResource(R.string.msg_paste_too_large)
         MessageKind.EditsDiscarded -> stringResource(R.string.msg_edits_discarded)
         MessageKind.EditsDiscardedNoHistory -> stringResource(R.string.msg_edits_discarded_no_history)
         MessageKind.EditsDiscardedNotKept -> stringResource(R.string.msg_edits_discarded_not_kept)

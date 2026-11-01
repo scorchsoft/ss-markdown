@@ -19,6 +19,7 @@ import android.widget.OverScroller
 import com.scorchsoft.ssmarkdown.feature.editor.R
 import com.scorchsoft.ssmarkdown.text.PieceTree
 import com.scorchsoft.ssmarkdown.text.TextDocument
+import java.util.concurrent.Executor
 
 /**
  * The Code pane: a virtualised, syntax-coloured, monospace text view over a
@@ -53,6 +54,14 @@ class MarkdownCodeView
         EditingSession.Listener {
         /** The editing state: selection, composition and every edit. Hosts may read it; edit through [applyEdit]. */
         val session: EditingSession = EditingSession(TextDocument(PieceTree.empty()))
+
+        /**
+         * Where a large paste's clip becomes text, off the main thread. The
+         * host injects its thread (AppGraph's `pasteExecutor`); the default
+         * runs inline, for tests and previews. It used to be a hidden
+         * process-wide executor (code review CC-D).
+         */
+        var backgroundExecutor: Executor = Executor(Runnable::run)
 
         /** Receives selection, edit, anchor, zoom and paste changes. */
         var listener: EditorListener? = null

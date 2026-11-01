@@ -315,6 +315,7 @@ enum class MessageKind {
     Copied,
     CopiedRichText,
     CopyTooLarge,
+    PasteTooLarge,
     EditsDiscarded,
     EditsDiscardedNoHistory,
     EditsDiscardedNotKept,

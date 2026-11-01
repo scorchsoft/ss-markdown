@@ -499,6 +499,18 @@ class EditorViewModel(
 
     override fun onCopyTooLarge(chars: Int) = message(MessageKind.CopyTooLarge)
 
+    /** Admission control for large pastes (PERF-G): refused with a message rather than risking the heap. */
+    override fun admitPaste(chars: Int): Boolean {
+        val admitted = deps.memory?.admitPaste(chars.toLong()) ?: true
+        if (!admitted) message(MessageKind.PasteTooLarge)
+        return admitted
+    }
+
+    /** A large paste polls memory pressure as it goes, as a load does (robustness.md Part 2a). */
+    override fun onPasteProgress(progress: PasteProgress) {
+        if (!progress.done) deps.memory?.checkPressure()
+    }
+
     override fun onShortcut(
         keyCode: Int,
         ctrl: Boolean,

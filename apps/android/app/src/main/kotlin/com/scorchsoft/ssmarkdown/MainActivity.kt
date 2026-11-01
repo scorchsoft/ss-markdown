@@ -48,6 +48,7 @@ class MainActivity : ComponentActivity() {
             // Relative pictures (`![](img/a.png)`) through the folder grant, and the theme's installed fonts.
             resourceResolver = graph.pictures
             fontDirectory = File(filesDir, AndroidFonts.DIRECTORY)
+            backgroundExecutor = graph.previewEncoder
         }
     }
     private var previewCreated = false

@@ -7,6 +7,7 @@ import com.scorchsoft.ssmarkdown.editor.preview.PreviewSession
 import com.scorchsoft.ssmarkdown.files.document.AutosaveScheduler
 import com.scorchsoft.ssmarkdown.files.document.DocumentStore
 import com.scorchsoft.ssmarkdown.files.drafts.DraftStore
+import com.scorchsoft.ssmarkdown.files.memory.MemoryGovernor
 import com.scorchsoft.ssmarkdown.folder.FolderSource
 import com.scorchsoft.ssmarkdown.history.versions.VersionStore
 import com.scorchsoft.ssmarkdown.media.PictureSource
@@ -27,6 +28,7 @@ import kotlinx.coroutines.Dispatchers
  * @property scope the main-thread scope the store and its callers live on.
  * @property io where blocking file-system calls run.
  * @property compute where CPU-bound work over a whole document runs (find), never the main thread.
+ * @property memory the memory governor, for admitting and polling large pastes; null admits everything (tests).
  * @property outlineWork where the outline tokenizes its background snapshot (PERF-D); the test dispatcher in tests.
  * @property viewStates each file's mode, zoom, selection and scroll, kept across restarts (R7).
  * @property pictures pictures next to the document, for the viewer and Export images.
@@ -47,6 +49,7 @@ data class EditorDependencies(
     val io: CoroutineDispatcher,
     val compute: CoroutineDispatcher = Dispatchers.Default,
     val outlineWork: CoroutineDispatcher = compute,
+    val memory: MemoryGovernor? = null,
     val viewStates: ViewStateStore = InMemoryViewStates(),
     val pictures: PictureSource = PictureSource { null },
 )

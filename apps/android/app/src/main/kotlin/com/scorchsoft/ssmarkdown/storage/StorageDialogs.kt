@@ -87,6 +87,10 @@ private fun ConfirmBody(
             Text(stringResource(R.string.confirm_cache_body), style = SS.type.body, color = SS.colors.ink)
             return@Column
         }
+        if (confirm.kind == ClearKind.SetAside) {
+            SetAsideBody(confirm, onAction)
+            return@Column
+        }
         val body =
             pluralStringResource(
                 R.plurals.confirm_body,
@@ -107,6 +111,21 @@ private fun ConfirmBody(
         CheckRow(stringResource(R.string.confirm_export_first), confirm.exportFirst) {
             onAction(StorageAction.ToggleExportFirst)
         }
+    }
+}
+
+/** Clearing set-aside edits: how many and how much, can't be undone, and export their text first. */
+@Composable
+private fun SetAsideBody(
+    confirm: StorageConfirm,
+    onAction: (StorageAction) -> Unit,
+) {
+    val body =
+        pluralStringResource(R.plurals.confirm_body_set_aside, confirm.files, confirm.files, bytesText(confirm.bytes))
+    Text(body, style = SS.type.body, color = SS.colors.ink)
+    CantUndo()
+    CheckRow(stringResource(R.string.confirm_export_set_aside_first), confirm.exportFirst) {
+        onAction(StorageAction.ToggleExportFirst)
     }
 }
 
@@ -147,6 +166,10 @@ private fun confirmTitle(confirm: StorageConfirm): String =
 
         ClearKind.Cache -> {
             stringResource(R.string.confirm_title_cache)
+        }
+
+        ClearKind.SetAside -> {
+            pluralStringResource(R.plurals.confirm_title_set_aside, confirm.files, confirm.files)
         }
     }
 
@@ -319,6 +342,15 @@ private fun ResultDialog(
 
             StorageMessage.ExportReady -> {
                 stringResource(R.string.export_saved)
+            }
+
+            is StorageMessage.SetAsideCleared -> {
+                pluralStringResource(
+                    R.plurals.cleared_set_aside_result,
+                    message.count,
+                    message.count,
+                    bytesText(message.bytes),
+                )
             }
 
             StorageMessage.Failed -> {

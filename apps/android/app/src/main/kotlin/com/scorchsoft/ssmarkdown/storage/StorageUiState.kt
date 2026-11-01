@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.storage
 
 import androidx.compose.runtime.Immutable
+import com.scorchsoft.ssmarkdown.files.document.SET_ASIDE_CAP_BYTES
 import com.scorchsoft.ssmarkdown.files.document.SetAsideEdits
 import com.scorchsoft.ssmarkdown.files.storage.StorageBreakdown
 import com.scorchsoft.ssmarkdown.history.versions.CleanupEntry
@@ -14,8 +15,12 @@ import com.scorchsoft.ssmarkdown.history.versions.StorageLimit
 /** "History by file": largest first, or by last opened. */
 enum class StorageSort { Largest, LastOpened }
 
-/** Which clean-up a confirmation is for; the cache is the one that needs no export. */
-enum class ClearKind { NotOpened, OlderThan, Cache, All, OneFile }
+/**
+ * Which clean-up a confirmation is for; the cache is the one that needs no
+ * export. [SetAside] clears set-aside edits (the journal's quarantine),
+ * which the app never deletes on its own.
+ */
+enum class ClearKind { NotOpened, OlderThan, Cache, All, OneFile, SetAside }
 
 /**
  * The are-you-sure dialog every clear goes through (StorageConfirm board):
@@ -41,7 +46,7 @@ data class StorageConfirm(
                 ClearKind.OlderThan -> ClearRequest.OlderThan(days)
                 ClearKind.All -> ClearRequest.Everything(includePinned)
                 ClearKind.OneFile -> document?.let { ClearRequest.OneFile(DocumentKey(it), includePinned) }
-                ClearKind.Cache -> null
+                ClearKind.Cache, ClearKind.SetAside -> null
             }
 }
 
@@ -63,6 +68,12 @@ sealed interface StorageMessage {
     ) : StorageMessage
 
     data object ExportReady : StorageMessage
+
+    /** Set-aside edits the user confirmed clearing are gone (after their export, unless unticked). */
+    data class SetAsideCleared(
+        val count: Int,
+        val bytes: Long,
+    ) : StorageMessage
 
     data object Failed : StorageMessage
 }
@@ -104,6 +115,15 @@ data class StorageUiState(
                 StorageSort.Largest -> historyFiles.sortedByDescending { it.bytes }
                 StorageSort.LastOpened -> historyFiles.sortedByDescending { it.lastOpenedMillis }
             }
+
+    /** Bytes held by set-aside edits. */
+    val setAsideBytes: Long get() = setAside.sumOf { it.sizeBytes }
+
+    /**
+     * Over [SET_ASIDE_CAP_BYTES]: the screen says so and offers the
+     * export-first clear. Nothing is ever deleted on its own, at any size.
+     */
+    val setAsideOverCap: Boolean get() = setAsideBytes > SET_ASIDE_CAP_BYTES
 
     /** The history limit as bytes, or null for "No limit". */
     val limitBytes: Long? get() = (policy.totalLimit as? StorageLimit.Bytes)?.bytes

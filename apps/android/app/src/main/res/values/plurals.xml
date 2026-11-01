@@ -104,6 +104,18 @@
         <item quantity="one">This permanently deletes %1$d saved version (%2$s) of %3$d files.</item>
         <item quantity="other">This permanently deletes %1$d saved versions (%2$s) of %3$d files.</item>
     </plurals>
+    <plurals name="confirm_title_set_aside">
+        <item quantity="one">Clear %1$d set of set-aside edits?</item>
+        <item quantity="other">Clear %1$d sets of set-aside edits?</item>
+    </plurals>
+    <plurals name="confirm_body_set_aside">
+        <item quantity="one">This permanently deletes %1$d set of edits that couldn\'t be applied to their file (%2$s).</item>
+        <item quantity="other">This permanently deletes %1$d sets of edits that couldn\'t be applied to their file (%2$s).</item>
+    </plurals>
+    <plurals name="cleared_set_aside_result">
+        <item quantity="one">Cleared %1$d set of set-aside edits · freed %2$s</item>
+        <item quantity="other">Cleared %1$d sets of set-aside edits · freed %2$s</item>
+    </plurals>
     <plurals name="cleared_result">
         <item quantity="one">Cleared %1$d version · freed %2$s</item>
         <item quantity="other">Cleared %1$d versions · freed %2$s</item>

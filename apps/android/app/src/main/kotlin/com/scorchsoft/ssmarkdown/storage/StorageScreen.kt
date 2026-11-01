@@ -29,6 +29,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
+import com.scorchsoft.ssmarkdown.files.document.SET_ASIDE_CAP_BYTES
 import com.scorchsoft.ssmarkdown.files.storage.StorageCategory
 import com.scorchsoft.ssmarkdown.history.versions.DocumentKey
 import com.scorchsoft.ssmarkdown.history.versions.FileUsage
@@ -223,6 +224,19 @@ private fun SetAside(
 ) {
     SectionLabel(stringResource(R.string.storage_set_aside))
     NoteText(stringResource(R.string.storage_set_aside_note))
+    if (state.setAsideOverCap) {
+        NoteText(
+            stringResource(
+                R.string.storage_set_aside_over_cap,
+                bytesText(state.setAsideBytes),
+                bytesText(SET_ASIDE_CAP_BYTES),
+            ),
+        )
+    }
+    // The only way set-aside edits ever go: this, behind the can't-be-undone confirmation, export ticked.
+    SettingRow(stringResource(R.string.storage_set_aside_clear), bytesText(state.setAsideBytes)) {
+        ClearButton(R.string.storage_clear) { onAction(StorageAction.AskClear(ClearKind.SetAside)) }
+    }
     state.setAside.forEachIndexed { index, edits ->
         val name = edits.uri?.let { DocumentKey(it.value).displayName } ?: stringResource(R.string.copy_unknown_file)
         val time = relativeTimeText(RelativeTime.between(edits.setAsideAtMillis, LocalNow.current))

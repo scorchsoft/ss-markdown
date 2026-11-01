@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.storage
 
+import com.scorchsoft.ssmarkdown.files.document.SetAsideEdits
 import com.scorchsoft.ssmarkdown.history.versions.ClearPreview
 import com.scorchsoft.ssmarkdown.history.versions.StorageLimit
 
@@ -167,6 +168,16 @@ object StorageReducer {
                 state
             }
         }
+
+    /** The confirmation for clearing [edits]: how many, how much, and Export first ticked. */
+    fun confirmForSetAside(edits: List<SetAsideEdits>): StorageConfirm =
+        StorageConfirm(
+            kind = ClearKind.SetAside,
+            versions = edits.size,
+            files = edits.size,
+            bytes = edits.sumOf { it.sizeBytes },
+            exportFirst = true,
+        )
 
     /** The confirmation for a clear of [kind], from the numbers a preview gave. */
     fun confirmFor(

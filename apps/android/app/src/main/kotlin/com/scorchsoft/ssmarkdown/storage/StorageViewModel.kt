@@ -59,6 +59,9 @@ class StorageViewModel(
     private val deps: StorageDependencies,
 ) {
     private var previewSkip: Set<DocumentKey> = emptySet()
+
+    /** The set-aside edits the open confirmation listed: a clear deletes these and no others. */
+    private var confirmedSetAside: List<SetAsideEdits> = emptyList()
     private val ui = MutableStateFlow(StorageUiState(policy = deps.settings.settings.value.history))
     private val eventChannel = Channel<ScreenEvent>(Channel.BUFFERED)
 
@@ -173,6 +176,11 @@ class StorageViewModel(
             ui.update { it.copy(confirm = StorageReducer.confirmFor(kind, null)) }
             return
         }
+        if (kind == ClearKind.SetAside) {
+            confirmedSetAside = state.setAside
+            ui.update { it.copy(confirm = StorageReducer.confirmForSetAside(state.setAside)) }
+            return
+        }
         val probe = StorageReducer.confirmFor(kind, null, daysFor(kind, state), document)
         val request = probe.request ?: return
         // Read on the main thread, where the store lives, never from the I/O hop (DS-18).
@@ -201,6 +209,10 @@ class StorageViewModel(
 
     private fun clear(confirm: StorageConfirm) {
         ui.update { it.copy(confirm = null, busy = true) }
+        if (confirm.kind == ClearKind.SetAside) {
+            clearSetAside(confirm.exportFirst)
+            return
+        }
         deps.scope.launch {
             if (confirm.kind == ClearKind.Cache) {
                 withContext(deps.io) { deps.cacheDir.listFiles()?.forEach { it.deleteRecursively() } }
@@ -214,6 +226,38 @@ class StorageViewModel(
             val skip = previewSkip + openDirty()
             val result = withContext(deps.io) { deps.versions.clear(request, skip, zip) }
             finish(result, zip)
+        }
+    }
+
+    /**
+     * The confirmed clear of set-aside edits: exported and verified first
+     * (unless unticked), and if the export fails nothing is deleted. Only
+     * the edits the confirmation listed go; any set aside since stay.
+     */
+    private fun clearSetAside(exportFirst: Boolean) {
+        val edits = confirmedSetAside
+        confirmedSetAside = emptyList()
+        deps.scope.launch {
+            val zip = if (exportFirst) exportFile("set-aside-edits") else null
+            if (zip != null && !deps.store.exportSetAsideEdits(edits, zip)) {
+                ui.update { it.copy(busy = false, message = StorageMessage.Failed) }
+                return@launch
+            }
+            val cleared = deps.store.clearSetAsideEdits(edits)
+            ui.update {
+                it.copy(
+                    busy = false,
+                    message =
+                        StorageMessage.SetAsideCleared(
+                            cleared,
+                            edits.sumOf { e ->
+                                e.sizeBytes
+                            },
+                        ),
+                )
+            }
+            if (zip != null) eventChannel.trySend(ScreenEvent.SaveZip(zip, zip.name))
+            load()
         }
     }
 

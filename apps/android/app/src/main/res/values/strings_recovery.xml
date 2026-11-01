@@ -33,4 +33,7 @@
     <string name="storage_set_aside_note">Edits that couldn\'t be applied to their file. They\'re never deleted on their own; open one as a copy to read and save it.</string>
     <string name="storage_set_aside_row">%1$s · %2$s</string>
     <string name="storage_set_aside_open">Open as a copy</string>
+    <string name="storage_set_aside_clear">Clear set-aside edits</string>
+    <string name="storage_set_aside_over_cap">Set-aside edits now use %1$s, more than the %2$s kept without asking. Open any you need as a copy, then export and clear the rest. Nothing is deleted until you do.</string>
+    <string name="confirm_export_set_aside_first">Export their text first (.zip)</string>
 </resources>

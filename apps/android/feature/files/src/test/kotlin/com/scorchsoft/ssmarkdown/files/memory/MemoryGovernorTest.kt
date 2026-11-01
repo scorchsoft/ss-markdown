@@ -59,21 +59,32 @@ class MemoryGovernorTest {
         ShedStep.entries.forEach { step ->
             governor.register(step) {
                 shed += it
-                if (it == ShedStep.LineLayoutCaches) source.usedHeap = 100 * MB
+                if (it == ShedStep.TokenizerCache) source.usedHeap = 100 * MB
             }
         }
         source.usedHeap = 250 * MB // under 15% free
 
-        assertEquals(listOf(ShedStep.DiagramCache, ShedStep.LineLayoutCaches), governor.checkPressure())
-        assertEquals(listOf(ShedStep.DiagramCache, ShedStep.LineLayoutCaches), shed)
+        assertEquals(listOf(ShedStep.LineLayoutCaches, ShedStep.TokenizerCache), governor.checkPressure())
+        assertEquals(listOf(ShedStep.LineLayoutCaches, ShedStep.TokenizerCache), shed)
         assertTrue(governor.checkPressure().isEmpty())
     }
 
     @Test
     fun `trim levels set the minimum depth of the ladder`() {
-        assertEquals(listOf(ShedStep.DiagramCache), governor.onTrimMemory(MemoryGovernor.TRIM_UI_HIDDEN))
+        assertEquals(listOf(ShedStep.LineLayoutCaches), governor.onTrimMemory(MemoryGovernor.TRIM_UI_HIDDEN))
         assertEquals(ShedStep.entries, governor.onTrimMemory(MemoryGovernor.TRIM_BACKGROUND))
-        assertEquals(3, MemoryGovernor.stepsForTrimLevel(MemoryGovernor.TRIM_RUNNING_CRITICAL))
+        assertEquals(2, MemoryGovernor.stepsForTrimLevel(MemoryGovernor.TRIM_RUNNING_CRITICAL))
+        assertEquals(0, MemoryGovernor.stepsForTrimLevel(MemoryGovernor.TRIM_RUNNING_MODERATE))
+    }
+
+    @Test
+    fun `every step on the ladder has something registered in the app that frees memory (PERF-G)`() {
+        // The app registers one shedder per step (AppGraph.registerShedders); a step with none is a promise
+        // the ladder cannot keep. Here: the enum holds exactly the three that free memory in this process.
+        assertEquals(
+            listOf(ShedStep.LineLayoutCaches, ShedStep.TokenizerCache, ShedStep.InactiveCleanBuffers),
+            ShedStep.entries,
+        )
     }
 
     @Test

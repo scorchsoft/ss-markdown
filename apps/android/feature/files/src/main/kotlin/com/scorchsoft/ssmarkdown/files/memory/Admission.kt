@@ -42,11 +42,14 @@ sealed interface Admission {
  * What the governor sheds under pressure, in this order: the cheapest to
  * rebuild first, and never unsaved work (docs/robustness.md Part 2a,
  * "Under pressure").
+ *
+ * Only steps that free something in this process are on the ladder. The
+ * Preview's diagrams and mounted window live in the WebView's renderer, a
+ * separate process the platform reclaims on its own, so the two steps
+ * that named them, and shed nothing here, were removed (performance
+ * review PERF-G).
  */
 enum class ShedStep {
-    /** Rendered Mermaid and KaTeX SVGs. */
-    DiagramCache,
-
     /** The editor's per-line layouts. */
     LineLayoutCaches,
 
@@ -55,9 +58,6 @@ enum class ShedStep {
 
     /** Clean documents that are not on screen; they reload from disk on demand. */
     InactiveCleanBuffers,
-
-    /** The preview's mounted window ("Low memory — preview paused"). */
-    PreviewWindow,
 }
 
 /** Something that can give memory back for one [ShedStep]. */

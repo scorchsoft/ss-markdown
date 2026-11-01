@@ -81,7 +81,7 @@ class MemoryGovernor(
         freeHeapBytes() * PERCENT < heapCeilingBytes() * PRESSURE_PERCENT || source.system().lowMemory
 
     /**
-     * Polled during loads, pastes and exports: sheds while under pressure.
+     * Polled during loads and large pastes: sheds while under pressure.
      * Returns the steps shed (empty when there was no pressure).
      */
     fun checkPressure(): List<ShedStep> = if (underPressure()) shedUntilRelieved(minimumSteps = 1) else emptyList()
@@ -160,16 +160,17 @@ class MemoryGovernor(
 
         /**
          * How many ladder steps a trim level demands at least. Hidden UI
-         * drops the diagram cache; going to the background drops
-         * everything rebuildable, because the process may die next.
+         * and a low-memory warning drop the line layouts (cheap to redraw);
+         * a critical one the tokens too; going to the background drops
+         * everything rebuildable, because the process may die next. A
+         * moderate warning sheds only if the heap itself is short.
          */
         fun stepsForTrimLevel(level: Int): Int =
             when {
                 level >= TRIM_BACKGROUND -> ShedStep.entries.size
-                level >= TRIM_UI_HIDDEN -> 1
+                level >= TRIM_UI_HIDDEN -> ShedStep.LineLayoutCaches.ordinal + 1
                 level >= TRIM_RUNNING_CRITICAL -> ShedStep.TokenizerCache.ordinal + 1
                 level >= TRIM_RUNNING_LOW -> ShedStep.LineLayoutCaches.ordinal + 1
-                level >= TRIM_RUNNING_MODERATE -> ShedStep.DiagramCache.ordinal + 1
                 else -> 0
             }
     }

@@ -18,13 +18,34 @@ data class LineChange(
     val lines: List<String>,
 )
 
-/** Preview behaviour that Kotlin owns (Settings, zoom, renderer health). */
+/**
+ * Preview behaviour that Kotlin owns (Settings, zoom, renderer health).
+ *
+ * @property noWrap Display → Preview wrapping "No wrap": code lines and
+ *   table cells keep their width and scroll sideways in their own box, and
+ *   the reading-width cap is lifted. Fluid (false) wraps code as well.
+ *   Ignored in [pageMode], which follows the print rules.
+ */
 data class PreviewSettings(
     val tapToEdit: Boolean = true,
     val pageMode: Boolean = false,
     val zoom: Float = 1f,
     val lean: Boolean = false,
     val readOnly: Boolean = false,
+    val noWrap: Boolean = false,
+)
+
+/**
+ * A theme's fonts as this phone has them: `@font-face` rules from
+ * core:theme's `ThemeCss.fontFaces` (URLs on the page's own origin; see
+ * `PreviewView.fontDirectory`) and complete stacks, generic family last,
+ * from `ThemeCss.stack`. The page refuses faces that load from anywhere else.
+ */
+data class ThemeFonts(
+    val faces: String,
+    val body: String,
+    val heading: String,
+    val code: String,
 )
 
 /** Table column alignment, as written in the delimiter row. */
@@ -100,16 +121,21 @@ sealed interface HostMessage {
     /** Adds this message's fields to [json]. */
     fun writeTo(json: JSONObject)
 
-    /** Opens a document. [anchorLine] is where to land once it renders. */
+    /**
+     * Opens a document. [anchorLine] is where to land once it renders.
+     * [text] may be an immutable snapshot rather than a String: a large one
+     * is cut into frames off the main thread (`BridgeCodec.frames`), so no
+     * whole-document copy is made on it (PERF-12).
+     */
     data class Load(
         val rev: Int,
-        val text: String,
+        val text: CharSequence,
         val anchorLine: Int? = null,
     ) : HostMessage {
         override val type = "load"
 
         override fun writeTo(json: JSONObject) {
-            json.put("rev", rev).put("text", text)
+            json.put("rev", rev).put("text", text.toString())
             anchorLine?.let { json.put("anchorLine", it) }
         }
     }
@@ -181,11 +207,22 @@ sealed interface HostMessage {
     data class Theme(
         val themeJson: String,
         val dark: Boolean,
+        val fonts: ThemeFonts? = null,
     ) : HostMessage {
         override val type = "theme"
 
         override fun writeTo(json: JSONObject) {
             json.put("theme", JSONObject(themeJson)).put("dark", dark)
+            fonts?.let {
+                json.put(
+                    "fonts",
+                    JSONObject()
+                        .put("faces", it.faces)
+                        .put("body", it.body)
+                        .put("heading", it.heading)
+                        .put("code", it.code),
+                )
+            }
         }
     }
 
@@ -202,7 +239,8 @@ sealed interface HostMessage {
                     .put("pageMode", settings.pageMode)
                     .put("zoom", settings.zoom.toDouble())
                     .put("lean", settings.lean)
-                    .put("readOnly", settings.readOnly),
+                    .put("readOnly", settings.readOnly)
+                    .put("noWrap", settings.noWrap),
             )
         }
     }
@@ -274,6 +312,23 @@ sealed interface HostMessage {
         override val type = "preparePrint"
 
         override fun writeTo(json: JSONObject) = Unit
+    }
+
+    /**
+     * "Copy as rich text": asks for the page's rendering of lines
+     * `[fromLine, toLine)`; answered by [PageMessage.HtmlResult]. Use
+     * `PreviewView.exportHtml`, which pairs the two.
+     */
+    data class ExportHtml(
+        val requestId: Int,
+        val fromLine: Int,
+        val toLine: Int,
+    ) : HostMessage {
+        override val type = "exportHtml"
+
+        override fun writeTo(json: JSONObject) {
+            json.put("requestId", requestId).put("fromLine", fromLine).put("toLine", toLine)
+        }
     }
 
     /** Returns the page to its virtualised reading state after printing. */

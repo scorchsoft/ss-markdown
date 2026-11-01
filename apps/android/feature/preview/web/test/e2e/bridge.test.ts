@@ -1,0 +1,101 @@
+/**
+ * The bridge messages added after the first release of the protocol: chunked
+ * loads (PERF-12), rich-text export, theme fonts and the No wrap setting.
+ */
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { PageMessage } from "../../src/protocol";
+import { clearReceived, loadMarkdown, openPreview, send, startHarness, waitForMessage, type Harness } from "./harness";
+
+let h: Harness;
+beforeAll(async () => (h = await startHarness()));
+afterAll(async () => h.close());
+
+describe("bridge", () => {
+    it("loads a document sent as a header and raw text frames (PERF-12)", async () => {
+        const page = await openPreview(h);
+        const text = "# Chunked\n\nfirst paragraph\n\n" + "x".repeat(10) + '\n\n"quotes" and \\ backslashes';
+        const parts = [text.slice(0, 7), text.slice(7, 30), text.slice(30)];
+        await page.evaluate(
+            ({ parts }) => {
+                const w = window as unknown as { __port: MessagePort };
+                w.__port.postMessage(JSON.stringify({ type: "load", rev: 1, chunks: parts.length }));
+                for (const part of parts) w.__port.postMessage(part);
+            },
+            { parts },
+        );
+        await waitForMessage(page, (m) => m.type === "rendered");
+        await page.waitForFunction(() => document.querySelector("h1")?.textContent === "Chunked");
+        expect(await page.locator("p").last().textContent()).toBe('"quotes" and \\ backslashes');
+    });
+
+    it("answers exportHtml with clean HTML for just the asked lines", async () => {
+        const page = await openPreview(h);
+        await loadMarkdown(page, "# One\n\nAlpha **bold**.\n\n## Two\n\nBeta.\n\n$$\nx\n$$\n");
+        await clearReceived(page);
+        await send(page, { type: "exportHtml", requestId: 7, fromLine: 2, toLine: 5 });
+        const result = (await waitForMessage(page, (m) => m.type === "htmlResult")) as Extract<
+            PageMessage,
+            { type: "htmlResult" }
+        >;
+        expect(result.requestId).toBe(7);
+        expect(result.html).toContain("<strong>bold</strong>");
+        expect(result.html).toContain("Two");
+        expect(result.html).not.toContain("One");
+        expect(result.html).not.toContain("Beta");
+        expect(result.html).not.toMatch(/data-|contenteditable|<button/);
+        await send(page, { type: "exportHtml", requestId: 8, fromLine: 8, toLine: 11 });
+        const maths = (await waitForMessage(page, (m) => m.type === "htmlResult" && m.requestId === 8)) as Extract<
+            PageMessage,
+            { type: "htmlResult" }
+        >;
+        expect(maths.html).toContain("katex");
+        expect(maths.html).not.toContain("Edit in Code");
+    });
+
+    it("applies the app's font faces and stacks, refusing faces from elsewhere", async () => {
+        const page = await openPreview(h);
+        const origin = new URL(h.base).origin;
+        const good = `@font-face { font-family: "Inter"; src: url("${origin}/assets/fonts/bundled/Inter.ttf") format("truetype"); font-style: normal; font-weight: 100 900; font-display: swap; }`;
+        await send(page, {
+            type: "theme",
+            theme: { name: "Clean" },
+            dark: false,
+            fonts: { faces: good, body: '"Inter", sans-serif', code: '"JetBrains Mono", monospace' },
+        });
+        expect(await page.evaluate(() => document.getElementById("font-faces")?.textContent)).toContain("Inter.ttf");
+        expect(
+            await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--font-body")),
+        ).toContain('"Inter", sans-serif');
+        for (const faces of [
+            good.replace(origin, "https://evil.example"),
+            `${good} body { display: none }`,
+            good.replace(`url("${origin}`, `url("\\68ttps://evil.example`),
+        ]) {
+            await send(page, { type: "theme", theme: { name: "Clean" }, dark: false, fonts: { faces } });
+            expect(await page.evaluate(() => document.getElementById("font-faces")?.textContent)).toBe("");
+        }
+    });
+
+    it("wraps code in Fluid and keeps lines whole in No wrap", async () => {
+        const page = await openPreview(h);
+        const long = "const x = " + "abcdefghij ".repeat(40) + ";";
+        await loadMarkdown(
+            page,
+            "```js\n" + long + "\n```\n\n| a | b |\n|---|---|\n| " + "word ".repeat(30) + "| c |\n",
+        );
+        const width = (): Promise<{ code: number; box: number }> =>
+            page.evaluate(() => {
+                const pre = document.querySelector("pre.code-block") as HTMLElement;
+                return { code: pre.scrollWidth, box: pre.clientWidth };
+            });
+        const fluid = await width();
+        expect(fluid.code).toBeLessThanOrEqual(fluid.box);
+        const settings = { tapToEdit: true, pageMode: false, zoom: 1, lean: false, readOnly: false };
+        await send(page, { type: "settings", settings: { ...settings, noWrap: true } });
+        const noWrap = await width();
+        expect(noWrap.code).toBeGreaterThan(noWrap.box);
+        expect(await page.evaluate(() => getComputedStyle(document.querySelector("td") as Element).whiteSpace)).toBe(
+            "nowrap",
+        );
+    });
+});

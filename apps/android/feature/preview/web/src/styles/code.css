@@ -17,8 +17,15 @@ pre.code-block {
     overflow-x: auto;
     line-height: 1.5;
 }
+/* Fluid (the default) wraps long code lines so nothing scrolls sideways;
+   Display → No wrap keeps each source line on one line, scrolling in its box. */
 pre.code-block code {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.no-wrap pre.code-block code {
     white-space: pre;
+    overflow-wrap: normal;
 }
 
 .hljs-comment,

@@ -35,6 +35,7 @@ Kotlin (PreviewView) ──WebMessagePort, JSON──▶ page main thread ──
 | `src/styles/` | Theme-variable CSS, highlight.js palette, print stylesheet and A4 page mode. |
 | `src/shell/index.html` | The page shell and its Content Security Policy. |
 | `test/corpus/` | Markdown that covers every syntax, plus the hostile security corpus. |
+| `test/vectors/` | Golden vectors both halves run: every bridge message on the wire, and OT cases with their answers (Kotlin's `SharedVectorsTest`). |
 
 ### Rendering
 
@@ -80,6 +81,13 @@ Nothing typed is ever left on screen without reaching the source:
   re-rendering from source and reported as `editRefused`. The Playwright test
   `e2e/editSafety.test.ts` types, deletes and injects IME changes all over the
   corpus and checks the screen always equals a fresh render of Kotlin's text.
+
+### Loading large documents
+
+A `load` above 256 Ki characters arrives as a JSON header with `chunks: n`
+followed by n raw text frames, cut off the main thread in Kotlin
+(`FrameQueue`). Neither side builds or parses a JSON string the size of the
+document, and nothing sent after a load can overtake it.
 
 ### Edits from both sides
 

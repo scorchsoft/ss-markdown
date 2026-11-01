@@ -48,11 +48,40 @@ export interface PreviewSettings {
     /** Lean mode after a renderer OOM: no diagram rendering until tapped, smaller caches. */
     readonly lean: boolean;
     readonly readOnly: boolean;
+    /**
+     * Display → Preview wrapping "No wrap": the reading-width cap is lifted,
+     * code lines and table cells keep their natural width and scroll sideways
+     * in their own box. Fluid (the default) wraps code too, so nothing does.
+     */
+    readonly noWrap?: boolean;
+}
+
+/**
+ * The fonts a theme uses, resolved by the app: `@font-face` rules for the
+ * files on this phone (core/theme `ThemeCss.fontFaces`, served from the
+ * page's own origin) and the complete stacks to use, generic family last.
+ */
+export interface ThemeFonts {
+    readonly faces: string;
+    readonly body?: string;
+    readonly heading?: string;
+    readonly code?: string;
 }
 
 /** Kotlin -> page. */
 export type HostMessage =
-    | { readonly type: "load"; readonly rev: number; readonly text: string; readonly anchorLine?: number }
+    /**
+     * Opens a document. A large text comes as [chunks] raw string frames right
+     * after this message instead of in [text], so neither side has to build
+     * or parse one JSON string the size of the document (PERF-12).
+     */
+    | {
+          readonly type: "load";
+          readonly rev: number;
+          readonly text?: string;
+          readonly chunks?: number;
+          readonly anchorLine?: number;
+      }
     | {
           readonly type: "edit";
           readonly rev: number;
@@ -65,7 +94,7 @@ export type HostMessage =
     | { readonly type: "format"; readonly action: FormatAction }
     /** Puts the selection at source offsets, in the text at revision [rev]. */
     | { readonly type: "select"; readonly rev: number; readonly from: number; readonly to: number }
-    | { readonly type: "theme"; readonly theme: ThemeSpec; readonly dark: boolean }
+    | { readonly type: "theme"; readonly theme: ThemeSpec; readonly dark: boolean; readonly fonts?: ThemeFonts }
     | { readonly type: "settings"; readonly settings: PreviewSettings }
     | { readonly type: "scrollToLine"; readonly line: number; readonly smooth?: boolean }
     | { readonly type: "tableNav"; readonly direction: "prev" | "next" }
@@ -79,7 +108,13 @@ export type HostMessage =
           readonly scale: number;
       }
     | { readonly type: "preparePrint" }
-    | { readonly type: "finishPrint" };
+    | { readonly type: "finishPrint" }
+    /**
+     * "Copy as rich text": the page's own rendering of source lines
+     * [fromLine, toLine), without editing attributes or chips. Answered by
+     * `htmlResult` with the same [requestId].
+     */
+    | { readonly type: "exportHtml"; readonly requestId: number; readonly fromLine: number; readonly toLine: number };
 
 /**
  * Formatting actions Kotlin applies with core:markdown's EditCommand, in the
@@ -181,6 +216,8 @@ export type PageMessage =
     | { readonly type: "tableMenu"; readonly line: number; readonly row: number; readonly column: number }
     | { readonly type: "exportResult"; readonly requestId: number; readonly mime: string; readonly data: string }
     | { readonly type: "printReady" }
+    /** The answer to `exportHtml`; [html] is null when the lines could not be rendered. */
+    | { readonly type: "htmlResult"; readonly requestId: number; readonly html: string | null }
     | { readonly type: "error"; readonly message: string };
 
 /** Document-wide definitions every section render needs (see core/definitions.ts). */

@@ -50,7 +50,8 @@ export class RenderController {
     /** Views a change in this batch left needing a render: sent at once when few, else nearest first. */
     private readonly dirty = new Set<SectionView>();
     private backgroundTimer: ReturnType<typeof setTimeout> | null = null;
-    private readonly waiters: (() => void)[] = [];
+    /** Promises waiting for sections to be rendered, each with the condition it waits for. */
+    private readonly waiters: { readonly done: () => boolean; readonly resolve: () => void }[] = [];
 
     constructor(
         private readonly container: HTMLElement,
@@ -112,6 +113,11 @@ export class RenderController {
     }
 
     viewAtLine(line: number): SectionView | null {
+        return this.views[this.indexAtLine(line)] ?? null;
+    }
+
+    /** Index of the section holding [line], by binary search. */
+    private indexAtLine(line: number): number {
         let lo = 0;
         let hi = this.views.length - 1;
         while (lo < hi) {
@@ -119,7 +125,7 @@ export class RenderController {
             if ((this.views[mid]?.startLine ?? 0) <= line) lo = mid;
             else hi = mid - 1;
         }
-        return this.views[lo] ?? null;
+        return lo;
     }
 
     /** The section holding source [offset]. */
@@ -132,14 +138,35 @@ export class RenderController {
         return this.views.flatMap((v) => v.headings.map((h) => ({ ...h, line: v.startLine + h.relLine })));
     }
 
-    /** Resolves when every section has HTML for its current key (used before printing and exports). */
+    /** Resolves when every section has HTML for its current key (used before printing). */
     renderAll(): Promise<void> {
         const missing = this.views.filter((v) => v.needsRender);
-        if (missing.length === 0) return Promise.resolve();
         this.request(missing);
         this.backgroundFrom = 0;
         this.scheduleBackground();
-        return new Promise((resolve) => this.waiters.push(resolve));
+        return this.when(() => this.views.every((v) => !v.needsRender || v === this.pinned));
+    }
+
+    /**
+     * The sections holding lines [fromLine, toLine), once each has HTML for
+     * its current key. Only those sections are rendered: a rich-text copy of
+     * one section does not render the whole document.
+     */
+    async renderLines(fromLine: number, toLine: number): Promise<SectionView[]> {
+        const views: SectionView[] = [];
+        for (let i = this.indexAtLine(fromLine); i < this.views.length; i++) {
+            const view = this.views[i];
+            if (!view || (views.length > 0 && view.startLine >= toLine)) break;
+            views.push(view);
+        }
+        this.request(views.filter((v) => v.needsRender));
+        await this.when(() => views.every((v) => !v.needsRender || v === this.pinned));
+        return views;
+    }
+
+    private when(done: () => boolean): Promise<void> {
+        if (done()) return Promise.resolve();
+        return new Promise((resolve) => this.waiters.push({ done, resolve }));
     }
 
     /** Re-renders [view] from source (after an in-place editing session ends). */
@@ -344,8 +371,12 @@ export class RenderController {
             this.virtualizer.rescale(this.views);
             this.hooks.onRendered(touched);
         }
-        if (this.waiters.length > 0 && this.views.every((v) => !v.needsRender)) {
-            for (const resolve of this.waiters.splice(0)) resolve();
+        for (let i = this.waiters.length - 1; i >= 0; i--) {
+            const waiter = this.waiters[i];
+            if (waiter?.done()) {
+                this.waiters.splice(i, 1);
+                waiter.resolve();
+            }
         }
     }
 }

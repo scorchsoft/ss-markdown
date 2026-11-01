@@ -203,6 +203,16 @@ sealed interface PageMessage {
 
     data object PrintReady : PageMessage
 
+    /**
+     * The answer to [HostMessage.ExportHtml]: the rendered lines as clean
+     * HTML, or null when the page could not render them. Consumed by
+     * `PreviewView.exportHtml`, not by the listener.
+     */
+    data class HtmlResult(
+        val requestId: Int,
+        val html: String?,
+    ) : PageMessage
+
     data class Error(
         val message: String,
     ) : PageMessage {

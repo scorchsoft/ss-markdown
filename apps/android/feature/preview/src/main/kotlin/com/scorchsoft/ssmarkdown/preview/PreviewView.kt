@@ -11,6 +11,11 @@ import android.widget.FrameLayout
 import com.scorchsoft.ssmarkdown.preview.bridge.HostMessage
 import com.scorchsoft.ssmarkdown.preview.bridge.PageMessage
 import com.scorchsoft.ssmarkdown.preview.bridge.PreviewSettings
+import com.scorchsoft.ssmarkdown.preview.bridge.ThemeFonts
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import java.io.File
+import kotlin.coroutines.resume
 
 /**
  * The Markdown preview: one WebView running the bundle in `assets/preview`,
@@ -22,6 +27,7 @@ import com.scorchsoft.ssmarkdown.preview.bridge.PreviewSettings
  * rebuilt and reloaded at the same line from [documentSource], leaner after an
  * out-of-memory kill, and paused after two deaths in a minute.
  */
+@Suppress("TooManyFunctions") // The preview's whole host-side API is this one view, by design.
 class PreviewView
     @JvmOverloads
     constructor(
@@ -30,19 +36,35 @@ class PreviewView
     ) : FrameLayout(context, attrs) {
         var listener: PreviewListener? = null
         var documentSource: DocumentSource? = null
+
+        /** Opens pictures next to the document for `![](img/x.png)`; null leaves them broken. */
         var resourceResolver: DocumentResourceResolver? = null
+
+        /**
+         * The installed-fonts directory, served at `/fonts/` so the `@font-face`
+         * URLs in [HostMessage.Theme.fonts] resolve (feature/fonts' `FontUrls`
+         * builds them on the same base). Null serves no fonts from storage;
+         * bundled fonts come from assets either way.
+         */
+        var fontDirectory: File? = null
+
+        /** Rich-text exports waiting for the page's answer, by request id. Main thread only. */
+        private val htmlRequests = HashMap<Int, (String?) -> Unit>()
+        private var nextHtmlRequest = 1
 
         private val recovery = RendererRecovery()
         private val channel: PreviewChannel =
-            PreviewChannel { message ->
+            PreviewChannel(onMessage = { message ->
                 when (message) {
                     is PageMessage.TopLine -> topLine = message.line
                     is PageMessage.PrintReady -> printing.onPageReady(webView)
+                    is PageMessage.HtmlResult -> htmlRequests.remove(message.requestId)?.invoke(message.html)
                     else -> Unit
                 }
                 listener?.let(message::deliverTo)
-            }
-        private val assetLoader = PreviewWebViews.assetLoader(context) { resourceResolver }
+            })
+        private val assetLoader =
+            PreviewWebViews.assetLoader(context, resolver = { resourceResolver }, fonts = { fontDirectory })
         private val pinch = PinchZoom(context) { zoom -> applySettings(settings.copy(zoom = zoom)) }
         private var webView: WebView? = null
         private var theme: HostMessage.Theme? = null
@@ -61,16 +83,22 @@ class PreviewView
             channel.send(message)
         }
 
-        /** Applies a theme; [backgroundColor] is painted before the page draws, so there is no flash. */
+        /**
+         * Applies a theme; [backgroundColor] is painted before the page draws,
+         * so there is no flash. [fonts] are the theme's `@font-face` rules and
+         * stacks as this phone has them; without them the page falls back to
+         * system fonts.
+         */
         fun setTheme(
             themeJson: String,
             dark: Boolean,
             backgroundColor: Int,
+            fonts: ThemeFonts? = null,
         ) {
             backgroundColour = backgroundColor
             setBackgroundColor(backgroundColor)
             webView?.setBackgroundColor(backgroundColor)
-            val message = HostMessage.Theme(themeJson, dark)
+            val message = HostMessage.Theme(themeJson, dark, fonts)
             theme = message
             send(message)
         }
@@ -87,6 +115,28 @@ class PreviewView
             send(HostMessage.PreparePrint)
         }
 
+        /**
+         * "Copy as rich text": the page's own rendering of source lines
+         * `[fromLine, toLine)` as clean HTML (no editing attributes or chips),
+         * or null when the preview cannot give it within [timeoutMillis]; the
+         * caller then copies plain Markdown. Only the sections holding those
+         * lines are rendered. Call on the main thread.
+         */
+        suspend fun exportHtml(
+            fromLine: Int,
+            toLine: Int,
+            timeoutMillis: Long = EXPORT_TIMEOUT_MILLIS,
+        ): String? {
+            val id = nextHtmlRequest++
+            return withTimeoutOrNull(timeoutMillis) {
+                suspendCancellableCoroutine { done ->
+                    htmlRequests[id] = { html -> done.resume(html) }
+                    done.invokeOnCancellation { post { htmlRequests.remove(id) } }
+                    send(HostMessage.ExportHtml(id, fromLine, toLine))
+                }
+            }
+        }
+
         /** "Retry" on Preview paused. */
         fun retry() {
             recovery.reset()
@@ -97,6 +147,10 @@ class PreviewView
         /** Destroys the WebView. The view can be used again; it rebuilds on the next call. */
         fun release() {
             channel.close()
+            // The page that would have answered is gone: waiting exports copy plain text instead.
+            val waiting = htmlRequests.values.toList()
+            htmlRequests.clear()
+            waiting.forEach { it(null) }
             webView?.let {
                 removeView(it)
                 it.destroy()
@@ -148,5 +202,9 @@ class PreviewView
             release()
             ensureWebView()
             documentSource?.snapshot()?.let { channel.send(HostMessage.Load(it.rev, it.text, topLine)) }
+        }
+
+        private companion object {
+            const val EXPORT_TIMEOUT_MILLIS = 5_000L
         }
     }

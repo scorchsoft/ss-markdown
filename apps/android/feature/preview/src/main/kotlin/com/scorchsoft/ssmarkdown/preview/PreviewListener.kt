@@ -107,7 +107,11 @@ fun interface DocumentSource {
     fun snapshot(): DocumentSnapshot
 }
 
+/**
+ * @property text the characters; an immutable snapshot is fine and is never
+ *   copied into one String on the main thread (PERF-12).
+ */
 data class DocumentSnapshot(
-    val text: String,
+    val text: CharSequence,
     val rev: Int,
 )

@@ -1,6 +1,8 @@
 package com.scorchsoft.ssmarkdown.preview
 
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.webkit.WebMessage
 import android.webkit.WebMessagePort
 import android.webkit.WebView
@@ -8,6 +10,8 @@ import com.scorchsoft.ssmarkdown.preview.bridge.BridgeCodec
 import com.scorchsoft.ssmarkdown.preview.bridge.HostMessage
 import com.scorchsoft.ssmarkdown.preview.bridge.PROTOCOL_VERSION
 import com.scorchsoft.ssmarkdown.preview.bridge.PageMessage
+import java.util.concurrent.Executor
+import java.util.concurrent.Executors
 
 /**
  * The Kotlin end of the bridge: one WebMessagePort pair per page load.
@@ -19,10 +23,14 @@ import com.scorchsoft.ssmarkdown.preview.bridge.PageMessage
  */
 internal class PreviewChannel(
     private val onMessage: (PageMessage) -> Unit,
+    private val queue: FrameQueue = FrameQueue(ENCODER, MainThread),
 ) {
     private var port: WebMessagePort? = null
     private var ready = false
-    private val queue = ArrayDeque<String>()
+
+    init {
+        queue.onReady = ::flush
+    }
 
     /** Opens the channel to the page that just finished loading in [webView]. */
     fun connect(webView: WebView) {
@@ -47,10 +55,9 @@ internal class PreviewChannel(
         webView.postWebMessage(WebMessage(INIT_MESSAGE, arrayOf(theirs)), Uri.parse(PreviewWebViewClient.ORIGIN))
     }
 
+    /** Sends [message] once the page is ready, after everything sent before it. */
     fun send(message: HostMessage) {
-        val encoded = BridgeCodec.encode(message)
-        val target = port
-        if (ready && target != null) target.postMessage(WebMessage(encoded)) else queue.addLast(encoded)
+        queue.add(message)
     }
 
     /** Drops the port and anything queued; used when the renderer dies or the view is released. */
@@ -68,11 +75,28 @@ internal class PreviewChannel(
             )
         }
         ready = true
+        flush()
+    }
+
+    private fun flush() {
         val target = port ?: return
-        while (queue.isNotEmpty()) target.postMessage(WebMessage(queue.removeFirst()))
+        if (ready) queue.drainTo { target.postMessage(WebMessage(it)) }
+    }
+
+    /** Posts to the main thread, which owns the port. */
+    private object MainThread : Executor {
+        private val handler = Handler(Looper.getMainLooper())
+
+        override fun execute(command: Runnable) {
+            handler.post(command)
+        }
     }
 
     private companion object {
         const val INIT_MESSAGE = "ssmd:init"
+
+        /** One thread for every preview: loads are rare, and one at a time keeps memory flat. */
+        val ENCODER: Executor =
+            Executors.newSingleThreadExecutor { task -> Thread(task, "preview-encode").apply { isDaemon = true } }
     }
 }

@@ -6,6 +6,7 @@ import type { HostMessage, PageMessage, PreviewSettings } from "../protocol";
 import { Bridge } from "./bridge";
 import { RenderController } from "./controller";
 import { Editor } from "./editing/editor";
+import { exportHtml } from "./exportHtml";
 import { exportDiagram } from "./exportImage";
 import { Gestures } from "./gestures";
 import { MermaidRunner } from "./mermaidRunner";
@@ -72,7 +73,7 @@ export class PreviewApp {
                 this.editor.end();
                 this.renderStarted = performance.now();
                 this.anchorLine = m.anchorLine ?? null;
-                this.controller.load(m.text, m.rev);
+                this.controller.load(m.text ?? "", m.rev);
                 break;
             case "edit":
                 this.hostEdit(m);
@@ -92,7 +93,7 @@ export class PreviewApp {
                 break;
             }
             case "theme":
-                applyTheme(document.documentElement, m.theme, m.dark);
+                applyTheme(document.documentElement, m.theme, m.dark, m.fonts);
                 this.mermaid.setTheme(m.dark, m.theme.name);
                 break;
             case "settings":
@@ -118,6 +119,9 @@ export class PreviewApp {
                 break;
             case "preparePrint":
                 void this.preparePrint();
+                break;
+            case "exportHtml":
+                void this.exportHtml(m.requestId, m.fromLine, m.toLine);
                 break;
             case "finishPrint":
                 this.controller.virtualizer.keepAll = false;
@@ -162,6 +166,7 @@ export class PreviewApp {
         const root = document.documentElement;
         root.style.setProperty("--zoom", String(Math.min(4, Math.max(0.5, s.zoom))));
         root.classList.toggle("page-mode", s.pageMode);
+        root.classList.toggle("no-wrap", s.noWrap === true && !s.pageMode);
         root.classList.toggle("read-only", s.readOnly || !s.tapToEdit);
         this.mermaid.setLean(s.lean);
         if (s.readOnly || !s.tapToEdit) this.editor.end();
@@ -207,6 +212,16 @@ export class PreviewApp {
         } catch (e) {
             this.bridge.post({ type: "error", message: e instanceof Error ? e.message : String(e) });
         }
+    }
+
+    private async exportHtml(requestId: number, fromLine: number, toLine: number): Promise<void> {
+        let html: string | null = null;
+        try {
+            html = await exportHtml(this.controller, fromLine, toLine);
+        } catch (e) {
+            this.bridge.post({ type: "error", message: e instanceof Error ? e.message : String(e) });
+        }
+        this.bridge.post({ type: "htmlResult", requestId, html });
     }
 
     /** Print is the one path that renders every block; Kotlin shows progress meanwhile. */

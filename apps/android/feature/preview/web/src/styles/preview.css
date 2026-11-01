@@ -183,6 +183,16 @@ abbr[title] {
 :root[data-theme="reader"] .doc {
     max-width: 68ch;
 }
+/* No wrap: the reading-width cap is lifted for wide tables and code, while
+   prose still wraps to the screen so reading never needs sideways panning. */
+.no-wrap .doc,
+:root[data-theme="reader"].no-wrap .doc {
+    max-width: none;
+}
+.no-wrap th,
+.no-wrap td {
+    white-space: nowrap;
+}
 :root[data-theme="contrast"] a {
     text-decoration-thickness: 2px;
 }

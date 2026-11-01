@@ -22,6 +22,8 @@ dependencies {
     implementation(project(":core:theme"))
     implementation(project(":core:ui"))
     implementation(libs.androidx.webkit)
+    // PreviewView.exportHtml suspends until the page answers.
+    implementation(libs.kotlinx.coroutines.core)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

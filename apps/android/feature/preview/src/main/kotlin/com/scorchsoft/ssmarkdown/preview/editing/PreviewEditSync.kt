@@ -45,7 +45,7 @@ class PreviewEditSync(
 
     /** A [HostMessage.Load] of [text]: a fresh start for the page at a new revision. */
     fun load(
-        text: String,
+        text: CharSequence,
         anchorLine: Int? = null,
     ): HostMessage.Load {
         rev++

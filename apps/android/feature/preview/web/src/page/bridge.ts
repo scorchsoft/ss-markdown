@@ -13,6 +13,8 @@ export const INIT_MESSAGE = "ssmd:init";
 export class Bridge {
     private port: MessagePort | null = null;
     private readonly outbox: PageMessage[] = [];
+    /** A chunked `load` waiting for its text frames. */
+    private loading: { message: Extract<HostMessage, { type: "load" }>; parts: string[]; left: number } | null = null;
 
     constructor(private readonly onMessage: (message: HostMessage) => void) {
         const accept = (event: MessageEvent): void => {
@@ -36,6 +38,16 @@ export class Bridge {
 
     private receive(data: unknown): void {
         if (typeof data !== "string") return;
+        if (this.loading) {
+            // A text frame of a chunked load: raw text, never JSON.
+            const loading = this.loading;
+            loading.parts.push(data);
+            if (--loading.left === 0) {
+                this.loading = null;
+                this.onMessage({ ...loading.message, text: loading.parts.join(""), chunks: undefined });
+            }
+            return;
+        }
         let parsed: unknown;
         try {
             parsed = JSON.parse(data);
@@ -43,12 +55,17 @@ export class Bridge {
             this.post({ type: "error", message: "Unreadable message from the app." });
             return;
         }
-        if (isHostMessage(parsed)) this.onMessage(parsed);
-        else this.post({ type: "error", message: "Unknown message from the app." });
+        if (!isHostMessage(parsed)) {
+            this.post({ type: "error", message: "Unknown message from the app." });
+        } else if (parsed.type === "load" && typeof parsed.chunks === "number" && parsed.chunks > 0) {
+            this.loading = { message: parsed, parts: [], left: parsed.chunks };
+        } else {
+            this.onMessage(parsed);
+        }
     }
 }
 
-const HOST_TYPES = new Set<string>([
+export const HOST_TYPES: ReadonlySet<string> = new Set<string>([
     "load",
     "edit",
     "ack",
@@ -63,6 +80,7 @@ const HOST_TYPES = new Set<string>([
     "exportImage",
     "preparePrint",
     "finishPrint",
+    "exportHtml",
 ]);
 
 function isHostMessage(value: unknown): value is HostMessage {

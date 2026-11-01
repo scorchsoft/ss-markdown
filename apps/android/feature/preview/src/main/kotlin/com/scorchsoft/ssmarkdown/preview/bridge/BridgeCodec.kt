@@ -13,10 +13,45 @@ import org.json.JSONObject
  * null, because a page bug must never crash the app.
  */
 object BridgeCodec {
+    /**
+     * Above this many characters a [HostMessage.Load] travels as a JSON header
+     * plus raw text frames of at most this size, never as one JSON string the
+     * size of the document (PERF-12).
+     */
+    const val FRAME_CHARS: Int = 256 * 1024
+
+    /** One message as one JSON string. A large [HostMessage.Load] must go through [frames] instead. */
     fun encode(message: HostMessage): String {
         val json = JSONObject().put("type", message.type)
         message.writeTo(json)
         return json.toString()
+    }
+
+    /**
+     * The frames to post for [message], in order. Everything but a large
+     * load is one JSON frame. A load whose text is longer than [frameChars]
+     * is a header (`"chunks": n`, no text) followed by n raw text frames,
+     * which the page joins without parsing: no quoted 40 MB copy is built
+     * here and none is parsed there. A frame never ends between the two
+     * halves of a surrogate pair, which a WebMessage could not carry.
+     */
+    fun frames(
+        message: HostMessage,
+        frameChars: Int = FRAME_CHARS,
+    ): List<String> {
+        if (message !is HostMessage.Load || message.text.length <= frameChars) return listOf(encode(message))
+        val text = message.text
+        val parts = ArrayList<String>()
+        var at = 0
+        while (at < text.length) {
+            var end = minOf(text.length, at + frameChars)
+            if (end < text.length && Character.isHighSurrogate(text[end - 1])) end--
+            parts += text.subSequence(at, end).toString()
+            at = end
+        }
+        val header = JSONObject().put("type", message.type).put("rev", message.rev).put("chunks", parts.size)
+        message.anchorLine?.let { header.put("anchorLine", it) }
+        return listOf(header.toString()) + parts
     }
 
     fun decode(raw: String): PageMessage? =
@@ -58,6 +93,9 @@ object BridgeCodec {
             "exportResult" to
                 { j -> PageMessage.ExportResult(j.getInt("requestId"), j.getString("mime"), j.getString("data")) },
             "printReady" to { _ -> PageMessage.PrintReady },
+            "htmlResult" to { j ->
+                PageMessage.HtmlResult(j.getInt("requestId"), if (j.isNull("html")) null else j.getString("html"))
+            },
             "error" to { j -> PageMessage.Error(j.getString("message")) },
         )
 

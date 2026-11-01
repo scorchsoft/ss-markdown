@@ -65,13 +65,18 @@ class PreviewEditor(
     /** Hands a renderer restart a fresh load at a new revision (`PreviewView.documentSource`). */
     val documentSource: DocumentSource =
         DocumentSource {
-            val load = sync.load(document.text().chars.toString())
+            val load = sync.load(document.text().chars)
             DocumentSnapshot(load.text, load.rev)
         }
 
-    /** Loads the document into the page, landing at [anchorLine]. */
+    /**
+     * Loads the document into the page, landing at [anchorLine]. The text
+     * goes as the document's own characters (an immutable snapshot), so
+     * nothing here copies the whole document; `PreviewChannel` frames it
+     * off the main thread (PERF-12).
+     */
     fun open(anchorLine: Int? = null) {
-        send(sync.load(document.text().chars.toString(), anchorLine))
+        send(sync.load(document.text().chars, anchorLine))
     }
 
     /** The host changed its text (Code pane, undo, replace): [edits] were applied to [before]. */

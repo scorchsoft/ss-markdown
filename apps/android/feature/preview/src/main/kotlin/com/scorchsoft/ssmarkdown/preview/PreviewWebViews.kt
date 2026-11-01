@@ -5,6 +5,7 @@ import android.content.Context
 import android.view.View
 import android.webkit.WebView
 import androidx.webkit.WebViewAssetLoader
+import java.io.File
 
 /** Builds the preview's WebView with every setting locked down before anything loads. */
 internal object PreviewWebViews {
@@ -42,15 +43,20 @@ internal object PreviewWebViews {
             webViewClient = client
         }
 
-    /** Serves the bundle from assets and relative images from the host's resolver. */
+    /**
+     * Serves the bundle (and bundled fonts) from assets, relative images from
+     * the host's resolver, and installed fonts from the host's font directory.
+     */
     fun assetLoader(
         context: Context,
         resolver: () -> DocumentResourceResolver?,
+        fonts: () -> File?,
     ): WebViewAssetLoader =
         WebViewAssetLoader
             .Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
             .addPathHandler("/doc/", DocumentPathHandler(resolver))
+            .addPathHandler("/fonts/", FontPathHandler(fonts))
             .build()
 
     private const val FULL_TEXT_ZOOM = 100

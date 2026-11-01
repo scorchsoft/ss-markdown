@@ -5,8 +5,8 @@
  * chosen by `data-dark`, so the print stylesheet can always use the light
  * colours: dark themes print light (docs/ux-spec.md, "PDF").
  */
-import type { ThemeColours, ThemeSpec } from "../protocol";
-import { cssViolation } from "../core/cssPolicy";
+import type { ThemeColours, ThemeFonts, ThemeSpec } from "../protocol";
+import { cssViolation, normalizeCss } from "../core/cssPolicy";
 import { BUILT_IN_THEMES } from "./themes";
 
 const COLOUR_KEYS: readonly (keyof ThemeColours)[] = ["bg", "text", "heading", "link", "codeBg", "muted", "border"];
@@ -39,7 +39,35 @@ export function sanitizeThemeCss(css: string): string {
     return cssViolation(css) === null ? css : "";
 }
 
-export function applyTheme(root: HTMLElement, spec: ThemeSpec, dark: boolean): void {
+/**
+ * The app's `@font-face` rules, accepted only if they are nothing else and
+ * every file comes from the page's own [origin] (bundled assets or the font
+ * store the app serves under `/fonts/`). The CSP's `font-src 'self'` would
+ * block anything else anyway; refusing here keeps a bad rule from half-applying.
+ */
+export function sanitizeFontFaces(css: string, origin: string): string {
+    const rules = css.match(/@font-face\s*\{[^{}]*\}/g) ?? [];
+    if (rules.join("").replace(/\s+/g, "") !== css.replace(/\s+/g, "")) return "";
+    const ok = rules.every((rule) => {
+        const normal = normalizeCss(rule);
+        if (/<\/|@import|image-set|expression\s*\(|javascript:/.test(normal)) return false;
+        const urls = [...normal.matchAll(/url\s*\(\s*(["']?)([^"')]*)\1\s*\)/g)].map((m) => m[2] ?? "");
+        return urls.length > 0 && urls.every((u) => u.startsWith(`${origin.toLowerCase()}/`));
+    });
+    return ok ? rules.join("\n") : "";
+}
+
+function styleElement(id: string): HTMLElement {
+    let el = document.getElementById(id);
+    if (!el) {
+        el = document.createElement("style");
+        el.id = id;
+        document.head.appendChild(el);
+    }
+    return el;
+}
+
+export function applyTheme(root: HTMLElement, spec: ThemeSpec, dark: boolean, fonts?: ThemeFonts): void {
     const theme = resolveTheme(spec);
     const style = root.style;
     for (const [variant, colours] of [
@@ -51,10 +79,13 @@ export function applyTheme(root: HTMLElement, spec: ThemeSpec, dark: boolean): v
             if (value && SAFE_COLOUR.test(value)) style.setProperty(`--${variant}-${cssName(key)}`, value);
         }
     }
-    const fonts = theme.fonts ?? {};
-    for (const [key, value] of Object.entries(fonts)) {
+    // The app's resolved stacks win over the bare family names in the theme JSON.
+    const stacks: Record<string, string | undefined> = { ...theme.fonts };
+    for (const key of ["body", "heading", "code"] as const) if (fonts?.[key]) stacks[key] = fonts[key];
+    for (const [key, value] of Object.entries(stacks)) {
         if (value && SAFE_FONT.test(value)) style.setProperty(`--font-${key}`, value);
     }
+    styleElement("font-faces").textContent = sanitizeFontFaces(fonts?.faces ?? "", location.origin);
     const size = theme.size ?? {};
     if (size.base) style.setProperty("--base-size", `${size.base}px`);
     if (size.headingScale) style.setProperty("--heading-scale", String(size.headingScale));
@@ -62,11 +93,5 @@ export function applyTheme(root: HTMLElement, spec: ThemeSpec, dark: boolean): v
     root.dataset.theme = (spec.base ?? spec.name).toLowerCase();
     root.dataset.dark = dark ? "true" : "false";
     root.classList.add("themed");
-    let custom = document.getElementById("theme-css");
-    if (!custom) {
-        custom = document.createElement("style");
-        custom.id = "theme-css";
-        document.head.appendChild(custom);
-    }
-    custom.textContent = sanitizeThemeCss(theme.css ?? "");
+    styleElement("theme-css").textContent = sanitizeThemeCss(theme.css ?? "");
 }

@@ -1,5 +1,7 @@
 /* Code blocks and the highlight.js palette. Syntax colours live only inside
-   fenced code (docs/quality-bar.md, "Code"). */
+   fenced code (docs/quality-bar.md, "Code"). Every colour meets WCAG AA on
+   every built-in theme's code background, and the Contrast theme has its own
+   AAA set; test/e2e/themes.test.ts measures them in the page. */
 code,
 pre {
     font-family: var(--font-code);
@@ -30,24 +32,24 @@ pre.code-block code {
 
 .hljs-comment,
 .hljs-quote {
-    color: #6a737d;
+    color: #616972;
     font-style: italic;
 }
 .hljs-keyword,
 .hljs-selector-tag,
 .hljs-literal,
 .hljs-type {
-    color: #8250df;
+    color: #7c47dd;
 }
 .hljs-string,
 .hljs-regexp,
 .hljs-addition {
-    color: #0a7a3c;
+    color: #0a783b;
 }
 .hljs-number,
 .hljs-symbol,
 .hljs-bullet {
-    color: #b35900;
+    color: #a45100;
 }
 .hljs-title,
 .hljs-section,
@@ -104,11 +106,62 @@ pre.code-block code {
 }
 :root[data-dark="true"] .hljs-attr,
 :root[data-dark="true"] .hljs-attribute,
-:root[data-dark="true"] .hljs-variable {
+:root[data-dark="true"] .hljs-variable,
+:root[data-dark="true"] .hljs-template-variable,
+:root[data-dark="true"] .hljs-deletion {
     color: #ffa198;
+}
+:root[data-dark="true"] .hljs-meta {
+    color: #8b949e;
 }
 :root[data-dark="true"] .hljs-built_in,
 :root[data-dark="true"] .hljs-name,
 :root[data-dark="true"] .hljs-tag {
     color: #7ee787;
+}
+
+/* Contrast: the same hues, darkened (light) or lightened (dark) to AAA, 7:1. */
+:root[data-theme="contrast"] :is(.hljs-comment, .hljs-quote) {
+    color: #494f56;
+}
+:root[data-theme="contrast"] :is(.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-type) {
+    color: #5e25c8;
+}
+:root[data-theme="contrast"] :is(.hljs-string, .hljs-regexp, .hljs-addition) {
+    color: #075b2d;
+}
+:root[data-theme="contrast"] :is(.hljs-number, .hljs-symbol, .hljs-bullet) {
+    color: #7d3e00;
+}
+:root[data-theme="contrast"] :is(.hljs-title, .hljs-section) {
+    color: #054ba4;
+}
+:root[data-theme="contrast"] :is(.hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable) {
+    color: #8b3400;
+}
+:root[data-theme="contrast"] :is(.hljs-built_in, .hljs-name, .hljs-tag) {
+    color: #105c26;
+}
+:root[data-theme="contrast"] .hljs-meta {
+    color: #485058;
+}
+:root[data-theme="contrast"][data-dark="true"] :is(.hljs-comment, .hljs-quote, .hljs-meta) {
+    color: #a0a7af;
+}
+:root[data-theme="contrast"][data-dark="true"] :is(.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-type) {
+    color: #d2a8ff;
+}
+:root[data-theme="contrast"][data-dark="true"]
+    :is(.hljs-string, .hljs-regexp, .hljs-addition, .hljs-built_in, .hljs-name, .hljs-tag) {
+    color: #7ee787;
+}
+:root[data-theme="contrast"][data-dark="true"] :is(.hljs-number, .hljs-symbol, .hljs-bullet) {
+    color: #ffa657;
+}
+:root[data-theme="contrast"][data-dark="true"] :is(.hljs-title, .hljs-section) {
+    color: #79c0ff;
+}
+:root[data-theme="contrast"][data-dark="true"]
+    :is(.hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable, .hljs-deletion) {
+    color: #ffa198;
 }

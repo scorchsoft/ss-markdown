@@ -167,9 +167,11 @@ dt {
 dd {
     margin: 0 0 0.5em 1.6em;
 }
+/* The highlight is always light yellow, so its text is always dark ink:
+   inheriting a dark theme's light text left it at 1.1:1. */
 mark {
     background: #fff1b8;
-    color: inherit;
+    color: #1c1c1e;
 }
 abbr[title] {
     text-decoration: underline dotted;
@@ -195,4 +197,11 @@ abbr[title] {
 }
 :root[data-theme="contrast"] a {
     text-decoration-thickness: 2px;
+}
+/* Contrast is AAA (7:1): its alert titles use the theme's own link blues. */
+:root[data-theme="contrast"] {
+    --info: #0a3a8c;
+}
+:root[data-theme="contrast"][data-dark="true"] {
+    --info: #a8ccff;
 }

@@ -167,6 +167,16 @@ jobs:
           npx playwright install --with-deps chromium
           npm run test:e2e
 
+      # Review artefact, not a gate: the whole corpus in every built-in theme,
+      # light and dark, as themes.test.ts drew it (rubric #5 and #7).
+      - name: Upload theme screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-theme-screenshots
+          path: apps/android/feature/preview/web/test-results/themes/
+          retention-days: 14
+
   device:
     name: Instrumented tests (API 34 emulator)
     runs-on: ubuntu-latest

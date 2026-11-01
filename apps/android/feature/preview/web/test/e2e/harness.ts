@@ -10,6 +10,11 @@ import { chromium, type Browser, type Page } from "playwright";
 import type { HostMessage, PageMessage } from "../../src/protocol";
 
 export const ASSETS = resolve(__dirname, "../../../src/main/assets");
+/**
+ * feature/fonts' bundled files, at `/assets/fonts/`: the app serves the same
+ * files from the page's own origin, so a theme test draws in the theme's real face.
+ */
+const FONTS = resolve(__dirname, "../../../../fonts/src/main/assets");
 const TYPES: Record<string, string> = {
     ".html": "text/html",
     ".js": "text/javascript",
@@ -17,6 +22,7 @@ const TYPES: Record<string, string> = {
     ".woff2": "font/woff2",
     ".txt": "text/plain",
     ".png": "image/png",
+    ".ttf": "font/ttf",
 };
 
 export interface Harness {
@@ -30,8 +36,9 @@ export async function startHarness(): Promise<Harness> {
     if (!existsSync(join(ASSETS, "preview/index.html"))) throw new Error("Run `npm run build` first.");
     const server = createServer((req, res) => {
         const path = normalize(decodeURIComponent((req.url ?? "/").split("?")[0] ?? "/"));
-        const file = join(ASSETS, path.replace(/^\/assets\//, "/"));
-        if (!file.startsWith(ASSETS) || !existsSync(file) || !statSync(file).isFile()) {
+        const root = path.startsWith("/assets/fonts/") ? FONTS : ASSETS;
+        const file = join(root, path.replace(/^\/assets\//, "/"));
+        if (!file.startsWith(root) || !existsSync(file) || !statSync(file).isFile()) {
             res.writeHead(404).end();
             return;
         }

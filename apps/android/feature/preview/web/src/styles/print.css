@@ -40,7 +40,9 @@
         font-size: 11pt;
         line-height: 1.45;
     }
-    :root .doc {
+    /* html:root[data-theme] outranks Reader's 68ch reading cap: a page is 170 mm wide in every theme. */
+    :root .doc,
+    html:root[data-theme] .doc {
         max-width: none;
         margin: 0;
         padding: 0;
@@ -115,7 +117,8 @@
     font-size: 11pt;
     line-height: 1.45;
 }
-:root.page-mode .doc {
+:root.page-mode .doc,
+:root[data-theme].page-mode .doc {
     box-sizing: border-box;
     width: 210mm;
     max-width: none;

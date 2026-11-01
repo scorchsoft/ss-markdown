@@ -485,6 +485,30 @@ diagrams, maths blocks if you want them, and embedded pictures.
 ⋮ → Export PDF renders through the A4 print stylesheet and opens the
 system print dialog, so "Save as PDF" and real printers both work.
 
+**Print typography is fixed in physical units.** Screen zoom, pinch and
+the theme's on-screen base size never change it.
+
+| Element | Size | Notes |
+|---|---|---|
+| Page | A4 (210 × 297 mm); US Letter when the locale is en-US/CA | Chosen in the system dialog |
+| Margins | 20 mm all round; 15 mm bottom with the page number | Text width ≈ 170 mm ≈ 75 characters |
+| Body | **11 pt**, line height 1.45 | The theme's font; serif themes stay serif |
+| H1 / H2 / H3 / H4 | 20 / 16 / 13 / 11.5 pt bold | Keep with next; no orphan headings at the foot of a page |
+| Code and tables | 9.5 pt | Code wraps (no clipped lines); table rows never split across pages; wide tables shrink to fit down to 8 pt, then wrap |
+| Footnotes and captions | 9 pt | |
+| Page number | 8 pt, centred in the footer | |
+
+- Diagrams and images scale to the text width and never split across
+  pages.
+- Dark themes print with their **light** variant.
+- The **A4 page mode** in Preview uses the same stylesheet at true scale.
+  On a phone that makes body text small, by design ("true scale, pinch
+  to read"); pinch zooms the page, not the type.
+- A Playwright test prints the corpus to PDF and checks:
+  - the body text measures 11 pt;
+  - the margins are 20 mm;
+  - no table row or diagram is split across a page.
+
 ## Themes
 
 Built-in themes, each with a light and a dark variant:

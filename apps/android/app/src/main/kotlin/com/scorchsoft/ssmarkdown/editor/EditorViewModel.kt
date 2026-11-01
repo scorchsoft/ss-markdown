@@ -108,16 +108,35 @@ class EditorViewModel(
             val recovered = recovery.recoverOnLaunch()
             val settings = deps.settings.settings.value
             when {
-                request != null -> openRequested(request)
+                request != null -> {
+                    openRequested(request)
+                }
 
                 // A file asked for while recovery ran (Share → Open, a second VIEW intent) wins over the default.
-                recovered || explicitOpen -> Unit
+                recovered || explicitOpen -> {
+                    Unit
+                }
 
-                settings.onLaunch == OnLaunch.ReopenLast && settings.lastFile != null -> openDocument(settings.lastFile)
+                settings.onLaunch == OnLaunch.ReopenLast && reopenable(settings.lastFile) -> {
+                    openDocument(settings.lastFile.orEmpty())
+                }
 
-                else -> newDraft()
+                else -> {
+                    newDraft()
+                }
             }
         }
+    }
+
+    /**
+     * A last document worth reopening: any file (opening reports its own
+     * failure), or a draft that still exists. A draft saved as a file or
+     * deleted since is simply gone, which is not worth an error message.
+     */
+    private fun reopenable(uri: String?): Boolean {
+        if (uri == null) return false
+        val draft = DocumentUri(uri)
+        return !draft.isDraft || deps.drafts.resolve(draft)?.isFile == true
     }
 
     private fun openRequested(request: LaunchRequest) =
@@ -243,11 +262,17 @@ class EditorViewModel(
         }
     }
 
+    /**
+     * "New": reuses an empty, untouched draft rather than piling up empty
+     * ones, else creates one. A draft that is empty on disk but holds
+     * typing not yet autosaved is not untouched: reusing it would make New
+     * do nothing, or show that typing again as if it were new.
+     */
     override fun newDraft() {
         val reusable =
             deps.drafts
                 .list()
-                .firstOrNull { it.sizeBytes == 0L }
+                .firstOrNull { it.sizeBytes == 0L && deps.store[it.uri]?.isDirty != true }
                 ?.uri
         val uri = reusable ?: deps.drafts.create()
         if (uri == null) {
@@ -327,12 +352,21 @@ class EditorViewModel(
             )
         }
         if (switching) anchorFlow.value = saved?.anchorLine ?: 0
-        if (!open.uri.isDraft) rememberRecent(open)
+        rememberRecent(open)
         refresh()
         scheduleOutline()
     }
 
+    /**
+     * [open] becomes the document reopened on launch. A file also joins the
+     * recent list; a draft does not (the Drafts group lists it), but it is
+     * still what the user was writing, so it is what comes back.
+     */
     private fun rememberRecent(open: OpenDocument) {
+        if (open.uri.isDraft) {
+            deps.settings.update { it.copy(lastFile = open.uri.value) }
+            return
+        }
         val name = open.displayName ?: return
         deps.settings.update {
             it.withRecent(
@@ -371,7 +405,11 @@ class EditorViewModel(
 
             is DocumentEvent.Moved -> {
                 metas[event.from.value]?.let { metas[event.uri.value] = it }
-                if (event.uri == activeUri) refresh()
+                if (event.uri == activeUri) {
+                    // Save as: the file is now the one on screen, so it is recent and reopens on launch.
+                    active?.open?.let(::rememberRecent)
+                    refresh()
+                }
             }
 
             is DocumentEvent.JournalHealthChanged -> {

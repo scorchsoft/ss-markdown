@@ -81,7 +81,7 @@ class SaveController(
         if (target == null) return
         deps.permissions(target, true)
         val from = open.uri
-        host.updateMeta(from.value) { it.copy(saving = true) }
+        host.updateMeta(from.value) { it.copy(saving = true, savingAs = true) }
         host.refresh()
         deps.scope.launch {
             val outcome = deps.store.saveAs(from, DocumentUri(target))
@@ -100,17 +100,23 @@ class SaveController(
         outcome: SaveOutcome,
     ) {
         val wasManual = host.meta(uri).saving
+        val wasSaveAs = host.meta(uri).savingAs
         val problem = SaveProblem.of(outcome)
         host.updateMeta(uri) {
             if (problem == null) {
                 it.copy(
                     saving = false,
+                    savingAs = false,
                     lastSavedAtMillis = deps.clock(),
                     lastSaveWasAutosave = !wasManual,
                     lastFailure = null,
                 )
             } else {
-                it.copy(saving = false, lastFailure = problem.takeIf { wasManual } ?: it.lastFailure)
+                it.copy(
+                    saving = false,
+                    savingAs = false,
+                    lastFailure = problem.takeIf { wasManual } ?: it.lastFailure,
+                )
             }
         }
         if (uri !=
@@ -123,8 +129,14 @@ class SaveController(
         }
         when {
             problem == null -> onSaved(wasManual)
+
+            // The picked target changed or vanished: this document did neither, so no conflict or missing banner.
+            wasSaveAs -> failed(problem)
+
             problem == SaveProblem.ChangedOutside -> host.update { it.copy(banner = EditorBanner.ChangedOutside) }
+
             problem == SaveProblem.FileMissing -> host.update { it.copy(banner = EditorBanner.FileMissing) }
+
             wasManual -> failed(problem)
         }
         host.refresh()

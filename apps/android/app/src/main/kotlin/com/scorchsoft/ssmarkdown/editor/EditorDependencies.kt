@@ -67,6 +67,7 @@ data class DocumentMeta(
     val mode: ViewMode? = null,
     val codeZoom: Int? = null,
     val previewZoom: Int? = null,
+    val savingAs: Boolean = false,
 )
 
 /**

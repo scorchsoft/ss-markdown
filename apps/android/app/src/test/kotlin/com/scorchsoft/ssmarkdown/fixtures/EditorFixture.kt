@@ -12,9 +12,13 @@ import com.scorchsoft.ssmarkdown.files.memory.HeapStats
 import com.scorchsoft.ssmarkdown.files.memory.MemoryGovernor
 import com.scorchsoft.ssmarkdown.files.memory.MemorySource
 import com.scorchsoft.ssmarkdown.files.memory.SystemMemory
+import com.scorchsoft.ssmarkdown.files.provider.DocumentProvider
+import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.files.provider.FileDocumentProvider
 import com.scorchsoft.ssmarkdown.files.provider.ProviderResult
 import com.scorchsoft.ssmarkdown.files.provider.RoutingDocumentProvider
+import com.scorchsoft.ssmarkdown.files.provider.WriteChannel
+import com.scorchsoft.ssmarkdown.files.provider.WriteMode
 import com.scorchsoft.ssmarkdown.files.saf.FolderRow
 import com.scorchsoft.ssmarkdown.files.save.BaseCopyStore
 import com.scorchsoft.ssmarkdown.folder.FolderSource
@@ -53,13 +57,19 @@ class EditorFixture(
     val files = File(root, "files").apply { mkdirs() }
     val scope = CoroutineScope(SupervisorJob() + dispatcher)
     val drafts = DraftStore(File(root, "drafts"), { now })
+
+    /** Fault injection: while set, every write to a `test:` file fails with this before a byte is written. */
+    var failWrites: ProviderResult.Failure? = null
+
     private val provider =
         RoutingDocumentProvider(
             drafts = FileDocumentProvider(drafts::resolve),
             documents =
-                FileDocumentProvider { uri ->
-                    if (uri.value.startsWith(SCHEME)) File(files, uri.value.removePrefix(SCHEME)) else null
-                },
+                FaultyWrites(
+                    FileDocumentProvider { uri ->
+                        if (uri.value.startsWith(SCHEME)) File(files, uri.value.removePrefix(SCHEME)) else null
+                    },
+                ) { failWrites },
         )
     private val journals = JournalStore(File(root, "journal"), FlushScheduler { _, _ -> Cancellable { } })
     val versions = VersionStore(File(root, "history"))
@@ -128,6 +138,17 @@ class EditorFixture(
     companion object {
         const val SCHEME = "test:"
     }
+}
+
+/** Wraps [real] so a test can make its writes fail, as a full disk or a revoked grant does. */
+private class FaultyWrites(
+    private val real: DocumentProvider,
+    private val failure: () -> ProviderResult.Failure?,
+) : DocumentProvider by real {
+    override fun openOutput(
+        uri: DocumentUri,
+        mode: WriteMode,
+    ): ProviderResult<WriteChannel> = failure() ?: real.openOutput(uri, mode)
 }
 
 /** A phone with plenty of memory and storage. */

@@ -93,6 +93,46 @@ if (minifyDebug) {
     }
 }
 
+// Licence texts that live outside any module's assets but must ship in the
+// APK (code-craft review CC-2): our own Apache-2.0 text, which the AndroidX,
+// Compose and Kotlin rows share, and the MIT notice for the VS Code piece
+// tree ported in core:text. Copied at build time so the repository keeps one
+// copy of each; the Open-source licences screen shows them.
+abstract class LicenceTextsTask : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val apacheLicence: RegularFileProperty
+
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val pieceTreeNotice: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        val dir = outputDir.get().asFile.resolve("licences")
+        dir.deleteRecursively()
+        dir.mkdirs()
+        apacheLicence.get().asFile.copyTo(dir.resolve("Apache-2.0.txt"))
+        pieceTreeNotice.get().asFile.copyTo(dir.resolve("vscode-piece-tree-MIT.txt"))
+    }
+}
+
+val licenceTexts =
+    tasks.register<LicenceTextsTask>("licenceTexts") {
+        apacheLicence.set(rootProject.layout.projectDirectory.file("../../LICENSE"))
+        pieceTreeNotice.set(rootProject.layout.projectDirectory.file("core/text/NOTICE"))
+        outputDir.set(layout.buildDirectory.dir("generated/licenceTexts"))
+    }
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(licenceTexts, LicenceTextsTask::outputDir)
+    }
+}
+
 kotlin {
     compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
 }

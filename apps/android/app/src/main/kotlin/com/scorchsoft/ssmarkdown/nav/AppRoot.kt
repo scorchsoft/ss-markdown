@@ -12,7 +12,7 @@ import androidx.compose.ui.Modifier
 import com.scorchsoft.ssmarkdown.AppGraph
 import com.scorchsoft.ssmarkdown.about.AboutScreen
 import com.scorchsoft.ssmarkdown.about.Licence
-import com.scorchsoft.ssmarkdown.about.LicencesScreen
+import com.scorchsoft.ssmarkdown.about.LicencesRoute
 import com.scorchsoft.ssmarkdown.conflict.CompareAction
 import com.scorchsoft.ssmarkdown.conflict.CompareScreen
 import com.scorchsoft.ssmarkdown.conflict.MergeAction
@@ -108,7 +108,7 @@ private fun ScreenOver(
         }
 
         AppScreen.Licences -> {
-            LicencesScreen(licences, { graph.screens.pop() })
+            LicencesRoute(licences, { graph.screens.pop() })
         }
 
         AppScreen.Merge -> {

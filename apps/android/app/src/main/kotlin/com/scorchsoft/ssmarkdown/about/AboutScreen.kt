@@ -1,7 +1,11 @@
 package com.scorchsoft.ssmarkdown.about
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -44,17 +48,67 @@ fun AboutScreen(
     }
 }
 
-/** Every bundled library and font with its licence (generated list in `assets/licences.txt`). */
+/**
+ * Every bundled library and font with its licence, from the hand-kept
+ * `assets/licences.txt`. A row with a packaged text opens it in full.
+ */
 @Composable
 fun LicencesScreen(
     licences: List<Licence>,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpen: (Licence) -> Unit = {},
 ) {
     SecondaryScreen(stringResource(R.string.licences_title), onBack, modifier) {
         licences.groupBy { it.licence }.forEach { (licence, items) ->
             SectionLabel(licence)
-            items.forEach { SettingRow(it.name, it.source) }
+            items.forEach { item ->
+                if (item.textAsset == null) {
+                    SettingRow(item.name, item.source)
+                } else {
+                    // An empty value draws the chevron: this row opens something.
+                    SettingRow(item.name, item.source, value = "", onClick = { onOpen(item) })
+                }
+            }
+        }
+    }
+}
+
+/**
+ * One licence text in full, exactly as shipped. The preview bundle's
+ * notice is about 85 KB, so paragraphs are laid out lazily.
+ *
+ * @param paragraphs the text from [Licences.paragraphs]; null while it loads, empty if it is missing.
+ */
+@Composable
+fun LicenceTextScreen(
+    title: String,
+    paragraphs: List<String>?,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SecondaryScreen(title, onBack, modifier, scroll = false) {
+        when {
+            paragraphs == null -> {
+                Unit
+            }
+
+            paragraphs.isEmpty() -> {
+                NoteText(stringResource(R.string.licence_text_missing))
+            }
+
+            else -> {
+                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp)) {
+                    items(paragraphs) { paragraph ->
+                        Text(
+                            paragraph,
+                            style = SS.type.meta,
+                            color = SS.colors.ink,
+                            modifier = Modifier.padding(bottom = 12.dp),
+                        )
+                    }
+                }
+            }
         }
     }
 }

@@ -48,7 +48,10 @@ internal object EditorEffects {
             }
 
             is EditorAction.ResetZoom, is EditorAction.StepZoom, is EditorAction.ZoomChanged -> {
-                vm.rememberView { it.copy(codeZoom = vm.state.codeZoom, previewZoom = vm.state.previewZoom) }
+                // Mid-pinch zoom changes every frame: remember only where the fingers let go (PERF-B).
+                if (action !is EditorAction.ZoomChanged || !action.pinching) {
+                    vm.rememberView { it.copy(codeZoom = vm.state.codeZoom, previewZoom = vm.state.previewZoom) }
+                }
             }
 
             is EditorAction.SetAppearance -> {

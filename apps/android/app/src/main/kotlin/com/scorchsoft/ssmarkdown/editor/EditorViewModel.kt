@@ -156,7 +156,7 @@ class EditorViewModel(
      * next (docs/robustness.md §1).
      */
     fun onPause() {
-        views.capture()
+        views.capture(now = true)
         // Preview typing still in its 150 ms pause is asked for now; it arrives
         // after this returns and is made durable by [persistNow] (DS-14).
         preview.onPause()

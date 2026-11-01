@@ -37,8 +37,8 @@ class ViewMemory(
         return true
     }
 
-    /** Stores how the document on screen looks now. */
-    fun capture() {
+    /** Stores how the document on screen looks now; [now] writes it without waiting for the debounce. */
+    fun capture(now: Boolean = false) {
         val doc = vm.active ?: return
         val state = vm.state
         // Before the Code view has shown it, the remembered selection is still the truth.
@@ -55,5 +55,6 @@ class ViewMemory(
                 anchorLine = vm.anchorLine.value,
             ),
         )
+        if (now) vm.deps.viewStates.flush()
     }
 }

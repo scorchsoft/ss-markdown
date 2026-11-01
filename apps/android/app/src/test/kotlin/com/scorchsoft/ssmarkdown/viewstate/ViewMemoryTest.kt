@@ -4,7 +4,9 @@ import com.scorchsoft.ssmarkdown.editor.EditorAction
 import com.scorchsoft.ssmarkdown.editor.Pane
 import com.scorchsoft.ssmarkdown.editor.ViewMode
 import com.scorchsoft.ssmarkdown.fixtures.EditorFixture
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -23,7 +25,9 @@ class ViewMemoryTest {
 
     private val dispatcher = UnconfinedTestDispatcher()
 
-    private fun store() = JsonViewStateStore(File(temp.root, "view-state.json"))
+    private val io = CoroutineScope(dispatcher)
+
+    private fun store() = JsonViewStateStore(File(temp.root, "view-state.json"), io)
 
     @Test
     fun `mode, zoom and position survive a restart`() {
@@ -45,7 +49,7 @@ class ViewMemoryTest {
         assertEquals(ViewMode.Preview, state.mode)
         assertEquals(120, state.previewZoom)
         assertEquals(40, second.vm.anchorLine.value)
-        val saved = JsonViewStateStore(File(temp.root, "view-state.json")).read(uri)
+        val saved = JsonViewStateStore(File(temp.root, "view-state.json"), io).read(uri)
         assertEquals(12, saved?.selectionStart)
         assertEquals(15, saved?.selectionEnd)
     }
@@ -66,20 +70,55 @@ class ViewMemoryTest {
     @Test
     fun `a damaged store is forgotten, never fatal`() {
         val file = File(temp.root, "view-state.json").apply { writeText("{not json") }
-        val store = JsonViewStateStore(file)
+        val store = JsonViewStateStore(file, io)
         assertNull(store.read("test:a.md"))
         store.write("test:a.md", FileViewState(mode = ViewMode.Code))
-        assertEquals(ViewMode.Code, JsonViewStateStore(file).read("test:a.md")?.mode)
+        store.flush()
+        assertEquals(ViewMode.Code, JsonViewStateStore(file, io).read("test:a.md")?.mode)
     }
 
     @Test
     fun `the store keeps only the newest files`() {
-        val store = JsonViewStateStore(File(temp.root, "v.json"), maxFiles = 2)
+        val store = JsonViewStateStore(File(temp.root, "v.json"), io, maxFiles = 2)
         store.write("a", FileViewState(anchorLine = 1))
         store.write("b", FileViewState(anchorLine = 2))
         store.write("c", FileViewState(anchorLine = 3))
-        val reread = JsonViewStateStore(File(temp.root, "v.json"))
+        store.flush()
+        val reread = JsonViewStateStore(File(temp.root, "v.json"), io)
         assertNull(reread.read("a"))
         assertEquals(3, reread.read("c")?.anchorLine)
+    }
+
+    @Test
+    fun `a burst of writes is one file write, and none on the caller's thread (PERF-B)`() {
+        val later = StandardTestDispatcher()
+        val file = File(temp.root, "burst.json")
+        val store = JsonViewStateStore(file, CoroutineScope(later))
+        later.scheduler.advanceUntilIdle()
+        repeat(BURST) { store.write("test:a.md", FileViewState(codeZoom = 100 + it)) }
+        // Before: one synchronous serialise, write and rename per call, 100 of them.
+        assertEquals(0, store.diskWrites)
+        assertEquals(false, file.exists())
+        later.scheduler.advanceUntilIdle()
+        assertEquals(1, store.diskWrites)
+        assertEquals(100 + BURST - 1, JsonViewStateStore(file, io).read("test:a.md")?.codeZoom)
+    }
+
+    @Test
+    fun `a pinch remembers the zoom once, when the fingers lift (PERF-B)`() {
+        val states = InMemoryViewStates()
+        val f = EditorFixture(temp.root, dispatcher, viewStates = states)
+        val uri = f.file("a.md", "# A\n")
+        f.vm.openDocument(uri)
+        val before = states.changes
+        repeat(BURST) { f.vm.onAction(EditorAction.ZoomChanged(Pane.Code, 100 + it, pinching = true)) }
+        assertEquals("nothing remembered mid-pinch", before, states.changes)
+        f.vm.onAction(EditorAction.ZoomChanged(Pane.Code, 150, pinching = false))
+        assertEquals(before + 1, states.changes)
+        assertEquals(150, states.read(uri)?.codeZoom)
+    }
+
+    private companion object {
+        const val BURST = 100
     }
 }

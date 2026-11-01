@@ -192,7 +192,7 @@ class AppGraph(
                 lastExitWasSwipe = exitReasons::lastExitWasUserSwipe,
                 scope = mainScope,
                 io = io,
-                viewStates = JsonViewStateStore(File(app.filesDir, "view-state.json")),
+                viewStates = JsonViewStateStore(File(app.filesDir, "view-state.json"), ioScope),
                 pictures = pictures,
             ),
         ).also {

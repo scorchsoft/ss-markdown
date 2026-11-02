@@ -163,7 +163,8 @@ export class Gestures {
         const line = lineOf(box);
         const text = controller.doc.lines[line] ?? "";
         const m = TASK_LINE.exec(text);
-        if (!m?.[1]) {
+        // A file that refuses edits keeps its boxes as they are.
+        if (!m?.[1] || this.deps.settings().readOnly) {
             box.checked = !box.checked;
             return;
         }

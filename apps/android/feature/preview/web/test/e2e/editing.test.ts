@@ -114,6 +114,19 @@ describe("tap to edit", () => {
         expect(m).toMatchObject({ offset: 3, checked: true });
     });
 
+    it("leaves a task as it is in a file that refuses edits", async () => {
+        const page = await openPreview(h);
+        await loadMarkdown(page, "- [ ] open\n- [x] done");
+        const settings = { tapToEdit: true, pageMode: false, zoom: 1, lean: false, readOnly: true };
+        await send(page, { type: "settings", settings });
+        await clearReceived(page);
+        const box = page.locator("input.task-list-item-checkbox").first();
+        await box.click();
+        await page.waitForTimeout(200);
+        expect((await received(page)).some((x) => x.type === "taskToggle")).toBe(false);
+        expect(await box.isChecked()).toBe(false);
+    });
+
     it("toggles a task from a tap 15 px off the checkbox: a 48 px hit area (UX-12)", async () => {
         const page = await openPreview(h);
         await loadMarkdown(page, "- [ ] open the box\n- [x] done");

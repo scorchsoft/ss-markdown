@@ -7,6 +7,7 @@ import com.scorchsoft.ssmarkdown.fixtures.EditorFixture
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.preview.RendererState
 import com.scorchsoft.ssmarkdown.preview.bridge.HostMessage
+import com.scorchsoft.ssmarkdown.preview.bridge.PageMessage
 import com.scorchsoft.ssmarkdown.preview.bridge.TextEdit
 import com.scorchsoft.ssmarkdown.settings.AppSettings
 import com.scorchsoft.ssmarkdown.text.EditOp
@@ -43,6 +44,28 @@ class PreviewSyncTest {
     fun `the page opens at the anchor`() {
         fixture()
         assertTrue(page.first() is HostMessage.Load)
+    }
+
+    @Test
+    fun `a task tick in a file that refuses edits is undone on the page, never acknowledged`() {
+        val f = fixture()
+        val bom = byteArrayOf(0xFF.toByte(), 0xFE.toByte(), 0, 0)
+        java.io.File(f.files, "utf32.md").writeBytes(bom + "- [ ] task\n".toByteArray(charset("UTF-32LE")))
+        f.vm.openDocument(EditorFixture.SCHEME + "utf32.md")
+        f.vm.onAction(EditorAction.SelectMode(ViewMode.Preview))
+        page.clear()
+
+        f.vm.preview.onSourceEdits(f.vm.preview.rev, listOf(TextEdit(3, 4, "x")), PageMessage.UNSTAMPED)
+
+        assertEquals(
+            "- [ ] task\n",
+            f.vm.active
+                ?.text
+                ?.text
+                ?.toString(),
+        )
+        assertTrue("no ack: the page would think the tick was kept", page.none { it is HostMessage.Ack })
+        assertTrue("the page loads the text as it is, so the box is unticked", page.any { it is HostMessage.Load })
     }
 
     @Test

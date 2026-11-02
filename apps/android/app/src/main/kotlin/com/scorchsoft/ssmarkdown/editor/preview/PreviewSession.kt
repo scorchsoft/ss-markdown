@@ -315,6 +315,12 @@ class PreviewSession(
         epoch: Int,
     ) {
         val target = editorOf(epoch) ?: return
+        if (target === editor && host.readOnly) {
+            // The file refuses edits: acking would leave the page showing a change (a task tick) the
+            // text never took. Reloading puts the page back as the text is.
+            target.onResync("read-only")
+            return
+        }
         target.onPageEdits(baseRev, edits)
         // The pause already flushed the journal; this edit arrived after it.
         if (paused && target === editor) host.onPreviewEvent(PreviewEvent.EditedWhilePaused)

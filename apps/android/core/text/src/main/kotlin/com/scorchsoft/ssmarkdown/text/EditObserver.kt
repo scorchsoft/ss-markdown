@@ -24,4 +24,20 @@ public interface EditObserver {
 
     /** [op] has been applied and [TextDocument.version] has moved. */
     public fun afterEdit(op: EditOp): Unit = Unit
+
+    /**
+     * The undo stack sealed its newest step: the op told next starts a
+     * new one. Told before that op's [beforeEdit]. Only an observer that
+     * keeps the undo history across a restart (the journal) needs it.
+     */
+    public fun onStepSealed(): Unit = Unit
+
+    /**
+     * Undo is about to apply the inverse of a step of [opCount] ops: the
+     * next [opCount] ops told are that undo, not new edits.
+     */
+    public fun onUndo(opCount: Int): Unit = Unit
+
+    /** Redo is about to re-apply a step of [opCount] ops: the next [opCount] ops told are that redo. */
+    public fun onRedo(opCount: Int): Unit = Unit
 }

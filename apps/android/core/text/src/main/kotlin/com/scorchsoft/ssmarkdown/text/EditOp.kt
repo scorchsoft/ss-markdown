@@ -42,11 +42,19 @@ public class EditOp(
     /** What keeping this op costs, as UTF-16 bytes plus object overhead; [UndoStack] budgets by it. */
     internal val retainedBytes: Long get() = 2L * (deleted.length + inserted.length) + OVERHEAD_BYTES
 
+    /**
+     * What keeping this op in the journal's on-disk undo tail counts for
+     * against [UndoStack.HISTORY_TAIL_MAX_BYTES]: UTF-16 bytes of both
+     * texts plus 12 bytes of fixed fields. The journal counts the same way.
+     */
+    public val tailBytes: Long get() = 2L * (deleted.length + inserted.length) + TAIL_FIXED_BYTES
+
     override fun toString(): String =
         "EditOp(offset=$offset, deleted=${deleted.length} chars, inserted=${inserted.length} chars)"
 
     private companion object {
         const val OVERHEAD_BYTES = 64L
+        const val TAIL_FIXED_BYTES = 12L
     }
 }
 
@@ -66,5 +74,9 @@ public class EditGroup internal constructor() {
     internal fun add(op: EditOp) {
         edits += op
         retainedBytes += op.retainedBytes
+    }
+
+    internal companion object {
+        fun of(ops: List<EditOp>): EditGroup = EditGroup().also { group -> ops.forEach(group::add) }
     }
 }

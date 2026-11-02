@@ -41,6 +41,18 @@ public class TextDocument(
 
     private val observers = ArrayList<EditObserver>(2)
 
+    init {
+        // The stack's own decisions reach observers in the order it makes them (ADR 0016).
+        history.listener =
+            object : UndoListener {
+                override fun onStepSealed() = tell { it.onStepSealed() }
+
+                override fun onUndo(opCount: Int) = tell { it.onUndo(opCount) }
+
+                override fun onRedo(opCount: Int) = tell { it.onRedo(opCount) }
+            }
+    }
+
     /** True when there is something to undo. */
     public val canUndo: Boolean get() = history.canUndo
 
@@ -55,6 +67,8 @@ public class TextDocument(
     ): EditOp {
         val op = EditOp(offset, text.slice(offset, offset + length), replacement)
         if (!op.isNoOp) {
+            // Grouping is decided first, so an observer hears a sealed step before the op that follows it.
+            history.prepare(op)
             apply(op)
             history.record(op)
         }
@@ -75,6 +89,39 @@ public class TextDocument(
 
     /** Ends the current typing run, e.g. on a cursor jump. */
     public fun breakTypingRun(): Unit = history.breakTypingRun()
+
+    /** The newest undo and redo steps as data, up to [maxBytes]; see [UndoStack.exportTail]. */
+    public fun exportHistory(maxBytes: Long = UndoStack.HISTORY_TAIL_MAX_BYTES): UndoHistory =
+        history.exportTail(maxBytes)
+
+    /**
+     * Puts back undo and redo steps a process death took (ADR 0016),
+     * replacing the stacks. Observers hear nothing: no text changes.
+     *
+     * The steps must fit the text as it is now. That is checked where it
+     * is cheap: the newest undo step's last op must have left its inserted
+     * text at its offset, and the next redo step's first op must find its
+     * deleted text there. If either does not, nothing is restored and the
+     * answer is false, because undoing a step that does not fit would
+     * corrupt the text rather than restore it.
+     */
+    public fun restoreHistory(steps: UndoHistory): Boolean {
+        val newest = steps.undo.lastOrNull()?.lastOrNull()
+        val next = steps.redo.lastOrNull()?.firstOrNull()
+        val fits =
+            (newest == null || holds(newest.offset, newest.inserted)) &&
+                (next == null || holds(next.offset, next.deleted))
+        if (fits) history.restore(steps)
+        return fits
+    }
+
+    private fun holds(
+        offset: Int,
+        chars: CharSequence,
+    ): Boolean {
+        val end = offset + chars.length
+        return end <= text.length && text.getText(offset, end).contentEquals(chars)
+    }
 
     /**
      * Adds [observer], which hears every op from now on, in the order
@@ -100,6 +147,11 @@ public class TextDocument(
 
     /** Writes the file's bytes, in its own format, to [out]. */
     public fun writeTo(out: OutputStream): Unit = Utf8Encoder.write(text.snapshot(), format, out)
+
+    /** Tells every observer; a copy, so an observer may remove itself while it is told. */
+    private inline fun tell(event: (EditObserver) -> Unit) {
+        if (observers.isNotEmpty()) observers.toList().forEach(event)
+    }
 
     private fun apply(op: EditOp) {
         // A copy, so an observer may remove itself while it is told.

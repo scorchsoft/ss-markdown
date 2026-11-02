@@ -7,6 +7,8 @@ release may change behaviour.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-02
+
 ### Added
 
 - Code / Split / Preview with position kept in sync, and pinch zoom that

@@ -95,6 +95,8 @@ jobs:
           aapt2=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2
           manifest=$("$aapt2" dump xmltree --file AndroidManifest.xml "$apk")
           if grep -q 'android:debuggable.*=true' <<<"$manifest"; then echo "::error::hand-over APK is debuggable"; exit 1; fi
+          signer=$("$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner" verify --print-certs "$apk" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)
+          if [ "$signer" != "59e437e6b2c9a5bf776842cfaf99d38851b25408fab0bde6ef8dbf4753ceff93" ]; then echo "::error::hand-over APK is not signed with sideload-debug.keystore ($signer), so it would not update an installed copy"; exit 1; fi
           if grep -q 'PreviewActivity' <<<"$manifest"; then echo "::error::hand-over APK ships PreviewActivity"; exit 1; fi
           if grep -q 'PerfDocumentProvider' <<<"$manifest"; then echo "::error::hand-over APK ships the benchmark provider"; exit 1; fi
           if unzip -l "$apk" | grep -qi leakcanary; then echo "::error::hand-over APK ships LeakCanary"; exit 1; fi
@@ -332,6 +334,8 @@ jobs:
           aapt2=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2
           manifest=$("$aapt2" dump xmltree --file AndroidManifest.xml "$apk")
           if grep -q 'android:debuggable.*=true' <<<"$manifest"; then echo "::error::hand-over APK is debuggable"; exit 1; fi
+          signer=$("$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner" verify --print-certs "$apk" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)
+          if [ "$signer" != "59e437e6b2c9a5bf776842cfaf99d38851b25408fab0bde6ef8dbf4753ceff93" ]; then echo "::error::hand-over APK is not signed with sideload-debug.keystore ($signer), so it would not update an installed copy"; exit 1; fi
           if grep -q 'PerfDocumentProvider' <<<"$manifest"; then echo "::error::hand-over APK ships the benchmark provider"; exit 1; fi
           unzip -l "$apk" assets/dexopt/baseline.prof > /dev/null || { echo "::error::baseline.prof missing"; exit 1; }
           size=$(stat -c %s "$apk")

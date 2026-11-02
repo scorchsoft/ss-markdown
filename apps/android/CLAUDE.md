@@ -80,6 +80,15 @@ Measured 2026-11-01: **6.15 MB** (classes.dex 3.32 MB), down from 15.12 MB
 when it was debuggable. CI fails the build if it becomes debuggable again,
 ships `PreviewActivity`, or loses `baseline.prof` or the licence texts.
 
+- **One signing key for every hand-over.** The debug build type signs with
+  the committed `apps/android/sideload-debug.keystore` (passwords
+  "android"; not a secret, Play refuses debug-signed uploads), so a newer
+  APK installs over an older one instead of failing with "App not
+  installed". Signer SHA-256: `59:E4:37:E6:B2:C9:A5:BF:77:68:42:CF:AF:99:D3:88:51:B2:54:08:FA:B0:BD:E6:EF:8D:BF:47:53:CE:FF:93`;
+  both CI jobs that build the hand-over fail if it changes. Never replace
+  the keystore: every installed copy would need uninstalling. Updates also
+  need a higher `versionCode` (bump by one per hand-over) and the same
+  `applicationId`.
 - **Archive `mapping.txt` with every APK.** The build is obfuscated, so a
   stack trace from it is unreadable without the mapping of that exact
   build: `app/build/outputs/mapping/debug/mapping.txt`. CI uploads it in

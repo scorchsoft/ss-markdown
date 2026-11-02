@@ -195,13 +195,14 @@ Never put a one-sided coloured border on anything.
 - **Split divider:** 48 dp invisible touch area around the 14 dp
   handle, plus TalkBack actions "Make top larger / smaller". Task
   checkboxes in Preview get a 48 dp hit area.
-- **Copy doesn't jump:** the Save slot is a fixed 96 dp in every state,
-  sized for the widest label ("Save as…"). The pill is right-aligned in
-  it, and the clean tick is right-aligned inside it, so Copy never moves.
-  The order is **title · Save · Copy · ⋮** (changed 2026-11-02 from Copy ·
-  Save · ⋮): the slot's slack then falls on the title side, so the clean
-  tick sits beside Copy at the same 24 dp as any icon pair, instead of
-  alone with a 60 dp hole between it and Copy.
+- **Copy doesn't jump:** the order is **title · Save · Copy · ⋮**, so
+  Copy is pinned beside ⋮ and never moves, whatever Save shows. The Save
+  slot is as wide as its pill or tick (at least one 48 dp target); the
+  room it doesn't need goes to the title. (Until 2026-11-02 the slot was a
+  fixed 96 dp, from when Copy sat before Save; after the order changed it
+  only left a gap beside the pill and took room from the title.)
+- **Big-file chip** reads "Big file" (TalkBack: "Big-file mode"; a tap
+  explains it), so a long name and its breadcrumb keep their room.
 - **Clean tick:** muted ink (`#636369`). It *is* the Save button in its
   clean state, so it's present in autosave too.
 - **Share-in button label** follows the choice: "Append" or "Create

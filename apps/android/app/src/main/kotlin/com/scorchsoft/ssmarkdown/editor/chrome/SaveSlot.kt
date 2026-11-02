@@ -39,11 +39,14 @@ import com.scorchsoft.ssmarkdown.ui.strip.StripDocument
 import com.scorchsoft.ssmarkdown.ui.strip.StripSave
 
 /**
- * The Save slot's width at 1×: 96 dp in every state, sized for "Save as…",
- * so Copy never moves (review 3). With a large font the slot grows with
- * its label instead of clipping it (UX2-1): the title gives way, Save never does.
+ * The Save slot's least width: one 48 dp target. It used to be a fixed
+ * 96 dp so Copy never moved (review 3), but Copy now sits after Save,
+ * pinned beside ⋮, so it cannot move whatever Save's width; the fixed width
+ * only took room from the title (a gap left of the pill or tick). The slot
+ * is as wide as its pill, and with a large font it grows with its label
+ * instead of clipping it (UX2-1): the title gives way, Save never does.
  */
-val SaveSlotWidth = 96.dp
+val SaveSlotMinWidth = 48.dp
 
 private val PillShape = RoundedCornerShape(20.dp)
 private val PillPadding = 14.dp
@@ -77,7 +80,7 @@ fun SaveSlot(
         contentAlignment = Alignment.CenterEnd,
         modifier =
             modifier
-                .widthIn(min = SaveSlotWidth)
+                .widthIn(min = SaveSlotMinWidth)
                 .height(SS.dimens.pillHitArea)
                 .combinedClickable(
                     enabled = button != SaveButton.Saving,

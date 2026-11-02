@@ -46,6 +46,7 @@
     <string name="status_autosave_paused">Autosave paused · %1$s</string>
     <string name="badge_read_only">READ-ONLY</string>
     <string name="big_file_mode">Big-file mode</string>
+    <string name="big_file_chip">Big file</string>
     <string name="time_just_now">just now</string>
 
     <!-- Save problems -->

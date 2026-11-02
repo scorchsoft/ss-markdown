@@ -31,8 +31,9 @@ import kotlin.random.Random
  *
  * Opt-in (`-Pssmarkdown.heavyTests=true`, about a minute and 2 GB of heap
  * on the host); `check` runs the same measurement at a tenth of the size,
- * with only the result checked.
- * `gradle -p apps/android :feature:files:testDebugUnitTest -Pssmarkdown.heavyTests=true --tests '*UndoReplayBenchmark*' -i`
+ * with only the result checked. To run it:
+ * `gradle -p apps/android :feature:files:testDebugUnitTest -Pssmarkdown.heavyTests=true`
+ * `--tests '*UndoReplayBenchmark*' -i`
  */
 class UndoReplayBenchmarkTest {
     @get:Rule
@@ -69,34 +70,7 @@ class UndoReplayBenchmarkTest {
             val root = tmp.newFolder(kind.name)
             val first = fixture(root, provider)
             val doc = (first.store.open(uri) as OpenOutcome.Opened).document
-            if (kind != Kind.Plain) {
-                repeat(steps) {
-                    val at = random.nextInt(doc.document.text.length - STEP_CHARS)
-                    doc.document.beginEditGroup()
-                    doc.replace(at, STEP_CHARS, "#".repeat(STEP_CHARS))
-                    doc.document.endEditGroup()
-                }
-            }
-            when (kind) {
-                // A save, without the fake provider's byte-by-byte write: the file becomes the text and
-                // the journal turns clean on it, exactly as SaveCoordinator.applySaved does.
-                Kind.Clean -> {
-                    val bytes =
-                        doc.document.text
-                            .toString()
-                            .toByteArray()
-                    provider.put(uri, bytes)
-                    doc.journal.resumeClean(BaseFingerprint.of(bytes, 0))
-                }
-
-                Kind.Snapshot -> {
-                    doc.journal.resume(doc.base, doc.document.snapshot())
-                }
-
-                else -> {
-                    Unit
-                }
-            }
+            prepare(kind, doc, provider, random, steps)
             first.store.flushJournals()
             val expected = doc.document.text.toString()
             val expectedSteps =
@@ -130,6 +104,44 @@ class UndoReplayBenchmarkTest {
                 "Undo tail replay, ${textChars / 1_000_000} MB text, $steps steps (${tailBytes / KIB} KiB of tail):",
             )
             results.forEach { (what, millis) -> println("  $what: $millis ms") }
+        }
+    }
+
+    /** Makes [steps] undo steps in [doc] and leaves its journal as [kind] says. */
+    private fun prepare(
+        kind: Kind,
+        doc: OpenDocument,
+        provider: FakeDocumentProvider,
+        random: Random,
+        steps: Int,
+    ) {
+        if (kind != Kind.Plain) {
+            repeat(steps) {
+                val at = random.nextInt(doc.document.text.length - STEP_CHARS)
+                doc.document.beginEditGroup()
+                doc.replace(at, STEP_CHARS, "#".repeat(STEP_CHARS))
+                doc.document.endEditGroup()
+            }
+        }
+        when (kind) {
+            // A save, without the fake provider's byte-by-byte write: the file becomes the text and
+            // the journal turns clean on it, exactly as SaveCoordinator.applySaved does.
+            Kind.Clean -> {
+                val bytes =
+                    doc.document.text
+                        .toString()
+                        .toByteArray()
+                provider.put(doc.uri, bytes)
+                doc.journal.resumeClean(BaseFingerprint.of(bytes, 0))
+            }
+
+            Kind.Snapshot -> {
+                doc.journal.resume(doc.base, doc.document.snapshot())
+            }
+
+            else -> {
+                Unit
+            }
         }
     }
 

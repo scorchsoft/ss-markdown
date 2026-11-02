@@ -57,6 +57,9 @@ class ShareActivity : ComponentActivity() {
         )
     }
 
+    /** The sheet as it stands: what a test of a recreated sheet reads. */
+    internal val sheetState: ShareUiState get() = viewModel.state.value
+
     /**
      * The recent file chosen in Android's share sheet, if this came from one
      * of our Direct Share targets. Mapped back through our own recents and
@@ -78,9 +81,10 @@ class ShareActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        if (savedInstanceState == null) {
-            readShared(intent)
-        }
+        // Every create, not only the first: the sheet's state lives in this Activity's own view model, so
+        // a recreated sheet (process death, a locale change) must read what was shared again, or it comes
+        // back empty with Append enabled.
+        readShared(intent)
         setContent {
             val state by viewModel.state.collectAsState()
             val pick =

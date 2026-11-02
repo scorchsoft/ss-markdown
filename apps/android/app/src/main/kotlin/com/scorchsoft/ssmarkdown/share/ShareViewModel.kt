@@ -99,6 +99,11 @@ class ShareViewModel(
 
     private fun confirm() {
         val state = ui.value
+        // Nothing was shared into this sheet (it never began): Append would write only a heading or blank lines.
+        if (state.text.isEmpty()) {
+            ui.update { it.copy(phase = SharePhase.Unusable(null)) }
+            return
+        }
         settings.update {
             it.copy(share = it.share.copy(lastTarget = state.target, position = state.position, prefix = state.prefix))
         }

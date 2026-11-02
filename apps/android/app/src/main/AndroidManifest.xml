@@ -69,6 +69,7 @@
         <!-- Share into SS Markdown (J9): a small sheet over the sending app. -->
         <activity
             android:name=".share.ShareActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|density|uiMode|fontScale"
             android:excludeFromRecents="true"
             android:exported="true"
             android:label="@string/share_title"

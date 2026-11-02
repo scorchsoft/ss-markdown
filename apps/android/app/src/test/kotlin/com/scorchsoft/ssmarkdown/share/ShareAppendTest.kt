@@ -63,6 +63,21 @@ class ShareAppendTest {
     }
 
     @Test
+    fun `a sheet that never received text appends nothing to the chosen file`() {
+        val f = EditorFixture(temp.root, dispatcher)
+        val uri = f.file("notes.md", "# Notes\n")
+        f.settings.update { it.copy(recentFiles = listOf(RecentFile(uri, "notes.md", "", 0))) }
+        // A rebuilt sheet whose shared text was never read (a recreated Activity).
+        val share = ShareViewModel(f.store, f.drafts, f.history, f.settings, f.vm, f.scope) { "1 Nov 2026" }
+        share.onAction(ShareAction.ChooseTarget(uri))
+        share.onAction(ShareAction.TogglePrefix)
+        share.onAction(ShareAction.Confirm)
+
+        assertEquals("# Notes\n", f.disk("notes.md"))
+        assertEquals(SharePhase.Unusable(null), share.state.value.phase)
+    }
+
+    @Test
     fun `appending to a file with unsaved edits open in the editor goes into that buffer, never the file`() {
         val f = EditorFixture(temp.root, dispatcher)
         val uri = f.file("notes.md", "# Notes\n")

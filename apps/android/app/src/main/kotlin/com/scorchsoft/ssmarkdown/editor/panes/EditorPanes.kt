@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
@@ -49,8 +50,24 @@ import com.scorchsoft.ssmarkdown.editor.ViewMode
 import com.scorchsoft.ssmarkdown.editor.chrome.PinchPill
 import com.scorchsoft.ssmarkdown.editor.chrome.ZoomChip
 
-/** Split goes side by side from this width (ux-spec "Layouts"). */
+/** Split can go side by side only from this pane width (ux-spec "Layouts"). */
 val SideBySideWidth = 600.dp
+
+/**
+ * Whether Split puts its panes side by side (else top and bottom). It
+ * follows the window's shape (ux-spec "Layouts"): a window wider than it is
+ * tall splits side by side, a taller one stacks, so a 600 x 960 dp tablet in
+ * portrait stacks and the same tablet in landscape does not. The pane also
+ * needs [SideBySideWidth], or each half would be narrower than a phone.
+ *
+ * The shape is the window's, not the page's: the keyboard shortens the page
+ * but must never turn the panes round.
+ */
+fun splitSideBySide(
+    paneWidth: Dp,
+    windowWidth: Dp,
+    windowHeight: Dp,
+): Boolean = paneWidth >= SideBySideWidth && windowWidth >= windowHeight
 
 /**
  * Below this page height, stacked Split would leave each pane a few lines
@@ -101,8 +118,10 @@ fun EditorPanes(
             }
         }
     val showPreview = state.isMarkdown
+    val window = LocalWindowInfo.current.containerSize
+    val (windowWidth, windowHeight) = with(LocalDensity.current) { window.width.toDp() to window.height.toDp() }
     BoxWithConstraints(modifier.fillMaxSize().background(SS.colors.bg)) {
-        val sideBySide = maxWidth >= SideBySideWidth
+        val sideBySide = splitSideBySide(maxWidth, windowWidth, windowHeight)
         val tooShortToStack = !sideBySide && maxHeight < MinStackedSplitHeight
         when {
             state.mode == ViewMode.Code || !showPreview -> {

@@ -444,8 +444,16 @@ theme's base size at 100%.
 | Window | Split direction | Folder UI |
 |---|---|---|
 | < 600 dp wide (phone portrait) | Top / bottom, draggable divider | Modal drawer |
-| ≥ 600 dp wide (phone landscape, small tablet) | Side by side | Modal drawer |
-| ≥ 840 dp wide (tablet, unfolded) | Side by side | Docked, collapsible panel |
+| ≥ 600 dp wide (phone landscape, small tablet) | Follows the window's shape (below) | Modal drawer |
+| ≥ 840 dp wide (tablet, unfolded) | Follows the window's shape (below) | Docked, collapsible panel |
+
+**Split follows the window's shape.** A window wider than it is tall
+(square counts as wide) splits side by side; a taller one stacks Code
+over Preview. Side by side also needs a page at least 600 dp wide, so a
+small split-screen window and a page narrowed by the docked folder panel
+stack. So a 600 × 960 dp tablet in portrait stacks, and the same tablet in
+landscape splits side by side. The shape is the window's, not the page's:
+the keyboard shortens the page but never turns the panes round.
 
 In Fluid mode, preview text is capped at about 75 characters per line on
 wide windows. The divider position is remembered separately for each

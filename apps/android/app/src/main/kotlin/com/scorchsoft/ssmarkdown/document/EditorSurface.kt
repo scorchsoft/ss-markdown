@@ -56,6 +56,14 @@ interface EditorSurface {
     fun scrollToLine(line: Int)
 }
 
+/**
+ * Fence state for an edit command over [text]: the Code view's tokenizer
+ * when there is one, which already knows (a fresh scan reads the text from
+ * the top, every tap, on the main thread), else a scan.
+ */
+fun EditorSurface.fencesFor(text: CharSequence): FenceStates =
+    fences.takeUnless { it === FenceStates.NONE } ?: FenceStates.scan(text)
+
 /** Edits through a live [MarkdownCodeView]; its listener journals them. */
 class CodeViewSurface(
     private val view: MarkdownCodeView,
@@ -73,14 +81,7 @@ class CodeViewSurface(
             select(after.start, after.end)
             return
         }
-        val document = view.session.document
-        document.beginEditGroup()
-        try {
-            ops.forEach { view.session.applyEdit(it.offset, it.offset + it.deleted.length, it.inserted) }
-        } finally {
-            document.endEditGroup()
-        }
-        view.session.setSelection(after.start, after.end)
+        view.applyEdits(ops, after.start, after.end)
     }
 
     override fun undo(): Boolean = view.session.undo()

@@ -17,6 +17,7 @@ import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
 import android.widget.OverScroller
 import com.scorchsoft.ssmarkdown.feature.editor.R
+import com.scorchsoft.ssmarkdown.text.EditOp
 import com.scorchsoft.ssmarkdown.text.PieceTree
 import com.scorchsoft.ssmarkdown.text.TextDocument
 import java.util.concurrent.Executor
@@ -407,8 +408,53 @@ class MarkdownCodeView
             if (sizing.onMetricsChanged()) sizing.relayout(anchorLine, 0f)
             selectionUi.setInsertionHandle(false)
             selectionUi.hideToolbar()
-            listener?.onTextEdited(change, session.document.version)
+            if (compoundDepth > 0) heldChange = change else listener?.onTextEdited(change, session.document.version)
             invalidate()
+        }
+
+        /** Open [applyEdits] calls; while above 0 the host hears of edits once, at the end. */
+        private var compoundDepth = 0
+
+        /** The last edit made inside [applyEdits], reported when it ends; null when none. */
+        private var heldChange: LineChange? = null
+
+        /**
+         * Applies [ops] (each at its offset in the text as the ops before it
+         * left it, so highest offset first for offsets in one snapshot) as
+         * one undo step, then selects `[selectStart, selectEnd)`. The host
+         * and the keyboard hear about it once, not once per op: a
+         * replace-all of 10,000 matches told them 10,000 times and took
+         * seconds on the main thread (edge-cases "Replace all with many matches").
+         */
+        fun applyEdits(
+            ops: List<EditOp>,
+            selectStart: Int,
+            selectEnd: Int,
+        ) {
+            val document = session.document
+            session.beginBatchEdit()
+            document.beginEditGroup()
+            compoundDepth++
+            try {
+                if (ops.size > MANY_OPS) {
+                    // Every cache told once, for the envelope of all of them, as undo does: told op by op,
+                    // the tokenizer's and the highlights' shifting made this quadratic.
+                    session.finishComposingText()
+                    ops.forEach { document.replace(it.offset, it.deleted.length, it.inserted) }
+                    session.reportExternalChange(EditEnvelope.of(ops).lineChange(document.text), selectStart)
+                } else {
+                    ops.forEach { session.applyEdit(it.offset, it.offset + it.deleted.length, it.inserted) }
+                }
+            } finally {
+                document.endEditGroup()
+                compoundDepth--
+                if (compoundDepth == 0) {
+                    heldChange?.let { listener?.onTextEdited(it, document.version) }
+                    heldChange = null
+                }
+                session.setSelection(selectStart, selectEnd)
+                session.endBatchEdit()
+            }
         }
 
         override fun onSelectionSettled() {
@@ -471,5 +517,8 @@ class MarkdownCodeView
 
             /** Rows of context [revealRange] keeps above and below what it shows. */
             const val REVEAL_ROWS = 2
+
+            /** More ops than this in one [applyEdits] reach the caches as one change and drop the find highlights. */
+            const val MANY_OPS = 64
         }
     }

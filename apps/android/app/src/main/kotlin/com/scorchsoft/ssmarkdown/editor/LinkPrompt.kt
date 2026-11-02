@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.editor
 
+import com.scorchsoft.ssmarkdown.document.fencesFor
 import com.scorchsoft.ssmarkdown.markdown.edit.EditCommand
 import com.scorchsoft.ssmarkdown.markdown.edit.ExistingLink
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
@@ -61,7 +62,7 @@ class LinkController(
         val snapshot = doc.text.snapshot()
         // The text cannot change under a modal prompt, but a stale range must never write out of bounds.
         if (selection.end > snapshot.length) return
-        val result = command.apply(snapshot, selection, doc.style)
+        val result = command.apply(snapshot, selection, doc.style, surface.fencesFor(snapshot))
         surface.apply(result.ops, result.selection)
         host.refresh()
     }

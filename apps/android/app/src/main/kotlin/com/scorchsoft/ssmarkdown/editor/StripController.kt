@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.editor
 
+import com.scorchsoft.ssmarkdown.document.fencesFor
 import com.scorchsoft.ssmarkdown.editor.preview.PreviewStripKeys
 import com.scorchsoft.ssmarkdown.markdown.edit.EditCommand
 import com.scorchsoft.ssmarkdown.markdown.edit.FormatState
@@ -96,8 +97,13 @@ class StripController(
         val surface = doc.surface
         surface.flushComposing()
         val caret = surface.selection.end
-        val length = doc.text.text.length
-        val target = if (step == CursorStep.Left) (caret - 1).coerceAtLeast(0) else (caret + 1).coerceAtMost(length)
+        val text = doc.text.text
+        val length = text.length
+        var target = if (step == CursorStep.Left) (caret - 1).coerceAtLeast(0) else (caret + 1).coerceAtMost(length)
+        // Never between the halves of a surrogate pair (an emoji): what is typed there splits it for good.
+        if (target in 1 until length && text[target].isLowSurrogate() && text[target - 1].isHighSurrogate()) {
+            target += if (step == CursorStep.Left) -1 else 1
+        }
         surface.select(target, target)
     }
 
@@ -148,7 +154,7 @@ class StripController(
         val snapshot = doc.text.snapshot()
         val selection = surface.selection
         if (selection.end > snapshot.length) return
-        val result = command.apply(snapshot, selection, doc.style)
+        val result = command.apply(snapshot, selection, doc.style, surface.fencesFor(snapshot))
         surface.apply(result.ops, result.selection)
     }
 

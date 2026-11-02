@@ -67,6 +67,15 @@ mockups agreed with Andrew win, and this file gets updated.
   zoom.
 - While the keyboard is up, the bar is replaced by the formatting strip.
   It is **always one row**.
+  - **The strip never puts the keyboard away.** Its keys never take
+    focus, the ¶ and table ⋯ menus open above the strip without taking
+    focus (the editor keeps its caret and the keyboard while they are
+    open), and a command keeps the keyboard's connection: it commits the
+    composing word, applies as one edit and reports the new selection.
+    In Preview the edited block is re-rendered under the caret with focus
+    held by an invisible editable stand-in, so the keyboard never sees
+    focus leave text. Only the Link sheet takes the keyboard, for its own
+    fields; closing it gives the caret back to the text.
   - It holds ¶, B, I, list, task, code, link, indent and undo, and
     scrolls horizontally to reveal table, quote, redo and outdent.
   - **Enter in a list** starts the next item (same bullet, the next
@@ -729,19 +738,31 @@ system print dialog, so "Save as PDF" and real printers both work.
   part-way stops them with the same message instead of saving that file's
   diagrams under this one's name.
 
-**Print typography is fixed in physical units.** Screen zoom, pinch and
-the theme's on-screen base size never change it.
+**Print typography is fixed in physical units**, and set like a word
+processor's A4 page, not a phone's screen: about 16 words a line and 45
+lines a page of plain text at 11 pt, as Word sets it. Screen zoom, pinch,
+the Preview's text size and the theme's on-screen base size never change
+it (Andrew, 0.2.1: the screen's measure and spacing gave about 12 words a
+line and 25-30 lines a page, with a quarter of the width empty).
 
 | Element | Size | Notes |
 |---|---|---|
 | Page | A4 (210 × 297 mm); US Letter when the locale is en-US/CA | Chosen in the system dialog |
-| Margins | 20 mm all round; 15 mm bottom with the page number | Text column 170 mm; prose stops at 39 em, about 80–86 characters (11 pt over the full 170 mm set 91–99) |
-| Body | **11 pt**, line height 1.45 | The theme's font; serif themes stay serif |
-| H1 / H2 / H3 / H4 | 20 / 16 / 13 / 11.5 pt bold | Keep with next; no orphan headings at the foot of a page |
-| Code and tables | 9.5 pt | Code wraps (no clipped lines); table rows never split across pages; wide tables shrink to fit down to 8 pt, then wrap |
+| Margins | 20 mm all round; 15 mm bottom with the page number | Text column 170 mm; prose runs the full column (no reading-width cap in print) |
+| Body | **11 pt**, line height 1.35; 6 pt after each paragraph | The theme's font; serif themes stay serif |
+| H1 / H2 / H3 / H4 | 18 / 14 / 12 / 11 pt bold, 12 pt above, 4 pt below | H2 has a thin (0.5 pt) rule under it; the first heading on the page has no space above. Keep with next; no orphan headings at the foot of a page |
+| Lists | 18 pt indent, 1 pt between items | |
+| Code | 9.5 pt, light grey background, line height 1.3 | Wraps (no clipped lines) |
+| Tables | 10 pt, 2 pt × 5 pt cell padding | Rows never split across pages; wide tables wrap |
+| Quotes and alerts | Body size, 4 pt × 8 pt padding | |
 | Footnotes and captions | 9 pt | |
+| Images and diagrams | At most the column width | |
 | Page number | 8 pt, centred in the footer | |
 
+- **The paper is white**, whatever the app's theme. WebView paints the
+  page margins in its own background colour, so the app paints it white
+  for the print job and puts the theme's colour back afterwards; dark
+  themes print with their light variant.
 - The margins are set by the app on the print job, not only by the
   stylesheet: Android's WebView ignores `@page` margins and "Save as PDF"
   offers none, so without that the text ran to the edge of the paper. A
@@ -751,14 +772,15 @@ the theme's on-screen base size never change it.
   one.
 - Diagrams and images scale to the text width and never split across
   pages.
-- Dark themes print with their **light** variant.
 - The **A4 page mode** in Preview uses the same stylesheet at true scale.
   On a phone that makes body text small, by design ("true scale, pinch
   to read"); pinch zooms the page, not the type.
 - A Playwright test prints the corpus to PDF and checks:
-  - the body text measures 11 pt;
-  - the margins are 20 mm;
-  - no table row or diagram is split across a page.
+  - the body text measures 11 pt, with the sizes and spacing above;
+  - the margins are 20 mm and prose runs the full column;
+  - plain paragraphs fill at least 40 lines a page;
+  - no table row or diagram is split across a page;
+  - the A4 page mode measures the same as print.
 
 ## Themes
 

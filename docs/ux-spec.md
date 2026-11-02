@@ -44,6 +44,15 @@ mockups agreed with Andrew win, and this file gets updated.
   long-pressing Copy. In folder mode, while any file is unsaved, **Save
   all (N)** follows Save as (one tap after ⋮, rubric #9); it is absent
   otherwise, and the ≡ panel keeps its own Save all row.
+- The menu's **top row is Undo · Redo**, two 48 dp icons side by side
+  (as in Chrome's menu). Each is dimmed and read as unavailable when
+  there is nothing to undo or redo; a tap applies it and keeps the menu
+  open, so it can be tapped again. It works in Code, Split and Preview.
+- Opening ⋮ commits the keyboard's word and **hides the keyboard**, so
+  the menu has the room; closing it does not bring the keyboard back
+  (tapping the text does). The menu never runs off the screen: below
+  the pinned Undo · Redo row its rows scroll, with a fade at the edge
+  that has more (checked at 360 × 640 dp, on its side and at 2× font).
 
 **Bottom bar (64 dp)**
 - A segmented Code | Split | Preview control: labels at normal sizes,
@@ -110,7 +119,10 @@ layout budget assumes them:
   mode never hides the app.
 - The header's bottom hairline doubles as a **reading-position line**:
   a neutral grey fill, 2 dp, full width. It is not an accent colour and
-  doesn't animate on its own.
+  doesn't animate on its own. It shows the scroll position over the
+  scrollable range of the pane in charge (Code or Preview; in Split, the
+  pane last touched): empty at the top and when the document fits,
+  exactly full at the very bottom.
 - Tapping the title opens the Navigator with the current section
   highlighted. **Back to top** is the first row of the Outline ("↑ Top of
   document"), and Ctrl+Home works on hardware keyboards.
@@ -372,7 +384,15 @@ separate Recent menu.
 
 - It opens by tapping the title or pressing Ctrl+K / Ctrl+P. There is no
   edge swipe, because gesture navigation owns both edges for Back. On
-  tablets it is a 420 dp popover under the title.
+  tablets (600 dp and wider) it is a 420 dp popover under the title.
+- On a phone it **fills the height** below the header, down to the mode
+  bar, and its list scrolls inside it. A short outline leaves the
+  sheet's own background below it, never a half-height sheet over the
+  editor.
+- **Closing it.** A × (48 dp, "Close navigator") sits beside the search
+  field; Back closes it; tapping the title again closes it (the title
+  stays visible above the sheet, and TalkBack reads "Navigator,
+  expanded" or "collapsed"). One icon, no extra bar.
 - The search field **autofocuses with the keyboard up**. The sheet sits
   above the keyboard, so the outline stays visible under the field. Back
   or a swipe down closes the keyboard and shows the full outline.

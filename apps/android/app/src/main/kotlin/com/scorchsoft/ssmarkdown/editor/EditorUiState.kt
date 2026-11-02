@@ -21,7 +21,7 @@ import com.scorchsoft.ssmarkdown.ui.strip.FormattingStripState
  * @property title the file name, or "Untitled" for a draft.
  * @property save the Save slot and the status line.
  * @property breadcrumb the current section's heading path once scrolled past the first heading.
- * @property readingFraction how far through the document the top of the pane is, 0–1.
+ * @property readingFraction the leading pane's scroll position over its scrollable range, 0–1 (1 at the very bottom).
  * @property pinchPercent the live zoom while a pinch is in progress, else null.
  * @property banner at most one non-modal banner under the header.
  * @property overlay at most one menu, sheet or dialog.

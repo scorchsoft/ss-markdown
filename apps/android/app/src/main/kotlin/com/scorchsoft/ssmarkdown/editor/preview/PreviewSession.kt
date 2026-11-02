@@ -250,6 +250,8 @@ class PreviewSession(
         crumbs: List<Crumb>,
     ) = host.onPreviewTopLine(line)
 
+    override fun onScrollFraction(fraction: Float) = host.onPreviewScrollFraction(fraction)
+
     override fun onRendererStateChanged(state: RendererState) = host.onPreviewEvent(PreviewEvent.Renderer(state))
 
     override fun onPageError(message: String) = exports.onError()

@@ -184,7 +184,13 @@ export interface Crumb {
 export type PageMessage =
     | { readonly type: "ready"; readonly version: number }
     | { readonly type: "rendered"; readonly rev: number; readonly sections: number; readonly millis: number }
-    | { readonly type: "topLine"; readonly line: number; readonly crumbs: readonly Crumb[] }
+    | {
+          readonly type: "topLine";
+          readonly line: number;
+          readonly crumbs: readonly Crumb[];
+          /** Scroll position over the scrollable range, 0 to 1, for the reading line. */
+          readonly fraction?: number;
+      }
     | {
           readonly type: "sourceEdit";
           readonly baseRev: number;

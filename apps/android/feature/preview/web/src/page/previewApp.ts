@@ -2,6 +2,7 @@
  * The page: wires the bridge, the render controller, Mermaid, editing and
  * gestures together and answers Kotlin's messages.
  */
+import { readingFraction } from "../core/readingFraction";
 import type { HostMessage, PageMessage, PreviewSettings } from "../protocol";
 import { Bridge } from "./bridge";
 import { RenderController } from "./controller";
@@ -15,6 +16,9 @@ import { scrollToLine, topLine } from "./scrollSync";
 import { applyTheme } from "./theme";
 import { BUILT_IN_THEMES } from "./themes";
 
+/** Reading-line resolution: a report is sent when the fraction moves by a step. */
+const FRACTION_STEPS = 1000;
+
 const DEFAULT_SETTINGS: PreviewSettings = { tapToEdit: true, pageMode: false, zoom: 1, lean: false, readOnly: false };
 
 export class PreviewApp {
@@ -25,6 +29,7 @@ export class PreviewApp {
     private settings: PreviewSettings = DEFAULT_SETTINGS;
     private anchorLine: number | null = null;
     private lastTop = -1;
+    private lastFractionStep = -1;
     /**
      * Where Kotlin last asked to land, when the page could not scroll that
      * line to the top (the last screen of the document). Until the reader
@@ -227,9 +232,14 @@ export class PreviewApp {
             // The page grew under a pin (sections mounted): land again, now that it may reach.
             if (this.pinned !== null && !atBottom()) this.land(this.pinned);
             const line = this.pinned ?? Math.floor(topLine(this.controller));
-            if (line === this.lastTop && !force) return;
+            // The reading line follows the scroll position, which moves on the last screen
+            // where the top line no longer can; a step of 1/1000 is about a pixel of the line.
+            const fraction = readingFraction(window.scrollY, document.documentElement.scrollHeight, window.innerHeight);
+            const step = Math.round(fraction * FRACTION_STEPS);
+            if (line === this.lastTop && step === this.lastFractionStep && !force) return;
             this.lastTop = line;
-            this.bridge.post({ type: "topLine", line, crumbs: breadcrumb(this.controller.outline(), line) });
+            this.lastFractionStep = step;
+            this.bridge.post({ type: "topLine", line, crumbs: breadcrumb(this.controller.outline(), line), fraction });
         });
     }
 

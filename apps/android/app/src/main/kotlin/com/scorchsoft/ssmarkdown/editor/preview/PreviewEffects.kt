@@ -27,6 +27,7 @@ internal object PreviewEffects {
         when (action) {
             is EditorAction.PaneTouched -> {
                 vm.scrollLink.touched(action.pane)
+                vm.onReadingPaneChanged()
             }
 
             EditorAction.OpenLink, EditorAction.CopyLink, EditorAction.EditLink -> {

@@ -33,6 +33,9 @@ interface ActiveDocumentListener {
     /** The source line at the top of the Code pane changed. */
     fun onAnchorLineChanged(line: Int) = Unit
 
+    /** The Code pane's scroll position over its scrollable range, 0 to 1. */
+    fun onScrollFractionChanged(fraction: Float) = Unit
+
     /** The Code pane's zoom changed; [pinching] while fingers are down. */
     fun onZoomChanged(
         percent: Int,
@@ -227,6 +230,8 @@ class ActiveDocument(
     ) = listener.onSelectionChanged(start, end)
 
     override fun onAnchorLineChanged(line: Int) = listener.onAnchorLineChanged(line)
+
+    override fun onScrollFractionChanged(fraction: Float) = listener.onScrollFractionChanged(fraction)
 
     override fun onZoomChanged(
         percent: Int,

@@ -188,4 +188,26 @@ describe("Code ↔ Preview anchor mapping over the corpus", () => {
         expect(top).not.toBeNull();
         expect(top as number).toBeLessThan(last);
     });
+
+    /** The reading line follows the scroll position: the top line stops on the last screen, it must not. */
+    it("reports the reading fraction: 0 at the top, exactly 1 at the very bottom", async () => {
+        const fractionAfter = async (scroll: () => Promise<void>): Promise<number | undefined> => {
+            await clearReceived(page);
+            await scroll();
+            await page.waitForTimeout(100);
+            await frames(page);
+            const tops = (await received(page)).filter((m) => m.type === "topLine");
+            const last = tops[tops.length - 1];
+            return last && last.type === "topLine" ? last.fraction : undefined;
+        };
+        const page = await openPreview(h);
+        await loadMarkdown(page, corpusDocument());
+        await diagramsSettled(page);
+        const bottom = await fractionAfter(() =>
+            page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)),
+        );
+        expect(bottom).toBe(1);
+        const top = await fractionAfter(() => page.evaluate(() => window.scrollTo(0, 0)));
+        expect(top).toBe(0);
+    });
 });

@@ -21,6 +21,13 @@ interface PreviewListener :
         crumbs: List<Crumb>,
     ) = Unit
 
+    /**
+     * The page scrolled: [fraction] is its scroll position over the
+     * scrollable range, 0 at the top and exactly 1 at the bottom (0 when it
+     * fits), for the header's reading line.
+     */
+    fun onScrollFraction(fraction: Float) = Unit
+
     fun onRendererStateChanged(state: RendererState) = Unit
 
     /** A non-fatal problem reported by the page, for logs. */

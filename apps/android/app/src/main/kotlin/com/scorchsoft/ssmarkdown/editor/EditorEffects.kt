@@ -22,6 +22,7 @@ internal object EditorEffects {
                 // The pane coming into view lands on the anchor (the Code pane does so as it attaches).
                 if (action.mode != ViewMode.Code) vm.preview.scrollTo(vm.anchorLine.value)
                 if (action.mode != ViewMode.Split) vm.update { it.copy(preview = it.preview.copy(editing = false)) }
+                vm.onReadingPaneChanged()
             }
 
             EditorAction.CopyTapped -> {

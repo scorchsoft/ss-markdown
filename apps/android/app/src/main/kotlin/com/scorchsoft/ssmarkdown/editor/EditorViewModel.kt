@@ -445,7 +445,11 @@ class EditorViewModel(
                 navigator = null,
             )
         }
-        if (switching) anchorFlow.value = saved?.anchorLine ?: 0
+        if (switching) {
+            anchorFlow.value = saved?.anchorLine ?: 0
+            // The panes report the new document's position as they draw it.
+            paneFractions.fill(0f)
+        }
         rememberRecent(open)
         refresh()
     }
@@ -536,6 +540,28 @@ class EditorViewModel(
 
     override fun onAnchorLineChanged(line: Int) = onPaneTopLine(Pane.Code, line)
 
+    override fun onScrollFractionChanged(fraction: Float) = onPaneScrollFraction(Pane.Code, fraction)
+
+    /** Each pane's last reported scroll position over its scrollable range, by [Pane] ordinal. */
+    private val paneFractions = FloatArray(Pane.entries.size)
+
+    /**
+     * [pane] reports its scroll position over its scrollable range. The
+     * reading line shows the leading pane's (the one on screen, or in Split
+     * the one last touched), so it reads 1 at the very bottom, where the
+     * top line, which it used to follow, never reaches the end.
+     */
+    fun onPaneScrollFraction(
+        pane: Pane,
+        fraction: Float,
+    ) {
+        paneFractions[pane.ordinal] = fraction.coerceIn(0f, 1f)
+        if (pane == scrollLink.leader(ui.value.mode)) updateBreadcrumb()
+    }
+
+    /** The mode changed: the reading line now follows another pane. */
+    fun onReadingPaneChanged() = updateBreadcrumb()
+
     /**
      * [pane] scrolled so [line] is at its top. Only the leading pane moves
      * the anchor and the breadcrumb; in Split, with "Scroll panes together"
@@ -613,8 +639,7 @@ class EditorViewModel(
         val line = anchorFlow.value
         // The breadcrumb appears only once the first heading has scrolled past the top (ux-spec "Where am I?").
         val crumbs = if (line == 0) emptyList() else doc.outline.breadcrumbAt(line)
-        val total = doc.outline.lineCount.coerceAtLeast(1)
-        val fraction = ((line.toLong() * READING_STEPS / total).toFloat() / READING_STEPS).coerceIn(0f, 1f)
+        val fraction = readingStep(paneFractions[scrollLink.leader(ui.value.mode).ordinal])
         val current = ui.value
         if (crumbs == shownCrumbs && fraction == current.readingFraction && current.breadcrumb === shownTexts) return
         if (crumbs != shownCrumbs) {
@@ -623,6 +648,9 @@ class EditorViewModel(
         }
         ui.update { it.copy(breadcrumb = shownTexts, readingFraction = fraction) }
     }
+
+    /** [fraction] in steps of 1/[READING_STEPS]; 1 stays exactly 1. */
+    private fun readingStep(fraction: Float): Float = (fraction * READING_STEPS).toLong().toFloat() / READING_STEPS
 
     private fun initialState(): EditorUiState {
         val settings = deps.settings.settings.value

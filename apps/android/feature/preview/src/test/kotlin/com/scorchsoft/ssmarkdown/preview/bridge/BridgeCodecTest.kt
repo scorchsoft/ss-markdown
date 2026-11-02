@@ -109,6 +109,19 @@ class BridgeCodecTest {
                     """[{"level":1,"text":"Intro","line":0},{"level":2,"text":"Setup","line":30}]}""",
             ),
         )
+        // The reading fraction rides on the same report; junk is clamped or dropped, never thrown.
+        assertEquals(
+            PageMessage.TopLine(90, emptyList(), 1f),
+            BridgeCodec.decode("""{"type":"topLine","line":90,"crumbs":[],"fraction":1}"""),
+        )
+        assertEquals(
+            PageMessage.TopLine(0, emptyList(), 1f),
+            BridgeCodec.decode("""{"type":"topLine","line":0,"crumbs":[],"fraction":7.5}"""),
+        )
+        assertEquals(
+            PageMessage.TopLine(0, emptyList(), null),
+            BridgeCodec.decode("""{"type":"topLine","line":0,"crumbs":[],"fraction":"x"}"""),
+        )
         assertEquals(
             PageMessage.Selection(1, 5, setOf("bold", "link"), false, 7),
             BridgeCodec.decode(

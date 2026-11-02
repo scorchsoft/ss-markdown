@@ -18,6 +18,7 @@ import com.scorchsoft.ssmarkdown.preview.bridge.LinkTarget
  * path, so Preview and Code share one section menu, one viewer, one undo
  * history and one message bar.
  */
+@Suppress("TooManyFunctions") // One small function per kind of preview report.
 class EditorPreviewHost(
     private val vm: EditorViewModel,
 ) : PreviewHost {
@@ -29,6 +30,11 @@ class EditorPreviewHost(
         // Drawing an export scrolls the page to the diagram; that is not the reader moving.
         if (vm.preview.exports.busy) return
         vm.onPaneTopLine(Pane.Preview, line)
+    }
+
+    override fun onPreviewScrollFraction(fraction: Float) {
+        if (vm.preview.exports.busy) return
+        vm.onPaneScrollFraction(Pane.Preview, fraction)
     }
 
     @Suppress("CyclomaticComplexMethod") // One branch per event.

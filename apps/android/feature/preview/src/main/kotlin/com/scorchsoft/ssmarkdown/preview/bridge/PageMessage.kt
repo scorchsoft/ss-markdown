@@ -74,12 +74,21 @@ sealed interface PageMessage {
         val millis: Int,
     ) : PageMessage
 
-    /** The source line at the top of the viewport, for anchors and the breadcrumb. */
+    /**
+     * The source line at the top of the viewport, for anchors and the
+     * breadcrumb, and [fraction], the scroll position over the scrollable
+     * range (0 to 1, exactly 1 at the bottom) for the reading line; null
+     * from a page that does not report it.
+     */
     data class TopLine(
         val line: Int,
         val crumbs: List<Crumb>,
+        val fraction: Float? = null,
     ) : PageMessage {
-        override fun deliverTo(listener: PreviewListener) = listener.onTopLine(line, crumbs)
+        override fun deliverTo(listener: PreviewListener) {
+            listener.onTopLine(line, crumbs)
+            fraction?.let(listener::onScrollFraction)
+        }
     }
 
     /**

@@ -88,6 +88,9 @@ interface PreviewHost {
     /** The preview's top line changed. */
     fun onPreviewTopLine(line: Int)
 
+    /** The page's scroll position over its scrollable range, 0 to 1, for the reading line. */
+    fun onPreviewScrollFraction(fraction: Float) = Unit
+
     /** Everything else the preview reports. */
     fun onPreviewEvent(event: PreviewEvent)
 }

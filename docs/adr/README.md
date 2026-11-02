@@ -21,4 +21,5 @@ rather than rewriting it.
 | [0012](0012-safe-save-pipeline.md) | Saves back up, record their intent, write, then verify; interrupted saves are repaired at launch |
 | [0013](0013-emulator-evidence.md) | Performance evidence comes from CI's emulator, gated only where it is stable |
 | [0014](0014-leakcanary-test-apk-only.md) | LeakCanary runs over the instrumented tests and never ships |
+| [0016](0016-undo-survives-process-death.md) | Undo survives process death, through the recovery journal (format 2) |
 | [0017](0017-direct-share-targets.md) | Recent files are Direct Share targets that preselect, never append |

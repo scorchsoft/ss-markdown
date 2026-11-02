@@ -29,6 +29,14 @@ release may change behaviour.
   the launcher's long-press menu). Tapping one opens the share sheet with that
   file chosen; Append still confirms. On by default; Settings → Sharing turns
   it off and removes the file names (ADR 0017).
+- Undo and Redo survive the app being killed in the background: the
+  recovery journal keeps the newest 8 MB of undo steps while a document is
+  open, across saves (journal format 2; ADR 0016).
+
+### Fixed
+
+- After recovering unsaved edits, one Undo no longer reverts every
+  recovered edit at once; it takes back one step, as before the crash.
 
 ### Build
 

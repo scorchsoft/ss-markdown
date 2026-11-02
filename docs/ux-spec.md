@@ -260,9 +260,10 @@ people that history exists.
     it, or export and then delete it. Deleting gets the same
     are-you-sure dialog as the clears.
   - **What stays on regardless:**
-    - **Crash recovery** (the journal). It's tiny, deleted after each
-      verified save, and is the core never-lose-work promise, so it isn't
-      tied to this toggle.
+    - **Crash recovery** (the journal). It's small (it keeps unsaved edits,
+      and while a document is open its newest 8 MB of undo steps, so Undo
+      survives a kill), deleted when the document closes, and is the core
+      never-lose-work promise, so it isn't tied to this toggle.
     - **The base copy of each open file**, held only while that file has
       unsaved edits, so the conflict sheet can still offer Merge.
   - History uses storage, not running memory. The app's memory use comes

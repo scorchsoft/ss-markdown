@@ -68,7 +68,9 @@ might fail:
 1. **Recovery journal.** Every edit is appended to a checksummed log
    within about a second, kept in private app storage. If the app
    crashes, the phone dies or Android kills the app in the background,
-   your edits come back the next time you open it.
+   your edits come back the next time you open it, and so does Undo:
+   the journal keeps your undo and redo steps (the newest 8 MB of them)
+   for as long as the document is open, even across a save.
 2. **Safe saves.** Before overwriting, the last saved version is backed
    up. After writing, the file is read back and checked. It counts as
    saved only once that check passes. If another app changed the file in
@@ -112,8 +114,9 @@ are from the repository root; `…` stands for `src/main/kotlin/com/scorchsoft/s
 6. **Save.** Save, autosave and Save as go through
    `apps/android/feature/files/…/files/save/SavePipeline.kt`: fingerprint
    check, backup, a write-ahead intent (`PendingSaves`), the write, a
-   read-back verify. Only then is the document clean and its journal
-   ended (ADR 0012).
+   read-back verify. Only then is the document clean, and its journal
+   ends or, while there is undo history to keep, becomes a clean journal
+   that holds only that history (ADR 0012, ADR 0016).
 
 The tests that hold this path together are `InterleavingTest` and
 `RandomKillTest` (feature/files), `NeverLoseWorkTest` (app) and the

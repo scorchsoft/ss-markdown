@@ -13,7 +13,9 @@ Each layer assumes every layer above it has failed.
 
 - Each open document with unsaved changes has an **append-only journal**
   in app-private storage. The journal holds the base file's identity
-  (URI, size, hash) and then a list of edit operations.
+  (URI, size, hash) and then a list of edit operations, with the undo
+  stack's decisions between them (a step ended, an undo or redo of n
+  ops), so Undo and Redo survive a process death too (ADR 0016).
 - **Record framing** follows LevelDB's log format. Each record is
   length + CRC32C + sequence number + the operation. A torn record at
   the tail is legal and simply truncated; replay stops at the first bad
@@ -51,8 +53,27 @@ work: keystrokes against disk work"):
   step after their last suspension, so a keystroke typed while the disk
   was busy is either in that step's snapshot or journalled after it.
 - **One atomic replace per restart.** After a save the user typed
-  through, a recovery or a resolved conflict, the journal is replaced by
-  a snapshot with one `JournalStore.resume`, never "end, then start".
+  through, a recovery, a compaction or a resolved conflict, the journal
+  is replaced by a snapshot, followed by the undo history, with one
+  `JournalStore.resume`, never "end, then start".
+- **Undo survives the death too** (ADR 0016). Every run of the journal
+  starts with the document's undo and redo steps (the newest 8 MB,
+  `UndoStack.HISTORY_TAIL_MAX_BYTES`), and the undo stack's own decisions
+  are journalled in order with the ops, never re-derived from timestamps
+  (`core/history/FORMAT.md`, "Undo history"). Recovery puts the replayed
+  text in as one replace and restores the steps as data, so Undo walks
+  back one step at a time, as before the death, never "all the recovered
+  edits at once". A verified save keeps the steps as a **clean journal**
+  (History only, on the saved file), which the launch scan never offers
+  for recovery; its first later change is synced at once. History is
+  kept while the document is open, across saves, compaction and repeated
+  deaths; it goes on an outside change (§2a), a close, "Don't save", an
+  eviction, and for a document the launch does not reopen. Measured on
+  the host (`UndoReplayBenchmarkTest`): a 20 MB document with a full
+  8 MB tail (1,047 steps) reopens in 528 ms from a clean journal, 1,232 ms
+  from Snapshot + History and 1,435 ms with the tail as ops, against
+  237 ms for a plain open of the same file (host JVM; the phone budget is
+  3 s, quality-bar §4, still to be measured on a device).
 - **Only the run that wrote a journal may delete it.** `markClean`
   checks the journal's base, and a journal recovery could not apply
   (`Recovery.Kept`) is *held*: closing never deletes it, and the first
@@ -396,9 +417,10 @@ views, which is the classic way an Android editor loses text. Our rules:
    never in the composable, so a rotation or a rebuilt Activity ("Don't
    keep activities") never wipes a half-typed search or theme, and an
    open sheet or prompt is still open afterwards. A process death brings
-   back the text, the view mode and the position (§1, the journal and the
-   per-file view state), not an open sheet, a find query or the undo
-   stack, which live in memory only.
+   back the text, the view mode, the position (§1, the journal and the
+   per-file view state) and Undo and Redo (§1, ADR 0016: the journal
+   keeps the newest 8 MB of steps), not an open sheet or a find query,
+   which live in memory only.
 
 ### 6. Leaving and switching
 
@@ -667,7 +689,7 @@ phone. Rubric #1 is scored against the first five rows and the last.
 
 | Test | What it proves | Status |
 |---|---|---|
-| **Kill test** (host ×1000, device ×50): kill the process at random moments while typing, pasting, undoing, saving, autosaving, Save as, resolving outside changes and "Don't save" | After relaunch, recovered text equals the expected text to within the last ~1 s. The file on disk is always either the old version or the new one, never partial. No outside edit is overwritten. | **tested, host**: `RandomKillTest` (feature/files): 1000 seeded runs, each killed once at a uniformly chosen point (any main- or journal-thread task, any disk hop, any byte of a write), sometimes with the journal's last write torn or zero-filled, half-written temporaries left behind, or another app writing the file before relaunch; recovered through the real launch scan. 1000/1000 pass, max loss 1000 ms of typing (the group-commit bound). `check` runs 100 seeds; CI runs the thousand. **Device**: `KillLoopTest` + `tools/kill-loop.sh`, 50 SIGKILLs of the real app typed into through its `InputConnection`, in CI's emulator job, gating every push: 50/50 recovered, max loss 636 ms, in run 41370278746. (Earlier runs that looked green ran nothing: the script named the wrong instrumentation runner and `continue-on-error` hid it. The first real run found a start-up crash, now fixed: `RememberedCursorTest`.) Not covered by either: view switching and Save all mid-kill (UI), and power loss (the host cannot prove `fsync` reaches flash). |
+| **Kill test** (host ×1000, device ×50): kill the process at random moments while typing, pasting, undoing, saving, autosaving, Save as, resolving outside changes and "Don't save" | After relaunch, recovered text equals the expected text to within the last ~1 s. The file on disk is always either the old version or the new one, never partial. No outside edit is overwritten. | **tested, host**: `RandomKillTest` (feature/files): 1000 seeded runs, each killed once at a uniformly chosen point (any main- or journal-thread task, any disk hop, any byte of a write), sometimes with the journal's last write torn or zero-filled, half-written temporaries left behind, or another app writing the file before relaunch; recovered through the real launch scan. 1000/1000 pass, max loss 1000 ms of typing (the group-commit bound). Each run also checks undo (ADR 0016): the recovered steps are the live document's in the recovered state, and Undo all the way back, then Redo all the way forward, passes through exactly their texts (1000/1000: 582 runs walked 5,245 recovered steps; the rest recovered no steps, or by design none: a conflict, an interrupted Save as or "Don't save"). `check` runs 100 seeds; CI runs the thousand. **Device**: `KillLoopTest` + `tools/kill-loop.sh`, 50 SIGKILLs of the real app typed into through its `InputConnection`, in CI's emulator job, gating every push: 50/50 recovered, max loss 636 ms, in run 41370278746. (Earlier runs that looked green ran nothing: the script named the wrong instrumentation runner and `continue-on-error` hid it. The first real run found a start-up crash, now fixed: `RememberedCursorTest`.) Not covered by either: view switching and Save all mid-kill (UI), and power loss (the host cannot prove `fsync` reaches flash). |
 | **Save-fault injection**: a fake provider that fails mid-write, ignores truncation, or revokes permission | The document stays dirty, the backup survives, and the user sees the error and a way out. | **tested, host**: `SavePipelineTest` (300 random one-shot faults), `SaveTimeoutTest`, `InterruptedSaveTest` (a kill mid-write is repaired at the next launch; an outside edit after it is never touched), `DocumentStoreTest` |
 | **Journal property tests** (JVM, randomised ops) | Replay equals the live buffer; compaction keeps that true; a torn final record is ignored safely. | **tested, host**: `JournalRoundTripTest`, `CompactionTest`, `TornAndCorruptTest`, `FlushPolicyTest` (steady typing is synced every second) |
 | **Interleaving tests** (JVM, `InterleavingDispatcher`): a keystroke after every disk hop of save, autosave, Save as, reload, Use mine, merge and discard, then a crash | Recovery brings back exactly the live text, nothing typed is missing, and no journal is left on the wrong base. | **tested, host**: `InterleavingTest`, `DataSafetyRound2Test`, and every run of `RandomKillTest` (keystrokes land at random disk hops) |
@@ -677,7 +699,7 @@ phone. Rubric #1 is scored against the first five rows and the last.
 | **Clipboard/share at 5 MB** | No `TransactionTooLargeException`; the fallback works. | planned (device) |
 | **Outside-change scenarios** (instrumented + JVM): change the file externally (a) while open and clean, (b) while open and dirty, (c) between sessions with no journal, (d) between sessions with a journal, (e) same size and same second, (f) on a provider that reports `lastModified = 0`; plus delete, rename and replace with a different file of the same name | Stale text is never written or shown as current. The old undo stack is never used against new content. Every case ends in the matrix outcome above. | **tested, host**: `DocumentStoreTest`, `SchedulingTest`, `RandomKillTest` (outside edits while clean, dirty and dead, checked against every write); instrumented part planned |
 | **Three-way merge property tests** (JVM) | Non-overlapping edits merge exactly as git's `merge-file` would; overlaps are always reported, never silently resolved. | **tested, host**: `ThreeWayMergePropertyTest` |
-| **Rotation matrix** (instrumented): every view mode × {typing a half-finished word, mid-selection, a Preview paragraph edit, mid table-cell edit, find open, a sheet open, unsaved prompt open} × {rotate, fold/unfold, split-screen resize, dark-mode toggle, font-scale change, "Don't keep activities", `am kill`} | The text, cursor, selection, scroll, undo stack and dirty state are identical before and after, and an open find bar, sheet or prompt is still open (§5a rule 5). Zero characters lost. Across `am kill` the text, cursor, selection, scroll and view mode come back; the undo stack and open sheets do not (rule 5: they are in memory only). Runs on every PR. | tested (device, every PR): `RotationTest`; `RotationMatrixTest`: Code through every change in the list, "Don't keep activities" included (a real destroy and rebuild of the Activity from the stopped state, via `ActivityScenario.recreate`: text, selection, top line, anchor, undo/redo on the new instance); Split, Preview, mid-composition and mid table-cell rotated there and back; find open (query, match list, current match and its selection), the Display sheet open and the unsaved prompt open (on a real, dirty file), each rotated there and back and then recreated, with text, selection, dirty state and undo/redo checked. `am kill`: `BackgroundKillTest` via `tools/background-kill.sh` in CI's emulator job (backgrounded, SIGKILL, cold return: every character, selection, top line and view mode). Not run on the device: a Preview paragraph edit in flight across a change, and every view mode × every state (each state is run in Code; Split and Preview are rotated only). The system's own return from Recents after `am kill` cannot be driven from instrumentation, which force-stops the package between runs; the app does not use that saved state (§1) |
+| **Rotation matrix** (instrumented): every view mode × {typing a half-finished word, mid-selection, a Preview paragraph edit, mid table-cell edit, find open, a sheet open, unsaved prompt open} × {rotate, fold/unfold, split-screen resize, dark-mode toggle, font-scale change, "Don't keep activities", `am kill`} | The text, cursor, selection, scroll, undo stack and dirty state are identical before and after, and an open find bar, sheet or prompt is still open (§5a rule 5). Zero characters lost. Across `am kill` the text, cursor, selection, scroll, view mode and undo/redo come back (ADR 0016); open sheets do not (rule 5: they are in memory only). Runs on every PR. | tested (device, every PR): `RotationTest`; `RotationMatrixTest`: Code through every change in the list, "Don't keep activities" included (a real destroy and rebuild of the Activity from the stopped state, via `ActivityScenario.recreate`: text, selection, top line, anchor, undo/redo on the new instance); Split, Preview, mid-composition and mid table-cell rotated there and back; find open (query, match list, current match and its selection), the Display sheet open and the unsaved prompt open (on a real, dirty file), each rotated there and back and then recreated, with text, selection, dirty state and undo/redo checked. `am kill`: `BackgroundKillTest` via `tools/background-kill.sh` in CI's emulator job (backgrounded, SIGKILL, cold return: every character, selection, top line and view mode, and Undo takes back the last edit, Redo puts it back). Not run on the device: a Preview paragraph edit in flight across a change, and every view mode × every state (each state is run in Code; Split and Preview are rotated only). The system's own return from Recents after `am kill` cannot be driven from instrumentation, which force-stops the package between runs; the app does not use that saved state (§1) |
 | **Keyboard matrix** (manual, each release): Gboard, Samsung Keyboard, HeliBoard | Toolbar actions and Preview edits respect the in-progress word; autocorrect never lands text in the wrong place. | manual |
 | **History property tests** (JVM): random edit sequences, then record, prune and restore | Every kept version rebuilds byte-identically; pruning never breaks a chain; a corrupt delta loses only the versions after it up to the next keyframe. | **tested, host**: `VersionStorePropertyTest`, `CorruptionAndCrashTest`; `RandomKillTest` reads back every version after each kill |
 | **Unsaved state at a glance**: the first edit on every screen that shows a document | Something TalkBack reads as "Unsaved" appears within one frame (16 ms) in Code, Split and Preview, portrait and landscape, in the phone's folder drawer and the tablet's docked panel. | **tested, host**: `UnsavedIndicatorTest` (Robolectric, end to end through the view model and store) |

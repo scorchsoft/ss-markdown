@@ -98,7 +98,18 @@ internal object EditorEffects {
             }
 
             EditorAction.ReviewConflict -> {
-                vm.conflicts.review()
+                val skipped = (before.banner as? EditorBanner.SaveAllResult)?.skipped.orEmpty()
+                val changed = skipped.firstOrNull { it.problem == SaveProblem.ChangedOutside }
+                // From Save all's banner, Review means the skipped file, which may not be the one on screen (J7).
+                if (changed == null || vm.active
+                        ?.open
+                        ?.uri
+                        ?.value == changed.uri
+                ) {
+                    vm.conflicts.review()
+                } else {
+                    vm.openForReview(changed.uri)
+                }
             }
 
             EditorAction.MergeMine -> {

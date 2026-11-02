@@ -104,7 +104,7 @@
     <string name="details">Details</string>
     <string name="file_missing_banner">%1$s was moved or deleted.</string>
     <string name="recreate">Recreate</string>
-    <string name="save_all_skipped">Skipped %1$s: changed in another app</string>
+    <string name="save_all_skipped">Skipped %1$s: %2$s</string>
     <string name="dismiss">Dismiss</string>
     <string name="open_failed_title">Couldn\'t open that file</string>
     <string name="open_failed_missing">It was moved or deleted, or the app that stored it is gone. Nothing was changed.</string>

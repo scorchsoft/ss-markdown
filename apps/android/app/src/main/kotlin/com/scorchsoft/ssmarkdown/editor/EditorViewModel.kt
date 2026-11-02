@@ -269,6 +269,8 @@ class EditorViewModel(
                 bind(outcome.document)
                 ui.update { it.copy(banner = openBanner(it.banner, outcome.document)) }
                 outcome.recovery?.let { recovery.onRecovered(it) }
+                if (reviewOnOpen == uri) conflicts.review()
+                reviewOnOpen = null
             }
 
             is OpenOutcome.Failed -> {
@@ -312,6 +314,15 @@ class EditorViewModel(
                 }
             }
         }
+
+    /** A file whose conflict sheet opens as soon as it is shown ([openForReview]). */
+    private var reviewOnOpen: String? = null
+
+    /** Opens [uri] and then its conflict sheet: Review on Save all's banner (J7). */
+    fun openForReview(uri: String) {
+        reviewOnOpen = uri
+        openDocument(uri)
+    }
 
     /**
      * "New": reuses an empty, untouched draft rather than piling up empty

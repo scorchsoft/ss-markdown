@@ -134,7 +134,7 @@ sealed interface EditorBanner {
     /** "Saved 3 files · Skipped roadmap.md: changed in another app · Review". */
     data class SaveAllResult(
         val saved: Int,
-        val skipped: List<String>,
+        val skipped: List<SkippedSave>,
     ) : EditorBanner
 
     /**
@@ -158,6 +158,16 @@ sealed interface EditorBanner {
         val invalid: Boolean,
     ) : EditorBanner
 }
+
+/**
+ * A file Save all left unsaved (J7): which, and why, so the banner can say
+ * "Skipped roadmap.md: changed in another app" and Review can open it.
+ */
+data class SkippedSave(
+    val uri: String,
+    val name: String,
+    val problem: SaveProblem,
+)
 
 /** Why a file could not be opened, and so what the banner offers. */
 enum class OpenProblem(

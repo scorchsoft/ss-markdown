@@ -4,7 +4,6 @@ import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.files.provider.ProviderResult
 import com.scorchsoft.ssmarkdown.files.saf.FolderRow
 import com.scorchsoft.ssmarkdown.files.saf.unsavedCountsByFolder
-import com.scorchsoft.ssmarkdown.files.save.SaveOutcome
 import com.scorchsoft.ssmarkdown.folder.FolderAction
 import com.scorchsoft.ssmarkdown.folder.FolderEntryRow
 import com.scorchsoft.ssmarkdown.folder.FolderNames
@@ -128,11 +127,14 @@ class FolderController(
     private fun saveAll() {
         deps.scope.launch {
             var saved = 0
-            val skipped = ArrayList<String>()
+            val skipped = ArrayList<SkippedSave>()
             for (doc in deps.store.dirtyDocuments.filterNot { it.uri.isDraft }) {
-                when (deps.store.save(doc.uri)) {
-                    is SaveOutcome.Saved -> saved++
-                    else -> skipped += doc.displayName ?: doc.uri.value
+                val outcome = deps.store.save(doc.uri)
+                val problem = SaveProblem.of(outcome)
+                if (problem == null) {
+                    saved++
+                } else {
+                    skipped += SkippedSave(doc.uri.value, doc.displayName ?: doc.uri.value, problem)
                 }
             }
             host.update {

@@ -28,6 +28,7 @@ import com.scorchsoft.ssmarkdown.core.ui.SS
 import com.scorchsoft.ssmarkdown.editor.EditorAction
 import com.scorchsoft.ssmarkdown.editor.EditorBanner
 import com.scorchsoft.ssmarkdown.editor.OpenProblem
+import com.scorchsoft.ssmarkdown.editor.SaveProblem
 import com.scorchsoft.ssmarkdown.ui.AppIcons
 import java.text.DateFormat
 import java.util.Date
@@ -140,10 +141,13 @@ private fun SaveAllBanner(
     modifier: Modifier,
 ) {
     val title = pluralStringResource(R.plurals.saved_files, banner.saved, banner.saved)
-    val lines = banner.skipped.map { stringResource(R.string.save_all_skipped, it) }
+    val lines = banner.skipped.map { stringResource(R.string.save_all_skipped, it.name, problemText(it.problem)) }
     val body = lines.joinToString("\n").ifEmpty { null }
     Callout(title, body, if (banner.skipped.isEmpty()) Tone.Info else Tone.Caution, modifier) {
-        if (banner.skipped.isNotEmpty()) BannerButton(R.string.review) { onAction(EditorAction.ReviewConflict) }
+        // Review opens the first file another app changed; other skips say their reason and stay unsaved.
+        if (banner.skipped.any { it.problem == SaveProblem.ChangedOutside }) {
+            BannerButton(R.string.review) { onAction(EditorAction.ReviewConflict) }
+        }
         BannerButton(R.string.dismiss) { onAction(EditorAction.DismissBanner) }
     }
 }

@@ -17,12 +17,18 @@ public sealed interface ReplayResult {
      * @property recordCount how many records were applied.
      * @property discardedTailBytes bytes of a torn final write that were ignored (0 after a clean close).
      *   A torn tail is what an interrupted append leaves, so it is normal, not damage.
+     * @property history the undo and redo steps the journal rebuilt for [text], capped at
+     *   [JournalHistory.TAIL_MAX_BYTES]; empty for a version 1 journal, which kept none.
+     * @property editsReplayed true when any record changed the text: false for a journal that holds
+     *   only undo history (one a save left behind), whose [text] is the base's.
      */
     public data class Ok(
         public val text: String,
         public val lastSeq: Long,
         public val recordCount: Int,
         public val discardedTailBytes: Long,
+        public val history: JournalHistory = JournalHistory.EMPTY,
+        public val editsReplayed: Boolean = false,
     ) : ReplayResult
 
     /**
@@ -34,6 +40,8 @@ public sealed interface ReplayResult {
      * @property lastSeq the sequence number of the last good record, or 0 if none.
      * @property recordCount how many records were applied before the failure.
      * @property reason a short, non-localised description for logs.
+     * @property history the undo and redo steps up to the last good record, as for [Ok.history].
+     * @property editsReplayed true when any good record changed the text.
      */
     public data class Corrupt(
         public val offset: Long,
@@ -41,6 +49,8 @@ public sealed interface ReplayResult {
         public val lastSeq: Long,
         public val recordCount: Int,
         public val reason: String,
+        public val history: JournalHistory = JournalHistory.EMPTY,
+        public val editsReplayed: Boolean = false,
     ) : ReplayResult
 
     /**

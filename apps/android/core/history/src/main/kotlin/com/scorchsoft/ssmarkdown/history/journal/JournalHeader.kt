@@ -25,8 +25,12 @@ public data class JournalHeader(
  * FORMAT.md in this module is the byte-level description.
  */
 public object JournalFormat {
-    /** The format this code writes. Readers refuse anything newer as [ReplayResult.Unsupported]. */
-    public const val VERSION: Int = 1
+    /**
+     * The format this code writes: 2, which added the undo history (record
+     * type 4 and marker kinds 3 to 5). Version 1 files are still read.
+     * Readers refuse anything newer as [ReplayResult.Unsupported].
+     */
+    public const val VERSION: Int = 2
 
     /** The four bytes every journal starts with: "SSMJ". */
     public val MAGIC: ByteArray get() =

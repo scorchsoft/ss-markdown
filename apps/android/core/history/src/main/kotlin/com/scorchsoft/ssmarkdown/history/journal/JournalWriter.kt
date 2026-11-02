@@ -45,6 +45,7 @@ public sealed interface JournalWriteResult {
  * Not thread-safe: call it, and run the [FlushScheduler]'s tasks, on one
  * thread. Obtain one from [JournalStore].
  */
+@Suppress("TooManyFunctions") // One append per record kind, plus flush, compact and close.
 public class JournalWriter internal constructor(
     private val file: File,
     private val header: JournalHeader,
@@ -78,6 +79,24 @@ public class JournalWriter internal constructor(
         kind: MarkerKind,
         label: String = "",
     ): JournalWriteResult = appendRecord(JournalRecord.Marker(kind, label))
+
+    /**
+     * The editor's undo stack closed its newest step: the next edit
+     * appended starts a new one (FORMAT.md, "Undo history").
+     */
+    public fun endStep(): JournalWriteResult = appendRecord(JournalRecord.Step(StepKind.End))
+
+    /** The next [opCount] edits appended are an undo of the newest step, not new edits. */
+    public fun undoStep(opCount: Int): JournalWriteResult {
+        require(opCount > 0) { "an undo step has at least one edit" }
+        return appendRecord(JournalRecord.Step(StepKind.Undo, opCount))
+    }
+
+    /** The next [opCount] edits appended are a redo of the next undone step, not new edits. */
+    public fun redoStep(opCount: Int): JournalWriteResult {
+        require(opCount > 0) { "a redo step has at least one edit" }
+        return appendRecord(JournalRecord.Step(StepKind.Redo, opCount))
+    }
 
     /**
      * Writes everything appended so far to the file and, when [sync] is

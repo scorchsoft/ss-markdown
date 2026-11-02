@@ -53,12 +53,15 @@ public sealed interface OpenResult {
  * @property unsupported journals from a newer format, kept read-only.
  * @property quarantined files moved to `quarantine/` this time because they could not be parsed.
  * @property failures files that could not be read or moved; left where they are.
+ * @property historyOnly clean journals: undo history a save left for a document that was open,
+ *   and no unsaved edits. Not offered for recovery; the document's next open restores the history.
  */
 public data class StartupScan(
     public val unclean: List<JournalHeader>,
     public val unsupported: List<UnsupportedJournal>,
     public val quarantined: List<File>,
     public val failures: List<IOException>,
+    public val historyOnly: List<JournalHeader> = emptyList(),
 )
 
 /**

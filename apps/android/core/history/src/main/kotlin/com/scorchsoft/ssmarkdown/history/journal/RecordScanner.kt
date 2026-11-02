@@ -24,6 +24,22 @@ internal class CountingInput(
         return total
     }
 
+    /** Skips [count] bytes, or to the end of the stream. */
+    fun skip(count: Long) {
+        var left = count
+        while (left > 0) {
+            val n = input.skip(left)
+            if (n <= 0) {
+                if (input.read() < 0) break
+                left--
+                position++
+            } else {
+                left -= n
+                position += n
+            }
+        }
+    }
+
     /** Reads to the end of the stream; true when every remaining byte is zero. */
     fun restIsZero(): Boolean {
         val chunk = ByteArray(CHUNK_BYTES)
@@ -114,6 +130,27 @@ internal class RecordScanner(
         } else {
             previousSeq = seq
             ScanStep.Record(start, seq, record)
+        }
+    }
+
+    /**
+     * Walks the remaining frames by their headers alone, skipping each
+     * payload: true when there is at least one and every one is a History
+     * record, up to the end or a torn or zero-filled tail. (A journal with
+     * no records at all is a run that began and was killed before its first
+     * edit landed; it stays an ordinary journal, as it always was.) Checks no CRC, so it only classifies;
+     * replay is what trusts a record.
+     */
+    fun onlyHistoryFollows(): Boolean {
+        var seen = false
+        while (true) {
+            val frame = ByteArray(RecordCodec.FRAME_BYTES)
+            if (input.readUpTo(frame) < frame.size || frame.all { it == ZERO }) return seen
+            if (!RecordCodec.isHistory(frame)) return false
+            seen = true
+            val length = RecordCodec.payloadLength(frame)
+            if (length > fileLength - input.position) return true
+            input.skip(length)
         }
     }
 

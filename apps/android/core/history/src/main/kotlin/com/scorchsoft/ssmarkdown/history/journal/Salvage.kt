@@ -100,7 +100,8 @@ internal class SalvageState(
                 inserted.append(edit.inserted)
             }
 
-            is JournalRecord.Marker -> {
+            // Undo history changes no text; an undo's own edits are Op records, applied above.
+            is JournalRecord.Marker, is JournalRecord.Step, is JournalRecord.History -> {
                 Unit
             }
         }

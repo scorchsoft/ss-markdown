@@ -16,6 +16,7 @@ internal class StartupScanner(
     private val quarantine: Quarantine,
 ) {
     private val unclean = mutableListOf<JournalHeader>()
+    private val historyOnly = mutableListOf<JournalHeader>()
     private val unsupported = mutableListOf<UnsupportedJournal>()
     private val quarantined = mutableListOf<File>()
     private val failures = mutableListOf<IOException>()
@@ -30,7 +31,13 @@ internal class StartupScanner(
         // Leftovers first, so a journal and its `.new` are settled before the journal is read.
         files.filter { it.name.endsWith(JOURNAL_SUFFIX + AtomicFile.NEW_SUFFIX) }.forEach(::settleLeftover)
         files.filter { it.name.endsWith(JOURNAL_SUFFIX) }.forEach(::inspect)
-        return StartupScan(unclean.toList(), unsupported.toList(), quarantined.toList(), failures.toList())
+        return StartupScan(
+            unclean.toList(),
+            unsupported.toList(),
+            quarantined.toList(),
+            failures.toList(),
+            historyOnly.toList(),
+        )
     }
 
     private fun settleLeftover(newFile: File) =
@@ -41,9 +48,22 @@ internal class StartupScanner(
     private fun inspect(file: File) =
         guarded {
             when (val read = JournalReader(file).header()) {
-                is HeaderRead.Ok -> unclean += read.header
-                is HeaderRead.Unsupported -> unsupported += UnsupportedJournal(file, read.formatVersion)
-                is HeaderRead.Unreadable -> quarantined += quarantine.admit(file)
+                is HeaderRead.Ok -> {
+                    if (JournalReader(file).holdsHistoryOnly()) {
+                        historyOnly += read.header
+                    } else {
+                        unclean +=
+                            read.header
+                    }
+                }
+
+                is HeaderRead.Unsupported -> {
+                    unsupported += UnsupportedJournal(file, read.formatVersion)
+                }
+
+                is HeaderRead.Unreadable -> {
+                    quarantined += quarantine.admit(file)
+                }
             }
         }
 

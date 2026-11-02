@@ -41,7 +41,12 @@ public class JournalReader(
 
                 is HeaderRead.Ok -> {
                     if (header.header.base.matches(base)) {
-                        replayRecords(RecordScanner(input, length), baseText)
+                        replayRecords(
+                            RecordScanner(input, length),
+                            baseText,
+                            keepsHistory =
+                                header.header.formatVersion >= 2,
+                        )
                     } else {
                         ReplayResult.BaseMismatch(header.header.base, base)
                     }
@@ -81,6 +86,19 @@ public class JournalReader(
             }
         } catch (e: IOException) {
             Salvage.Unavailable("cannot read: ${e.message}")
+        }
+
+    /**
+     * True when the journal holds only undo history (FORMAT.md, "Clean
+     * journals"): a supported header followed by History records alone,
+     * up to the end or a torn tail. Such a journal has no unsaved edits,
+     * so the launch scan does not offer it for recovery. Reads only the
+     * record frames, never a payload, so it costs a few reads however
+     * large the history. Throws [IOException].
+     */
+    internal fun holdsHistoryOnly(): Boolean =
+        readOrFail { input, length ->
+            HeaderCodec.read(input) is HeaderRead.Ok && RecordScanner(input, length).onlyHistoryFollows()
         }
 
     /** The header alone: what the startup scan needs for the recovery banner. Throws [IOException]. */
@@ -129,8 +147,9 @@ public class JournalReader(
     private fun replayRecords(
         scanner: RecordScanner,
         baseText: String,
+        keepsHistory: Boolean,
     ): ReplayResult {
-        val state = ReplayState(baseText)
+        val state = ReplayState(baseText, keepsHistory)
         var result: ReplayResult? = null
         while (result == null) {
             result =
@@ -144,13 +163,17 @@ public class JournalReader(
         return result
     }
 
-    /** The text so far and how it got there. */
+    /** The text so far, the undo history so far, and how they got there. */
     private class ReplayState(
         baseText: String,
+        // Version 1 wrote no step ends or undo markers, so its edits say nothing reliable about steps.
+        private val keepsHistory: Boolean,
     ) {
         private val text = StringBuilder(baseText)
+        private val history = HistoryBuilder()
         private var lastSeq = 0L
         private var count = 0
+        private var edited = false
 
         /** Applies one record; null to carry on, or the Corrupt result that ends replay. */
         fun apply(step: ScanStep.Record): ReplayResult? {
@@ -158,22 +181,63 @@ public class JournalReader(
             if (record is JournalRecord.Op && !fits(text, record.edit)) {
                 return corrupt(step.offset, "edit at ${record.edit.offset} does not match the text")
             }
+            if ((record is JournalRecord.Step || record is JournalRecord.History) && history.inStep) {
+                return corrupt(step.offset, "an undo or redo is cut short by another record")
+            }
             when (record) {
-                is JournalRecord.Op -> with(record.edit) { text.replace(offset, offset + deleted.length, inserted) }
-                is JournalRecord.Snapshot -> text.setLength(0).also { text.append(record.text) }
-                is JournalRecord.Marker -> Unit
+                is JournalRecord.Op -> {
+                    with(record.edit) { text.replace(offset, offset + deleted.length, inserted) }
+                    history.edit(record.edit)
+                    edited = true
+                }
+
+                is JournalRecord.Snapshot -> {
+                    text.setLength(0)
+                    text.append(record.text)
+                    history.reset()
+                    edited = true
+                }
+
+                is JournalRecord.Step -> {
+                    history.step(record.kind, record.opCount)
+                }
+
+                is JournalRecord.History -> {
+                    history.replace(record.history)
+                }
+
+                is JournalRecord.Marker -> {
+                    Unit
+                }
             }
             lastSeq = step.seq
             count++
             return null
         }
 
-        fun ok(discardedTailBytes: Long) = ReplayResult.Ok(text.toString(), lastSeq, count, discardedTailBytes)
+        fun ok(discardedTailBytes: Long): ReplayResult {
+            rollBackUnfinishedStep()
+            return ReplayResult.Ok(text.toString(), lastSeq, count, discardedTailBytes, historyResult(), edited)
+        }
 
         fun corrupt(
             offset: Long,
             reason: String,
-        ) = ReplayResult.Corrupt(offset, text.toString(), lastSeq, count, reason)
+        ): ReplayResult {
+            rollBackUnfinishedStep()
+            return ReplayResult.Corrupt(offset, text.toString(), lastSeq, count, reason, historyResult(), edited)
+        }
+
+        private fun historyResult() = if (keepsHistory) history.result() else JournalHistory.EMPTY
+
+        // An undo or redo the file ends inside of is taken back, so the text is the
+        // one before it and the step is still where it was: text and history agree.
+        private fun rollBackUnfinishedStep() {
+            history.unfinished.asReversed().forEach { edit ->
+                text.replace(edit.offset, edit.offset + edit.inserted.length, edit.deleted)
+            }
+            history.dropUnfinished()
+        }
     }
 
     private inline fun read(block: (CountingInput, Long) -> ReplayResult): ReplayResult =

@@ -49,6 +49,17 @@ public class JournalStore internal constructor(
     public fun start(
         documentKey: String,
         base: BaseFingerprint,
+    ): OpenResult = start(documentKey, base, JournalHistory.EMPTY)
+
+    /**
+     * [start], carrying the document's undo [history] so far: it is written
+     * straight after the header, so the edits that follow replay on top of
+     * it (FORMAT.md, "Undo history").
+     */
+    public fun start(
+        documentKey: String,
+        base: BaseFingerprint,
+        history: JournalHistory,
     ): OpenResult =
         guarded {
             val atomic = AtomicFile(fileFor(documentKey))
@@ -56,8 +67,9 @@ public class JournalStore internal constructor(
             when (val existing = existingHeader(atomic.baseFile)) {
                 null -> {
                     val header = JournalHeader(documentKey, base, timing.clock.nowMillis())
-                    atomic.write(HeaderCodec.encode(header))
-                    OpenResult.Opened(writer(atomic.baseFile, header, firstSeq = 1))
+                    val records = encodeRun(null, history)
+                    atomic.write(listOf(HeaderCodec.encode(header)) + records)
+                    OpenResult.Opened(writer(atomic.baseFile, header, firstSeq = 1L + records.size))
                 }
 
                 is HeaderRead.Unsupported -> {
@@ -99,6 +111,25 @@ public class JournalStore internal constructor(
         base: BaseFingerprint,
         currentText: String,
         replacing: BaseFingerprint?,
+    ): OpenResult = resume(documentKey, base, currentText, replacing, JournalHistory.EMPTY)
+
+    /**
+     * [resume], carrying the document's undo [history]: the new journal is
+     * a Snapshot of [currentText] followed by a History record, so a
+     * second death after this one still brings both back.
+     *
+     * A null [currentText] writes a *clean* journal (FORMAT.md, "Clean
+     * journals"): [base] is exactly the text, and the journal holds only
+     * [history]. That is what a verified save leaves, so undo survives the
+     * save and a later death; the launch scan does not offer a clean
+     * journal for recovery.
+     */
+    public fun resume(
+        documentKey: String,
+        base: BaseFingerprint,
+        currentText: String?,
+        replacing: BaseFingerprint?,
+        history: JournalHistory,
     ): OpenResult =
         guarded {
             val atomic = AtomicFile(fileFor(documentKey))
@@ -110,13 +141,46 @@ public class JournalStore internal constructor(
                     (existing.header.base.matches(base) || replacing?.matches(existing.header.base) == true) &&
                     JournalReader(atomic.baseFile).framing() == FramingResult.Sound
             if (existing != null && !replaceable) quarantine.admit(atomic.baseFile)
-            val snapshot =
-                RecordCodec.encode(JournalRecord.Snapshot(currentText), 1)
-                    ?: return@guarded OpenResult.Failed(IOException("text is too large to journal"))
+            val records = encodeRun(currentText, history)
             val header = JournalHeader(documentKey, base, timing.clock.nowMillis())
-            atomic.write(HeaderCodec.encode(header), snapshot)
-            OpenResult.Opened(writer(atomic.baseFile, header, firstSeq = 2))
+            atomic.write(listOf(HeaderCodec.encode(header)) + records)
+            OpenResult.Opened(writer(atomic.baseFile, header, firstSeq = 1L + records.size))
         }
+
+    /**
+     * The records a run starts with: a Snapshot of [text] if there is one,
+     * then the History if it is not empty, numbered from 1. A history too
+     * large for one record is trimmed to what fits rather than refused:
+     * undo is worth less than journalling at all.
+     */
+    private fun encodeRun(
+        text: String?,
+        history: JournalHistory,
+    ): List<ByteArray> {
+        val records = ArrayList<ByteArray>(2)
+        if (text != null) {
+            records +=
+                RecordCodec.encode(JournalRecord.Snapshot(text), 1)
+                    ?: throw IOException("text is too large to journal")
+        }
+        val tail = history.trimmedTo()
+        if (!tail.isEmpty) RecordCodec.encode(JournalRecord.History(tail), records.size + 1L)?.let { records += it }
+        return records
+    }
+
+    /**
+     * True when this document's journal holds only undo history and no
+     * unsaved edits (a clean journal, see [resume]). False when there is
+     * none, or it cannot be read.
+     */
+    public fun holdsHistoryOnly(documentKey: String): Boolean {
+        val file = fileFor(documentKey)
+        return try {
+            file.isFile && JournalReader(file).holdsHistoryOnly()
+        } catch (_: IOException) {
+            false
+        }
+    }
 
     /** Replays this document's journal, if it has one; see [JournalReader.replay]. */
     public fun replay(

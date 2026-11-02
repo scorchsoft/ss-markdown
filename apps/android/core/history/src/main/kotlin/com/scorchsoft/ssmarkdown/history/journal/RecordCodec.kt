@@ -15,6 +15,7 @@ import java.util.zip.CRC32C
  * Little-endian like LevelDB. `crc` is a [MaskedCrc] over type, seq and
  * payload. FORMAT.md has the payload layouts.
  */
+@Suppress("TooManyFunctions") // One codec: the frame, then a write and a read for each payload type.
 internal object RecordCodec {
     const val FRAME_BYTES = 17
     private const val CRC_START = 8
@@ -23,6 +24,9 @@ internal object RecordCodec {
     private const val TYPE_OP = 1
     private const val TYPE_SNAPSHOT = 2
     private const val TYPE_MARKER = 3
+    private const val TYPE_HISTORY = 4
+    private const val FLAG_NEWEST_OPEN = 1
+    private const val MAX_FLAGS = 1
 
     /** The framed bytes for [record] at [seq], or null if its payload is over the limit. */
     fun encode(
@@ -46,6 +50,16 @@ internal object RecordCodec {
             is JournalRecord.Marker -> {
                 type = TYPE_MARKER
                 payloadSize = 1L + Wtf8.encodedLength(record.label)
+            }
+
+            is JournalRecord.Step -> {
+                type = TYPE_MARKER
+                payloadSize = if (record.kind == StepKind.End) 1L else 1L + INT_BYTES
+            }
+
+            is JournalRecord.History -> {
+                type = TYPE_HISTORY
+                payloadSize = historySize(record.history)
             }
         }
         if (payloadSize > JournalFormat.MAX_PAYLOAD_BYTES) return null
@@ -71,9 +85,7 @@ internal object RecordCodec {
     ) {
         when (record) {
             is JournalRecord.Op -> {
-                frame.putInt(record.edit.offset)
-                putSized(frame, Wtf8.encode(record.edit.deleted))
-                putSized(frame, Wtf8.encode(record.edit.inserted))
+                putEdit(frame, record.edit)
             }
 
             is JournalRecord.Snapshot -> {
@@ -83,7 +95,50 @@ internal object RecordCodec {
             is JournalRecord.Marker -> {
                 frame.put(record.kind.code.toByte()).put(Wtf8.encode(record.label))
             }
+
+            is JournalRecord.Step -> {
+                frame.put(record.kind.code.toByte())
+                if (record.kind != StepKind.End) frame.putInt(record.opCount)
+            }
+
+            is JournalRecord.History -> {
+                writeHistory(frame, record.history)
+            }
         }
+    }
+
+    // History payload: flags u8, then the undo steps and the redo steps, each as
+    // stepCount u32 and per step opCount u32 plus that many Op payloads.
+    private fun historySize(history: JournalHistory): Long = 1L + stepsSize(history.undo) + stepsSize(history.redo)
+
+    private fun stepsSize(steps: List<List<TextEdit>>): Long =
+        INT_BYTES +
+            steps.sumOf { step ->
+                INT_BYTES +
+                    step.sumOf { OP_FIXED_BYTES + Wtf8.encodedLength(it.deleted) + Wtf8.encodedLength(it.inserted) }
+            }
+
+    private fun writeHistory(
+        frame: ByteBuffer,
+        history: JournalHistory,
+    ) {
+        frame.put((if (history.newestOpen) FLAG_NEWEST_OPEN else 0).toByte())
+        for (steps in listOf(history.undo, history.redo)) {
+            frame.putInt(steps.size)
+            for (step in steps) {
+                frame.putInt(step.size)
+                step.forEach { edit -> putEdit(frame, edit) }
+            }
+        }
+    }
+
+    private fun putEdit(
+        frame: ByteBuffer,
+        edit: TextEdit,
+    ) {
+        frame.putInt(edit.offset)
+        putSized(frame, Wtf8.encode(edit.deleted))
+        putSized(frame, Wtf8.encode(edit.inserted))
     }
 
     private fun putSized(
@@ -101,6 +156,9 @@ internal object RecordCodec {
             .getInt(0)
             .toUInt()
             .toLong()
+
+    /** True when a frame header declares a History record. */
+    fun isHistory(frame: ByteArray): Boolean = frame[CRC_START].toInt() == TYPE_HISTORY
 
     /** The sequence number a frame header declares. */
     fun seq(frame: ByteArray): Long = ByteBuffer.wrap(frame).order(ByteOrder.LITTLE_ENDIAN).getLong(CRC_START + 1)
@@ -126,16 +184,63 @@ internal object RecordCodec {
             TYPE_OP -> decodeOp(payload)
             TYPE_SNAPSHOT -> Wtf8.decode(payload)?.let { JournalRecord.Snapshot(it) }
             TYPE_MARKER -> decodeMarker(payload)
+            TYPE_HISTORY -> decodeHistory(payload)
             else -> null
         }
 
     private fun decodeOp(payload: ByteArray): JournalRecord? {
         val buffer = ByteBuffer.wrap(payload).order(ByteOrder.LITTLE_ENDIAN)
+        val edit = readEdit(buffer, payload)
+        return if (edit != null && !buffer.hasRemaining()) JournalRecord.Op(edit) else null
+    }
+
+    private fun readEdit(
+        buffer: ByteBuffer,
+        payload: ByteArray,
+    ): TextEdit? {
         val offset = if (buffer.remaining() >= INT_BYTES) buffer.getInt() else -1
         val deleted = readSized(buffer, payload)
         val inserted = readSized(buffer, payload)
-        val valid = offset >= 0 && deleted != null && inserted != null && !buffer.hasRemaining()
-        return if (valid) JournalRecord.Op(TextEdit(offset, deleted, inserted)) else null
+        return if (offset >= 0 && deleted != null && inserted != null) TextEdit(offset, deleted, inserted) else null
+    }
+
+    private fun decodeHistory(payload: ByteArray): JournalRecord? {
+        val buffer = ByteBuffer.wrap(payload).order(ByteOrder.LITTLE_ENDIAN)
+        val flags = if (buffer.hasRemaining()) buffer.get().toInt() else -1
+        val undo = if (flags in 0..MAX_FLAGS) readSteps(buffer, payload) else null
+        val redo = if (undo != null) readSteps(buffer, payload) else null
+        return if (redo != null && !buffer.hasRemaining()) {
+            JournalRecord.History(JournalHistory(undo!!, redo, newestOpen = flags and FLAG_NEWEST_OPEN != 0))
+        } else {
+            null
+        }
+    }
+
+    // Every count is checked against the bytes left before anything is
+    // allocated: an edit takes at least OP_FIXED_BYTES, so a damaged count
+    // can never ask for more steps or edits than the payload could hold.
+    @Suppress("ReturnCount") // Each damaged count ends the parse.
+    private fun readSteps(
+        buffer: ByteBuffer,
+        payload: ByteArray,
+    ): List<List<TextEdit>>? {
+        val count = readCount(buffer, INT_BYTES) ?: return null
+        val steps = ArrayList<List<TextEdit>>(count)
+        repeat(count) {
+            val size = readCount(buffer, OP_FIXED_BYTES.toInt()) ?: return null
+            val step = ArrayList<TextEdit>(size)
+            repeat(size) { step += readEdit(buffer, payload) ?: return null }
+            steps += step
+        }
+        return steps
+    }
+
+    private fun readCount(
+        buffer: ByteBuffer,
+        minBytesEach: Int,
+    ): Int? {
+        val count = if (buffer.remaining() >= INT_BYTES) buffer.getInt() else -1
+        return count.takeIf { it >= 0 && it.toLong() * minBytesEach <= buffer.remaining() }
     }
 
     private fun readSized(
@@ -150,8 +255,20 @@ internal object RecordCodec {
     }
 
     private fun decodeMarker(payload: ByteArray): JournalRecord? {
-        val kind = payload.firstOrNull()?.let { MarkerKind.fromCode(it.toInt()) }
+        val code = payload.firstOrNull()?.toInt() ?: return null
+        StepKind.fromCode(code)?.let { return decodeStep(it, payload) }
+        val kind = MarkerKind.fromCode(code)
         val label = if (kind != null) Wtf8.decode(payload, 1, payload.size - 1) else null
         return if (kind != null && label != null) JournalRecord.Marker(kind, label) else null
+    }
+
+    private fun decodeStep(
+        kind: StepKind,
+        payload: ByteArray,
+    ): JournalRecord? {
+        if (kind == StepKind.End) return if (payload.size == 1) JournalRecord.Step(kind) else null
+        if (payload.size != 1 + INT_BYTES) return null
+        val count = ByteBuffer.wrap(payload, 1, INT_BYTES).order(ByteOrder.LITTLE_ENDIAN).getInt()
+        return if (count > 0) JournalRecord.Step(kind, count) else null
     }
 }

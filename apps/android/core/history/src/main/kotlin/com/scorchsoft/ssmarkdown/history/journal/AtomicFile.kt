@@ -59,7 +59,10 @@ internal class AtomicFile(
      * Writes [parts], in order, as the new content in one step. Throws
      * [IOException] and leaves [baseFile] as it was.
      */
-    fun write(vararg parts: ByteArray) {
+    fun write(vararg parts: ByteArray) = write(parts.asList())
+
+    /** [write] for parts already in a list. */
+    fun write(parts: List<ByteArray>) {
         val stream = startWrite()
         try {
             parts.forEach { stream.write(it) }

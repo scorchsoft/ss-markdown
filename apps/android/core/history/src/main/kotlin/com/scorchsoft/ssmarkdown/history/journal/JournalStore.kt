@@ -67,7 +67,7 @@ public class JournalStore internal constructor(
             when (val existing = existingHeader(atomic.baseFile)) {
                 null -> {
                     val header = JournalHeader(documentKey, base, timing.clock.nowMillis())
-                    val records = encodeRun(null, history)
+                    val records = encodeRun(null, history, clean = false)
                     atomic.write(listOf(HeaderCodec.encode(header)) + records)
                     OpenResult.Opened(writer(atomic.baseFile, header, firstSeq = 1L + records.size))
                 }
@@ -120,9 +120,10 @@ public class JournalStore internal constructor(
      *
      * A null [currentText] writes a *clean* journal (FORMAT.md, "Clean
      * journals"): [base] is exactly the text, and the journal holds only
-     * [history]. That is what a verified save leaves, so undo survives the
-     * save and a later death; the launch scan does not offer a clean
-     * journal for recovery.
+     * [history]. That is what Save as and a launch that settles an
+     * interrupted save leave, so undo survives a later death; the launch
+     * scan does not offer a clean journal for recovery. (An ordinary save
+     * appends a Rebase instead: [JournalWriter.rebase].)
      */
     public fun resume(
         documentKey: String,
@@ -136,12 +137,13 @@ public class JournalStore internal constructor(
             quarantine.settleLeftover(atomic.newFile)
             val existing = existingHeader(atomic.baseFile)
             if (existing is HeaderRead.Unsupported) return@guarded OpenResult.Unsupported(existing.formatVersion)
+            val existingBase = (existing as? HeaderRead.Ok)?.let { headerBase(atomic.baseFile) }
             val replaceable =
-                existing is HeaderRead.Ok &&
-                    (existing.header.base.matches(base) || replacing?.matches(existing.header.base) == true) &&
+                existingBase != null &&
+                    (existingBase.matches(base) || replacing?.matches(existingBase) == true) &&
                     JournalReader(atomic.baseFile).framing() == FramingResult.Sound
             if (existing != null && !replaceable) quarantine.admit(atomic.baseFile)
-            val records = encodeRun(currentText, history)
+            val records = encodeRun(currentText, history, clean = currentText == null)
             val header = JournalHeader(documentKey, base, timing.clock.nowMillis())
             atomic.write(listOf(HeaderCodec.encode(header)) + records)
             OpenResult.Opened(writer(atomic.baseFile, header, firstSeq = 1L + records.size))
@@ -149,13 +151,14 @@ public class JournalStore internal constructor(
 
     /**
      * The records a run starts with: a Snapshot of [text] if there is one,
-     * then the History if it is not empty, numbered from 1. A history too
+     * then the History if it is not empty (or the run is [clean]), numbered from 1. A history too
      * large for one record is trimmed to what fits rather than refused:
      * undo is worth less than journalling at all.
      */
     private fun encodeRun(
         text: String?,
         history: JournalHistory,
+        clean: Boolean,
     ): List<ByteArray> {
         val records = ArrayList<ByteArray>(2)
         if (text != null) {
@@ -164,7 +167,11 @@ public class JournalStore internal constructor(
                     ?: throw IOException("text is too large to journal")
         }
         val tail = history.trimmedTo()
-        if (!tail.isEmpty) RecordCodec.encode(JournalRecord.History(tail), records.size + 1L)?.let { records += it }
+        // A clean journal (no text) always says so with a History record, even an empty one, so it is
+        // never a bare header: that means a run killed before its first edit (FORMAT.md, review r3 M2).
+        if (!tail.isEmpty || clean) {
+            RecordCodec.encode(JournalRecord.History(tail), records.size + 1L)?.let { records += it }
+        }
         return records
     }
 
@@ -348,8 +355,12 @@ public class JournalStore internal constructor(
         return CleanResult.Deleted
     }
 
-    private fun headerBase(file: File): BaseFingerprint? =
-        (JournalReader(file).header() as? HeaderRead.Ok)?.header?.base
+    // The newest Rebase's base (a save the journal outlived), else the header's: what its edits start from now.
+    private fun headerBase(file: File): BaseFingerprint? {
+        val reader = JournalReader(file)
+        val header = (reader.header() as? HeaderRead.Ok)?.header ?: return null
+        return reader.summary()?.rebase ?: header.base
+    }
 
     private fun existingHeader(file: File): HeaderRead? = if (file.exists()) JournalReader(file).header() else null
 

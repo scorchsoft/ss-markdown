@@ -12,6 +12,7 @@ import java.io.IOException
  *
  * @property file the journal to read.
  */
+@Suppress("TooManyFunctions") // Replay, salvage, classify and frame-check one file: each public read and its walk.
 public class JournalReader(
     public val file: File,
 ) {
@@ -19,17 +20,24 @@ public class JournalReader(
      * Replays the journal onto [baseText], the document as loaded from the
      * file whose fingerprint is [base].
      *
-     * The header's base must [match][BaseFingerprint.matches] [base]
-     * before a single edit is applied. Records are then applied in order
-     * until the end of the file, a torn tail (legal: the result is
-     * [ReplayResult.Ok]) or a damaged record ([ReplayResult.Corrupt], with
-     * the text up to the last good record).
+     * The journal's base (its newest Rebase's, else its header's) must [match][BaseFingerprint.matches] [base] before
+     * a single edit is applied. Records before that Rebase rebuild only
+     * the undo history: the text they applied to is the file's now. Records
+     * are then applied in order until the end of the file, a torn tail
+     * (legal: the result is [ReplayResult.Ok]) or a damaged record
+     * ([ReplayResult.Corrupt], with the text up to the last good record).
      */
     public fun replay(
         baseText: String,
         base: BaseFingerprint,
-    ): ReplayResult =
-        read { input, length ->
+    ): ReplayResult {
+        val summary =
+            try {
+                if (file.isFile) summary() else null
+            } catch (_: IOException) {
+                null // The replay below reads the file again and reports the failure.
+            }
+        return read { input, length ->
             when (val header = HeaderCodec.read(input)) {
                 is HeaderRead.Unsupported -> {
                     ReplayResult.Unsupported(header.formatVersion)
@@ -40,19 +48,21 @@ public class JournalReader(
                 }
 
                 is HeaderRead.Ok -> {
-                    if (header.header.base.matches(base)) {
+                    val journalBase = summary?.rebase ?: header.header.base
+                    if (journalBase.matches(base)) {
                         replayRecords(
                             RecordScanner(input, length),
                             baseText,
-                            keepsHistory =
-                                header.header.formatVersion >= 2,
+                            keepsHistory = header.header.formatVersion >= 2,
+                            textFromSeq = summary?.rebaseSeq ?: 0L,
                         )
                     } else {
-                        ReplayResult.BaseMismatch(header.header.base, base)
+                        ReplayResult.BaseMismatch(journalBase, base)
                     }
                 }
             }
         }
+    }
 
     /**
      * Rebuilds what the journal can still say without replaying it onto
@@ -76,9 +86,13 @@ public class JournalReader(
                         }
 
                         is HeaderRead.Ok -> {
+                            val rebase = summary()
+                            val from = rebase?.rebase
                             salvageRecords(
                                 RecordScanner(input, length),
-                                baseTextFor(header.header.base),
+                                if (from == null) baseTextFor(header.header.base) else null,
+                                rebaseSeq = rebase?.rebaseSeq ?: 0L,
+                                rebaseText = { from?.let(baseTextFor) },
                             )
                         }
                     }
@@ -96,9 +110,12 @@ public class JournalReader(
      * record frames, never a payload, so it costs a few reads however
      * large the history. Throws [IOException].
      */
-    internal fun holdsHistoryOnly(): Boolean =
+    internal fun holdsHistoryOnly(): Boolean = summary()?.holdsEdits == false
+
+    /** [RecordScanner.summarize] for this file, or null when its header is not a readable one. Throws [IOException]. */
+    internal fun summary(): JournalSummary? =
         readOrFail { input, length ->
-            HeaderCodec.read(input) is HeaderRead.Ok && RecordScanner(input, length).onlyHistoryFollows()
+            if (HeaderCodec.read(input) is HeaderRead.Ok) RecordScanner(input, length).summarize() else null
         }
 
     /** The header alone: what the startup scan needs for the recovery banner. Throws [IOException]. */
@@ -130,15 +147,27 @@ public class JournalReader(
     private fun salvageRecords(
         scanner: RecordScanner,
         baseText: String?,
+        rebaseSeq: Long,
+        rebaseText: () -> String?,
     ): Salvage {
         val state = SalvageState(baseText)
         var going = true
         while (going) {
             going =
                 when (val step = scanner.next()) {
-                    is ScanStep.Record -> state.apply(step.record)
-                    ScanStep.End, is ScanStep.TornTail -> false
-                    is ScanStep.Damaged -> state.stop()
+                    is ScanStep.Record -> {
+                        // The newest Rebase: the file it names is the text from here on, if it can be had.
+                        if (rebaseSeq != 0L && step.seq == rebaseSeq) rebaseText()?.let(state::restartFrom)
+                        state.apply(step.record)
+                    }
+
+                    ScanStep.End, is ScanStep.TornTail -> {
+                        false
+                    }
+
+                    is ScanStep.Damaged -> {
+                        state.stop()
+                    }
                 }
         }
         return state.result()
@@ -148,8 +177,9 @@ public class JournalReader(
         scanner: RecordScanner,
         baseText: String,
         keepsHistory: Boolean,
+        textFromSeq: Long,
     ): ReplayResult {
-        val state = ReplayState(baseText, keepsHistory)
+        val state = ReplayState(baseText, keepsHistory, textFromSeq)
         var result: ReplayResult? = null
         while (result == null) {
             result =
@@ -163,39 +193,43 @@ public class JournalReader(
         return result
     }
 
-    /** The text so far, the undo history so far, and how they got there. */
+    /**
+     * The text so far, the undo history so far, and how they got there.
+     * Until the record numbered [textFromSeq] (the newest Rebase), records
+     * rebuild the history only: the text they applied to was the file's
+     * before a save, and the base text is the file after it.
+     */
     private class ReplayState(
         baseText: String,
         // Version 1 wrote no step ends or undo markers, so its edits say nothing reliable about steps.
         private val keepsHistory: Boolean,
+        private val textFromSeq: Long,
     ) {
         private val text = StringBuilder(baseText)
         private val history = HistoryBuilder()
         private var lastSeq = 0L
         private var count = 0
         private var edited = false
+        private var textLive = textFromSeq == 0L
 
         /** Applies one record; null to carry on, or the Corrupt result that ends replay. */
         fun apply(step: ScanStep.Record): ReplayResult? {
             val record = step.record
-            if (record is JournalRecord.Op && !fits(text, record.edit)) {
+            if (textLive && record is JournalRecord.Op && !fits(text, record.edit)) {
                 return corrupt(step.offset, "edit at ${record.edit.offset} does not match the text")
             }
-            if ((record is JournalRecord.Step || record is JournalRecord.History) && history.inStep) {
+            if (record.endsAStep() && history.inStep) {
                 return corrupt(step.offset, "an undo or redo is cut short by another record")
             }
             when (record) {
                 is JournalRecord.Op -> {
-                    with(record.edit) { text.replace(offset, offset + deleted.length, inserted) }
+                    applyText(record)
                     history.edit(record.edit)
-                    edited = true
                 }
 
                 is JournalRecord.Snapshot -> {
-                    text.setLength(0)
-                    text.append(record.text)
+                    applyText(record)
                     history.reset()
-                    edited = true
                 }
 
                 is JournalRecord.Step -> {
@@ -206,6 +240,10 @@ public class JournalReader(
                     history.replace(record.history)
                 }
 
+                is JournalRecord.Rebase -> {
+                    if (step.seq == textFromSeq) textLive = true
+                }
+
                 is JournalRecord.Marker -> {
                     Unit
                 }
@@ -213,6 +251,17 @@ public class JournalReader(
             lastSeq = step.seq
             count++
             return null
+        }
+
+        /** An Op or a Snapshot changes the text only after the newest Rebase; before it, history alone. */
+        private fun applyText(record: JournalRecord) {
+            if (!textLive) return
+            when (record) {
+                is JournalRecord.Op -> with(record.edit) { text.replace(offset, offset + deleted.length, inserted) }
+                is JournalRecord.Snapshot -> text.setLength(0).also { text.append(record.text) }
+                else -> return
+            }
+            edited = true
         }
 
         fun ok(discardedTailBytes: Long): ReplayResult {
@@ -230,11 +279,18 @@ public class JournalReader(
 
         private fun historyResult() = if (keepsHistory) history.result() else JournalHistory.EMPTY
 
+        private fun JournalRecord.endsAStep() =
+            this is JournalRecord.Step || this is JournalRecord.History || this is JournalRecord.Rebase
+
         // An undo or redo the file ends inside of is taken back, so the text is the
         // one before it and the step is still where it was: text and history agree.
+        // Before the newest Rebase there is no text to take it back from, and none is
+        // needed: an undo cut short by a Rebase is damage, reported above.
         private fun rollBackUnfinishedStep() {
-            history.unfinished.asReversed().forEach { edit ->
-                text.replace(edit.offset, edit.offset + edit.inserted.length, edit.deleted)
+            if (textLive) {
+                history.unfinished.asReversed().forEach { edit ->
+                    text.replace(edit.offset, edit.offset + edit.inserted.length, edit.deleted)
+                }
             }
             history.dropUnfinished()
         }

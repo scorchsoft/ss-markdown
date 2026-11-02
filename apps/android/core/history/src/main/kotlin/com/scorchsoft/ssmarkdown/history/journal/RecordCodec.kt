@@ -27,6 +27,10 @@ internal object RecordCodec {
     private const val TYPE_HISTORY = 4
     private const val FLAG_NEWEST_OPEN = 1
     private const val MAX_FLAGS = 1
+    private const val LONG_BYTES = 8
+
+    /** A Rebase marker's payload: the kind byte, size, lastModified and the SHA-256. */
+    const val REBASE_PAYLOAD_BYTES = 1 + 2 * LONG_BYTES + BaseFingerprint.SHA256_BYTES
 
     /** The framed bytes for [record] at [seq], or null if its payload is over the limit. */
     fun encode(
@@ -60,6 +64,11 @@ internal object RecordCodec {
             is JournalRecord.History -> {
                 type = TYPE_HISTORY
                 payloadSize = historySize(record.history)
+            }
+
+            is JournalRecord.Rebase -> {
+                type = TYPE_MARKER
+                payloadSize = REBASE_PAYLOAD_BYTES.toLong()
             }
         }
         if (payloadSize > JournalFormat.MAX_PAYLOAD_BYTES) return null
@@ -103,6 +112,14 @@ internal object RecordCodec {
 
             is JournalRecord.History -> {
                 writeHistory(frame, record.history)
+            }
+
+            is JournalRecord.Rebase -> {
+                frame
+                    .put(REBASE_MARKER_CODE.toByte())
+                    .putLong(record.base.size)
+                    .putLong(record.base.lastModified)
+                    .put(record.base.sha256)
             }
         }
     }
@@ -159,6 +176,10 @@ internal object RecordCodec {
 
     /** True when a frame header declares a History record. */
     fun isHistory(frame: ByteArray): Boolean = frame[CRC_START].toInt() == TYPE_HISTORY
+
+    /** True when a frame header declares a Marker whose payload is the size of a Rebase. */
+    fun mayBeRebase(frame: ByteArray): Boolean =
+        frame[CRC_START].toInt() == TYPE_MARKER && payloadLength(frame) == REBASE_PAYLOAD_BYTES.toLong()
 
     /** The sequence number a frame header declares. */
     fun seq(frame: ByteArray): Long = ByteBuffer.wrap(frame).order(ByteOrder.LITTLE_ENDIAN).getLong(CRC_START + 1)
@@ -256,10 +277,20 @@ internal object RecordCodec {
 
     private fun decodeMarker(payload: ByteArray): JournalRecord? {
         val code = payload.firstOrNull()?.toInt() ?: return null
+        if (code == REBASE_MARKER_CODE) return decodeRebase(payload)
         StepKind.fromCode(code)?.let { return decodeStep(it, payload) }
         val kind = MarkerKind.fromCode(code)
         val label = if (kind != null) Wtf8.decode(payload, 1, payload.size - 1) else null
         return if (kind != null && label != null) JournalRecord.Marker(kind, label) else null
+    }
+
+    private fun decodeRebase(payload: ByteArray): JournalRecord? {
+        if (payload.size != REBASE_PAYLOAD_BYTES) return null
+        val buffer = ByteBuffer.wrap(payload, 1, payload.size - 1).order(ByteOrder.LITTLE_ENDIAN)
+        val size = buffer.getLong()
+        val lastModified = buffer.getLong()
+        val sha = ByteArray(BaseFingerprint.SHA256_BYTES).also { buffer.get(it) }
+        return if (size >= 0) JournalRecord.Rebase(BaseFingerprint(size, lastModified, sha)) else null
     }
 
     private fun decodeStep(

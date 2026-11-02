@@ -49,6 +49,9 @@ public sealed interface OpenResult {
 /**
  * What the startup scan found: the input to the recovery banner.
  *
+ * Each journal is listed by its header, with the base its edits start
+ * from now: the newest Rebase's if it outlived a save (FORMAT.md "Saves").
+ *
  * @property unclean journals with edits that were never saved, one header each.
  * @property unsupported journals from a newer format, kept read-only.
  * @property quarantined files moved to `quarantine/` this time because they could not be parsed.

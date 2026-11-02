@@ -49,12 +49,10 @@ internal class StartupScanner(
         guarded {
             when (val read = JournalReader(file).header()) {
                 is HeaderRead.Ok -> {
-                    if (JournalReader(file).holdsHistoryOnly()) {
-                        historyOnly += read.header
-                    } else {
-                        unclean +=
-                            read.header
-                    }
+                    // Named by the base the edits start from now: a Rebase (a save it outlived) moves it.
+                    val summary = JournalReader(file).summary()
+                    val header = summary?.rebase?.let { read.header.copy(base = it) } ?: read.header
+                    if (summary?.holdsEdits == false) historyOnly += header else unclean += header
                 }
 
                 is HeaderRead.Unsupported -> {

@@ -154,10 +154,31 @@ class UndoHistoryJournalTest {
 
     @Test
     fun `an empty journal is still an ordinary journal`() {
+        // A run killed before its first edit landed: edits began, so a changed file opens as a conflict.
         val test = TestStore(folder.root)
         test.start(key, fingerprintOf("x")).close()
 
         assertFalse(test.store.holdsHistoryOnly(key))
+    }
+
+    @Test
+    fun `a clean journal whose history trims to nothing is never offered for recovery`() {
+        // Review r3 M2: one step bigger than the tail cap (a paste of 4.3 M chars) leaves no history to write.
+        val paste = "p".repeat((JournalHistory.TAIL_MAX_BYTES / 2).toInt())
+        val history = JournalHistory(listOf(listOf(TextEdit(0, "", paste))), emptyList())
+        val test = TestStore(folder.root)
+        (test.store.resume(key, fingerprintOf(paste), null, null, history) as OpenResult.Opened).writer.close()
+
+        // It still says "clean" with an empty History record, never a bare header (which means edits began).
+        assertTrue(test.store.holdsHistoryOnly(key))
+        assertTrue(
+            test.store
+                .scan()
+                .unclean
+                .isEmpty(),
+        )
+        val replay = test.store.replay(key, paste, fingerprintOf(paste)) as ReplayResult.Ok
+        assertFalse(replay.editsReplayed)
     }
 
     @Test

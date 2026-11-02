@@ -57,6 +57,33 @@ class LineDrawingCacheViewTest {
         assertTrue("a font change re-records what is visible", view.recordedLineCount() > first + 1)
     }
 
+    /**
+     * The platform frees a line's display list once nothing draws it (the
+     * line scrolled off screen for a frame). Scrolling back must record it
+     * again: replaying the emptied node drew the gutter and no text
+     * (edge-cases.md, "Text vanishes after scrolling back").
+     */
+    @Test
+    fun `lines the platform emptied are recorded again before they are drawn`() {
+        view.wrap = true
+        view.document = TextDocument(PieceTree.of((1..200).joinToString("\n") { "line $it " + "word ".repeat(30) }))
+        drawHardware()
+        val first = view.recordedLineCount()
+        assertTrue(first > 0)
+
+        view.scrollTo(0, HEIGHT * 4)
+        drawHardware()
+        // What HWUI does to the nodes of lines no frame draws any more.
+        view.renderer.discardDisplayListsForTest()
+        view.scrollTo(0, 0)
+        val before = view.recordedLineCount()
+        drawHardware()
+
+        assertTrue("the top lines are recorded again", view.recordedLineCount() >= before + first)
+        assertTrue(view.renderer.revivedLines >= first)
+        assertEquals("every line on screen has content again", first, view.renderer.liveLinesForTest())
+    }
+
     private companion object {
         const val WIDTH = 900
         const val HEIGHT = 800

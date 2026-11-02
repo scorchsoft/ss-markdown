@@ -90,6 +90,7 @@ class MarkdownCodeView
         internal val paste = ChunkedPaste.forView(this, gate)
 
         private var lastAnchorLine = -1
+        private var lastScrollFraction = -1f
         private var lastCaretLine = 0
         private var themeFollowsSystem = true
 
@@ -145,6 +146,8 @@ class MarkdownCodeView
             renderer.versions.reset(document.text.lineCount)
             viewport.stopFling()
             scrollTo(0, 0)
+            // A new document reports its position afresh, even where it matches the old one's.
+            lastScrollFraction = -1f
             sizing.onMetricsChanged()
             sizing.relayout(line = 0, viewY = 0f)
             inputMethods?.restartInput(this)
@@ -244,6 +247,10 @@ class MarkdownCodeView
         /** Places the caret at [offset], ends any composition and scrolls it into view. */
         fun setCaret(offset: Int) = session.moveCaretTo(offset)
 
+        /** True while any selection handle is drawn: the insertion handle after a tap, or the selection's ends. */
+        val isSelectionHandleShown: Boolean
+            get() = HandleKind.entries.any { selectionUi.handlePoint(it) != null }
+
         /** Starts a vertical fling, as a finger would; the benchmark uses this for scripted scrolling. */
         fun fling(velocityY: Int) = viewport.startFling(0, velocityY)
 
@@ -283,6 +290,12 @@ class MarkdownCodeView
             if (visible.first != lastAnchorLine) {
                 lastAnchorLine = visible.first
                 listener?.onAnchorLineChanged(visible.first)
+            }
+            // Checked every frame: an edit, wrap or zoom moves it as surely as scrolling does.
+            val fraction = viewport.scrollFraction()
+            if (fraction != lastScrollFraction) {
+                lastScrollFraction = fraction
+                listener?.onScrollFractionChanged(fraction)
             }
             return visible
         }

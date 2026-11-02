@@ -26,6 +26,15 @@ interface EditorListener {
     fun onAnchorLineChanged(line: Int) = Unit
 
     /**
+     * How far through the document the pane is scrolled, for the reading
+     * line: the scroll offset over the scrollable range, from the height
+     * map, so wrapped lines count at their height and nothing is measured
+     * to answer. 0 at the top and when the document fits, exactly 1 at the
+     * very bottom.
+     */
+    fun onScrollFractionChanged(fraction: Float) = Unit
+
+    /**
      * The zoom changed to [percent]. [pinching] is true while fingers are
      * down (show "Pinching · 112%"), and false once for the settled value,
      * which the host stores per file.

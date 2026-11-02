@@ -136,6 +136,43 @@ class EditorBenchmarks {
         }
 
     /**
+     * Flings UP a wrapped 1 MB file from its end, where every line above
+     * the screen still has an estimated height: each line measured on the
+     * way up corrects the scroll, the case that juddered on a phone
+     * (edge-cases.md, "Upward fling judders"). Budget: 60 fps, no frame over 32 ms.
+     */
+    @Test
+    fun flingUp1Mb() =
+        rule.measureRepeated(
+            packageName = PACKAGE,
+            metrics = listOf(FrameTimingMetric()),
+            compilationMode = CompilationMode.DEFAULT,
+            iterations = FLING_ITERATIONS,
+            setupBlock = {
+                resetApp(CorpusFile.Large)
+                disableKeyboards()
+                openForEditing(CorpusFile.Large)
+                selectMode("Code")
+                focusCodeAt(CODE_PANE_Y)
+                // Ctrl+End: to the end without laying out what is above it.
+                device.pressKeyCode(KeyEvent.KEYCODE_MOVE_END, KeyEvent.META_CTRL_ON)
+                device.waitForIdle()
+            },
+        ) {
+            try {
+                val x = device.displayWidth / 2
+                val h = device.displayHeight
+                repeat(FLINGS) {
+                    // The finger moves down the screen: the text scrolls towards the start.
+                    device.swipe(x, (h * FLING_HIGH).toInt(), x, (h * FLING_LOW).toInt(), FLING_STEPS)
+                    Thread.sleep(FLING_GAP_MILLIS)
+                }
+            } finally {
+                restoreKeyboards()
+            }
+        }
+
+    /**
      * Preview refresh after typing on a 50 KB document, in Split. Each key
      * is typed alone and given time to settle, so each `SSM:previewRefresh`
      * is "typing stopped → the visible section redrawn". Budget < 150 ms.

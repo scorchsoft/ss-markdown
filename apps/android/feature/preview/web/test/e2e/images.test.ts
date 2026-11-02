@@ -186,7 +186,8 @@ describe("picture placeholders", () => {
     });
 
     it("never takes typing, and editing beside it loses nothing", async () => {
-        const page = await openPreview(h);
+        // Narrow, so "after the cat." wraps on every machine: the caret must not depend on where.
+        const page = await openPreview(h, { width: 300, height: 860 });
         await loadMarkdown(page, SOURCE);
         const query = await firstQuery(page);
         await answer(page, query.id, Object.fromEntries(query.paths.map((p) => [p, "notFound"])));
@@ -199,7 +200,22 @@ describe("picture placeholders", () => {
         if (!rect) throw new Error("no run");
         await page.mouse.click(rect.x + rect.width - 2, rect.y + rect.height / 2);
         await waitForMessage(page, (m) => m.type === "editingChanged");
-        await page.keyboard.press("End");
+        // The caret goes after "cat." by DOM position, not with End: End is the end of the
+        // *visual* line, and where "after the cat." wraps depends on the machine's fonts (on CI
+        // it wrapped after "the", so End put the caret before "cat." and the word went there).
+        await page.evaluate(() => {
+            const span = [...document.querySelectorAll<HTMLElement>("span[data-s]")].find((s) =>
+                (s.textContent ?? "").includes("after the cat."),
+            );
+            const node = span?.lastChild;
+            if (!(node instanceof Text)) throw new Error("no text run");
+            const range = document.createRange();
+            range.setStart(node, node.data.length);
+            range.collapse(true);
+            const selection = getSelection();
+            selection?.removeAllRanges();
+            selection?.addRange(range);
+        });
         await page.keyboard.type(" Yes");
         await waitForMessage(page, (m) => m.type === "sourceEdit");
         let text = SOURCE;

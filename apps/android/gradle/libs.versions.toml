@@ -30,6 +30,11 @@ profileinstaller = "1.4.1"
 # androidTest only, never in any APK we hand over: LeakCanary's
 # instrumentation leak detection over the instrumented tests. Apache-2.0.
 leakcanary = "2.14"
+# Unit tests only: Google's Accessibility Test Framework, the engine behind
+# the Accessibility Scanner app (rubric #10). AccessibilityScanTest runs its
+# checks over every screen and sheet the suite renders. Apache-2.0. 4.1.1 is
+# the version Compose's own ui-test-accessibility (BOM 2026.06.01) uses.
+accessibilityTestFramework = "4.1.1"
 
 # Static analysis. Both run in `check`, locally and in CI, with zero findings.
 # ktlint-gradle is the de-facto Gradle front end for ktlint; it drives the
@@ -84,6 +89,7 @@ androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "a
 androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
 androidx-benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "benchmark" }
 androidx-test-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "uiautomator" }
+accessibility-test-framework = { group = "com.google.android.apps.common.testing.accessibility.framework", name = "accessibility-test-framework", version.ref = "accessibilityTestFramework" }
 leakcanary-android-instrumentation = { group = "com.squareup.leakcanary", name = "leakcanary-android-instrumentation", version.ref = "leakcanary" }
 
 # :tools:editor-bench only; see the version comments above.

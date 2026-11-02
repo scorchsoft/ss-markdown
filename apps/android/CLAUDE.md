@@ -55,6 +55,7 @@ gradle -p apps/android ktlintFormat            # fix formatting before committin
 gradle -p apps/android :app:assembleDebug
 gradle -p apps/android -Pssmarkdown.minifyDebug=true :app:assembleDebug   # hand-over build (below)
 gradle -p apps/android -Pssmarkdown.screenshots=true :app:testDebugUnitTest --tests '*ScreenshotTest*'
+gradle -p apps/android :app:testDebugUnitTest --tests '*AccessibilityScan*'   # the accessibility scanner over every screenshot surface (also in check)
 gradle -p apps/android :app:connectedDebugAndroidTest   # needs a device or emulator (LeakCanary checks every test)
 gradle -p apps/android :benchmark:connectedBenchmarkReleaseAndroidTest \
     -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=Macrobenchmark   # device/emulator

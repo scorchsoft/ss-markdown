@@ -270,8 +270,10 @@ private fun PlainRow(
         modifier =
             Modifier
                 .fillMaxWidth()
+                // A primary row (48 dp): "Top of document" sat at 46 dp, under the
+                // accessibility scanner's 48 dp touch target.
                 .heightIn(
-                    min = SS.dimens.row,
+                    min = SS.dimens.rowPrimary,
                 ).combinedClickableCompat(onClick)
                 .padding(horizontal = 16.dp),
     ) {

@@ -45,12 +45,17 @@ import java.io.File
  * review artefact, not a regression test, so it only runs when asked:
  *
  *     gradle -p apps/android :app:testDebugUnitTest -Pssmarkdown.screenshots=true --tests '*ScreenshotTest*'
+ *
+ * The list of surfaces is also the accessibility scanner's:
+ * [AccessibilityScanTest] inherits every test here and overrides [capture]
+ * to run the scanner's checks instead of writing a PNG, in the normal suite.
+ * A screen added here is scanned too.
  */
 @RunWith(ParameterizedRobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(qualifiers = "w412dp-h915dp-420dpi")
-class ScreenshotTest(
-    private val dark: Boolean,
+open class ScreenshotTest(
+    protected val dark: Boolean,
 ) {
     @get:Rule val rule = createAndroidComposeRule<ComponentActivity>()
 
@@ -272,12 +277,12 @@ class ScreenshotTest(
     // sheet). So every window the app has open is drawn, bottom to top, at
     // its position on screen. Writes `<theme>/<name>.png` and returns how
     // many windows were drawn into it.
-    private fun capture(name: String): Int {
+    protected open fun capture(name: String): Int {
         val decor = rule.activity.window.decorView
         check(decor.width > 0 && decor.height > 0) { "decor view not laid out" }
         val bitmap = Bitmap.createBitmap(decor.width, decor.height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-        val windows = rootViews().filter { it.isShown && it.width > 0 && it.height > 0 }
+        val windows = openWindows()
         windows.forEach { root ->
             val at = IntArray(2).also(root::getLocationOnScreen)
             canvas.withTranslation(at[0].toFloat(), at[1].toFloat()) { root.draw(this) }
@@ -288,15 +293,15 @@ class ScreenshotTest(
     }
 
     /**
-     * Every window's root view, in the order they were added (bottom to
-     * top). Android has no public API for this; WindowManagerGlobal keeps
-     * the list, and under Robolectric it is plain JVM reflection.
+     * The root view of every window on screen, in the order they were added
+     * (bottom to top). Android has no public API for this; WindowManagerGlobal
+     * keeps the list, and under Robolectric it is plain JVM reflection.
      */
-    private fun rootViews(): List<View> {
+    protected fun openWindows(): List<View> {
         val global = Class.forName("android.view.WindowManagerGlobal")
         val instance = global.getMethod("getInstance").invoke(null)
         val views = global.getDeclaredField("mViews").apply { isAccessible = true }.get(instance)
-        return (views as List<*>).filterIsInstance<View>()
+        return (views as List<*>).filterIsInstance<View>().filter { it.isShown && it.width > 0 && it.height > 0 }
     }
 
     /** The editor in [state] with the real Code pane, so shots show the app's syntax colouring. */

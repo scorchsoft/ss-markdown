@@ -10,9 +10,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -37,6 +39,14 @@ fun SSSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = SS.colors.chrome,
+        // Material's handle is a 32 dp pill whose expand and dismiss actions sit
+        // on the pill alone: a 32 dp wide target. The box gives it 48 dp
+        // without changing what is drawn.
+        dragHandle = {
+            Box(Modifier.widthIn(min = SS.dimens.iconButton), contentAlignment = Alignment.Center) {
+                BottomSheetDefaults.DragHandle()
+            }
+        },
     ) {
         Column(
             Modifier

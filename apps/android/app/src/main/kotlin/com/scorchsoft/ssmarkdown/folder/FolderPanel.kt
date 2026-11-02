@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -146,6 +147,19 @@ private fun EntryRow(
     // the tint alone is 1.2:1 on the panel.
     val current =
         if (row.current) Modifier.background(SS.colors.segmentTrack).semantics { selected = true } else Modifier
+    // A folder row opens nothing and has no menu, so it is a heading over its
+    // files, not a disabled button: TalkBack said "guides, disabled" and the
+    // accessibility scanner counted it as a 46 dp touch target.
+    val action =
+        if (row.isDirectory) {
+            Modifier.semantics(mergeDescendants = true) { heading() }
+        } else {
+            Modifier.combinedClickable(
+                role = Role.Button,
+                onLongClick = { onAction(FolderAction.RowMenu(row.uri)) },
+                onClick = { onAction(FolderAction.OpenFile(row.uri)) },
+            )
+        }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier =
@@ -153,12 +167,8 @@ private fun EntryRow(
                 .fillMaxWidth()
                 .heightIn(min = SS.dimens.row)
                 .then(current)
-                .combinedClickable(
-                    enabled = !row.isDirectory,
-                    role = Role.Button,
-                    onLongClick = { onAction(FolderAction.RowMenu(row.uri)) },
-                    onClick = { onAction(FolderAction.OpenFile(row.uri)) },
-                ).padding(start = 16.dp + IndentPerDepth * row.depth),
+                .then(action)
+                .padding(start = 16.dp + IndentPerDepth * row.depth),
     ) {
         Icon(
             if (row.isDirectory) AppIcons.folder else AppIcons.file,

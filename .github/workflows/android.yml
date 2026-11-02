@@ -232,7 +232,10 @@ jobs:
       # while typing through its InputConnection, each relaunch checked
       # (KillLoopTest, tools/kill-loop.sh; about 2 min). Gating: 50/50
       # recovered in run 41370278746, the first run in which it really ran.
-      - name: Kill loop (50 kills)
+      # Then the rotation matrix's `am kill` column: killed in the
+      # background, back with the text, selection, top line and mode
+      # (BackgroundKillTest, tools/background-kill.sh).
+      - name: Kill loop (50 kills) and background kill
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -243,6 +246,7 @@ jobs:
             adb install -r apps/android/app/build/outputs/apk/debug/app-debug.apk
             adb install -r -t apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
             bash apps/android/tools/kill-loop.sh 50
+            bash apps/android/tools/background-kill.sh
 
       - name: Preserve instrumented test reports
         if: always()

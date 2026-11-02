@@ -7,22 +7,34 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.core.content.FileProvider
+import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.scorchsoft.ssmarkdown.document.ActiveDocument
 import com.scorchsoft.ssmarkdown.editor.EditorAction
+import com.scorchsoft.ssmarkdown.editor.EditorOverlay
+import com.scorchsoft.ssmarkdown.editor.EditorUiState
+import com.scorchsoft.ssmarkdown.editor.LaunchRequest
 import com.scorchsoft.ssmarkdown.editor.MarkdownCodeView
+import com.scorchsoft.ssmarkdown.editor.MenuItem
+import com.scorchsoft.ssmarkdown.editor.PendingLeave
 import com.scorchsoft.ssmarkdown.editor.ViewMode
+import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
+import com.scorchsoft.ssmarkdown.find.FindAction
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.text.EditOp
 import leakcanary.DetectLeaksAfterTestSuccess
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 
 /**
  * The rotation matrix (docs/robustness.md §5a; rubric #3): "rotation,
@@ -39,13 +51,18 @@ import org.junit.runner.RunWith
  *   and redoes.
  *
  * Folding is a resize to the folded and unfolded window: `wm size` is that
- * change on an emulator without a hinge.
+ * change on an emulator without a hinge. The last row is "Don't keep
+ * activities": the one change that does build a new Activity, so it checks
+ * the same things on the new one.
  *
  * The other tests rotate there and back in the states where losing
  * something is likeliest: Split, Preview (no Code view; the Preview's own
  * scroll mapping is the Playwright anchor test's), the middle of a
- * keyboard composition, and the caret inside a table cell. Each rotates
- * only twice, so the whole class stays well under a minute or two.
+ * keyboard composition, and the caret inside a table cell. Find open, a
+ * sheet open and the unsaved prompt open are rotated and then recreated,
+ * and the open UI must still be there. Each rotates only twice, so the
+ * whole class stays well under a minute or two. The `am kill` column
+ * needs a process death between two runs: [BackgroundKillTest].
  */
 @RunWith(AndroidJUnit4::class)
 class RotationMatrixTest {
@@ -121,6 +138,7 @@ class RotationMatrixTest {
      */
     private fun row(
         name: String,
+        recreates: Boolean = false,
         change: () -> Unit,
     ) {
         val marker = "Row $name survives\n"
@@ -145,7 +163,14 @@ class RotationMatrixTest {
 
         change()
 
-        assertSame("$name recreated the Activity", activity, rule.activity)
+        if (recreates) {
+            assertNotSame("$name kept the Activity: nothing was recreated", activity, rule.activity)
+            assertTrue("$name left the old Activity alive", activity.isDestroyed)
+            // The new Code view has to attach and take the shared anchor before the scroll can be read.
+            rule.waitUntil(CHANGE_TIMEOUT) { onMain { codeView().anchorLine == TOP_LINE } }
+        } else {
+            assertSame("$name recreated the Activity", activity, rule.activity)
+        }
         assertSame("$name replaced the buffer", buffer, onMain { active().text })
         val after = snapshot()
         assertEquals("$name lost characters", before.text, after.text)
@@ -212,6 +237,29 @@ class RotationMatrixTest {
             shell("settings put system font_scale 1.0")
             awaitConfiguration { it.fontScale < LARGE_FONT }
         }
+        row("don't keep activities", recreates = true) { leaveWithActivityDestroyedAndReturn() }
+    }
+
+    /**
+     * "Don't keep activities": leave the app (onPause, onStop), have the
+     * Activity destroyed while it is in the background, and come back to a
+     * new instance built from its saved state. That is the lifecycle the
+     * developer setting produces on every departure, and what the system
+     * does to a backgrounded Activity under memory pressure.
+     *
+     * It is driven through [androidx.test.core.app.ActivityScenario.recreate]
+     * from the stopped state rather than by flipping
+     * `always_finish_activities` and pressing Home: the scenario then knows
+     * the new instance, so the rule's Compose hooks and LeakCanary follow
+     * it, and the run cannot depend on a launcher being on the emulator.
+     * The Activity is really destroyed and really rebuilt; the test checks both.
+     */
+    private fun leaveWithActivityDestroyedAndReturn() {
+        val scenario = rule.activityRule.scenario
+        scenario.moveToState(Lifecycle.State.CREATED)
+        scenario.recreate()
+        scenario.moveToState(Lifecycle.State.RESUMED)
+        rule.waitForIdle()
     }
 
     /**
@@ -364,11 +412,200 @@ class RotationMatrixTest {
         }
     }
 
+    private fun state(): EditorUiState =
+        onMain {
+            rule.activity
+                .graph()
+                .editor.uiState.value
+        }
+
+    private fun act(action: EditorAction) =
+        onMain {
+            rule.activity
+                .graph()
+                .editor
+                .onAction(action)
+        }
+
+    /** True once some window on screen shows [text] (sheets have windows of their own). */
+    private fun showing(text: String): Boolean = rule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
+
+    /**
+     * Rotation there and back, then "Don't keep activities"; [check] runs
+     * after each. The open UI under test lives in the editor's view model,
+     * which is process-scoped, so a new Activity must show it again.
+     */
+    private fun throughRotationAndRecreation(check: (String) -> Unit) {
+        rotateThereAndBack(check)
+        val before = rule.activity
+        leaveWithActivityDestroyedAndReturn()
+        assertNotSame("nothing was recreated", before, rule.activity)
+        assertTrue("the old Activity is still alive", before.isDestroyed)
+        check("don't keep activities")
+    }
+
+    /**
+     * Find open. robustness.md §5a rule 5: "Dialogs and sheets (find &
+     * replace text, the theme editor, unsaved prompts) keep their inputs
+     * … so a rotation never wipes a half-typed search". After each change
+     * the bar is still open with the same query, match list and current
+     * match ("3 of 11"), that match is still the selection, and the text
+     * and undo history are untouched.
+     */
+    @Test
+    fun findOpenSurvivesRotationAndRecreation() {
+        start((0 until LINES).joinToString("") { "Line $it of the rotation matrix.\n" })
+        selectMode(ViewMode.Code)
+        val marker = "Edited before find\n"
+        onMain {
+            val doc = active()
+            val end = doc.text.text.length
+            doc.surface.apply(listOf(EditOp(end, "", marker)), TextSelection.caret(0))
+        }
+        try {
+            act(EditorAction.Find(FindAction.Open))
+            act(EditorAction.Find(FindAction.Query(QUERY)))
+            rule.waitUntil(CHANGE_TIMEOUT) { state().find?.matches?.size == QUERY_MATCHES }
+            act(EditorAction.Find(FindAction.Next))
+            act(EditorAction.Find(FindAction.Next))
+            rule.waitForIdle()
+            val find = state().find ?: error("the find bar closed")
+            val match = find.currentMatch ?: error("no current match")
+            assertEquals(2, find.current)
+            val text = onMain { active().text.text.toString() }
+            val selection = TextSelection(match.start, match.end)
+            assertEquals("Next did not select the match", selection, onMain { active().surface.selection })
+            throughRotationAndRecreation { name ->
+                rule.waitForIdle()
+                assertEquals("$name changed the find bar", find, state().find)
+                assertTrue("$name: the query is not on screen", showing(QUERY))
+                assertEquals("$name lost characters", text, onMain { active().text.text.toString() })
+                assertEquals("$name moved off the match", selection, onMain { active().surface.selection })
+            }
+            onMain {
+                val doc = active()
+                assertTrue("find lost the undo history", doc.surface.undo())
+                assertEquals(text.removeSuffix(marker), doc.text.text.toString())
+                assertTrue("find lost the redo history", doc.surface.redo())
+                assertEquals(text, doc.text.text.toString())
+            }
+        } finally {
+            // The view model outlives this test: leave the bar closed for the next one.
+            act(EditorAction.Find(FindAction.Close))
+        }
+    }
+
+    /**
+     * A sheet open (⋮ → Display). By the same rule 5 it is not dismissed
+     * by a rotation or a recreated Activity: after each change it is still
+     * the overlay and still drawn, and the text and selection under it
+     * have not moved.
+     */
+    @Test
+    fun aSheetOpenSurvivesRotationAndRecreation() {
+        start((0 until LINES).joinToString("") { "Line $it of the rotation matrix.\n" })
+        selectMode(ViewMode.Code)
+        val title = rule.activity.getString(R.string.display_title)
+        val text = onMain { active().text.text.toString() }
+        val selection = onMain { active().surface.selection }
+        try {
+            act(EditorAction.ChooseMenuItem(MenuItem.Display))
+            rule.waitUntil(CHANGE_TIMEOUT) { showing(title) }
+            throughRotationAndRecreation { name ->
+                rule.waitUntil(CHANGE_TIMEOUT) { showing(title) }
+                assertEquals("$name dismissed the sheet", EditorOverlay.Display, state().overlay)
+                assertEquals("$name lost characters", text, onMain { active().text.text.toString() })
+                assertEquals("$name moved the selection", selection, onMain { active().surface.selection })
+            }
+        } finally {
+            act(EditorAction.DismissOverlay)
+        }
+    }
+
+    /**
+     * The unsaved prompt open: a real file (served by the app's own
+     * FileProvider, so no system picker is needed), an edit, then Back:
+     * "Save / Don't save / Keep editing". After each change the prompt is
+     * still up for the same departure, the document is still unsaved, and
+     * nothing in it moved; Keep editing then leaves the edit and its undo
+     * intact. The file is saved and a fresh draft opened at the end, so
+     * the next test starts where every other one does.
+     */
+    @Test
+    fun theUnsavedPromptSurvivesRotationAndRecreation() {
+        start("")
+        val context = rule.activity
+        val file = File(File(context.cacheDir, "shared"), "rotation-prompt.md")
+        file.parentFile?.mkdirs()
+        file.writeText("# Prompt\n\nOn disk.\n")
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file).toString()
+        onMain {
+            rule.activity
+                .graph()
+                .editor
+                .start(LaunchRequest(uri, writable = true, source = null, fromAnotherApp = false))
+        }
+        rule.waitUntil(CHANGE_TIMEOUT) { onMain { openUri() == uri } }
+        selectMode(ViewMode.Code)
+        val edit = "Typed, not saved.\n"
+        onMain {
+            val doc = active()
+            val end = doc.text.text.length
+            doc.surface.apply(listOf(EditOp(end, "", edit)), TextSelection.caret(end + edit.length))
+        }
+        rule.waitUntil(CHANGE_TIMEOUT) { state().isDirty }
+        val text = onMain { active().text.text.toString() }
+        val selection = onMain { active().surface.selection }
+        val keep = context.getString(R.string.leave_keep)
+        val prompt = EditorOverlay.DirtyPrompt(PendingLeave.Exit)
+        try {
+            act(EditorAction.BackPressed)
+            rule.waitUntil(CHANGE_TIMEOUT) { showing(keep) }
+            assertEquals(prompt, state().overlay)
+            throughRotationAndRecreation { name ->
+                rule.waitUntil(CHANGE_TIMEOUT) { showing(keep) }
+                assertEquals("$name dismissed the prompt", prompt, state().overlay)
+                assertTrue("$name lost the unsaved state", state().isDirty)
+                assertEquals("$name lost characters", text, onMain { active().text.text.toString() })
+                assertEquals("$name moved the selection", selection, onMain { active().surface.selection })
+            }
+            act(EditorAction.KeepEditing)
+            rule.waitForIdle()
+            assertEquals(null, state().overlay)
+            onMain {
+                val doc = active()
+                assertTrue("the prompt lost the undo history", doc.surface.undo())
+                assertEquals(text.removeSuffix(edit), doc.text.text.toString())
+                assertTrue("the prompt lost the redo history", doc.surface.redo())
+                assertEquals(text, doc.text.text.toString())
+            }
+        } finally {
+            if (state().overlay != null) act(EditorAction.KeepEditing)
+            act(EditorAction.SaveTapped)
+            rule.waitUntil(CHANGE_TIMEOUT) { !state().isDirty }
+            act(EditorAction.ChooseMenuItem(MenuItem.New))
+            rule.waitUntil(CHANGE_TIMEOUT) { onMain { openUri()?.let { DocumentUri(it).isDraft } == true } }
+        }
+        assertEquals(text, file.readText())
+    }
+
+    private fun openUri(): String? =
+        rule.activity
+            .graph()
+            .editor.active
+            ?.open
+            ?.uri
+            ?.value
+
     private companion object {
         const val TABLE_ROWS = 20
         const val CHANGE_TIMEOUT = 10_000L
         const val LINES = 300
         const val TOP_LINE = 80
         const val LARGE_FONT = 1.5f
+
+        /** "Line 7" and "Line 70" to "Line 79" in the first 300 lines: 11 matches, none in the marker. */
+        const val QUERY = "Line 7"
+        const val QUERY_MATCHES = 11
     }
 }

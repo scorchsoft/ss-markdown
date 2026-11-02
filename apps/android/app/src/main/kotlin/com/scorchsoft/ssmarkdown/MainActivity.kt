@@ -3,6 +3,9 @@ package com.scorchsoft.ssmarkdown
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.ReportDrawnWhen
 import androidx.activity.compose.setContent
@@ -110,9 +113,17 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        // The keyboard goes with the window, so the input method has nothing of this Activity left to serve.
+        currentFocus?.let { focused ->
+            getSystemService(InputMethodManager::class.java)?.hideSoftInputFromWindow(focused.windowToken, 0)
+        }
         if (previewCreated) {
             graph.editor.preview.detach(previewView)
-            previewView.release()
+            // Released once the window is gone, not now: taking the focused WebView out of a live window moved
+            // focus to the Compose root, which InputMethodManager then kept as its next served view after the
+            // window was removed, holding this destroyed Activity (LeakCanary, StripKeepsKeyboardTest in Preview).
+            val preview = previewView
+            Handler(Looper.getMainLooper()).post { preview.release() }
         }
         super.onDestroy()
     }

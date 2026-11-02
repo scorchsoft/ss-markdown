@@ -241,6 +241,7 @@ private fun messageText(message: UserMessage): String =
         MessageKind.ReplacedAll -> stringResource(R.string.msg_replaced_all, message.argument)
         MessageKind.Restored -> stringResource(R.string.msg_restored)
         MessageKind.Renamed -> stringResource(R.string.msg_renamed)
+        MessageKind.SaveBeforeRename -> stringResource(R.string.msg_save_before_rename)
         MessageKind.Deleted -> stringResource(R.string.msg_deleted)
         MessageKind.Duplicated -> stringResource(R.string.msg_duplicated)
         MessageKind.ActionFailed -> stringResource(R.string.msg_failed)

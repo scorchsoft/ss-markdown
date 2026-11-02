@@ -149,6 +149,7 @@
     <string name="msg_replaced_all">Replaced %1$s</string>
     <string name="msg_restored">Restored · your previous text is in History</string>
     <string name="msg_renamed">Renamed</string>
+    <string name="msg_save_before_rename">Save your changes first, then rename</string>
     <string name="msg_deleted">Deleted · its history is kept</string>
     <string name="msg_duplicated">Duplicated</string>
     <string name="msg_failed">That didn\'t work. Nothing was changed.</string>

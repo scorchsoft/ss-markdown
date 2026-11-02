@@ -435,6 +435,7 @@ enum class MessageKind {
     ReplacedAll,
     Restored,
     Renamed,
+    SaveBeforeRename,
     Deleted,
     Duplicated,
     ActionFailed,

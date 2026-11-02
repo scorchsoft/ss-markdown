@@ -129,6 +129,9 @@ class EditorViewModel(
                     newDraft()
                 }
             }
+            // Undo history kept for documents open when the process died is kept only for the ones
+            // reopened (ADR 0016). Launched after the opens above, so it waits behind them.
+            deps.scope.launch { deps.store.releaseUnclaimedHistory() }
         }
     }
 

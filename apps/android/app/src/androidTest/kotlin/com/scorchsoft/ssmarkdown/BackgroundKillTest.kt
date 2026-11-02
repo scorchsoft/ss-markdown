@@ -28,9 +28,8 @@ import java.io.File
  * the process dies while the app is in the background, and the user comes
  * back. What comes back is what edge-cases.md promises for "Process death
  * in the background": the same file, view and position, with every
- * character. The undo stack is in memory only and is not promised across a
- * process death (robustness.md §1: "Process death is handled by the
- * journal"), so this test does not ask for it.
+ * character, and the undo history (ADR 0016): Undo takes back the last
+ * edit made before leaving, and Redo puts it back.
  *
  * Two instrumentation runs, because the death ends the first one:
  * `apps/android/tools/background-kill.sh` runs [leaveAndDie] and then
@@ -119,8 +118,13 @@ class BackgroundKillTest {
             assertEquals("characters were lost", text, doc.text.text.toString())
             assertEquals("the view mode changed", ViewMode.Code, vm.uiState.value.mode)
             assertEquals("the selection moved", selection, doc.surface.selection)
+            // The journal kept the undo steps (ADR 0016): the last edit before leaving undoes alone.
+            assertTrue("the undo history did not come back", doc.surface.undo())
+            assertEquals("Undo did not take back the last edit", TEXT, doc.text.text.toString())
+            assertTrue("the redo step did not come back", doc.surface.redo())
+            assertEquals("Redo did not put it back", text, doc.text.text.toString())
         }
-        Log.i(TAG, "came back with every character, the selection and line $TOP_LINE")
+        Log.i(TAG, "came back with every character, the selection, line $TOP_LINE, Undo and Redo")
         scenario.close()
         expectedFile.delete()
     }

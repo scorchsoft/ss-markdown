@@ -29,7 +29,8 @@ import java.util.concurrent.Executor
  * gesture. [typeface] is the code font; null keeps the system monospace.
  * [onViewReady] hands the view to a host that needs its
  * imperative API ([MarkdownCodeView.scrollToLine],
- * [MarkdownCodeView.requestFlushComposing], [MarkdownCodeView.applyEdit]).
+ * [MarkdownCodeView.requestFlushComposing], [MarkdownCodeView.applyEdit]),
+ * already bound to [document].
  */
 @Composable
 fun MarkdownEditor(
@@ -50,6 +51,11 @@ fun MarkdownEditor(
         factory = { context ->
             MarkdownCodeView(context).also { view ->
                 if (background != null) view.backgroundExecutor = background
+                // Bound before anyone gets the view: a host that restores a remembered
+                // cursor in onViewReady must find this document, not the empty placeholder
+                // (a cold start with a remembered cursor crashed; edge-cases, kill loop).
+                bound.document = document
+                view.setDocument(document)
                 onViewReady(view)
             }
         },

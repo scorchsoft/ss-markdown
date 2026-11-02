@@ -490,7 +490,9 @@ set in Settings.
 - The tree shows `.md`, `.markdown`, `.mdx` and `.txt` files, with
   "show all files" in the folder ⋮ menu.
 - Search finds files by name.
-- Dirty files show a dot. Collapsed folders show "n unsaved".
+- Dirty files show a dot. Collapsed folders show "Unsaved: n" in a
+  needs-you red tag (`needsYouText` on `needsYouBg`, AA in both themes);
+  the amber tag is kept for "changed in another app".
 - A "n files unsaved · Save all" row exists only while n > 0.
 - Several dirty buffers are held in memory, with no tabs. The drawer and
   the Navigator are the switchers.

@@ -16,6 +16,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -25,6 +26,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
+import com.scorchsoft.ssmarkdown.core.ui.SSColors
 import com.scorchsoft.ssmarkdown.editor.EditorAction
 import com.scorchsoft.ssmarkdown.editor.EditorBanner
 import com.scorchsoft.ssmarkdown.editor.OpenProblem
@@ -179,6 +181,17 @@ private fun OpenFailedBanner(
 /** A callout's meaning: its colours and its glyph. */
 internal enum class Tone { Info, Caution, Error }
 
+/** The text colour and its tint for this tone, in [colors]. */
+internal fun Tone.colorsIn(colors: SSColors): Pair<Color, Color> =
+    when (this) {
+        Tone.Info -> colors.info to colors.infoBg
+
+        Tone.Caution -> colors.caution to colors.cautionBg
+
+        // The text-safe red on its own tint: needsYou itself is 2.8:1 on the dark track (UX-17).
+        Tone.Error -> colors.needsYouText to colors.needsYouBg
+    }
+
 /** The glyph for [tone]: a circled i, a triangle, an octagon. */
 internal fun Tone.icon(): ImageVector =
     when (this) {
@@ -197,15 +210,7 @@ internal fun Callout(
     actions: @Composable () -> Unit,
 ) {
     val colors = SS.colors
-    val (fg, bg) =
-        when (tone) {
-            Tone.Info -> colors.info to colors.infoBg
-
-            Tone.Caution -> colors.caution to colors.cautionBg
-
-            // The text-safe red on its own tint: needsYou itself is 2.8:1 on the dark track (UX-17).
-            Tone.Error -> colors.needsYouText to colors.needsYouBg
-        }
+    val (fg, bg) = tone.colorsIn(colors)
     Column(
         modifier =
             modifier

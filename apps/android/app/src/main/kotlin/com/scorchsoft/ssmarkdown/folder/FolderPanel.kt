@@ -32,7 +32,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
+import com.scorchsoft.ssmarkdown.editor.chrome.Tone
 import com.scorchsoft.ssmarkdown.editor.chrome.UnsavedDot
+import com.scorchsoft.ssmarkdown.editor.chrome.colorsIn
 import com.scorchsoft.ssmarkdown.ui.AppIcons
 
 private val IndentPerDepth = 16.dp
@@ -179,8 +181,10 @@ private fun EntryRow(
         )
         // A drawn dot labelled "Unsaved", so the row reads "notes.md, Unsaved" (UX-6).
         if (row.dirty) UnsavedDot(Modifier.padding(end = 8.dp))
-        if (row.changedOutside) Tag(stringResource(R.string.folder_changed))
-        if (row.isDirectory && row.unsavedInside > 0) Tag(stringResource(R.string.folder_unsaved, row.unsavedInside))
+        if (row.changedOutside) Tag(stringResource(R.string.folder_changed), FolderTag.ChangedOutside)
+        if (row.isDirectory && row.unsavedInside > 0) {
+            Tag(stringResource(R.string.folder_unsaved, row.unsavedInside), FolderTag.Unsaved)
+        }
         if (!row.isDirectory) {
             IconButton(onClick = { onAction(FolderAction.RowMenu(row.uri)) }) {
                 Icon(AppIcons.more, stringResource(R.string.nav_row_menu, row.name), tint = SS.colors.inkMuted)
@@ -189,17 +193,33 @@ private fun EntryRow(
     }
 }
 
+/**
+ * A row tag and the tone it is drawn in: amber means "changed in another
+ * app" and nothing else, so unsaved work inside a folder is needs-you red
+ * like every other unsaved mark (quality-bar §3).
+ */
+internal enum class FolderTag(
+    val tone: Tone,
+) {
+    ChangedOutside(Tone.Caution),
+    Unsaved(Tone.Error),
+}
+
 @Composable
-private fun Tag(text: String) {
+private fun Tag(
+    text: String,
+    kind: FolderTag,
+) {
+    val (fg, bg) = kind.tone.colorsIn(SS.colors)
     Text(
         text,
         style = SS.type.caption,
-        color = SS.colors.caution,
+        color = fg,
         modifier =
             Modifier
                 .padding(
                     end = 8.dp,
-                ).background(SS.colors.cautionBg, RoundedCornerShape(4.dp))
+                ).background(bg, RoundedCornerShape(4.dp))
                 .padding(horizontal = 6.dp, vertical = 1.dp),
     )
 }

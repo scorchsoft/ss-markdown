@@ -31,7 +31,9 @@
     "preparePrint": { "type": "preparePrint", "requestId": 4 },
     "finishPrint": { "type": "finishPrint" },
     "exportHtml": { "type": "exportHtml", "requestId": 8, "fromLine": 2, "toLine": 9, "maxChars": 400000 },
-    "flush": { "type": "flush" }
+    "flush": { "type": "flush" },
+    "find": { "type": "find", "rev": 6, "ranges": [3, 9, 20, 26], "current": 1, "reveal": true },
+    "findKeep": { "type": "find", "rev": 6, "current": 0, "reveal": true }
   },
   "page": [
     { "kotlin": "Ready", "json": { "type": "ready", "version": 1 } },

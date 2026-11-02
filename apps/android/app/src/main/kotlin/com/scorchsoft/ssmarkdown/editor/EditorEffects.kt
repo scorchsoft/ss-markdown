@@ -23,6 +23,7 @@ internal object EditorEffects {
                 if (action.mode != ViewMode.Code) vm.preview.scrollTo(vm.anchorLine.value)
                 if (action.mode != ViewMode.Split) vm.update { it.copy(preview = it.preview.copy(editing = false)) }
                 vm.onReadingPaneChanged()
+                vm.find.onModeChanged()
             }
 
             EditorAction.CopyTapped -> {
@@ -216,6 +217,9 @@ internal object EditorEffects {
             }
 
             is EditorAction.Find -> {
+                // Find moves the Code pane to each match and, in Split, the Preview with it: Code leads,
+                // so the Preview following its scroll can never pull the Code pane off the match.
+                if (vm.uiState.value.mode == ViewMode.Split) vm.scrollLink.touched(Pane.Code)
                 vm.find.onAction(action.action)
             }
 

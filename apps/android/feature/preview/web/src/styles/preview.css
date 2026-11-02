@@ -173,6 +173,26 @@ mark {
     background: #fff1b8;
     color: #1c1c1e;
 }
+/* Find matches (page/findMarks.ts), quality-bar's Highlight token: yellow,
+   the current one a stronger yellow with an ink underline, since a
+   highlight cannot take an outline. Dark ink on both, in every theme. */
+::highlight(ssm-find) {
+    background-color: #fff1b8;
+    color: #1c1c1e;
+}
+::highlight(ssm-find-current) {
+    background-color: #f5c542;
+    color: #1c1c1e;
+    text-decoration: underline 2px #1c1c1e;
+}
+@media print {
+    ::highlight(ssm-find),
+    ::highlight(ssm-find-current) {
+        background-color: transparent;
+        color: inherit;
+        text-decoration: none;
+    }
+}
 abbr[title] {
     text-decoration: underline dotted;
 }

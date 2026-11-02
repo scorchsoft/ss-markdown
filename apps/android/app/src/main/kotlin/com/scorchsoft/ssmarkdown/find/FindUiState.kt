@@ -8,6 +8,8 @@ import androidx.compose.runtime.Immutable
  *
  * @property current index into [matches] of the highlighted match, or -1.
  * @property replaceOpen the "⇄ Replace" toggle: row 2 shows only once it is opened.
+ * @property wrapped set by the Next or Previous that wrapped round, so the
+ *   bar can say so quietly; the next step, query or search clears it.
  */
 @Immutable
 data class FindUiState(
@@ -19,6 +21,7 @@ data class FindUiState(
     val capped: Boolean = false,
     val current: Int = -1,
     val invalidPattern: Boolean = false,
+    val wrapped: FindWrap? = null,
 ) {
     /** The highlighted match, if any. */
     val currentMatch: FindMatch? get() = matches.getOrNull(current)
@@ -30,7 +33,7 @@ data class FindUiState(
     ): FindUiState =
         when (result) {
             FindResult.InvalidPattern -> {
-                copy(matches = emptyList(), current = -1, invalidPattern = true, capped = false)
+                copy(matches = emptyList(), current = -1, invalidPattern = true, capped = false, wrapped = null)
             }
 
             is FindResult.Found -> {
@@ -43,13 +46,37 @@ data class FindUiState(
                     } else {
                         0
                     }
-                copy(matches = result.matches, capped = result.capped, current = index, invalidPattern = false)
+                copy(
+                    matches = result.matches,
+                    capped = result.capped,
+                    current = index,
+                    invalidPattern = false,
+                    wrapped = null,
+                )
             }
         }
 
-    /** The next match, wrapping round. */
-    fun next(): FindUiState = if (matches.isEmpty()) this else copy(current = (current + 1).mod(matches.size))
+    /** The next match, wrapping round to the first after the last. */
+    fun next(): FindUiState {
+        if (matches.isEmpty()) return this
+        val index = (current + 1).mod(matches.size)
+        return copy(current = index, wrapped = if (index == 0 && current >= 0) FindWrap.ToFirst else null)
+    }
 
-    /** The previous match, wrapping round. */
-    fun previous(): FindUiState = if (matches.isEmpty()) this else copy(current = (current - 1).mod(matches.size))
+    /** The previous match, wrapping round to the last before the first. */
+    fun previous(): FindUiState {
+        if (matches.isEmpty()) return this
+        // With none current yet, Previous starts from the end rather than one before it.
+        val index = if (current < 0) matches.size - 1 else (current - 1).mod(matches.size)
+        return copy(current = index, wrapped = if (current == 0) FindWrap.ToLast else null)
+    }
+}
+
+/** Which way the last Next or Previous wrapped round the document. */
+enum class FindWrap {
+    /** Next went past the last match, back to the first. */
+    ToFirst,
+
+    /** Previous went before the first match, round to the last. */
+    ToLast,
 }

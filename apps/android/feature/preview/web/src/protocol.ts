@@ -133,6 +133,20 @@ export type HostMessage =
           readonly fromLine: number;
           readonly toLine: number;
           readonly maxChars: number;
+      }
+    /**
+     * Find & replace: the matches, as source offsets in the text at revision
+     * [rev], flat `[start0, end0, start1, end1, …]`; absent keeps the ones
+     * the page holds, empty clears them. [current] is an index or -1; with
+     * [reveal] the page scrolls it into view. A stale [rev] is dropped:
+     * Kotlin searches again after every change and sends fresh matches.
+     */
+    | {
+          readonly type: "find";
+          readonly rev: number;
+          readonly ranges?: readonly number[];
+          readonly current: number;
+          readonly reveal: boolean;
       };
 
 /**

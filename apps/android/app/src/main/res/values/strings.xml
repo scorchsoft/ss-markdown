@@ -215,6 +215,9 @@
     <string name="find_count">%1$d of %2$d</string>
     <string name="find_count_capped">%1$d of %2$d+</string>
     <string name="find_none">No matches</string>
+    <!-- After the count when Next or Previous wrapped round: "1 of 12, from the top". -->
+    <string name="find_wrapped_first">%1$s, from the top</string>
+    <string name="find_wrapped_last">%1$s, from the end</string>
     <string name="find_invalid">Not a valid pattern</string>
     <string name="find_previous">Previous match</string>
     <string name="find_next">Next match</string>

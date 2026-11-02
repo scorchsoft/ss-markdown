@@ -70,6 +70,9 @@ class PreviewSession(
     private var bound: ActiveDocument? = null
     private var applyingPageEdit = false
 
+    /** The find matches the page paints, kept so a page that loads again paints them too; null while none. */
+    private var findMarks: FindMarks? = null
+
     /** Between `onPause` and `onResume`: a page edit arriving now is made durable at once (DS-14). */
     private var paused = false
 
@@ -84,6 +87,8 @@ class PreviewSession(
         // Typing still waiting in the page goes out first, stamped with the old epoch (DS-13).
         send(HostMessage.Flush)
         bound?.changes = null
+        // Matches are offsets into the old document: the next one starts with none.
+        findMarks = null
         bound = document
         retired = editor
         editor = document?.let(::editorFor)
@@ -228,6 +233,31 @@ class PreviewSession(
     /** Scrolls the page so [line] is at the top. */
     fun scrollTo(line: Int) = send(HostMessage.ScrollToLine(line))
 
+    /**
+     * Find & replace (docs/ux-spec.md, "Find & replace"): the page paints
+     * the matches `[starts[i], ends[i])` on the rendered text and marks
+     * [current]; with [reveal] it scrolls it into view. Null arrays keep the
+     * matches it has (Next, Previous). Offsets are in the text as it is now.
+     */
+    fun find(
+        starts: IntArray?,
+        ends: IntArray?,
+        current: Int,
+        reveal: Boolean,
+    ) {
+        val marks =
+            if (starts != null && ends != null) FindMarks(starts, ends, current) else findMarks?.copy(current = current)
+        findMarks = marks ?: return
+        send(HostMessage.Find(rev, starts, ends, current, reveal))
+    }
+
+    /** The find bar closed: the page's matches go. */
+    fun clearFind() {
+        if (findMarks == null) return
+        findMarks = null
+        send(HostMessage.Find(rev, IntArray(0), IntArray(0), current = -1, reveal = false))
+    }
+
     /** A strip key in Preview. */
     fun format(action: FormatAction) {
         editor?.format(action)
@@ -244,6 +274,8 @@ class PreviewSession(
     private fun open() {
         if (sender == null) return
         editor?.open(host.anchorLine)
+        // A load clears the page's matches: a page that loads again (a new view, a resync) gets them back.
+        findMarks?.let { send(HostMessage.Find(rev, it.starts, it.ends, it.current, reveal = false)) }
     }
 
     /** A change from the Code pane, the strip, undo or replace: the page hears it as line edits. */
@@ -356,6 +388,15 @@ class PreviewSession(
         mime: String,
         bytes: ByteArray,
     ) = exports.onResult(requestId, bytes)
+
+    /** The matches last sent to the page. */
+    private class FindMarks(
+        val starts: IntArray,
+        val ends: IntArray,
+        val current: Int,
+    ) {
+        fun copy(current: Int) = FindMarks(starts, ends, current)
+    }
 
     private companion object {
         /** A switch to Preview attaches the page within a frame or two; this is generous. */

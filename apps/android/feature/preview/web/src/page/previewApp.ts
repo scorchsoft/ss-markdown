@@ -9,6 +9,7 @@ import { RenderController } from "./controller";
 import { Editor } from "./editing/editor";
 import { exportHtml, type FormattedCopy } from "./exportHtml";
 import { exportDiagram } from "./exportImage";
+import { FindMarks } from "./findMarks";
 import { Gestures } from "./gestures";
 import { MermaidRunner } from "./mermaidRunner";
 import { breadcrumb, fillTocs } from "./outline";
@@ -26,6 +27,7 @@ export class PreviewApp {
     private readonly controller: RenderController;
     private readonly mermaid = new MermaidRunner();
     private readonly editor: Editor;
+    private readonly find: FindMarks;
     private settings: PreviewSettings = DEFAULT_SETTINGS;
     private anchorLine: number | null = null;
     private lastTop = -1;
@@ -53,6 +55,7 @@ export class PreviewApp {
                 this.editor.onRendered(views);
                 fillTocs(document, this.controller.outline());
                 this.restoreAnchor();
+                this.find.onRendered();
                 this.reportTop(true);
                 post({
                     type: "rendered",
@@ -65,8 +68,10 @@ export class PreviewApp {
                 this.editor.onRendered([view]);
                 this.mermaid.enqueueIn(view.el);
                 fillTocs(view.el, this.controller.outline());
+                this.find.onRendered();
             },
         });
+        this.find = new FindMarks(this.controller);
         this.editor = new Editor(this.controller, post);
         worker.onerror = (e) => post({ type: "error", message: `Render worker failed: ${e.message}` });
         new Gestures({
@@ -78,7 +83,14 @@ export class PreviewApp {
         });
         window.addEventListener("scroll", () => this.onScroll(), { passive: true });
         for (const type of ["pointerdown", "wheel", "keydown", "touchstart"]) {
-            window.addEventListener(type, () => (this.pinned = null), { passive: true, capture: true });
+            window.addEventListener(
+                type,
+                () => {
+                    this.pinned = null;
+                    this.find.onReaderInput();
+                },
+                { passive: true, capture: true },
+            );
         }
         // Going to the background: typing still waiting for its pause goes now (DS-14).
         document.addEventListener("visibilitychange", () => {
@@ -99,6 +111,7 @@ export class PreviewApp {
                 this.editor.end();
                 this.renderStarted = performance.now();
                 this.anchorLine = m.anchorLine ?? null;
+                this.find.clear();
                 this.controller.load(m.text ?? "", m.rev);
                 break;
             case "edit":
@@ -129,6 +142,8 @@ export class PreviewApp {
                 this.land(m.line, m.smooth ?? false);
                 // Not rendered yet: land again, exactly, once its section arrives.
                 if (this.controller.viewAtLine(m.line)?.html === null) this.anchorLine = m.line;
+                // Split following the Code pane must not scroll a find match just revealed out of view.
+                this.find.afterHostScroll();
                 break;
             case "tableNav":
                 this.editor.moveCell(m.direction);
@@ -151,6 +166,9 @@ export class PreviewApp {
                 break;
             case "exportHtml":
                 void this.exportHtml(m.requestId, m.fromLine, m.toLine, m.maxChars);
+                break;
+            case "find":
+                this.findMatches(m);
                 break;
             case "finishPrint":
                 this.printRequest++;
@@ -183,6 +201,18 @@ export class PreviewApp {
                 this.resync(outcome.reason);
                 break;
         }
+    }
+
+    /** Kotlin's find matches, mapped over any page edits still in flight; dropped when stale. */
+    private findMatches(m: Extract<HostMessage, { type: "find" }>): void {
+        if (this.controller.sync.fromHost(0, m.rev) === null) return;
+        let ranges: number[] | null = null;
+        if (m.ranges) {
+            ranges = [];
+            for (const offset of m.ranges) ranges.push(this.controller.sync.fromHost(offset, m.rev) ?? offset);
+        }
+        if (ranges?.length === 0) this.find.clear();
+        else this.find.set(ranges, m.current, m.reveal);
     }
 
     /** Out of step with Kotlin: ask for its text. Every edit made here has already been sent. */

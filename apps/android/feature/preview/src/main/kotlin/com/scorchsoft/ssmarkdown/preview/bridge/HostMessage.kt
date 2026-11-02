@@ -379,6 +379,40 @@ sealed interface HostMessage {
         override fun writeTo(json: JSONObject) = Unit
     }
 
+    /**
+     * Find & replace in Preview (docs/ux-spec.md, "Find & replace"): the
+     * matches `[starts[i], ends[i])` as source offsets in the text at
+     * revision [rev], or null to keep the ones the page holds (a Next or
+     * Previous); empty arrays clear them. [current] is an index or -1, and
+     * with [reveal] the page scrolls it into view. The page paints them on
+     * the rendered text through the inline source map and drops a stale
+     * [rev]: the host searches again after every change.
+     */
+    class Find(
+        val rev: Int,
+        val starts: IntArray?,
+        val ends: IntArray?,
+        val current: Int,
+        val reveal: Boolean,
+    ) : HostMessage {
+        override val type = "find"
+
+        init {
+            require(starts?.size == ends?.size) { "starts and ends differ in length" }
+        }
+
+        override fun writeTo(json: JSONObject) {
+            json.put("rev", rev).put("current", current).put("reveal", reveal)
+            if (starts != null && ends != null) {
+                val ranges = JSONArray()
+                for (i in starts.indices) ranges.put(starts[i]).put(ends[i])
+                json.put("ranges", ranges)
+            }
+        }
+
+        override fun toString(): String = "Find(rev=$rev, matches=${starts?.size}, current=$current, reveal=$reveal)"
+    }
+
     /** Returns the page to its virtualised reading state after printing. */
     data object FinishPrint : HostMessage {
         override val type = "finishPrint"

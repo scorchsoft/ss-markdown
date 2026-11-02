@@ -26,7 +26,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.R
@@ -39,6 +49,10 @@ import com.scorchsoft.ssmarkdown.ui.semanticsLabel
  * unsaved dot and Save stay visible (ux-spec "Find & replace"). Row 1:
  * query, "3 of 12", previous / next, ⇄ Replace, ✕. Row 2 only once
  * Replace is opened. Options: Match case · Whole word · `.*`.
+ *
+ * Enter (and the keyboard's search key) is Next, Shift+Enter Previous;
+ * neither closes the keyboard. A step that wrapped round shows a quiet ↻
+ * before the count, which TalkBack reads as "from the top" or "from the end".
  */
 @Composable
 fun FindBar(
@@ -59,13 +73,27 @@ fun FindBar(
                 colors = fieldColors(),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { onAction(FindAction.Next) }),
-                modifier = Modifier.weight(1f).focusRequester(focus),
+                modifier =
+                    Modifier.weight(1f).focusRequester(focus).onPreviewKeyEvent { event ->
+                        // A hardware Enter steps through the matches; Shift goes back. Both keys, down and up.
+                        if (event.key != Key.Enter && event.key != Key.NumPadEnter) return@onPreviewKeyEvent false
+                        if (event.type == KeyEventType.KeyDown) {
+                            onAction(if (event.isShiftPressed) FindAction.Previous else FindAction.Next)
+                        }
+                        true
+                    },
             )
+            val count = countText(state)
+            val spoken = spokenCount(state, count)
             Text(
-                countText(state),
+                if (state.wrapped != null && count.isNotEmpty()) "↻ $count" else count,
                 style = SS.type.meta,
                 color = if (state.invalidPattern) SS.colors.needsYouText else SS.colors.inkMuted,
-                modifier = Modifier.padding(horizontal = 6.dp),
+                modifier =
+                    Modifier.padding(horizontal = 6.dp).semantics {
+                        liveRegion = LiveRegionMode.Polite
+                        contentDescription = spoken
+                    },
             )
             IconButton(onClick = {
                 onAction(FindAction.Previous)
@@ -157,6 +185,17 @@ private fun countText(state: FindUiState): String =
         state.matches.isEmpty() -> stringResource(R.string.find_none)
         state.capped -> stringResource(R.string.find_count_capped, state.current + 1, state.matches.size)
         else -> stringResource(R.string.find_count, state.current + 1, state.matches.size)
+    }
+
+@Composable
+private fun spokenCount(
+    state: FindUiState,
+    count: String,
+): String =
+    when (state.wrapped) {
+        null -> count
+        FindWrap.ToFirst -> stringResource(R.string.find_wrapped_first, count)
+        FindWrap.ToLast -> stringResource(R.string.find_wrapped_last, count)
     }
 
 @Composable

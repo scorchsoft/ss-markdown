@@ -92,6 +92,7 @@ export const HOST_TYPES: ReadonlySet<string> = new Set<string>([
     "finishPrint",
     "exportHtml",
     "flush",
+    "find",
 ]);
 
 /** Page messages whose offsets belong to one load, so they carry its epoch. */

@@ -205,7 +205,19 @@ The Replace row opens with a "⇄ Replace" toggle at the end of row 1.
   and All.
 - **Options:** Match case · Whole word · `.*` (regex).
 - Matches are highlighted, and the current match has a stronger fill
-  and an outline.
+  and an outline (in Preview, an underline: the page cannot outline a
+  highlight).
+- Typing a query makes the first match **at or after the cursor**
+  current. **Next / Previous** (the arrows, **Enter** or the keyboard's
+  search key for Next, **Shift+Enter** for Previous) step through the
+  matches and wrap round; a step that wraps puts a quiet ↻ before the
+  count ("from the top" / "from the end" to TalkBack). Stepping never
+  closes the keyboard.
+- Each step **moves every pane on screen to the match**: Code selects it
+  (so typing replaces it) and scrolls the least distance that shows it,
+  with a little context, above the keyboard; Preview scrolls it a third
+  of the way down unless it is already in view. In Split both move, and
+  the Code pane leads.
 - **Replace all is one undo step** and records a History checkpoint.
 - In Preview, matches highlight in the rendered text, and replacing maps
   back to the source.

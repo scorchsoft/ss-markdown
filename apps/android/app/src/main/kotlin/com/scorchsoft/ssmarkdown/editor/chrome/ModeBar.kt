@@ -50,22 +50,32 @@ fun ModeBar(
         HorizontalDivider(thickness = SS.dimens.hairline, color = SS.colors.border)
         // A floor, not a height: the segments grow with the font (UX-7, UX-8).
         Box(Modifier.fillMaxWidth().heightIn(min = SS.dimens.bottomBar), contentAlignment = Alignment.Center) {
-            ModeSwitcher(mode, onSelect, iconOnly, modes)
+            ModeSwitcher(mode, onSelect, iconOnly, modes, withIcons = true)
         }
     }
 }
 
-/** The segmented switcher alone, for the landscape bar. */
+/**
+ * The segmented switcher alone, for the landscape bar. [withIcons] puts a
+ * glyph before each label (the bottom bar); the 48 dp landscape bar keeps
+ * labels only, where the room is tight.
+ */
 @Composable
 fun ModeSwitcher(
     mode: ViewMode,
     onSelect: (ViewMode) -> Unit,
     iconOnly: Boolean,
     modes: List<ViewMode> = ViewMode.entries,
+    withIcons: Boolean = false,
 ) {
     val labels = modes.map { modeLabel(it) }
     if (!iconOnly) {
-        SSSegmentedControl(options = labels, selectedIndex = modes.indexOf(mode), onSelect = { onSelect(modes[it]) })
+        SSSegmentedControl(
+            options = labels,
+            selectedIndex = modes.indexOf(mode),
+            onSelect = { onSelect(modes[it]) },
+            icons = if (withIcons) modes.map(::modeIcon) else null,
+        )
         return
     }
     Row(

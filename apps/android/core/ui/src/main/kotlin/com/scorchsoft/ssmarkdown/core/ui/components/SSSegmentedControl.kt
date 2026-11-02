@@ -6,13 +6,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
@@ -21,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -34,6 +38,8 @@ private val SegmentGap = 2.dp
 private val TrackShape = RoundedCornerShape(12.dp)
 private val SegmentShape = RoundedCornerShape(9.dp)
 private val LabelPadding = 12.dp
+private val IconSize = 18.dp
+private val IconGap = 6.dp
 
 /** The design canvas's segment width: what each segment gets when there is room. */
 private val PreferredSegmentWidth = 104.dp
@@ -55,6 +61,9 @@ private val PreferredSegmentWidth = 104.dp
  * - when a label cannot fit its share on one line, at a large font or in
  *   a narrow pane, the control becomes a vertical list of radio rows,
  *   which always fits and reads the same to TalkBack.
+ *
+ * [icons], when given, puts a small glyph before each segment's label (one
+ * per option); it is decoration, so TalkBack still reads only the label.
  */
 @Composable
 fun SSSegmentedControl(
@@ -62,6 +71,7 @@ fun SSSegmentedControl(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    icons: List<ImageVector>? = null,
 ) {
     val style = SS.type.label
     val measurer = rememberTextMeasurer()
@@ -75,12 +85,12 @@ fun SSSegmentedControl(
                         .size.width
                         .toDp()
                 } ?: 0.dp
-            } + LabelPadding * 2
+            } + LabelPadding * 2 + (if (icons != null) IconSize + IconGap else 0.dp)
         val sizing = SegmentSizing.of(options.size, maxWidth, widest, fill = constraints.hasFixedWidth)
         if (sizing.stacked) {
             StackedChoices(options, selectedIndex, onSelect)
         } else {
-            Segments(options, selectedIndex, onSelect, sizing.segmentWidth)
+            Segments(options, selectedIndex, onSelect, sizing.segmentWidth, icons)
         }
     }
 }
@@ -91,6 +101,7 @@ private fun Segments(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     segmentWidth: Dp,
+    icons: List<ImageVector>?,
 ) {
     val colors = SS.colors
     Row(
@@ -115,12 +126,19 @@ private fun Segments(
                         .selectable(selected = selected, role = Role.RadioButton, onClick = { onSelect(index) })
                         .padding(horizontal = 4.dp, vertical = 4.dp),
             ) {
-                Text(
-                    text = label,
-                    style = SS.type.label,
-                    color = if (selected) colors.ink else colors.inkMuted,
-                    textAlign = TextAlign.Center,
-                )
+                val ink = if (selected) colors.ink else colors.inkMuted
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    icons?.getOrNull(index)?.let {
+                        Icon(it, contentDescription = null, tint = ink, modifier = Modifier.size(IconSize))
+                        Spacer(Modifier.width(IconGap))
+                    }
+                    Text(
+                        text = label,
+                        style = SS.type.label,
+                        color = ink,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
         }
     }

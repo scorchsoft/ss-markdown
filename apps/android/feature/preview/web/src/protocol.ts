@@ -147,7 +147,15 @@ export type HostMessage =
           readonly ranges?: readonly number[];
           readonly current: number;
           readonly reveal: boolean;
-      };
+      }
+    /**
+     * The answer to `imageQuery` [id]: why each picture beside the document
+     * can or cannot be shown (`ok`, `notFound`, `noAccess`, `notImage`,
+     * `tooLarge`), by the key the page asked with.
+     */
+    | { readonly type: "imageStatus"; readonly id: number; readonly statuses: Readonly<Record<string, string>> }
+    /** The host can now see more (a folder was granted or changed): pictures that failed try again. */
+    | { readonly type: "imagesChanged" };
 
 /**
  * Formatting actions Kotlin applies with core:markdown's EditCommand, in the
@@ -182,6 +190,8 @@ export type FormatAction =
     | "blockTask"
     | "blockQuote"
     | "blockCode"
+    /** The Insert image key: Kotlin opens the picker and inserts at this selection. */
+    | "image"
     | "undo"
     | "redo";
 
@@ -293,6 +303,14 @@ export type PageMessage =
           readonly text: string | null;
           readonly truncated: boolean;
       }
+    /**
+     * Pictures beside the document that failed to load in one burst, by key
+     * (`1/shared/a.png`: climbs, then the path; core/imagePaths.ts). Kotlin
+     * answers with one `imageStatus` carrying the same [id].
+     */
+    | { readonly type: "imageQuery"; readonly id: number; readonly paths: readonly string[] }
+    /** The placeholder's "Allow access": Kotlin asks for the document's folder. */
+    | { readonly type: "allowFolder" }
     | { readonly type: "error"; readonly message: string };
 
 /** Document-wide definitions every section render needs (see core/definitions.ts). */

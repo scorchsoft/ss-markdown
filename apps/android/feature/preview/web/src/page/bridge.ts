@@ -93,6 +93,8 @@ export const HOST_TYPES: ReadonlySet<string> = new Set<string>([
     "exportHtml",
     "flush",
     "find",
+    "imageStatus",
+    "imagesChanged",
 ]);
 
 /** Page messages whose offsets belong to one load, so they carry its epoch. */

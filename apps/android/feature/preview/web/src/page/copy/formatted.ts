@@ -333,7 +333,11 @@ export class Formatter {
      * caller to embed it.
      */
     private image(el: Element): Node {
-        const src = (el.getAttribute("data-remote-src") ?? el.getAttribute("src") ?? "").trim();
+        // A Markdown web picture is rendered with no `src` at all (page/images.ts); its address as
+        // written is in `data-src`.
+        const written = (el.getAttribute("data-src") ?? "").trim();
+        const remote = /^(?:https?:)?\/\//i.test(written) ? written : null;
+        const src = (el.getAttribute("data-remote-src") ?? el.getAttribute("src") ?? remote ?? "").trim();
         const alt = (el.getAttribute("alt") ?? "").trim();
         if (/^(?:https?:)?\/\//i.test(src)) {
             const a = this.el("a");

@@ -138,6 +138,81 @@ img {
     max-width: 100%;
     height: auto;
 }
+/* A picture beside the document holds a placeholder-sized box until it loads,
+   so text below does not jump when it arrives or turns into a placeholder. */
+img.img-pending {
+    min-width: 6rem;
+    min-height: 4.5rem;
+    background: var(--code-bg);
+    border-radius: 6px;
+}
+/* A picture that cannot be drawn: a calm box saying which one and why
+   (docs/ux-spec.md, "Pictures"). Ink and muted only: red is never decoration. */
+.img-ph {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    box-sizing: border-box;
+    max-width: 100%;
+    min-height: 4.5rem;
+    padding: 10px 12px;
+    vertical-align: middle;
+    color: var(--text);
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font: 400 0.87em / 1.4 var(--font-body);
+    user-select: none;
+    -webkit-user-select: none;
+}
+.img-ph-body {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+.img-ph-icon {
+    flex: none;
+    width: 24px;
+    height: 24px;
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.img-ph-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.img-ph-reason {
+    font-weight: 500;
+}
+.img-ph-alt,
+.img-ph-path {
+    color: var(--muted);
+    overflow-wrap: anywhere;
+}
+.img-ph-path {
+    font-family: var(--font-code);
+    font-size: 0.92em;
+}
+.img-ph-allow {
+    min-height: 40px;
+    padding: 0 14px;
+    font: 500 1em / 1 var(--font-body);
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    cursor: pointer;
+}
+.img-ph-allow:focus-visible {
+    outline: 2px solid var(--link);
+    outline-offset: 2px;
+}
 hr {
     border: 0;
     border-top: 1px solid var(--border);

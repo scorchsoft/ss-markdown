@@ -58,10 +58,16 @@ enum class FormatAction(
     /** Keyboard undo / redo inside Preview: the host's history, not a format. */
     UNDO("undo", command = null),
     REDO("redo", command = null),
+
+    /**
+     * The Insert image key in Preview: the page sends its selection and the
+     * host opens the picture picker, then inserts there. Not a format.
+     */
+    IMAGE("image", command = null),
     ;
 
     /** True for the history keys, which [PreviewFormatter] does not handle. */
-    val isHistory: Boolean get() = command == null
+    val isHistory: Boolean get() = this == UNDO || this == REDO
 
     /** Lookup by wire name. */
     companion object {

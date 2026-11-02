@@ -114,6 +114,13 @@ object BridgeCodec {
                     j.optBoolean("truncated", false),
                 )
             },
+            "imageQuery" to { j ->
+                // At most [MAX_IMAGE_PATHS] short keys: a hostile page cannot make the host resolve thousands.
+                val paths = j.getJSONArray("paths")
+                val keys = List(minOf(paths.length(), MAX_IMAGE_PATHS)) { paths.getString(it) }
+                PageMessage.ImageQuery(j.getInt("id"), keys.filter { it.length <= MAX_IMAGE_PATH_CHARS })
+            },
+            "allowFolder" to { _ -> PageMessage.AllowFolder },
             "error" to { j -> PageMessage.Error(j.getString("message")) },
         )
 
@@ -146,6 +153,9 @@ object BridgeCodec {
             val e = array.getJSONObject(i)
             TextEdit(e.getInt("from"), e.getInt("to"), e.getString("insert"))
         }
+
+    private const val MAX_IMAGE_PATHS = 200
+    private const val MAX_IMAGE_PATH_CHARS = 1024
 
     private fun strings(array: JSONArray): Set<String> = List(array.length()) { array.getString(it) }.toSet()
 

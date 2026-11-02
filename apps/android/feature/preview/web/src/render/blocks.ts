@@ -3,6 +3,7 @@
  * the source-mapped text runs, fenced code, diagrams, maths and every
  * construct that Preview shows but does not let you edit.
  */
+import { imageTarget } from "../core/imagePaths";
 import type { Env, MarkdownIt, Token } from "./mdTypes";
 import { contentHash } from "../core/hash";
 import { neutralizeUserHtml } from "../core/userHtml";
@@ -172,17 +173,17 @@ const image: Rule = (tokens, idx, options, env, self) => {
     const src = String(token.attrGet("src") ?? "");
     const title = token.attrGet("title");
     const titleAttr = title ? ` title="${escape(String(title))}"` : "";
-    return `<img src="${escape(resolveImage(src))}" alt="${escape(alt)}"${titleAttr} loading="lazy" decoding="async" data-viewer="image" contenteditable="false">`;
+    // A remote or unsupported address is never put in `src`: the app is offline and the
+    // page draws a placeholder instead (page/images.ts). One beside the document reserves room.
+    const target = imageTarget(src);
+    const load =
+        target.kind === "doc"
+            ? ` src="${escape(target.url)}" class="img-pending"`
+            : target.kind === "inline"
+              ? ` src="${escape(target.url)}"`
+              : "";
+    return `<img${load} data-src="${escape(src)}" alt="${escape(alt)}"${titleAttr} loading="lazy" decoding="async" data-viewer="image" contenteditable="false">`;
 };
-
-/**
- * Relative image paths resolve against the document's folder through the
- * host's `/doc/` path handler; the page itself lives under `/assets/preview/`.
- */
-export function resolveImage(src: string): string {
-    if (/^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(src)) return src;
-    return `/doc/${src.replace(/^\.?\//, "")}`;
-}
 
 const alertOpen: Rule = (tokens, idx) => {
     const token = tokens[idx];

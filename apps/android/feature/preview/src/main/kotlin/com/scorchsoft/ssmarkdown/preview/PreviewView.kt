@@ -72,6 +72,7 @@ class PreviewView
                     is PageMessage.TopLine -> topLine = message.line
                     is PageMessage.PrintReady -> printing.onPageReady(message.requestId)
                     is PageMessage.HtmlResult -> htmlRequests.remove(message.requestId)?.invoke(message.copy)
+                    is PageMessage.ImageQuery -> answerImages(message)
                     else -> Unit
                 }
                 listener?.let(message::deliverTo)
@@ -184,6 +185,36 @@ class PreviewView
                     htmlRequests[id] = { copy -> done.resume(copy) }
                     done.invokeOnCancellation { post { htmlRequests.remove(id) } }
                     send(HostMessage.ExportHtml(id, fromLine, toLine, maxChars))
+                }
+            }
+        }
+
+        /**
+         * The host can now see more pictures (a folder was granted, or the
+         * folder changed): every placeholder for a picture beside the
+         * document tries again.
+         */
+        fun refreshImages() = send(HostMessage.ImagesChanged)
+
+        /**
+         * Says why each picture the page could not load cannot be shown: one
+         * answer per query, resolved on [backgroundExecutor] because it reads
+         * storage. A query from a page that has since been given another
+         * document is answered anyway; the page drops answers it no longer
+         * wants.
+         */
+        private fun answerImages(query: PageMessage.ImageQuery) {
+            val resolver = resourceResolver
+            backgroundExecutor.execute {
+                val statuses = LinkedHashMap<String, ImageStatus>()
+                for (key in query.paths) {
+                    val relative = DocPaths.relative(key)
+                    statuses[key] =
+                        if (relative == null || resolver == null) ImageStatus.NOT_FOUND else resolver.status(relative)
+                }
+                post {
+                    channel.send(HostMessage.ImageStatus(query.id, statuses))
+                    listener?.onImageStatuses(statuses)
                 }
             }
         }

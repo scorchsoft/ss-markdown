@@ -258,6 +258,22 @@ sealed interface PageMessage {
             get() = if (html != null && text != null) FormattedCopy(html, text, truncated) else null
     }
 
+    /**
+     * Pictures beside the document the page could not load, by its key
+     * (`1/img/a.png`, see `DocPaths`). Answered by [HostMessage.ImageStatus]
+     * with the same [id]; consumed by `PreviewView`, which resolves them off
+     * the main thread.
+     */
+    data class ImageQuery(
+        val id: Int,
+        val paths: List<String>,
+    ) : PageMessage
+
+    /** A picture placeholder's "Allow access". */
+    data object AllowFolder : PageMessage {
+        override fun deliverTo(listener: PreviewListener) = listener.onAllowFolder()
+    }
+
     data class Error(
         val message: String,
     ) : PageMessage {

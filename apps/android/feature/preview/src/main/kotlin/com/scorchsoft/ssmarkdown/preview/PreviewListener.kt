@@ -110,6 +110,16 @@ interface PreviewContentListener {
         line: Int,
     ) = Unit
 
+    /**
+     * The page asked why some pictures beside the document cannot be shown
+     * and was told [statuses] (by the page's key). The host can offer "Allow
+     * access" from ⋮ when any is [ImageStatus.NO_ACCESS].
+     */
+    fun onImageStatuses(statuses: Map<String, ImageStatus>) = Unit
+
+    /** A picture placeholder's "Allow access": ask the user for the document's folder. */
+    fun onAllowFolder() = Unit
+
     /** A diagram export: SVG text as UTF-8, or PNG bytes. */
     fun onExportResult(
         requestId: Int,

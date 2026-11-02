@@ -11,6 +11,7 @@ import { exportHtml, type FormattedCopy } from "./exportHtml";
 import { exportDiagram } from "./exportImage";
 import { FindMarks } from "./findMarks";
 import { Gestures } from "./gestures";
+import { PageImages } from "./images";
 import { MermaidRunner } from "./mermaidRunner";
 import { breadcrumb, fillTocs } from "./outline";
 import { scrollToLine, topLine } from "./scrollSync";
@@ -28,6 +29,7 @@ export class PreviewApp {
     private readonly mermaid = new MermaidRunner();
     private readonly editor: Editor;
     private readonly find: FindMarks;
+    private readonly images: PageImages;
     private settings: PreviewSettings = DEFAULT_SETTINGS;
     private anchorLine: number | null = null;
     private lastTop = -1;
@@ -50,9 +52,11 @@ export class PreviewApp {
     constructor(root: HTMLElement, worker: Worker) {
         this.bridge = new Bridge((m) => this.onHostMessage(m));
         const post = (m: PageMessage): void => this.bridge.post(m);
+        this.images = new PageImages(post);
         this.controller = new RenderController(root, worker, {
             onRendered: (views) => {
                 this.editor.onRendered(views);
+                for (const v of views) this.images.scan(v.el);
                 fillTocs(document, this.controller.outline());
                 this.restoreAnchor();
                 this.find.onRendered();
@@ -66,6 +70,7 @@ export class PreviewApp {
             },
             onMounted: (view) => {
                 this.editor.onRendered([view]);
+                this.images.scan(view.el);
                 this.mermaid.enqueueIn(view.el);
                 fillTocs(view.el, this.controller.outline());
                 this.find.onRendered();
@@ -109,6 +114,8 @@ export class PreviewApp {
                 // A print being prepared was for the page as it was: abandon it (it never answers).
                 this.printRequest++;
                 this.editor.end();
+                // Relative pictures belong to the document: another one's statuses do not apply.
+                this.images.reset();
                 this.renderStarted = performance.now();
                 this.anchorLine = m.anchorLine ?? null;
                 this.find.clear();
@@ -169,6 +176,12 @@ export class PreviewApp {
                 break;
             case "find":
                 this.findMatches(m);
+                break;
+            case "imageStatus":
+                this.images.onStatus(m.id, m.statuses);
+                break;
+            case "imagesChanged":
+                this.images.changed();
                 break;
             case "finishPrint":
                 this.printRequest++;

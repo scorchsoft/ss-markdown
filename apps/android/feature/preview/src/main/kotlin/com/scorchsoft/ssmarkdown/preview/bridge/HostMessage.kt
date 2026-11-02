@@ -413,6 +413,30 @@ sealed interface HostMessage {
         override fun toString(): String = "Find(rev=$rev, matches=${starts?.size}, current=$current, reveal=$reveal)"
     }
 
+    /**
+     * The answer to [PageMessage.ImageQuery] [id]: why each picture can or
+     * cannot be shown, by the key the page asked with.
+     */
+    data class ImageStatus(
+        val id: Int,
+        val statuses: Map<String, com.scorchsoft.ssmarkdown.preview.ImageStatus>,
+    ) : HostMessage {
+        override val type = "imageStatus"
+
+        override fun writeTo(json: JSONObject) {
+            val map = JSONObject()
+            for ((key, status) in statuses) map.put(key, status.wire)
+            json.put("id", id).put("statuses", map)
+        }
+    }
+
+    /** The host can now see more (a folder was granted or changed): failed pictures try again. */
+    data object ImagesChanged : HostMessage {
+        override val type = "imagesChanged"
+
+        override fun writeTo(json: JSONObject) = Unit
+    }
+
     /** Returns the page to its virtualised reading state after printing. */
     data object FinishPrint : HostMessage {
         override val type = "finishPrint"

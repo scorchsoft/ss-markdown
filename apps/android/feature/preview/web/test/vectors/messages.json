@@ -33,7 +33,9 @@
     "exportHtml": { "type": "exportHtml", "requestId": 8, "fromLine": 2, "toLine": 9, "maxChars": 400000 },
     "flush": { "type": "flush" },
     "find": { "type": "find", "rev": 6, "ranges": [3, 9, 20, 26], "current": 1, "reveal": true },
-    "findKeep": { "type": "find", "rev": 6, "current": 0, "reveal": true }
+    "findKeep": { "type": "find", "rev": 6, "current": 0, "reveal": true },
+    "imageStatus": { "type": "imageStatus", "id": 3, "statuses": { "0/img/a.png": "ok", "1/x.png": "noAccess" } },
+    "imagesChanged": { "type": "imagesChanged" }
   },
   "page": [
     { "kotlin": "Ready", "json": { "type": "ready", "version": 1 } },
@@ -63,6 +65,12 @@
     { "kotlin": "PrintReady", "json": { "type": "printReady", "requestId": 4 } },
     { "kotlin": "HtmlResult", "json": { "type": "htmlResult", "requestId": 8, "html": "<p>x</p>", "text": "x", "truncated": false } },
     { "kotlin": "HtmlResult", "json": { "type": "htmlResult", "requestId": 9, "html": null, "text": null, "truncated": false } },
+    { "kotlin": "ImageQuery", "json": { "type": "imageQuery", "id": 3, "paths": ["0/img/a.png", "1/x.png"] } },
+    { "kotlin": "AllowFolder", "json": { "type": "allowFolder" } },
+    {
+      "kotlin": "FormatRequest",
+      "json": { "type": "formatRequest", "action": "image", "from": 4, "to": 4, "baseRev": 2, "inTable": false }
+    },
     { "kotlin": "Error", "json": { "type": "error", "message": "boom" } }
   ]
 }

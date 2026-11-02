@@ -39,6 +39,7 @@ const SECTION_DATA_ATTRS = [
     "data-mermaid-key",
     "data-viewer",
     "data-toc",
+    "data-src",
 ];
 
 /** Positions that let raw HTML leave its block and draw over the page or its controls (SEC-6). */

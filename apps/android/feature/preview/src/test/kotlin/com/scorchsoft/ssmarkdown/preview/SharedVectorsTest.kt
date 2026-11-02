@@ -145,5 +145,11 @@ class SharedVectorsTest {
             "flush" to HostMessage.Flush,
             "find" to HostMessage.Find(6, intArrayOf(3, 20), intArrayOf(9, 26), current = 1, reveal = true),
             "findKeep" to HostMessage.Find(6, null, null, current = 0, reveal = true),
+            "imageStatus" to
+                HostMessage.ImageStatus(
+                    3,
+                    linkedMapOf("0/img/a.png" to ImageStatus.OK, "1/x.png" to ImageStatus.NO_ACCESS),
+                ),
+            "imagesChanged" to HostMessage.ImagesChanged,
         )
 }

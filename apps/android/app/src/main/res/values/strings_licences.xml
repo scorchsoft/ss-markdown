@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shown in place of a licence text the APK should carry but does not. -->
+    <string name="licence_text_missing">This licence text is missing from the app. The full list is in NOTICE at github.com/scorchsoft.</string>
+</resources>

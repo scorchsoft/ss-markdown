@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Formatting strip labels. These are what TalkBack reads, so each names
+     the action, not the glyph drawn on the key. -->
+<resources>
+    <string name="strip_toolbar">Formatting</string>
+    <string name="strip_heading">Heading</string>
+    <string name="strip_block_style">Block style</string>
+    <string name="strip_bold">Bold</string>
+    <string name="strip_italic">Italic</string>
+    <string name="strip_bullet_list">Bulleted list</string>
+    <string name="strip_task">Task</string>
+    <string name="strip_code">Code</string>
+    <string name="strip_link">Link</string>
+    <string name="strip_indent">Indent</string>
+    <string name="strip_outdent">Outdent</string>
+    <string name="strip_table">Table</string>
+    <string name="strip_quote">Quote</string>
+    <string name="strip_undo">Undo</string>
+    <string name="strip_redo">Redo</string>
+    <string name="strip_symbols">Symbols</string>
+    <string name="strip_done">Done</string>
+    <string name="strip_cursor_left">Cursor left</string>
+    <string name="strip_cursor_right">Cursor right</string>
+    <string name="strip_unsaved">Unsaved</string>
+    <string name="strip_save">Save</string>
+    <string name="strip_saved">Saved</string>
+    <string name="strip_save_as">Save as…</string>
+    <string name="strip_retry">Retry</string>
+    <string name="strip_saving">Saving</string>
+    <string name="strip_prev_cell">Previous cell</string>
+    <string name="strip_next_cell">Next cell</string>
+    <string name="strip_table_menu">Table actions</string>
+    <string name="table_add_row_below">Add row below</string>
+    <string name="table_add_row_above">Add row above</string>
+    <string name="table_add_column_right">Add column right</string>
+    <string name="table_add_column_left">Add column left</string>
+    <string name="table_move_row_up">Move row up</string>
+    <string name="table_move_row_down">Move row down</string>
+    <string name="table_move_column_left">Move column left</string>
+    <string name="table_move_column_right">Move column right</string>
+    <string name="table_delete_row">Delete row</string>
+    <string name="table_delete_column">Delete column</string>
+    <string name="table_delete_table">Delete table</string>
+    <string name="symbol_backtick">Backtick</string>
+    <string name="symbol_open_bracket">Open bracket</string>
+    <string name="symbol_close_bracket">Close bracket</string>
+    <string name="symbol_open_parenthesis">Open parenthesis</string>
+    <string name="symbol_close_parenthesis">Close parenthesis</string>
+    <string name="symbol_hash">Hash</string>
+    <string name="symbol_asterisk">Asterisk</string>
+    <string name="symbol_greater_than">Greater than</string>
+    <string name="symbol_pipe">Pipe</string>
+    <string name="symbol_hyphen">Hyphen</string>
+    <string name="symbol_equals">Equals</string>
+    <string name="symbol_exclamation">Exclamation mark</string>
+</resources>

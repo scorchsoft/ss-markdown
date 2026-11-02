@@ -1,0 +1,25 @@
+# Open-source components bundled in the app: name | licence | where it comes from | full text (asset path).
+# Hand-kept in step with NOTICE at the repository root. Every row names the
+# asset that carries its full licence text; LicenceTextsTest fails if one is
+# missing. licences/ is generated at build time from the repository's LICENSE
+# and core/text/NOTICE (app/build.gradle.kts, licenceTexts).
+SS Markdown | Apache License 2.0 | https://github.com/scorchsoft | licences/Apache-2.0.txt
+Visual Studio Code piece tree (ported to Kotlin in core/text) | MIT License | https://github.com/microsoft/vscode | licences/vscode-piece-tree-MIT.txt
+AndroidX Activity, Core and Lifecycle | Apache License 2.0 | https://developer.android.com/jetpack/androidx | licences/Apache-2.0.txt
+Jetpack Compose (UI, Foundation, Material 3) | Apache License 2.0 | https://developer.android.com/jetpack/compose | licences/Apache-2.0.txt
+Kotlin standard library | Apache License 2.0 | https://kotlinlang.org | licences/Apache-2.0.txt
+kotlinx.coroutines | Apache License 2.0 | https://github.com/Kotlin/kotlinx.coroutines | licences/Apache-2.0.txt
+AndroidX WebKit | Apache License 2.0 | https://developer.android.com/jetpack/androidx/releases/webkit | licences/Apache-2.0.txt
+markdown-it and plugins (preview) | MIT License | https://github.com/markdown-it/markdown-it | preview/LICENSES.txt
+highlight.js (preview) | BSD 3-Clause License | https://github.com/highlightjs/highlight.js | preview/LICENSES.txt
+KaTeX (preview, with its fonts) | MIT License | https://github.com/KaTeX/KaTeX | preview/LICENSES.txt
+Mermaid and its dependencies (preview) | MIT and other permissive licences | https://github.com/mermaid-js/mermaid | preview/LICENSES.txt
+DOMPurify (preview) | Apache License 2.0 | https://github.com/cure53/DOMPurify | preview/LICENSES.txt
+Inter (bundled, subset) | SIL Open Font License 1.1 | https://github.com/rsms/inter | fonts/licences/inter-OFL.txt
+JetBrains Mono (bundled, subset) | SIL Open Font License 1.1 | https://github.com/JetBrains/JetBrainsMono | fonts/licences/jetbrainsmono-OFL.txt
+Source Serif 4 (bundled, subset) | SIL Open Font License 1.1 | https://github.com/adobe-fonts/source-serif | fonts/licences/sourceserif4-OFL.txt
+Literata (bundled, subset) | SIL Open Font License 1.1 | https://github.com/googlefonts/literata | fonts/licences/literata-OFL.txt
+Atkinson Hyperlegible Next (bundled, subset) | SIL Open Font License 1.1 | https://github.com/googlefonts/atkinson-hyperlegible-next | fonts/licences/atkinsonhyperlegiblenext-OFL.txt
+Fira Code (bundled, subset) | SIL Open Font License 1.1 | https://github.com/tonsky/FiraCode | fonts/licences/firacode-OFL.txt
+Lora (downloaded on request, unmodified) | SIL Open Font License 1.1, Reserved Font Name "Lora" | https://github.com/cyrealtype/Lora-Cyrillic | fonts/licences/lora-OFL.txt
+IBM Plex Sans (downloaded on request, unmodified) | SIL Open Font License 1.1, Reserved Font Name "Plex" | https://github.com/IBM/plex | fonts/licences/ibmplexsans-OFL.txt

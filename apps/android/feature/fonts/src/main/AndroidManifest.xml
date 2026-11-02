@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  INTERNET is used for one thing only: downloading a Google Font the person
+  chose (CLAUDE.md, "The app is offline"). It is declared here, next to the
+  only code that uses it, and merges into the app.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+</manifest>

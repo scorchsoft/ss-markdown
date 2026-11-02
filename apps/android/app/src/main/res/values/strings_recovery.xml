@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Getting work back when it cannot go where it was (robustness §1, §2a; review R2-DS-1…DS-4). -->
+<resources>
+    <!-- History could not keep a copy before a destructive step (R2-DS-1). Worded from History's answer. -->
+    <string name="not_kept_title_failed">History couldn\'t keep a copy</string>
+    <string name="not_kept_title_off">History is off</string>
+    <string name="not_kept_body_failed">Nothing has changed yet. History couldn\'t save a copy of your edits (the phone may be out of space). If you go on, they\'re gone for good.</string>
+    <string name="not_kept_body_off">Nothing has changed yet. History is off, so no copy of your edits was kept. If you go on, they\'re gone for good.</string>
+    <string name="not_kept_go_on">Discard anyway</string>
+    <string name="not_kept_go_on_merge">Merge anyway</string>
+    <string name="not_kept_keep">Keep my edits</string>
+    <string name="msg_edits_discarded_not_kept">Edits discarded · History couldn\'t keep a copy, so only Undo brings them back</string>
+
+    <!-- A copy of edits that cannot reach their file (R2-DS-2, R2-DS-3). -->
+    <string name="copy_unreachable_title">Recovered from %1$s</string>
+    <string name="copy_unreachable_body">That file can\'t be reached any more, so your unsaved edits are here, in a new draft. Save as… to keep them where you want.</string>
+    <string name="copy_not_applied_title">Edits from last time, as a copy</string>
+    <string name="copy_not_applied_body">They couldn\'t be applied to %1$s, so they\'re here, in a new draft. The file itself is unchanged.</string>
+    <string name="copy_set_aside_title">Set-aside edits, as a copy</string>
+    <string name="copy_set_aside_body">These edits to %1$s were set aside earlier. They\'re here, in a new draft; the set-aside copy stays in Storage.</string>
+    <string name="copy_fragments">Only the text you typed could be read: what you deleted, and where each piece went, is lost.</string>
+    <string name="copy_unknown_file">a file</string>
+
+    <!-- The kept-aside banner, with its new way to see the edits (R2-DS-3). -->
+    <string name="kept_body_copy">The file changed since, and the copy they were made on is gone, so they can\'t be applied to it. Open them as a copy to read and save them. Until then they\'re kept, untouched; editing this file moves them aside, still listed in Settings → Storage.</string>
+    <string name="kept_open_copy">Open as a copy</string>
+
+    <!-- Save as onto a file already open with unsaved edits (R2-DS-4). -->
+    <string name="problem_target_open">that file is open here with unsaved edits; save or close it first</string>
+
+    <!-- Storage: set-aside edits stay reachable (R2-DS-3). -->
+    <string name="storage_set_aside">Set-aside edits</string>
+    <string name="storage_set_aside_note">Edits that couldn\'t be applied to their file. They\'re never deleted on their own; open one as a copy to read and save it.</string>
+    <string name="storage_set_aside_row">%1$s · %2$s</string>
+    <string name="storage_set_aside_open">Open as a copy</string>
+    <string name="storage_set_aside_clear">Clear set-aside edits</string>
+    <string name="storage_set_aside_over_cap">Set-aside edits now use %1$s, more than the %2$s kept without asking. Open any you need as a copy, then export and clear the rest. Nothing is deleted until you do.</string>
+    <string name="confirm_export_set_aside_first">Export their text first (.zip)</string>
+</resources>

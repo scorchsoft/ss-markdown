@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- No permissions yet. INTERNET arrives only with the Google Font
+         download, and nothing else ever will (no analytics, ads or accounts). -->
+
+    <!-- Backup is off until it is designed: drafts are private text, and an
+         unreviewed cloud copy of them is not our call. -->
+    <application
+        android:name=".SSMarkdownApplication"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:enableOnBackInvokedCallback="true"
+        tools:targetApi="tiramisu"
+        android:theme="@style/Theme.SSMarkdown">
+
+        <!-- Exported for the launcher, Files and the share sheet, so no extra
+             is trusted: our own "Open" carries a one-time ticket (OpenTokens).
+             configChanges: rotation, folding, resizing, dark mode and font
+             scale re-lay out instead of recreating the Activity
+             (docs/robustness.md §5a, rule 3). Compose picks up the new
+             Configuration itself. -->
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|density|uiMode|fontScale"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Direct Share targets for recent files (ADR 0017). Their launcher
+                 long-press twins come back here with a shortcut id, which is only
+                 ever mapped through our own recents (SEC-2). -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+            <!-- Open .md and .txt from Files, Drive and email in place (R2, J1).
+                 content: only, and not BROWSABLE: a file: URI would be read with
+                 this app's identity, and no browser sends either (SEC-2, SEC-3). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <action android:name="android.intent.action.EDIT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:mimeType="text/markdown" />
+                <data android:mimeType="text/x-markdown" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <!-- Providers that report a generic type: match on the extension. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <action android:name="android.intent.action.EDIT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:host="*" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:pathPattern=".*\\.md" />
+                <data android:pathPattern=".*\\.markdown" />
+                <data android:pathPattern=".*\\.mdx" />
+            </intent-filter>
+        </activity>
+
+        <!-- Share into SS Markdown (J9): a small sheet over the sending app. -->
+        <activity
+            android:name=".share.ShareActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/share_title"
+            android:taskAffinity=""
+            android:theme="@style/Theme.SSMarkdown.Share"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="text/markdown" />
+                <data android:mimeType="text/x-markdown" />
+            </intent-filter>
+        </activity>
+
+        <!-- "Share as file" for documents too large for the clipboard (robustness §5). -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+</manifest>

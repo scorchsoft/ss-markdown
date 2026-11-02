@@ -1,0 +1,207 @@
+/* SS Markdown preview: base layout and typography, driven by theme variables
+   (see page/theme.ts). Colour rule: red is never decoration here; emphasis is
+   ink (docs/ux-spec.md, "Colour rule"). */
+@import "katex/dist/katex.min.css";
+@import "./code.css";
+@import "./blocks.css";
+@import "./editing.css";
+@import "./print.css";
+
+:root {
+    --zoom: 1;
+    --base-size: 15px;
+    --heading-scale: 1.25;
+    --line-height: 1.6;
+    --font-body: Inter, Roboto, system-ui, sans-serif;
+    --font-heading: var(--font-body);
+    --font-code: "JetBrains Mono", "Roboto Mono", ui-monospace, monospace;
+    --l-bg: #fff;
+    --l-text: #1f2328;
+    --l-heading: #1f2328;
+    --l-link: #0b57d0;
+    --l-code-bg: #f3f4f6;
+    --l-muted: #59636e;
+    --l-border: #d1d9e0;
+    --d-bg: #121316;
+    --d-text: #e6e7ea;
+    --d-heading: #f2f3f5;
+    --d-link: #8ab4f8;
+    --d-code-bg: #1e2024;
+    --d-muted: #9aa0a6;
+    --d-border: #33363c;
+    --bg: var(--l-bg);
+    --text: var(--l-text);
+    --heading: var(--l-heading);
+    --link: var(--l-link);
+    --code-bg: var(--l-code-bg);
+    --muted: var(--l-muted);
+    --border: var(--l-border);
+    --info: #1d5dbf;
+    --info-bg: #eaf1fc;
+    --caution: #5c4300;
+    --caution-bg: #fff4da;
+    color-scheme: light;
+}
+:root[data-dark="true"] {
+    --bg: var(--d-bg);
+    --text: var(--d-text);
+    --heading: var(--d-heading);
+    --link: var(--d-link);
+    --code-bg: var(--d-code-bg);
+    --muted: var(--d-muted);
+    --border: var(--d-border);
+    --info: #8ab4f8;
+    --info-bg: #1b2a40;
+    --caution: #f5d27a;
+    --caution-bg: #3a2f12;
+    color-scheme: dark;
+}
+
+html {
+    background: var(--bg);
+    -webkit-text-size-adjust: 100%;
+    overflow-anchor: auto;
+}
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: calc(var(--base-size) * var(--zoom));
+    line-height: var(--line-height);
+    overflow-wrap: break-word;
+    -webkit-tap-highlight-color: transparent;
+}
+.doc {
+    max-width: 75ch;
+    margin: 0 auto;
+    padding: 16px 16px 40vh;
+}
+
+section.sec {
+    display: flow-root;
+}
+section.sec.mounted {
+    content-visibility: auto;
+}
+.printing section.sec.mounted {
+    content-visibility: visible;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-family: var(--font-heading);
+    color: var(--heading);
+    line-height: 1.25;
+    margin: 1.4em 0 0.5em;
+    font-weight: 650;
+}
+h1 {
+    font-size: calc(1em * var(--heading-scale) * var(--heading-scale) * var(--heading-scale));
+}
+h2 {
+    font-size: calc(1em * var(--heading-scale) * var(--heading-scale));
+    padding-bottom: 0.2em;
+    border-bottom: 1px solid var(--border);
+}
+h3 {
+    font-size: calc(1em * var(--heading-scale));
+}
+h4 {
+    font-size: 1em;
+}
+h5,
+h6 {
+    font-size: 0.9em;
+    color: var(--muted);
+}
+p,
+ul,
+ol,
+dl,
+blockquote,
+table,
+pre,
+.ro-block,
+.markdown-alert {
+    margin: 0 0 1em;
+}
+a {
+    color: var(--link);
+    text-underline-offset: 2px;
+}
+img {
+    max-width: 100%;
+    height: auto;
+}
+hr {
+    border: 0;
+    border-top: 1px solid var(--border);
+    margin: 2em 0;
+}
+/* A quote is a tinted box, not an edge bar: the anti-goals ban one-sided
+   accent borders (docs/quality-bar.md; UX-22). */
+blockquote {
+    padding: 0.6em 1em;
+    color: var(--muted);
+    background: var(--code-bg);
+    border-radius: 8px;
+}
+blockquote > :last-child {
+    margin-bottom: 0;
+}
+ul,
+ol {
+    padding-left: 1.6em;
+}
+li + li {
+    margin-top: 0.2em;
+}
+dt {
+    font-weight: 600;
+}
+dd {
+    margin: 0 0 0.5em 1.6em;
+}
+/* The highlight is always light yellow, so its text is always dark ink:
+   inheriting a dark theme's light text left it at 1.1:1. */
+mark {
+    background: #fff1b8;
+    color: #1c1c1e;
+}
+abbr[title] {
+    text-decoration: underline dotted;
+}
+
+:root[data-theme="compact"] p,
+:root[data-theme="compact"] ul,
+:root[data-theme="compact"] ol {
+    margin-bottom: 0.6em;
+}
+:root[data-theme="reader"] .doc {
+    max-width: 68ch;
+}
+/* No wrap: the reading-width cap is lifted for wide tables and code, while
+   prose still wraps to the screen so reading never needs sideways panning. */
+.no-wrap .doc,
+:root[data-theme="reader"].no-wrap .doc {
+    max-width: none;
+}
+.no-wrap th,
+.no-wrap td {
+    white-space: nowrap;
+}
+:root[data-theme="contrast"] a {
+    text-decoration-thickness: 2px;
+}
+/* Contrast is AAA (7:1): its alert titles use the theme's own link blues. */
+:root[data-theme="contrast"] {
+    --info: #0a3a8c;
+}
+:root[data-theme="contrast"][data-dark="true"] {
+    --info: #a8ccff;
+}

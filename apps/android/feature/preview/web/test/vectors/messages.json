@@ -1,0 +1,66 @@
+{
+  "comment": "Every bridge message, as JSON on the wire. Kotlin's SharedVectorsTest encodes the named host messages and must produce exactly these objects, and decodes every page message to the named class; vectors.test.ts checks the page accepts every host type. Change with web/src/protocol.ts and Kotlin's bridge/ together (CC-20).",
+  "protocolVersion": 1,
+  "host": {
+    "load": { "type": "load", "rev": 3, "text": "# Hi\n", "anchorLine": 12, "epoch": 2 },
+    "loadChunked": { "type": "load", "rev": 4, "chunks": 2 },
+    "edit": {
+      "type": "edit",
+      "rev": 9,
+      "changes": [{ "fromLine": 4, "toLine": 5, "lines": ["a", ""] }],
+      "ops": [{ "from": 10, "to": 11, "insert": "a\n" }]
+    },
+    "ack": { "type": "ack", "rev": 5 },
+    "format": { "type": "format", "action": "bold" },
+    "select": { "type": "select", "rev": 2, "from": 1, "to": 4 },
+    "theme": {
+      "type": "theme",
+      "theme": { "name": "Clean" },
+      "dark": true,
+      "fonts": { "faces": "@font-face { }", "body": "\"Inter\", sans-serif", "heading": "\"Inter\", sans-serif", "code": "\"JetBrains Mono\", monospace" }
+    },
+    "settings": {
+      "type": "settings",
+      "settings": { "tapToEdit": true, "pageMode": false, "zoom": 1.5, "lean": false, "readOnly": true, "noWrap": true }
+    },
+    "scrollToLine": { "type": "scrollToLine", "line": 40, "smooth": true },
+    "tableNav": { "type": "tableNav", "direction": "next" },
+    "tableOp": { "type": "tableOp", "op": { "kind": "align", "align": "center" } },
+    "endEditing": { "type": "endEditing" },
+    "exportImage": { "type": "exportImage", "requestId": 7, "line": 3, "format": "png", "scale": 2 },
+    "preparePrint": { "type": "preparePrint" },
+    "finishPrint": { "type": "finishPrint" },
+    "exportHtml": { "type": "exportHtml", "requestId": 8, "fromLine": 2, "toLine": 9 },
+    "flush": { "type": "flush" }
+  },
+  "page": [
+    { "kotlin": "Ready", "json": { "type": "ready", "version": 1 } },
+    { "kotlin": "Rendered", "json": { "type": "rendered", "rev": 2, "sections": 3, "millis": 40 } },
+    { "kotlin": "TopLine", "json": { "type": "topLine", "line": 4, "crumbs": [{ "level": 1, "text": "A", "line": 0 }] } },
+    { "kotlin": "SourceEdit", "json": { "type": "sourceEdit", "baseRev": 1, "edits": [{ "from": 0, "to": 1, "insert": "x" }] } },
+    { "kotlin": "SourceEdit", "json": { "type": "sourceEdit", "baseRev": 1, "edits": [], "epoch": 4 } },
+    {
+      "kotlin": "Selection",
+      "json": { "type": "selection", "from": 1, "to": 2, "marks": ["bold"], "inTable": false, "baseRev": 3 }
+    },
+    {
+      "kotlin": "FormatRequest",
+      "json": { "type": "formatRequest", "action": "italic", "from": 0, "to": 3, "baseRev": 2, "inTable": false }
+    },
+    { "kotlin": "Resync", "json": { "type": "resync", "reason": "gap" } },
+    { "kotlin": "EditRefused", "json": { "type": "editRefused", "line": 6 } },
+    { "kotlin": "EditingChanged", "json": { "type": "editingChanged", "editing": true } },
+    { "kotlin": "TaskToggle", "json": { "type": "taskToggle", "baseRev": 1, "offset": 3, "checked": true } },
+    { "kotlin": "LinkTapped", "json": { "type": "linkTapped", "href": "https://example.com", "line": 2 } },
+    { "kotlin": "HeadingLongPress", "json": { "type": "headingLongPress", "line": 0, "level": 2, "text": "T" } },
+    { "kotlin": "EditInCode", "json": { "type": "editInCode", "line": 4 } },
+    { "kotlin": "OpenViewer", "json": { "type": "openViewer", "kind": "diagram", "index": 0, "line": 4 } },
+    { "kotlin": "MediaLongPress", "json": { "type": "mediaLongPress", "kind": "image", "index": 1, "line": 6 } },
+    { "kotlin": "TableMenu", "json": { "type": "tableMenu", "line": 3, "row": 1, "column": 2 } },
+    { "kotlin": "ExportResult", "json": { "type": "exportResult", "requestId": 7, "mime": "image/svg+xml", "data": "<svg/>" } },
+    { "kotlin": "PrintReady", "json": { "type": "printReady" } },
+    { "kotlin": "HtmlResult", "json": { "type": "htmlResult", "requestId": 8, "html": "<p>x</p>" } },
+    { "kotlin": "HtmlResult", "json": { "type": "htmlResult", "requestId": 9, "html": null } },
+    { "kotlin": "Error", "json": { "type": "error", "message": "boom" } }
+  ]
+}

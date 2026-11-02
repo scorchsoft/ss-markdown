@@ -1,0 +1,352 @@
+name: android
+
+# Path-filtered so docs-only commits do not spend CI minutes. No job here
+# needs a secret: the app is offline and there is nothing to sign yet.
+on:
+  push:
+    # main, plus Claude Code working branches, so work in progress gets
+    # real CI before a pull request exists.
+    branches: [main, "ccr-**"]
+    paths: ["apps/android/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+  pull_request:
+    paths: ["apps/android/**", ".github/workflows/android.yml"]
+
+jobs:
+  checks:
+    name: Checks, tests & debug builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      # No wrapper on purpose: CI pins the same Gradle the container ships.
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+      - uses: android-actions/setup-android@v3
+        with:
+          # The action's default list includes the long-removed 'tools'
+          # package, which now fails sdkmanager. AGP fetches the rest.
+          packages: platform-tools
+
+      # `check` is the whole gate: module graph, ktlint, detekt, Android
+      # lint and every unit test (host JVM and Robolectric).
+      - name: Check and assemble debug APK
+        run: gradle --no-daemon -p apps/android check :app:assembleDebug
+
+      # The perf gate's own tests: every observed run of unchanged code
+      # passes, and a regression an emulator can see still fails.
+      - name: Perf gate tests
+        run: python3 -m unittest discover -s apps/android/benchmark/ci -p 'test_*.py' -v
+
+      # Rubric #1: `check` runs 100 seeded kills; this is the thousand (about 5 min).
+      - name: Kill test (1000 seeded kills, host)
+        run: >-
+          gradle --no-daemon --console=plain -p apps/android :feature:files:testDebugUnitTest
+          --tests '*RandomKillTest*' -Pssmarkdown.killRuns=1000
+
+      # Review artefact, not a gate: the shell in light and dark at 412x915.
+      - name: Render screenshots
+        run: >-
+          gradle --no-daemon -p apps/android -Pssmarkdown.screenshots=true
+          :app:testDebugUnitTest --tests '*ScreenshotTest*'
+
+      # Line coverage of the core modules. `check` above already ran
+      # koverVerify (the >= 90% gate from docs/engineering.md); this writes
+      # the merged report and puts the per-module numbers on the run page.
+      - name: Coverage report
+        run: |
+          gradle --no-daemon --console=plain -p apps/android koverXmlReport koverHtmlReport koverLog | tee kover.log
+          {
+            echo "### Core line coverage"
+            echo "| Module | Lines |"
+            echo "|---|---|"
+            awk '/^> Task .*koverPrintCoverage/ { m = $3; sub(/:koverPrintCoverage$/, "", m); if (m == "") m = "all core (merged)" }
+                 /line coverage:/ { print "| " m " | " $NF " |" }' kover.log
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: apps/android/build/reports/kover/
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: apps/android/app/build/screenshots/
+          retention-days: 14
+
+      # The hand-over artefact: debug-signed, otherwise a release build
+      # (non-debuggable, fully optimised R8, baseline profile included).
+      - name: Assemble minified debug APK
+        run: gradle --no-daemon -p apps/android -Pssmarkdown.minifyDebug=true :app:assembleDebug
+
+      # Guards PERF-1 from regressing quietly: the hand-over must not be
+      # debuggable, must not carry ui-tooling's exported PreviewActivity,
+      # and must ship the baseline profile and the licence texts.
+      - name: Verify the hand-over APK
+        run: |
+          apk=$(ls apps/android/app/build/outputs/apk/debug/*.apk)
+          aapt2=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2
+          manifest=$("$aapt2" dump xmltree --file AndroidManifest.xml "$apk")
+          if grep -q 'android:debuggable.*=true' <<<"$manifest"; then echo "::error::hand-over APK is debuggable"; exit 1; fi
+          if grep -q 'PreviewActivity' <<<"$manifest"; then echo "::error::hand-over APK ships PreviewActivity"; exit 1; fi
+          if grep -q 'PerfDocumentProvider' <<<"$manifest"; then echo "::error::hand-over APK ships the benchmark provider"; exit 1; fi
+          if unzip -l "$apk" | grep -qi leakcanary; then echo "::error::hand-over APK ships LeakCanary"; exit 1; fi
+          for entry in assets/dexopt/baseline.prof assets/licences/Apache-2.0.txt assets/licences/vscode-piece-tree-MIT.txt; do
+            unzip -l "$apk" "$entry" > /dev/null || { echo "::error::$entry missing from the hand-over APK"; exit 1; }
+          done
+          test -s apps/android/app/build/outputs/mapping/debug/mapping.txt
+          {
+            echo "### Hand-over APK"
+            echo "| | bytes |"
+            echo "|---|---|"
+            echo "| APK | $(stat -c %s "$apk") |"
+            unzip -lv "$apk" | awk '/classes[0-9]*\.dex$/ { print "| " $NF " | " $1 " |" }'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # mapping.txt travels with the APK: the build is obfuscated, so a
+      # stack trace from it is unreadable without the mapping of that build.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-minified
+          path: |
+            apps/android/app/build/outputs/apk/debug/*.apk
+            apps/android/app/build/outputs/mapping/debug/mapping.txt
+          retention-days: 14
+
+      - name: Preserve test and lint reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-reports
+          path: |
+            apps/android/build/reports/
+            apps/android/**/build/reports/
+            apps/android/**/build/test-results/
+          retention-days: 14
+
+  preview-web:
+    name: Preview bundle (TypeScript, unit, e2e, freshness, budget)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/android/feature/preview/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: apps/android/feature/preview/web/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/android/feature/preview/web/package-lock.json
+      - run: npm ci
+
+      # The TypeScript half of the edit protocol (OT property tests,
+      # editSafety) and the static checks. Kotlin's half runs in `check`.
+      - name: Typecheck, lint and unit tests
+        run: npm run typecheck && npm run lint && npm run test:unit
+
+      # The committed assets must be exactly what web/src builds to (the
+      # build is deterministic). Catches "edited src, forgot npm run build".
+      - name: Committed bundle matches a fresh build
+        run: |
+          npm run build
+          stale=$(git status --porcelain -- ../src/main/assets/preview)
+          if [ -n "$stale" ]; then
+            echo "$stale"
+            echo "::error::src/main/assets/preview is stale: run npm run build in feature/preview/web and commit the result"
+            exit 1
+          fi
+
+      # Budget: the whole assets/preview directory (JS, CSS, KaTeX fonts,
+      # LICENSES.txt), as build.mjs reports it. ~3.43 MiB when set.
+      - name: Bundle size budget
+        run: |
+          budget=$((3584 * 1024))
+          size=$(du -sb ../src/main/assets/preview | cut -f1)
+          echo "Preview bundle: $size bytes (budget $budget)" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$size" -gt "$budget" ]; then echo "::error::preview bundle is over its 3.5 MiB budget"; exit 1; fi
+
+      # The e2e tests drive the BUILT bundle in Chromium: rendering, the
+      # security corpus, editing, print and virtualisation.
+      - name: End-to-end tests (Chromium)
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e
+
+      # Review artefact, not a gate: the whole corpus in every built-in theme,
+      # light and dark, as themes.test.ts drew it (rubric #5 and #7).
+      - name: Upload theme screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-theme-screenshots
+          path: apps/android/feature/preview/web/test-results/themes/
+          retention-days: 14
+
+  device:
+    name: Instrumented tests (API 34 emulator)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      # GitHub's Linux runners expose KVM; the emulator needs access to it.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+      - uses: android-actions/setup-android@v3
+        with:
+          # The action's default list includes the long-removed 'tools'
+          # package, which now fails sdkmanager. AGP fetches the rest.
+          packages: platform-tools
+
+      # Compile first, so emulator minutes are spent only on running tests.
+      - name: Build app and test APKs
+        run: gradle --no-daemon -p apps/android :app:assembleDebug :app:assembleDebugAndroidTest
+
+      - name: Run instrumented tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: default
+          disable-animations: true
+          script: gradle --no-daemon -p apps/android :app:connectedDebugAndroidTest
+
+      # Rubric #1's kill test on a real Android: 50 SIGKILLs of the app
+      # while typing through its InputConnection, each relaunch checked
+      # (KillLoopTest, tools/kill-loop.sh; about 2 min). Gating: 50/50
+      # recovered in run 41370278746, the first run in which it really ran.
+      # Then the rotation matrix's `am kill` column: killed in the
+      # background, back with the text, selection, top line and mode
+      # (BackgroundKillTest, tools/background-kill.sh).
+      - name: Kill loop (50 kills) and background kill
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: default
+          disable-animations: true
+          script: |
+            adb install -r apps/android/app/build/outputs/apk/debug/app-debug.apk
+            adb install -r -t apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            bash apps/android/tools/kill-loop.sh 50
+            bash apps/android/tools/background-kill.sh
+
+      - name: Preserve instrumented test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: device-test-reports
+          path: apps/android/app/build/reports/androidTests/
+          retention-days: 14
+
+  # Rubric #4 and #11 evidence on an emulator (docs/performance-techniques.md,
+  # "Emulator measurements"). Its own job, so it never slows or shares a
+  # failure with the instrumented tests. An emulator is not a phone: the
+  # absolute budgets are advisory here and the gate is a >2x regression of a
+  # central metric against docs/perf/emulator-baseline.json.
+  perf:
+    name: Emulator perf, Baseline Profile, monkey + StrictMode (API 34)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      # Compile first, so emulator minutes are spent only on measuring.
+      - name: Build benchmark, profile-generator and debug APKs
+        run: >-
+          gradle --no-daemon -p apps/android
+          :app:assembleBenchmarkRelease :app:assembleNonMinifiedRelease :app:assembleDebug
+          :benchmark:assembleBenchmarkRelease :benchmark:assembleNonMinifiedRelease
+
+      - name: Baseline Profile, Macrobenchmarks and monkey on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: default
+          # Real animations: the fling and typing frames are what a user sees.
+          disable-animations: false
+          # A Pixel 6a-class memory profile, the phone the budgets name: 6 GB
+          # here, and the 256 MB per-app heap is set by the script (the AVD's
+          # 192 MB makes the admission rules rightly decline 20 MB).
+          ram-size: 6144M
+          script: bash apps/android/benchmark/ci/emulator-evidence.sh
+
+      # Gates central metrics at 2x baseline (outside the runner spread seen
+      # on one commit); tail metrics are reported only. perf_report.py says why.
+      - name: Performance report (advisory budgets, 2x regression gate)
+        if: always()
+        run: >-
+          python3 apps/android/benchmark/ci/perf_report.py
+          apps/android/benchmark/build/outputs/connected_android_test_additional_output
+          docs/perf/emulator-baseline.json
+          --summary "$GITHUB_STEP_SUMMARY"
+          --out apps/android/build/emulator-evidence/perf-results.json
+
+      - name: StrictMode violations in app code
+        if: always()
+        run: >-
+          python3 apps/android/benchmark/ci/strictmode_check.py
+          apps/android/build/emulator-evidence/logcat.txt
+          --summary "$GITHUB_STEP_SUMMARY"
+
+      # The generated profile, shipped: the hand-over build compiled with it,
+      # under the same checks as the `checks` job's hand-over.
+      - name: Hand-over APK with the generated Baseline Profile
+        if: always()
+        run: |
+          gradle --no-daemon -p apps/android -Pssmarkdown.minifyDebug=true :app:assembleDebug
+          apk=$(ls apps/android/app/build/outputs/apk/debug/*.apk)
+          aapt2=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2
+          manifest=$("$aapt2" dump xmltree --file AndroidManifest.xml "$apk")
+          if grep -q 'android:debuggable.*=true' <<<"$manifest"; then echo "::error::hand-over APK is debuggable"; exit 1; fi
+          if grep -q 'PerfDocumentProvider' <<<"$manifest"; then echo "::error::hand-over APK ships the benchmark provider"; exit 1; fi
+          unzip -l "$apk" assets/dexopt/baseline.prof > /dev/null || { echo "::error::baseline.prof missing"; exit 1; }
+          size=$(stat -c %s "$apk")
+          lines=$(wc -l < apps/android/app/src/main/generated/baselineProfiles/baseline-prof.txt || echo 0)
+          echo "### Hand-over APK with the generated profile: $size bytes; profile $lines rules" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload emulator evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emulator-evidence
+          path: |
+            apps/android/build/emulator-evidence/
+            apps/android/benchmark/build/outputs/connected_android_test_additional_output/
+            apps/android/app/src/main/generated/baselineProfiles/
+            apps/android/app/build/outputs/apk/debug/*.apk
+            apps/android/app/build/outputs/mapping/debug/mapping.txt
+          retention-days: 14

@@ -1,0 +1,1 @@
+function c(n){let t=2166136261,r=5381;for(let i=0;i<n.length;i++){let o=n.charCodeAt(i);t^=o,t=Math.imul(t,16777619),r=Math.imul(r,33)^o|0}return`${(t>>>0).toString(36)}.${(r>>>0).toString(36)}.${n.length.toString(36)}`}export{c as a};

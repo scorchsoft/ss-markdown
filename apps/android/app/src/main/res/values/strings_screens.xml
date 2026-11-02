@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Settings, Storage, History, About and Share-in copy (docs/ux-spec.md). -->
+<resources>
+    <!-- Shared -->
+    <string name="screen_back">Back</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_opening">Opening</string>
+    <string name="settings_open_with">When a file opens, show</string>
+    <string name="open_with_code">Code</string>
+    <string name="open_with_preview">Preview</string>
+    <string name="open_with_last">Last used</string>
+    <string name="settings_open_with_note">“Last used” remembers the view and position for each file.</string>
+    <string name="settings_on_launch">On launch</string>
+    <string name="on_launch_reopen">Reopen last file</string>
+    <string name="on_launch_new">New scratch note</string>
+    <string name="settings_text">Text</string>
+    <string name="settings_zoom_code">Default zoom · Code</string>
+    <string name="settings_zoom_code_value">%1$d%% (%2$s sp)</string>
+    <string name="settings_zoom_preview">Default zoom · Preview</string>
+    <string name="settings_zoom_preview_value">%1$d%% (%2$d px)</string>
+    <string name="settings_code_font">Code font</string>
+    <string name="settings_preview_font">Preview font</string>
+    <string name="settings_font_pending">Part of each theme: ⋮ → Display → Edit theme…</string>
+    <string name="settings_line_numbers">Line numbers</string>
+    <string name="settings_saving">Saving</string>
+    <string name="settings_write">Write to the file</string>
+    <string name="save_mode_tap">When I tap Save</string>
+    <string name="save_mode_auto">Autosave</string>
+    <string name="settings_saving_note">Autosave writes after a pause in typing and when you leave the file. Either way, every change is recoverable.</string>
+    <string name="settings_storage">Storage and history</string>
+    <string name="settings_storage_summary">%1$s used · clean up, export</string>
+    <string name="settings_storage_summary_unknown">Clean up, export</string>
+    <string name="settings_history_on">On</string>
+    <string name="settings_history_off">Off</string>
+    <string name="settings_preview_split">Preview and split</string>
+    <string name="settings_tap_to_edit">Tap to edit in Preview</string>
+    <string name="settings_tap_to_edit_hint">Off: Preview is read-only; links still ask before opening</string>
+    <string name="settings_scroll_together">Scroll panes together</string>
+    <string name="settings_sharing">Sharing</string>
+    <string name="settings_direct_share">Show recent files in the share sheet</string>
+    <string name="settings_direct_share_hint">Their names appear in Android\'s share sheet and when you long-press the app icon</string>
+    <string name="settings_themes">Themes</string>
+    <string name="settings_custom_themes">Custom themes</string>
+    <string name="settings_about">About</string>
+    <string name="settings_zoom_decrease">Decrease %1$s</string>
+    <string name="settings_zoom_increase">Increase %1$s</string>
+
+    <!-- Storage -->
+    <string name="storage_title">Storage</string>
+    <string name="storage_used">%1$s used by SS Markdown</string>
+    <string name="storage_measuring">Measuring…</string>
+    <string name="storage_history">Version history</string>
+    <string name="storage_fonts">Downloaded fonts</string>
+    <string name="storage_cache">Diagram and preview cache</string>
+    <string name="storage_drafts">Drafts</string>
+    <string name="storage_recovery">Recovery copies of unsaved work</string>
+    <string name="storage_app">App itself</string>
+    <string name="storage_with_count">%1$s · %2$d</string>
+    <string name="storage_free_up">Free up space</string>
+    <string name="storage_not_opened">History of files not opened in</string>
+    <string name="storage_older">Versions older than</string>
+    <string name="storage_older_detail">All files · frees %1$s · latest version always kept</string>
+    <string name="storage_cache_detail">Rebuilt automatically when needed</string>
+    <string name="storage_all">All version history</string>
+    <string name="storage_all_detail">Pinned versions kept unless you choose otherwise</string>
+    <string name="storage_clear">Clear</string>
+    <string name="storage_clear_all">Clear…</string>
+    <string name="storage_never_note">Pinned versions, drafts and recovery copies of unsaved work are never included in a clean-up. Each clear says what it removes first, and offers Export.</string>
+    <string name="storage_by_file">History by file</string>
+    <string name="storage_sort_size">Largest first</string>
+    <string name="storage_sort_opened">Last opened</string>
+    <string name="storage_file_actions">Actions for %1$s</string>
+    <string name="storage_export_history">Export history (.zip)</string>
+    <string name="storage_clear_history">Clear history</string>
+    <string name="storage_open_history">Open history</string>
+    <string name="storage_automatic">Automatic</string>
+    <string name="storage_keep_history">Keep version history</string>
+    <!-- UX2-16: the subtitle describes the state the switch is in. -->
+    <string name="storage_keep_history_hint">Off: no versions are saved. Crash recovery still protects unsaved work.</string>
+    <string name="storage_keep_history_on_hint">Each save keeps a version you can go back to.</string>
+    <string name="storage_limit">History limit</string>
+    <string name="storage_forget">Forget history of files unused for</string>
+    <string name="storage_never">Never</string>
+    <string name="storage_no_limit">No limit</string>
+    <string name="storage_recent_cleanups">Recent clean-ups</string>
+    <string name="storage_none_yet">None yet</string>
+    <string name="storage_import">Import history (.zip)</string>
+    <string name="storage_android_title">About Android\'s “Clear cache” and “Clear storage”</string>
+    <string name="storage_android_body">Clear cache in Android\'s app settings only removes the diagram and preview cache. It\'s safe. Clear storage deletes everything on this screen, including drafts and unsaved recovery copies, and resets your settings. Your Markdown files themselves are never touched. Use the options above instead.</string>
+    <string name="storage_low">Less than 500 MB free on this phone. SS Markdown never deletes history to make room; clean up here if you need to.</string>
+    <string name="storage_year">1 year</string>
+    <string name="storage_month">1 month</string>
+    <string name="cleanup_thinned">thinned</string>
+    <string name="cleanup_limit">thinned to stay under the limit:</string>
+    <string name="cleanup_unused">forgot unused</string>
+    <string name="cleanup_damaged">removed damaged</string>
+    <string name="cleanup_cleared">cleared</string>
+    <string name="cleanup_history_off">deleted when history was switched off:</string>
+
+    <!-- Storage confirm -->
+    <string name="confirm_title_all">Clear all version history?</string>
+    <string name="confirm_title_cache">Clear the diagram and preview cache?</string>
+    <string name="confirm_cant_undo">This can\'t be undone.</string>
+    <string name="confirm_kept">Your files themselves aren\'t touched. Pinned versions and drafts are kept.</string>
+    <string name="confirm_kept_all_pins">Your files themselves aren\'t touched. Drafts are kept.</string>
+    <string name="confirm_include_pinned">Also delete pinned versions</string>
+    <string name="confirm_export_first">Export these versions first (.zip)</string>
+    <string name="confirm_export_and_clear">Export and clear</string>
+    <string name="confirm_clear_permanently">Clear permanently</string>
+    <string name="confirm_cache_body">It is rebuilt automatically when needed.</string>
+    <string name="turn_off_title">Turn off version history?</string>
+    <string name="turn_off_body">No new versions will be saved. Crash recovery still protects unsaved work. What should happen to the history you already have?</string>
+    <string name="turn_off_keep">Keep it</string>
+    <string name="turn_off_export_delete">Export, then delete</string>
+    <string name="turn_off_delete">Delete it…</string>
+    <string name="export_saved">Export ready · choose where to keep it</string>
+
+    <!-- History -->
+    <string name="history_title">History</string>
+    <string name="history_autosave_file">Autosave this file</string>
+    <string name="history_autosave_default">Off · uses your Settings default</string>
+    <string name="history_autosave_on">On for this file</string>
+    <string name="history_today">Today</string>
+    <string name="history_yesterday">Yesterday</string>
+    <string name="history_kind_opened">Opened</string>
+    <string name="history_kind_saved">Saved</string>
+    <string name="history_kind_autosaved">Autosaved</string>
+    <string name="history_kind_checkpoint">Checkpoint</string>
+    <string name="history_kind_outside">Changed outside SS Markdown</string>
+    <string name="history_kind_before_restore">Before restore</string>
+    <string name="history_kind_appended">Appended</string>
+    <string name="history_pinned">Pinned · kept forever</string>
+    <string name="history_expand">Tap to expand</string>
+    <string name="history_compare">Compare with now</string>
+    <string name="history_restore">Restore</string>
+    <string name="history_restore_note">Restoring never overwrites: your current text becomes a version first, and you can undo the restore.</string>
+    <string name="history_pin_title">Pin this version</string>
+    <string name="history_pin_name">Name (optional)</string>
+    <string name="history_pin">Pin</string>
+    <string name="history_off">Version history is off</string>
+    <string name="history_turn_on">Turn on</string>
+    <string name="history_empty">No versions yet. One is kept each time you open or save.</string>
+    <string name="history_options">History options</string>
+    <string name="history_export">Export history (.zip)</string>
+    <string name="history_import">Import history (.zip)</string>
+    <string name="history_version_damaged">That version is damaged and can\'t be read. The others are unaffected, and nothing was changed.</string>
+    <string name="history_unreadable">This history can\'t be read. It has been left untouched.</string>
+
+    <!-- About -->
+    <string name="about_title">About</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_made_by">Made by Scorchsoft</string>
+    <string name="about_licence">Licensed under the Apache License 2.0</string>
+    <string name="about_source">Source code on GitHub</string>
+    <string name="about_source_link" translatable="false">github.com/scorchsoft/ss-markdown</string>
+    <string name="about_disclaimer">Provided as is, without warranty of any kind. Keep your own backups of anything important.</string>
+    <string name="about_licences">Open-source licences</string>
+    <string name="licences_title">Open-source licences</string>
+
+    <!-- Share in -->
+    <string name="share_title">Add to SS Markdown</string>
+    <string name="share_append_to">Append to</string>
+    <string name="share_pinned_last">Pinned · last used</string>
+    <string name="share_recent">Recent</string>
+    <string name="share_new_note">New note</string>
+    <string name="share_another">Another file…</string>
+    <string name="share_bottom">Bottom</string>
+    <string name="share_top">Top</string>
+    <string name="share_prefix_none">Prefix: none</string>
+    <string name="share_prefix_date">Prefix: date heading</string>
+    <string name="share_append">Append</string>
+    <string name="share_create">Create note</string>
+    <string name="share_added">Added to %1$s</string>
+    <string name="share_open">Open</string>
+    <string name="share_read_only">%1$s can\'t be written to. Make a new note instead?</string>
+    <string name="share_conflict">%1$s changed in another app. Make a new note instead?</string>
+    <string name="share_failed">Couldn\'t add to %1$s.</string>
+    <string name="share_failed_target">Couldn\'t add to %1$s. Make a new note instead?</string>
+    <string name="share_too_large">This is too large to add (%1$s).</string>
+    <string name="share_not_text">This doesn\'t look like text.</string>
+    <string name="history_import_which">Which file\'s history is this?</string>
+    <string name="history_import_which_body">Nothing in the export matches %1$s by name or content. Pick the one to attach to this file, as extra branches. Nothing is overwritten.</string>
+</resources>

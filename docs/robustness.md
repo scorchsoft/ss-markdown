@@ -1,0 +1,709 @@
+# Robustness: never lose work, never choke on big files
+
+Losing work is the one failure that makes an editor permanently
+untrustworthy. It is also the most common complaint about Markdown
+editors. This file is the contract. Every rule here has a test (see the
+end), and rubric criteria 1 and 4 are scored against it.
+
+## Part 1 — Never lose work: layered defences
+
+Each layer assumes every layer above it has failed.
+
+### 1. Recovery journal (survives crashes, process death and battery pulls)
+
+- Each open document with unsaved changes has an **append-only journal**
+  in app-private storage. The journal holds the base file's identity
+  (URI, size, hash) and then a list of edit operations, with the undo
+  stack's decisions between them (a step ended, an undo or redo of n
+  ops), so Undo and Redo survive a process death too (ADR 0016).
+- **Record framing** follows LevelDB's log format. Each record is
+  length + CRC32C + sequence number + the operation. A torn record at
+  the tail is legal and simply truncated; replay stops at the first bad
+  CRC. The journal header names the base file's SHA-256, so a journal
+  can never be replayed onto the wrong file.
+- The journal is flushed with `fsync` (group commit, never per
+  keystroke) after about 1 s of idle typing, at least once a second
+  during steady typing, on `onPause`/`onStop`, and before any risky step
+  (save, view switch, opening another file); a save waits for that
+  flush. Worst case, you lose the last second of typing (measured:
+  `RandomKillTest`, max 1000 ms over 1000 kills).
+- When a run's operations outgrow the text (twice its length, and at
+  least 1 MiB), the journal is replaced by one snapshot in a single
+  atomic step, so replay stays fast and the file stays small.
+
+**How the journal keeps step with the text.** These rules close the
+races the data-safety review found (`docs/edge-cases.md`, "Never lose
+work: keystrokes against disk work"):
+
+- **Every op, exactly, before it is applied.** `TextDocument` tells an
+  `EditObserver` about each op it applies (typing in the Code view, a
+  command, undo, redo), and `OpenDocument` journals it from there, with
+  its exact offset, removed and inserted chars. No caller has to
+  remember to report an edit, and a keystroke on a 5 MB line costs a
+  few bytes, not the line.
+- **The main thread decides the order; one journal thread does the
+  I/O.** `JournalLink` only queues work, in the order the main thread
+  saw edits, saves and resolutions. A single dedicated thread
+  (`DedicatedJournalThread`) runs the queue and the group-commit timer,
+  and is the only thread that touches a journal writer. No `fsync` runs
+  on the main thread; `onPause` waits for the queue for at most 300 ms.
+- **No decision spans a suspension.** After any disk wait, a flow
+  re-reads the buffer before it acts: a save's bookkeeping, a reload's
+  dirty check, "Use my version" and a merge all run in one main-thread
+  step after their last suspension, so a keystroke typed while the disk
+  was busy is either in that step's snapshot or journalled after it.
+- **One atomic replace per restart.** After a save the user typed
+  through, a recovery, a compaction or a resolved conflict, the journal
+  is replaced by a snapshot, followed by the undo history, with one
+  `JournalStore.resume`, never "end, then start".
+- **Undo survives the death too** (ADR 0016). Every run of the journal
+  starts with the document's undo and redo steps (the newest 8 MB,
+  `UndoStack.HISTORY_TAIL_MAX_BYTES`), and the undo stack's own decisions
+  are journalled in order with the ops, never re-derived from timestamps
+  (`core/history/FORMAT.md`, "Undo history"). Recovery puts the replayed
+  text in as one replace and restores the steps as data, so Undo walks
+  back one step at a time, as before the death, never "all the recovered
+  edits at once". A verified save keeps the steps as a **clean journal**
+  (History only, on the saved file), which the launch scan never offers
+  for recovery; its first later change is synced at once. History is
+  kept while the document is open, across saves, compaction and repeated
+  deaths; it goes on an outside change (§2a), a close, "Don't save", an
+  eviction, and for a document the launch does not reopen. Measured on
+  the host (`UndoReplayBenchmarkTest`): a 20 MB document with a full
+  8 MB tail (1,047 steps) reopens in 528 ms from a clean journal, 1,232 ms
+  from Snapshot + History and 1,435 ms with the tail as ops, against
+  237 ms for a plain open of the same file (host JVM; the phone budget is
+  3 s, quality-bar §4, still to be measured on a device).
+- **Only the run that wrote a journal may delete it.** `markClean`
+  checks the journal's base, and a journal recovery could not apply
+  (`Recovery.Kept`) is *held*: closing never deletes it, and the first
+  new edit moves it into `quarantine/`. The banner says so.
+- **Edits that cannot be applied are still readable** (R2-DS-2,
+  R2-DS-3). `JournalStore.salvage` rebuilds a journal's text without its
+  file: onto the base copy when it is kept, from the last snapshot when
+  there is one, else only the inserted text, labelled as such.
+  `DocumentStore.recoverAsCopy` puts that text in a new draft, saves it,
+  and only then moves the journal into `quarantine/`. The kept-aside
+  banner offers **Open as a copy**, and Settings → Storage lists every
+  set-aside journal with **Open as a copy**. Nothing in `quarantine/` is
+  ever deleted by the app on its own. The only way out is Storage →
+  **Clear set-aside edits**, behind the "This can't be undone"
+  confirmation with **Export their text first** ticked; a failed export
+  deletes nothing, and only the sets the confirmation listed go. Above
+  32 MB (`SET_ASIDE_CAP_BYTES`) the Storage screen says so and points at
+  that clear; the cap decides when to ask, never what to drop.
+- **The base copy moves only after the journal.** A journal's edits
+  replay onto its base copy, so a base copy is replaced (after a save, a
+  reload or a resolved conflict) or deleted (on close, after Save as)
+  only on the journal thread, behind the journal step that leaves that
+  base. A journal restarted from a snapshot needs no base copy at all.
+- **Saves finish their bookkeeping.** A save that holds the document's
+  lock is not cancellable, and autosave never cancels a save in flight.
+- **A failing journal is said out loud.** If the journal cannot be
+  written, the document turns unhealthy, a "Recovery copies have
+  stopped" banner appears, and the next edit or flush (on pause, before
+  a save) at least 2 s later retries from a full snapshot. Edits are
+  never dropped silently (R2-DS-8).
+- **Checkpoints before destruction are awaited, and their answer
+  decides** (R2-DS-1). History records run through one ordered queue;
+  "Don't save", "Keep the file's version", "Discard edits" and a merge
+  settled by hand wait for their checkpoint, and the store passes
+  History's answer up (`ResolveOutcome.Resolved(checkpoint)`,
+  `CloseOutcome.NotKept`). If History kept nothing (off, disk full,
+  damaged index), nothing changes, journal included, and the UI asks
+  "History couldn't keep a copy · Discard anyway?". Every message is
+  worded from that answer, never from the History setting. "Use my
+  version" and a clean merge keep every edit of mine, so they never
+  depend on History.
+- **The newest keystroke is always in a checkpoint** (R2-DS-5). A
+  checkpoint is retaken while typing moves the buffer; if it is still
+  moving after three tries, the step is not taken (the conflict sheet
+  comes back, or "Don't save" leaves the document in memory, dirty and
+  journalled).
+- **Closing waits for the document's lock** (R2-DS-6). "Don't save" and
+  the memory governor's eviction run after any save or outside check in
+  progress, so a save landing afterwards can never start a journal for a
+  document the user chose not to keep, and eviction never deletes a base
+  copy a check is about to commit.
+- On launch, edits from a journal that wasn't cleanly closed are
+  **restored automatically**. A non-modal banner (ux-spec "Recovery")
+  offers Got it / Compare / Discard edits. Discarding records a History
+  checkpoint and can be undone. Nothing is ever discarded silently.
+- **Document text never goes into `onSaveInstanceState`.** The Bundle
+  limit is about 1 MB, and going over it crashes the app with
+  `TransactionTooLargeException`. Process death is handled by the
+  journal; the Bundle holds only IDs and cursor positions.
+
+### 2. Safe saves (a file is never left half-written)
+
+- **Back up before overwriting.** The last saved version goes to
+  app-private storage before every write.
+- **App-private files** (journal index, history index, settings, themes)
+  are written with `AtomicFile`: write `<name>.new`, sync, then rename.
+  User files reached through Storage Access Framework URIs can't be
+  renamed, so they rely on the backup and verify steps here.
+- **Truncating write mode.** Writes use `openOutputStream(uri, "wt")` and
+  never plain `"w"`: on Android 10+ some providers don't truncate with
+  `"w"`, which leaves stale bytes at the end of a shorter file. If a provider
+  rejects `"wt"`, we fall back to `"rwt"` plus `FileChannel.truncate`.
+- **Record the intent first** (`PendingSaves`). Before the file is
+  opened, the new bytes and the digests of the old and new versions are
+  written to app storage and synced. A kill part way through the write
+  leaves a file made only of old and new bytes; the next launch
+  (`InterruptedSaves`, before any journal is read) puts the old bytes
+  back and the journal brings the edits back. A write that completed
+  before the journal moved is recognised as ours, not as a change made
+  outside: the journal is moved onto it. Anything else on disk is
+  another app's edit and is never touched. Tested by `InterruptedSaveTest`
+  and `RandomKillTest`.
+- **Verify after writing.** After the write we read the file back and
+  compare its length and hash. The document is marked clean only after
+  that check passes. If it fails, Save shows an error state, the backup
+  is still there, and we offer Retry / Save as…
+- **Conflict check.** Before writing, the file's `lastModified`, size and
+  hash are compared with what we loaded. A mismatch shows the conflict
+  "Changed in another app · Review" banner instead of overwriting.
+  Review opens the conflict sheet (§2a).
+- **Lost permission.** If file permission has gone (a temporary grant
+  from another app, or a revoked folder), the work stays in the journal
+  and we offer "Save as…". We never fail silently. A grant another app
+  made persistable (`FLAG_GRANT_PERSISTABLE_URI_PERMISSION`) is taken
+  when the file opens, so "Open with" usually survives a restart. When
+  one does not, and the process died with unsaved edits, the next launch
+  rebuilds them from the base copy and the journal into a new draft:
+  "Recovered from <name> · Save as…", never an error and an empty draft
+  (R2-DS-2). A moved or deleted file, an ejected card or an uninstalled
+  provider take the same path.
+- **Save as never orphans an open document** (R2-DS-4). If the picked
+  file is open here with unsaved edits, a conflict, held edits or a
+  window, nothing is written: "that file is open here with unsaved
+  edits". Save as holds the store's open lock, so the target cannot be
+  opened while it is written.
+
+### 2a. Other apps edit our files: the disk is always the truth
+
+We are never the only app touching a file: Syncthing, Drive, a desktop
+editor and git clients all change files too. The invariant:
+
+> **Nothing we hold — cached text, the journal, undo stacks, saved
+> cursor positions, history — is ever applied over the file on disk
+> unless the user chooses it.** Our copy is only "newer" when it
+> carries unsaved edits, and those edits are merged or compared, never
+> blindly applied.
+
+**Fingerprints, not just timestamps.** `lastModified` alone is
+unreliable: some providers report 0 or whole seconds, clocks skew, and a
+same-length edit inside one second is invisible to it. Each document
+therefore records a **base fingerprint**: size + `lastModified` +
+SHA-256 of the bytes, taken when it was loaded or last saved. If the
+metadata changes, we compare hashes. If the metadata is unchanged but
+can't be trusted (it's 0, or a provider known for coarse times), we hash
+anyway. For very large files we hash in the background, but the full
+hash is always taken before a save.
+
+**When we check**
+- On open and reopen, including journal recovery after a restart.
+- On returning to the app or the file (`onResume`, switching files).
+- Every few seconds while the file is in the foreground (cheap metadata
+  query, with a `ContentObserver` where the provider supports one).
+- Immediately before every save, manual or auto. **A save requires the
+  disk fingerprint to equal the base fingerprint.** If it doesn't, the
+  save becomes the conflict flow. This is an invariant in code, not a
+  UI check.
+
+**What happens when the disk version is new**
+
+| Our state | What we do |
+|---|---|
+| No unsaved edits | Silently load the file as it is now. Record a history entry "Changed outside SS Markdown". Map the cursor and scroll through the diff so you stay near the same place. **Discard the old undo stack**, because undoing into stale content would bring old text back. |
+| Unsaved edits (open now, or recovered from the journal) | **Never auto-apply.** Show the file as it is now, plus the "changed since your unsaved edits" sheet (the only conflict surface; in-session banners just open it) with these choices: **Merge my edits** (a three-way merge), **Compare side by side**, **Keep the file as it is** (your edits stay in History), or **Use my version…** (behind a confirmation; the disk version is recorded in history first). Autosave is paused until you choose. |
+| File deleted or moved | Your text is kept. Offer **Save as / Recreate**. |
+
+**Three-way merge (the "Merge my edits" choice)**
+- **Base** = the version our edits started from. It's always in history
+  because we record "Opened" and "Saved" versions.
+- **Ours** = the unsaved buffer. **Theirs** = the disk version now.
+- Changes are merged line by line, as git does. Non-overlapping changes
+  apply automatically. Overlaps are presented one by one (take theirs /
+  take mine / edit). The result loads as an unsaved edit, and nothing is
+  written until you save.
+- It lives in `feature/files/merge` (`ThreeWayMerge`, plain Kotlin with no
+  Android types) and is property-tested (`ThreeWayMergePropertyTest`).
+
+**History is a graph, not a line.** Each version records its parent, so
+an outside change becomes its own node, and your edits branch from the
+base they actually started from. Restoring an old version always goes
+through this same conflict check, so it can never silently overwrite a
+newer outside change.
+
+**Folder mode.** Files changed outside the app show a small "changed"
+marker in the drawer. Clean buffers refresh silently (with a history
+entry). Dirty buffers get the conflict sheet when you open them. Save
+all skips conflicted files and lists them for you.
+
+### 3. Version history (keyframes + diffs, like git or video)
+
+This is a local, per-file history that costs almost nothing in storage.
+It lives in a pure-JVM `core/history` module and is fully unit-tested.
+
+**When a version is recorded**
+- On open ("Opened · as found on disk").
+- On every save, manual or auto ("Saved").
+- At **checkpoints** of unsaved work: after 5 minutes of active editing,
+  when the app goes to the background, and before risky actions (Reload
+  from disk, "take theirs" in a conflict, Restore, a large paste, Replace
+  all).
+
+So even in manual-save mode, the unsaved work you never saved is in the
+history.
+
+**Storage format**
+- **Reverse deltas.** The newest version is stored in full, and older
+  versions are backward deltas from it, as in RCS/Fossil style. Opening
+  the latest version is instant, and retention thinning simply drops
+  entries from the old end without re-composing chains.
+- Deltas are line diffs: common prefix and suffix are stripped first,
+  lines are interned to ints, then linear-space Myers runs with a time
+  and edit cap. Hitting the cap stores a keyframe instead.
+- **Keyframe rule (from Mercurial's `revlogutils/deltas.py`).** Store a
+  full deflated snapshot instead of a delta when any of these hold:
+  - the delta is bigger than the text;
+  - the deltas needed to rebuild the version would exceed 2× the text
+    length (`LIMIT_DELTA2TEXT = 2`);
+  - the chain reaches 50 (git's default pack depth). That keeps
+  restore fast and limits how much one bad record can damage.
+- Every version stores a SHA-256 of its full text. Rebuilding a version
+  is verified against it. If a delta is corrupt, we fall back to the
+  nearest keyframe, and only the versions between that keyframe and the
+  bad delta are lost.
+- Writes are atomic: append to a pack file, then rename the index, both
+  in app-private storage where rename is atomic.
+- Rough cost: a 200 KB document with typical edits produces deltas of
+  about 0.1–2 KB, so 1,000 versions come to about 1–3 MB.
+
+**Retention (thinning, like Time Machine)**
+- Keep everything from the last 24 hours, then hourly for 7 days, then
+  daily for 90 days, then weekly.
+- Each file is capped at 100 MB and the whole history at 1 GB by default
+  (both adjustable, including "No limit"). Limits only thin
+  intermediate versions, oldest first, and never touch the latest
+  version, the last 7 days, pins, drafts or journals. Every automatic
+  removal is logged and visible (ux-spec "Storage").
+- Pruning only ever removes from the old end, or collapses a run into
+  its newest member re-stored as a keyframe, so chains never break.
+- **Pinned** versions (long-press → "Keep forever", optionally named) are
+  never pruned.
+
+**Restoring is never destructive**
+- Before a restore, the current text is recorded as a version ("Before
+  restore").
+- The restored text loads as a dirty edit. In manual mode, the file on
+  disk doesn't change until you save, and the restore can be undone.
+
+**Identity**
+- History is keyed by document URI plus a content fingerprint. "Save
+  as…" copies the history to the new file.
+- History is local only. It is cleared per file or all at once (folder
+  ⋮ or Settings), and deleted on uninstall. That's why export, Save as
+  and pinning exist.
+
+**Where history lives.** History lives in private app storage,
+**never in sidecar files next to documents**. Storage Access
+Framework providers can't rename atomically, synced folders would
+create conflicts, it would pollute git repos and leak deleted text, and
+read-only sources would get no history. The full trade-off table is in
+`how-it-works.md`.
+- Additional retention rule: history for files not opened in 90 days
+  is pruned first.
+- *Export history* (a per-file `.zip`) and import are the way to move
+  history between devices.
+- An opt-in per-folder `.ssmarkdown/` store is deferred until after
+  1.0. The journal always stays in app storage.
+
+**History can be switched off** (Settings → Storage and history).
+Off means no versions are recorded. The recovery journal stays on
+regardless, and so does the per-document merge base: the base is kept
+alongside the journal while edits are unsaved, so three-way merge still
+works. Restore, Compare-with-version and Reload checkpoints are
+unavailable while history is off, and the UI says so where they would
+appear.
+
+### 3a. Save modes
+
+| Mode | Writes to the file | Default |
+|---|---|---|
+| **When I tap Save** | Only when you tap Save or Save all, or answer "Save" at a prompt | ✔ |
+| **Autosave** | After a 2 s pause in typing, and when leaving the file or app | |
+
+- Both modes share the same recovery journal and version history, so
+  either way every change is recoverable.
+- In Autosave the header reads "Autosaved · just now". The Save button
+  stays visible and forces an immediate save. The unsaved dot shows only
+  while a save is pending or has failed.
+- Autosave **pauses** (with a banner) when the file has changed on disk,
+  when write permission has been lost, or when a save fails. It never
+  overwrites someone else's change.
+- A file can override the global mode: long-press Save → "Autosave this
+  file", or the same toggle at the top of its Version history.
+
+### 4. Byte-faithful files (no silent corruption)
+
+- On open we detect the encoding, the line endings (LF, CRLF, CR or
+  mixed), and whether there's a final newline. On save we write back
+  exactly the same. Encodings:
+  - **UTF-8**, with or without a BOM: the default, and every new file.
+  - **UTF-16** (LE or BE), by its BOM, or without one by a strong NUL
+    pattern: in the first 4 KB one half of at least 90% of the 16-bit
+    units is zero, always the same half, the other half never is, and at
+    least 90% of the units are printable or a tab or line break. It is
+    edited normally and saved back in UTF-16 with its BOM (or without
+    one) and its line endings, byte for byte. A false positive is still
+    safe: valid UTF-16 decodes and encodes back to the same bytes.
+  - **UTF-32**, by its BOM, is not written: it opens **read-only**, shown
+    decoded, with a banner saying so ("This file is UTF-32, which SS
+    Markdown can't save") and Save as… for an editable UTF-8 copy.
+- **Invalid UTF-8 (or invalid UTF-16) opens read-only** with an
+  explanation banner and Save as…. Decoding it as replacement characters
+  (`�`) and saving would quietly destroy the file.
+- A file that **cannot be opened at all** (moved or deleted, permission
+  gone, a provider that timed out or failed) shows a banner that says
+  which, that nothing was changed, and the way forward: "Open a file…"
+  when picking it again is the fix, "Try again" when waiting is.
+- We never strip trailing whitespace or reflow text, and never
+  normalise anything the user didn't edit. Edits in Preview are scoped
+  to one block, and every other source line stays byte-identical.
+
+### 5. Clipboard and share limits (avoiding a known crash)
+
+- Android's clipboard and intents travel through Binder, which has a
+  limit of roughly 1 MB. **Copy all** on a large document therefore
+  sends the text as a content URI (FileProvider), so we don't put a huge
+  string on the clipboard and crash. If the receiving app can't take a
+  URI, we say "Too large to copy (5.2 MB) — Share as file instead".
+- Share and Export do the same: files over a threshold go as a file,
+  never as `EXTRA_TEXT`.
+- Pasting very large text is chunked so it doesn't freeze the UI, and it
+  can be undone in one step.
+
+### 5a. Rotation, folding, resizing and other configuration changes
+
+Rotating moves the editor from a top/bottom split into a side-by-side
+one. Unfolding, split-screen resizing, dark-mode or font-scale changes
+and keyboard attachment do similar things. Any of them can rebuild
+views, which is the classic way an Android editor loses text. Our rules:
+
+1. **Views never own text.** The document lives in a `DocumentStore`
+   that outlives Activities and lives as long as the process, and that
+   store is backed by the journal. The editor and preview are bound to
+   it; they hold no state of their own.
+2. **The same view instance moves; it is never rebuilt.** The editor and
+   the WebView are hosted with `movableContentOf`, so moving between
+   split layouts keeps the same `MarkdownCodeView` and `WebView`, along with
+   their cursor, selection, scroll, undo and keyboard connection.
+3. **Avoid recreation where it's safe.** The manifest handles
+   `orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|density|uiMode|fontScale`
+   itself, so most changes re-layout instead of recreating the Activity.
+   Every remaining path (locale, process death, "Don't keep activities")
+   still has to pass rules 1 and 2.
+4. **Flush pending input first.** Before any layout change, the
+   keyboard's in-progress word is committed (`finishComposingText`), and
+   any half-done Preview block edit (an uncommitted `contenteditable`
+   change or a table cell) is turned back into Markdown immediately.
+   Preview edits apply to the source as they happen (debounced about
+   150 ms; see ux-spec "Editing in Preview"), never only when the cursor
+   leaves the block.
+5. **Dialogs and sheets** (find & replace text, the theme editor,
+   unsaved prompts) keep their inputs in the process-scoped view model,
+   never in the composable, so a rotation or a rebuilt Activity ("Don't
+   keep activities") never wipes a half-typed search or theme, and an
+   open sheet or prompt is still open afterwards. A process death brings
+   back the text, the view mode, the position (§1, the journal and the
+   per-file view state) and Undo and Redo (§1, ADR 0016: the journal
+   keeps the newest 8 MB of steps), not an open sheet or a find query,
+   which live in memory only.
+
+### 6. Leaving and switching
+
+- The Save / Don't save / Keep editing prompt appears **only when a dirty
+  buffer would leave memory**: closing the file, leaving the app with
+  Back, opening a file outside the open folder (single-file mode), or
+  closing a folder with dirty files.
+- **Switching between files inside a folder never prompts.** Dirty
+  buffers stay in memory, journalled, with dots in the drawer.
+- While a dirty buffer is on screen, predictive back shows the prompt
+  instead of the back-to-home preview.
+- Dirty buffers in folder mode are journaled exactly like single files.
+
+## Part 2 — Large files: virtualised everywhere
+
+**Requirement:** a file's size decides how much *memory* we need, never
+how much *work* each frame or keystroke costs. Both panes draw only
+what's on screen, plus a small margin, the way a well-built list scrolls
+a million rows.
+
+### Text model (pure JVM, in `core/text`)
+
+- The text is a **piece tree**, ported from VS Code's MIT-licensed
+  design. It is one balanced tree of pieces in which each node also
+  stores the length and line-feed count of its left subtree. Offset↔line
+  lookups are O(log n) through that **one** structure. There is no
+  separate line tree to drift out of sync.
+- **Buffers are immutable chunks** of at most 64K chars, each with a
+  precomputed `lineStarts` array. Files are decoded straight into chunks
+  by a streaming `CharsetDecoder`, never into a whole-document `String`.
+  A chunk never ends on `\r` or a high surrogate.
+- Line endings are normalised to `\n` in memory. The original style
+  (LF, CRLF, or mixed with a per-line map) is remembered and re-emitted
+  on save, which removes the CRLF bug class.
+- Typing appends to the last add-buffer chunk in place (VS Code's fast
+  path). A last-line cache serves repeated reads.
+- **Snapshots:** readers on background threads (tokenizer, save, history
+  diff, preview sync) take an O(pieces) immutable snapshot. That's safe
+  because buffers never change.
+- **Compaction:** when the piece count grows past about
+  2 × (chars / 64K) + 1,000 after heavy editing, the tree is rebuilt into
+  fresh chunks: the copy runs on a background thread from a snapshot and
+  is swapped in only if nothing was typed meanwhile (`TreeCompactor`,
+  checked after every run of edits). VS Code's own write-up names piece
+  growth as the design's weak point. If snapshot copying shows up in
+  profiles, the planned upgrade is a persistent B-tree with summaries
+  (Zed's `sum_tree` design, Apache-2.0).
+- An edit costs O(log n) regardless of file size. Finding the offset of
+  line 80,000 costs O(log n). Opening a file never copies its text: the
+  original buffer *is* the decoded file.
+- Undo/redo and the journal record piece-table operations, not snapshots.
+- This module is the heart of the app. It's Android-free, so it is
+  property-tested on the host against a naïve `StringBuilder` reference
+  with millions of random edits.
+
+### Editor view (Code pane): virtualised
+
+- A custom `MarkdownCodeView` draws only the visible lines plus about
+  one screen above and below. Each line is laid out on its own and cached
+  by **stable line ID + edit version** (not by content hash, which costs
+  O(line length) per lookup and can collide). On API 29+, each visible
+  line is also recorded into a pooled `RenderNode`, so scrolling redraws
+  without re-laying out. The render margin leans towards the scroll
+  direction (about 1,000 px ahead).
+- **Long lines are chunked.** No layout is ever built for a whole huge
+  line, such as a 1 MB base64 image or minified JSON. Only about 2,000
+  chars around the viewport are laid out (10,000 when wrapped), and the
+  rest is estimated (CodeMirror's rule). Unwrapped lines use
+  `getRunAdvance` + `drawTextRun`; wrapped lines are broken greedily
+  from measured advances on the main thread, inside that same window
+  (`WrapLayout`). Moving the breaking to `MeasuredText` + `LineBreaker`
+  off the main thread is planned, not done (`LineMeasurer`'s KDoc).
+  Scroll height comes from the
+  line index: fixed line height in No wrap mode; in Wrap mode, measured
+  wrap counts for lines already seen and estimates for the rest, refined
+  as you scroll, with the scroll position anchored so nothing jumps.
+- Syntax highlighting is a per-line tokenizer whose small end-of-line
+  state (fence, front matter, `$$` math, HTML block, container stack)
+  carries from one line to the next. After an edit, re-tokenising stops
+  as soon as a line's new end state equals its cached one.
+- **Lazy, with a time budget.** The Code pane tokenises on the main
+  thread, where it draws: up to the viewport before each frame, then the
+  rest in idle slices of at most 4 ms, one per frame, never more than
+  about 100k chars past the viewport. Both passes draw on **one** 8 ms
+  budget per frame (`FrameBudget`), so together they never exceed it by
+  more than one line. The outline (Navigator, breadcrumb, Copy section)
+  has its own tokenizer, which runs **on a background snapshot**, off
+  the main thread entirely, and publishes copies of the headings that
+  the main thread keeps line-true across edits. Visible lines that haven't been reached yet are tokenised
+  with a guessed start state and corrected when the accurate pass
+  arrives (the VS Code and CodeMirror approach). So opening a fence on
+  line 1 of a 200k-line file never freezes typing.
+- Markdown's non-local rules are handled explicitly. A setext underline
+  (`===` or `---`) re-styles the line above it. Reference definitions
+  live in a separate document-wide index. Lazy continuation in lists
+  and quotes is part of the container state.
+- The keyboard connection is a custom `InputConnection` with full
+  composing support. It never hands the keyboard more than a **32K-char
+  window** centred on the selection (`getTextBefore/AfterCursor`,
+  `getSelectedText`, `getExtractedText`); without that limit, select-all
+  causes ANRs. Batch edits don't nest, and `updateSelection` fires only
+  when the outermost batch ends. `restartInput` is called only when the
+  text is replaced from outside. On API 30+ we set
+  `setInitialSurroundingSubText`. Accessibility node text is capped at
+  100K chars (the parcel-safe limit). This is
+  the highest-risk component, so it carries the keyboard matrix (Gboard,
+  Samsung, HeliBoard, plus a hardware keyboard) and its own tests.
+- Native selection handles, the magnifier, the text-action toolbar,
+  accessibility (a virtual node tree for visible lines) and drag-scroll
+  are all implemented against the platform APIs.
+
+**Gate — the editor-engine spike (first task of iteration 1).** Build a
+minimal `MarkdownCodeView` on `core/text` and benchmark it against the
+platform `EditText` and Sora Editor on a 1 MB, 20 MB and 100 MB corpus.
+The corpus includes a single 5 MB line and 1M short lines. The
+benchmarks run on a Pixel 6a-class phone and a 3 GB low-end phone, and
+measure:
+- open time,
+- keystroke latency,
+- 60 fps scrolling,
+- peak memory,
+- the keyboard matrix.
+
+The decision and its numbers are recorded in an ADR
+(`docs/adr/0001-editor-engine.md`).
+
+Default expectation: our own view wins, because `EditText` lays out the
+whole document. Note that **Sora Editor is LGPL-2.1**, not Apache. Using
+it in an Apache-2.0 app is possible but brings relinking obligations. It
+is a benchmark baseline, not the plan.
+
+### Preview (WebView): virtualised too
+
+- The page keeps a **block index** from markdown-it, with each block's
+  source line range and a measured or estimated height.
+- markdown-it isn't incremental, so the source is split into top-level
+  **sections** at blank lines outside fences, lists and HTML blocks.
+  Each section is keyed by hash. Reference definitions are collected
+  across the whole document once and passed in through `env`. Only dirty
+  sections, plus one neighbour, are re-parsed. Every block carries
+  `data-line` / `data-line-end` from `token.map` for scroll sync (as the
+  VS Code preview does).
+- Sections near the viewport use `content-visibility: auto` with
+  `contain-intrinsic-size: auto <estimate>px`, so the browser skips their
+  layout and remembers real sizes. Beyond about 3 screens, sections are
+  unmounted and replaced by spacers.
+- Very tall documents get a **height scaler**: spacer heights are
+  compressed above about 7M px, as CodeMirror does, because browser
+  layout units overflow on huge pages. Scrolling mounts and unmounts
+  blocks, and the scroll position is anchored to a block so nothing
+  jumps.
+- Parsing runs in a Web Worker on changed line ranges only. Kotlin sends
+  edits over a `WebMessagePort`, never the whole document.
+- **KaTeX renders in the worker** (`renderToString` needs no DOM), with
+  `trust: false` and `maxExpand`/`maxSize` limits. **Mermaid needs the
+  DOM**, so it runs on the main thread, one diagram per idle slice, with
+  text-size and edge-count caps.
+- Both render only in mounted blocks. The SVGs are cached
+  by source hash with a byte budget (oldest evicted first). Each diagram
+  has a render timeout: a failing or timed-out diagram shows an inline
+  error box with its source and never blanks the page.
+- Print/PDF is the only path that renders every block, and it shows a
+  progress indicator.
+
+### What still varies with size
+
+With virtualisation in place, editing stays smooth at any size. What
+changes with size is the **memory budget**, managed below. Optional
+extras are dropped before anything essential:
+
+1. Line-level diffs in the history view (a whole-file comparison is
+   still offered).
+2. Live preview while typing (it updates on pause instead).
+3. Spell-check suggestions.
+4. The diagram cache.
+5. Syntax colouring of very long lines: colouring is limited to the
+   first 10k characters of a line, and the rest draws plain.
+
+A file is never refused for being large. It is refused only if it won't
+fit in memory, and we say so before trying.
+
+## Part 2a — The memory governor
+
+Android tells us how much memory we have, so we use that information
+instead of hoping. A small `MemoryGovernor` service owns it.
+
+**Ceilings we read**
+- `Runtime.maxMemory()` — this app's Java heap limit (often 256–512 MB).
+  This is the real ceiling for our text.
+- `ActivityManager.getMemoryInfo()` — available system memory, the
+  `lowMemory` flag and its threshold.
+- `ActivityManager.isLowRamDevice()` and `memoryClass` — on low-RAM
+  devices we start in the conservative budget.
+- `ComponentCallbacks2.onTrimMemory(level)`. Note that **since API 34
+  only `UI_HIDDEN` and `BACKGROUND` are delivered**; the RUNNING_* levels
+  never arrive. So during loads and big pastes, the governor
+  also **polls** `getMemoryInfo().lowMemory` and the heap headroom from
+  `Runtime`, rather than waiting for a callback. We never set
+  `largeHeap`; admission control uses `getMemoryClass()`.
+- `StorageManager.getAllocatableBytes()` — free disk space, which is
+  needed for the journal, history and saves.
+
+**Admission control before loading**
+- Estimate the cost of opening a file from everything that grows with
+  it: decoded size × 2 (UTF-16), the line index and bounded caches (× ½),
+  the two tokenizers' per-line block states (× 2), and one transient
+  full copy of the text for a recovery replay or a conflict (× 2), and
+  the undo history up to its 32 MB cap (× 2), plus a safety margin.
+  `MemoryGovernor.estimateOpenCost` names each term.
+- A provider that reports no size, or too small a one, is admitted on
+  its word, and the bytes that actually arrive then set the budget.
+- A paste larger than one frame's slice is admitted the same way (about
+  7 bytes a char) before it starts, or once the clip has become text if
+  it did not say its length; a refusal changes nothing and says so.
+- If that fits within 40% of the free heap, open normally.
+- If it fits within 70%, open in the lean budget (caches capped, live
+  preview off), with a quiet notice.
+- "Free" counts garbage not yet collected as used, so before saying no
+  the loader collects garbage once and looks again. Without that, the
+  same file opened or was declined depending on GC timing.
+- If it doesn't fit, explain: "This 60 MB file needs about 400 MB and
+  this phone allows 256 MB." When the file is within the ceiling and only
+  what is open now stands in the way, say that instead: "…needs about
+  178 MB, and only 120 MB is free right now. Closing other files may
+  help." Offer a read-only streamed view (paged from disk) and nothing
+  worse.
+- Opening a second large file in folder mode counts against the same
+  budget. Dirty buffers are never evicted; clean ones are, and they
+  reload from disk on demand.
+
+**Under pressure**
+- When `onTrimMemory` fires or free heap drops below 15%, we shed in
+  order: line-layout caches, the tokenizer cache, then inactive clean
+  buffers. The Preview's diagrams and mounted window are not on this
+  ladder: they live in the WebView's renderer, a separate process the
+  platform reclaims itself (below).
+- Unsaved work isn't touched. It's already journalled, so even if the
+  system kills the process, the recovery path above restores it.
+
+**The WebView runs in a separate process. Its crash must not be ours.**
+- The preview's renderer runs at `RENDERER_PRIORITY_IMPORTANT`
+  (`setRendererPriorityPolicy(…, waivedWhenNotVisible = true)`).
+- We implement `onRenderProcessGone`, which returns `true`, then removes
+  and `destroy()`s the dead WebView. `detail.didCrash()` tells a renderer
+  bug from an out-of-memory kill; after an OOM kill we reload with a
+  lower preview budget. If we don't, the WebView renderer
+  being killed for memory, or by a WebView update, **crashes the app**.
+  Instead we drop that WebView, create a fresh one, re-render around
+  the current anchor, and show "Preview restarted".
+- A renderer that has crashed twice in a minute keeps the preview off
+  until you tap "Retry". The editor keeps working throughout.
+
+**Last resort**
+- `OutOfMemoryError` is caught only at a few known allocation points:
+  file load (`DocumentLoader`: the file is declined), the journal
+  replay, and History's export and import (the ZIP). Image export
+  decodes in the renderer process. There we can unwind safely,
+  release the partial allocation and report. It is never swallowed
+  anywhere else.
+
+## Part 3 — How we prove it
+
+Status: **tested** means a test named here is green; **host** means it
+runs on the JVM in `check`; **device** means it needs an emulator or a
+phone. Rubric #1 is scored against the first five rows and the last.
+
+| Test | What it proves | Status |
+|---|---|---|
+| **Kill test** (host ×1000, device ×50): kill the process at random moments while typing, pasting, undoing, saving, autosaving, Save as, resolving outside changes and "Don't save" | After relaunch, recovered text equals the expected text to within the last ~1 s. The file on disk is always either the old version or the new one, never partial. No outside edit is overwritten. | **tested, host**: `RandomKillTest` (feature/files): 1000 seeded runs, each killed once at a uniformly chosen point (any main- or journal-thread task, any disk hop, any byte of a write), sometimes with the journal's last write torn or zero-filled, half-written temporaries left behind, or another app writing the file before relaunch; recovered through the real launch scan. 1000/1000 pass, max loss 1000 ms of typing (the group-commit bound). Each run also checks undo (ADR 0016): the recovered steps are the live document's in the recovered state, and Undo all the way back, then Redo all the way forward, passes through exactly their texts (1000/1000: 582 runs walked 5,245 recovered steps; the rest recovered no steps, or by design none: a conflict, an interrupted Save as or "Don't save"). `check` runs 100 seeds; CI runs the thousand. **Device**: `KillLoopTest` + `tools/kill-loop.sh`, 50 SIGKILLs of the real app typed into through its `InputConnection`, in CI's emulator job, gating every push: 50/50 recovered, max loss 636 ms, in run 41370278746. (Earlier runs that looked green ran nothing: the script named the wrong instrumentation runner and `continue-on-error` hid it. The first real run found a start-up crash, now fixed: `RememberedCursorTest`.) Not covered by either: view switching and Save all mid-kill (UI), and power loss (the host cannot prove `fsync` reaches flash). |
+| **Save-fault injection**: a fake provider that fails mid-write, ignores truncation, or revokes permission | The document stays dirty, the backup survives, and the user sees the error and a way out. | **tested, host**: `SavePipelineTest` (300 random one-shot faults), `SaveTimeoutTest`, `InterruptedSaveTest` (a kill mid-write is repaired at the next launch; an outside edit after it is never touched), `DocumentStoreTest` |
+| **Journal property tests** (JVM, randomised ops) | Replay equals the live buffer; compaction keeps that true; a torn final record is ignored safely. | **tested, host**: `JournalRoundTripTest`, `CompactionTest`, `TornAndCorruptTest`, `FlushPolicyTest` (steady typing is synced every second) |
+| **Interleaving tests** (JVM, `InterleavingDispatcher`): a keystroke after every disk hop of save, autosave, Save as, reload, Use mine, merge and discard, then a crash | Recovery brings back exactly the live text, nothing typed is missing, and no journal is left on the wrong base. | **tested, host**: `InterleavingTest`, `DataSafetyRound2Test`, and every run of `RandomKillTest` (keystrokes land at random disk hops) |
+| **Round-trip corpus** | Opening and saving without edits is byte-identical, including CRLF, BOM, no final newline and odd encodings. Editing one line changes only that line's bytes. Invalid UTF-8 and NUL bytes open read-only and are never written. UTF-16 round-trips the same way; UTF-32 opens read-only. A Preview edit changes only its own block. | **tested, host**: `RoundTripCorpusTest` (feature/files, through the store and the safe save: LF, CRLF, CR-only, mixed, BOM, no final newline, emoji/ZWJ/flags/RTL, a 300 000-char line; five kinds of invalid UTF-8; UTF-16 LE/BE with and without a BOM, no-op save and one-line edit; UTF-32 and invalid UTF-16 read-only), `Utf8CodecTest`, `Utf16CodecTest` (core/text), `OpenProblemsTest` (app). Preview blocks: `CoveringEditTest` and the Playwright editing tests |
+| **Large-file benchmarks** (macrobenchmark, Pixel 6a-class and a 3 GB low-end phone) | Open, type and scroll targets at 1, 20 and 100 MB. Frame cost doesn't grow with file size. | phone run planned (device). **Emulator trend line, tested**: `:benchmark` Macrobenchmarks in CI's `perf` job (API 34, 256 MB heap): cold start, open 1 / 20 MB, keystroke to commit and typing frames on 1 / 20 MB, 10 s of flings on 20 MB, Preview refresh at 50 KB. Gate: a central metric past 2x `docs/perf/emulator-baseline.json` (tails reported, not gated; `test_perf_report.py`); budgets advisory; numbers in `performance-techniques.md` |
+| **Memory-pressure tests**: a 128 MB heap emulator, `am send-trim-memory`, killing the WebView renderer (`chrome://crash` / `am kill`), and opening several large files | No out-of-memory crash; admission control refuses cleanly; the preview restarts after a renderer death; no unsaved work lost. | host part tested (`MemoryGovernorTest`); **device, tested**: `DeviceEdgeCasesTest` on CI's emulator (`chrome://crash` restarts the Preview, `am send-trim-memory` keeps unsaved work); the 128 MB-heap emulator and several large files at once still planned |
+| **Clipboard/share at 5 MB** | No `TransactionTooLargeException`; the fallback works. | planned (device) |
+| **Outside-change scenarios** (instrumented + JVM): change the file externally (a) while open and clean, (b) while open and dirty, (c) between sessions with no journal, (d) between sessions with a journal, (e) same size and same second, (f) on a provider that reports `lastModified = 0`; plus delete, rename and replace with a different file of the same name | Stale text is never written or shown as current. The old undo stack is never used against new content. Every case ends in the matrix outcome above. | **tested, host**: `DocumentStoreTest`, `SchedulingTest`, `RandomKillTest` (outside edits while clean, dirty and dead, checked against every write); instrumented part planned |
+| **Three-way merge property tests** (JVM) | Non-overlapping edits merge exactly as git's `merge-file` would; overlaps are always reported, never silently resolved. | **tested, host**: `ThreeWayMergePropertyTest` |
+| **Rotation matrix** (instrumented): every view mode × {typing a half-finished word, mid-selection, a Preview paragraph edit, mid table-cell edit, find open, a sheet open, unsaved prompt open} × {rotate, fold/unfold, split-screen resize, dark-mode toggle, font-scale change, "Don't keep activities", `am kill`} | The text, cursor, selection, scroll, undo stack and dirty state are identical before and after, and an open find bar, sheet or prompt is still open (§5a rule 5). Zero characters lost. Across `am kill` the text, cursor, selection, scroll, view mode and undo/redo come back (ADR 0016); open sheets do not (rule 5: they are in memory only). Runs on every PR. | tested (device, every PR): `RotationTest`; `RotationMatrixTest`: Code through every change in the list, "Don't keep activities" included (a real destroy and rebuild of the Activity from the stopped state, via `ActivityScenario.recreate`: text, selection, top line, anchor, undo/redo on the new instance); Split, Preview, mid-composition and mid table-cell rotated there and back; find open (query, match list, current match and its selection), the Display sheet open and the unsaved prompt open (on a real, dirty file), each rotated there and back and then recreated, with text, selection, dirty state and undo/redo checked. `am kill`: `BackgroundKillTest` via `tools/background-kill.sh` in CI's emulator job (backgrounded, SIGKILL, cold return: every character, selection, top line and view mode, and Undo takes back the last edit, Redo puts it back). Not run on the device: a Preview paragraph edit in flight across a change, and every view mode × every state (each state is run in Code; Split and Preview are rotated only). The system's own return from Recents after `am kill` cannot be driven from instrumentation, which force-stops the package between runs; the app does not use that saved state (§1) |
+| **Keyboard matrix** (manual, each release): Gboard, Samsung Keyboard, HeliBoard | Toolbar actions and Preview edits respect the in-progress word; autocorrect never lands text in the wrong place. | manual |
+| **History property tests** (JVM): random edit sequences, then record, prune and restore | Every kept version rebuilds byte-identically; pruning never breaks a chain; a corrupt delta loses only the versions after it up to the next keyframe. | **tested, host**: `VersionStorePropertyTest`, `CorruptionAndCrashTest`; `RandomKillTest` reads back every version after each kill |
+| **Unsaved state at a glance**: the first edit on every screen that shows a document | Something TalkBack reads as "Unsaved" appears within one frame (16 ms) in Code, Split and Preview, portrait and landscape, in the phone's folder drawer and the tablet's docked panel. | **tested, host**: `UnsavedIndicatorTest` (Robolectric, end to end through the view model and store) |
+| **Accessibility scanner** (rubric #10): Google's Accessibility Test Framework, the Accessibility Scanner app's engine, over every surface the screenshot harness renders | No unlabelled control, no touch target under 48 dp, no text or icon contrast under WCAG AA, no duplicate clickable bounds, nothing else ATF's latest preset calls an error, on 50 surfaces × light and dark (100 scans): the editor in every Save state, Code / Split / Preview, the 360, 412, 600, 840 and 1280 dp layouts and landscape, the keyboard strip, 2× and 1.3× font, the drawer and docked panel, Navigator, Find, every sheet (conflict, section menu, Display, Export images, Mermaid, share) and every other screen (History, Settings, Storage, Theme editor, Font picker, About, image viewer). The scan builds from the accessibility node tree, so it sees Compose and the Code pane's virtual lines. It found three real problems (a 32 dp sheet handle, 46 dp Navigator rows, folder rows posing as disabled buttons), all fixed (`docs/edge-cases.md`); three contrast-estimate false positives are suppressed one element class each, with reasons in `AccessibilityScanner`. | **tested, host**: `AccessibilityScanTest`, `AccessibilityScannerTest` (the scan does catch each rule). **TalkBack pass: planned (device)**: what is read, in what order, and whether it makes sense needs a person and a phone. |
+| **StrictMode** in every debuggable build (thread and VM policies, `detectAll` + `penaltyLog`) | Main-thread disk access and leaked closeables show in logcat during development. Not `penaltyDeath`: WebView's own start-up reads disk on the main thread. The host tests that matter assert the same thing by count (`ThemeLibraryTest`, `ViewMemoryTest`: no file touched on the caller's thread). | StrictMode logging on (debuggable builds); enforced by the monkey run below |
+| **Monkey + StrictMode** (CI `perf` job, API 34 emulator): a seeded (`-s 20261101`) 2,000-event `adb shell monkey` on the debuggable build | No crash and no ANR (monkey's report and logcat). Every StrictMode violation in the logcat is classified by `benchmark/ci/strictmode_check.py`: one whose nearest app frame is ours fails the job unless only WebView/Chromium internals (the documented allowlist) lie between that frame and the violating call. The first run found 23, at six sites, all fixed (`AppDirs`, drafts and base-copy staging off the main thread). | tested (device) |
+| **LeakCanary** over every instrumented test (CI `device` job) | `DetectLeaksAfterTestSuccess` analyses the heap after each passing test when a destroyed Activity, View or ViewModel is still reachable, and fails it. `androidTestImplementation` only, installed in the app's process by `LeakCheckRunner`; CI fails the hand-over APK if it ever contains LeakCanary. | tested (device): no leaks in the instrumented suite |

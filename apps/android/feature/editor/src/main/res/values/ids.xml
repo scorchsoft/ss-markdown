@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Ids of the Code pane's custom accessibility actions. -->
+    <item name="editor_action_next_heading" type="id" />
+    <item name="editor_action_previous_heading" type="id" />
+</resources>

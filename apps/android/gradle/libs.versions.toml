@@ -1,0 +1,111 @@
+# Single source of dependency truth. Every pin carries its reason.
+[versions]
+# AGP 8.13 is the last line that runs on Gradle 8.14, which is what the
+# cloud container and CI ship. AGP 9 needs Gradle 9 and there is no
+# wrapper here on purpose.
+agp = "8.13.2"
+kotlin = "2.3.21"
+# Compose 1.12 (BOM 2026.08) demands compileSdk 37 and AGP 9.1; 2026.06.01 is the
+# newest BOM whose Compose 1.11 still compiles against SDK 36.
+composeBom = "2026.06.01"
+activityCompose = "1.12.4"
+coreKtx = "1.18.0"
+junit = "4.13.2"
+robolectric = "4.16.1"
+androidxTestCore = "1.7.0"
+androidxTestExtJunit = "1.3.0"
+androidxTestRunner = "1.7.0"
+# feature:preview only: WebViewAssetLoader serves the preview bundle from an
+# https origin so the page's CSP and module workers behave as on the web.
+androidxWebkit = "1.14.0"
+
+# Emulator evidence (rubric #4, #11). Macrobenchmark and the Baseline
+# Profile plugin share one version line; 1.5.0 is the newest stable and
+# supports AGP 8.x. UiAutomator drives the app from the :benchmark module.
+benchmark = "1.5.0"
+uiautomator = "2.3.0"
+# Pulled in by Compose already; declared so the app installs its Baseline
+# Profile on sideloaded builds (the hand-over APK is sideloaded).
+profileinstaller = "1.4.1"
+# androidTest only, never in any APK we hand over: LeakCanary's
+# instrumentation leak detection over the instrumented tests. Apache-2.0.
+leakcanary = "2.14"
+# Unit tests only: Google's Accessibility Test Framework, the engine behind
+# the Accessibility Scanner app (rubric #10). AccessibilityScanTest runs its
+# checks over every screen and sheet the suite renders. Apache-2.0. 4.1.1 is
+# the version Compose's own ui-test-accessibility (BOM 2026.06.01) uses.
+accessibilityTestFramework = "4.1.1"
+
+# Static analysis. Both run in `check`, locally and in CI, with zero findings.
+# ktlint-gradle is the de-facto Gradle front end for ktlint; it drives the
+# ktlint engine pinned below rather than whatever it bundles.
+ktlintGradle = "14.2.0"
+ktlint = "1.8.0"
+# detekt 1.23.8 is the newest stable line (2.0 is still alpha). It is built
+# against Kotlin 2.0.21; the convention plugin pins detekt's own classpath to
+# that compiler so it does not pick up the project's newer Kotlin.
+detekt = "1.23.8"
+detektKotlin = "2.0.21"
+# Line coverage for the core modules (docs/engineering.md: >= 90% in core/*).
+# Kover is JetBrains' Kotlin-aware coverage tool; Apache-2.0.
+kover = "0.9.11"
+
+# :tools:editor-bench only (the ADR 0001 editor-engine benchmark).
+# Coroutines sequence the scripted runs; Apache-2.0.
+kotlinxCoroutines = "1.10.2"
+# Sora Editor is LGPL-2.1. BENCHMARK-ONLY: it is the baseline the spike is
+# measured against, in a module that never ships. It must never become a
+# dependency of :app or of any core/feature module (checkModuleGraph forbids
+# depending on :tools:*, and nothing else may declare this alias).
+soraEditor = "0.23.6"
+
+[libraries]
+# Plugins as artifacts, so build-logic can compile against them while the
+# plugin ids below share the same version refs and cannot drift.
+android-gradlePlugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
+kotlin-gradlePlugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
+ktlint-gradlePlugin = { group = "org.jlleitschuh.gradle", name = "ktlint-gradle", version.ref = "ktlintGradle" }
+detekt-gradlePlugin = { group = "io.gitlab.arturbosch.detekt", name = "detekt-gradle-plugin", version.ref = "detekt" }
+kover-gradlePlugin = { group = "org.jetbrains.kotlinx", name = "kover-gradle-plugin", version.ref = "kover" }
+
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+
+compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+compose-ui = { group = "androidx.compose.ui", name = "ui" }
+compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
+compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
+compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
+compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
+compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCore" }
+androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestExtJunit" }
+androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunner" }
+androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "androidxWebkit" }
+androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
+androidx-benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "benchmark" }
+androidx-test-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "uiautomator" }
+accessibility-test-framework = { group = "com.google.android.apps.common.testing.accessibility.framework", name = "accessibility-test-framework", version.ref = "accessibilityTestFramework" }
+leakcanary-android-instrumentation = { group = "com.squareup.leakcanary", name = "leakcanary-android-instrumentation", version.ref = "leakcanary" }
+
+# :tools:editor-bench only; see the version comments above.
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
+sora-editor = { group = "io.github.Rosemoe.sora-editor", name = "editor", version.ref = "soraEditor" }
+
+# :feature:files: suspend I/O on an injected dispatcher, with virtual time in
+# tests (docs/engineering.md). Shares the coroutines pin above; Apache-2.0.
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+android-test = { id = "com.android.test", version.ref = "agp" }
+baselineprofile = { id = "androidx.baselineprofile", version.ref = "benchmark" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

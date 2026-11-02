@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The test APK only. LeakCanary runs inside the app's process (see
+     LeakCheckRunner), so its own components are removed from the test
+     APK: they would start in the test APK's process, which has no Kotlin
+     runtime of its own (it shares the app's), and crash there. The leak
+     report is the failing test, not a notification or a launcher icon. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <provider
+            android:name="leakcanary.internal.LeakCanaryFileProvider"
+            tools:node="remove" />
+        <activity
+            android:name="leakcanary.internal.activity.LeakActivity"
+            tools:node="remove" />
+        <activity-alias
+            android:name="leakcanary.internal.activity.LeakLauncherActivity"
+            tools:node="remove" />
+        <activity
+            android:name="leakcanary.internal.RequestPermissionActivity"
+            tools:node="remove" />
+        <receiver
+            android:name="leakcanary.internal.NotificationReceiver"
+            tools:node="remove" />
+    </application>
+</manifest>

@@ -1,0 +1,133 @@
+package com.scorchsoft.ssmarkdown.editor
+
+import com.scorchsoft.ssmarkdown.document.ActiveDocument
+import com.scorchsoft.ssmarkdown.document.DiskReader
+import com.scorchsoft.ssmarkdown.document.VersionHistoryHook
+import com.scorchsoft.ssmarkdown.editor.preview.PreviewSession
+import com.scorchsoft.ssmarkdown.files.document.AutosaveScheduler
+import com.scorchsoft.ssmarkdown.files.document.DocumentStore
+import com.scorchsoft.ssmarkdown.files.drafts.DraftStore
+import com.scorchsoft.ssmarkdown.files.memory.MemoryGovernor
+import com.scorchsoft.ssmarkdown.folder.FolderSource
+import com.scorchsoft.ssmarkdown.history.versions.VersionStore
+import com.scorchsoft.ssmarkdown.media.PictureSource
+import com.scorchsoft.ssmarkdown.settings.SettingsRepository
+import com.scorchsoft.ssmarkdown.viewstate.InMemoryViewStates
+import com.scorchsoft.ssmarkdown.viewstate.ViewStateStore
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+
+/**
+ * What the editor's view model is built from. One constructor argument
+ * instead of twelve, so tests swap any of them (docs/engineering.md:
+ * everything under test can be swapped out).
+ *
+ * @property permissions persists a picked URI's grant: `(uri, write) -> held`.
+ * @property lastExitWasSwipe true when the previous process was swiped from Recents.
+ * @property scope the main-thread scope the store and its callers live on.
+ * @property io where blocking file-system calls run.
+ * @property compute where CPU-bound work over a whole document runs (find), never the main thread.
+ * @property memory the memory governor, for admitting and polling large pastes; null admits everything (tests).
+ * @property outlineWork where the outline tokenizes its background snapshot (PERF-D); the test dispatcher in tests.
+ * @property viewStates each file's mode, zoom, selection and scroll, kept across restarts (R7).
+ * @property pictures pictures next to the document, for the viewer and Export images.
+ */
+data class EditorDependencies(
+    val store: DocumentStore,
+    val autosave: AutosaveScheduler,
+    val drafts: DraftStore,
+    val history: VersionHistoryHook,
+    val versions: VersionStore,
+    val settings: SettingsRepository,
+    val diskReader: DiskReader,
+    val folders: FolderSource,
+    val permissions: (String, Boolean) -> Boolean,
+    val clock: () -> Long,
+    val lastExitWasSwipe: () -> Boolean = { false },
+    val scope: CoroutineScope,
+    val io: CoroutineDispatcher,
+    val compute: CoroutineDispatcher = Dispatchers.Default,
+    val outlineWork: CoroutineDispatcher = compute,
+    val memory: MemoryGovernor? = null,
+    val viewStates: ViewStateStore = InMemoryViewStates(),
+    val pictures: PictureSource = PictureSource { null },
+)
+
+/**
+ * Per-document facts the store does not keep: when it was saved and by
+ * whom, where it came from. Lives as long as the process.
+ *
+ * @property readOnlySource the app that handed over a read-only copy ("from Gmail").
+ * @property fromAnotherApp first open from another app shows Preview (ux-spec "Saving and safety").
+ */
+data class DocumentMeta(
+    val openedAtMillis: Long,
+    val lastSavedAtMillis: Long? = null,
+    val lastSaveWasAutosave: Boolean = false,
+    val saving: Boolean = false,
+    val lastFailure: SaveProblem? = null,
+    val readOnlySource: String? = null,
+    val fromAnotherApp: Boolean = false,
+    val mode: ViewMode? = null,
+    val codeZoom: Int? = null,
+    val previewZoom: Int? = null,
+    val savingAs: Boolean = false,
+)
+
+/**
+ * What the editor's controllers need from the view model. Each
+ * controller owns one area (saving, conflicts, find…) and reaches the
+ * shared state only through this, so each can be read on its own.
+ */
+interface EditorHost {
+    /** The collaborators. */
+    val deps: EditorDependencies
+
+    /** The document on screen, or null while none is open. */
+    val active: ActiveDocument?
+
+    /** The current screen state. */
+    val state: EditorUiState
+
+    /** The Preview's session: the strip and find drive the page through it. */
+    val preview: PreviewSession
+
+    /** Changes the screen state. */
+    fun update(change: (EditorUiState) -> EditorUiState)
+
+    /** Sends a one-shot effect to the Activity. */
+    fun emit(event: EditorEvent)
+
+    /** Recomputes everything derived from the document (save state, title, breadcrumb). */
+    fun refresh()
+
+    /** The facts kept about [uri]. */
+    fun meta(uri: String): DocumentMeta
+
+    /** Changes the facts kept about [uri]. */
+    fun updateMeta(
+        uri: String,
+        change: (DocumentMeta) -> DocumentMeta,
+    )
+
+    /** Shows a short message. */
+    fun message(
+        kind: MessageKind,
+        argument: String = "",
+        undo: Boolean = false,
+    )
+
+    /** Opens [uri] on screen (already-open buffers are joined, never reloaded). */
+    fun openDocument(
+        uri: String,
+        fromAnotherApp: Boolean = false,
+        readOnlySource: String? = null,
+    )
+
+    /** Starts a new untitled draft. */
+    fun newDraft()
+
+    /** Re-binds the screen to the store's current buffer for the active URI (after a reload or a resolve). */
+    fun rebind()
+}

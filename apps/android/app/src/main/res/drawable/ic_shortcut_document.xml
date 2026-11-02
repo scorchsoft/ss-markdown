@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A recent file's shortcut, in the share sheet and the launcher's
+     long-press menu (ADR 0017). Adaptive, so launchers mask it like any
+     other shortcut: the brand red tile with a document glyph inside the
+     66 dp safe zone. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_shortcut_document_foreground" />
+</adaptive-icon>

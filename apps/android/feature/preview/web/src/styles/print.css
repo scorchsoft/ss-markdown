@@ -1,0 +1,165 @@
+/*
+ * Print and the A4 page mode. Typography is fixed in physical units: screen
+ * zoom, pinch and the theme's base size never change it, and dark themes print
+ * light (docs/ux-spec.md, "PDF", print typography table).
+ *
+ * This file is imported before the screen rules, so every selector starts with
+ * :root to outrank them rather than relying on source order.
+ */
+@page {
+    size: A4;
+    margin: 20mm 20mm 15mm 20mm;
+    @bottom-center {
+        content: counter(page);
+        font-size: 8pt;
+        color: #555;
+    }
+}
+
+@media print {
+    html:root,
+    html:root[data-dark="true"] {
+        --bg: var(--l-bg);
+        --text: var(--l-text);
+        --heading: var(--l-heading);
+        --link: var(--l-link);
+        --code-bg: var(--l-code-bg);
+        --muted: var(--l-muted);
+        --border: var(--l-border);
+        --info: #1d5dbf;
+        --info-bg: #eaf1fc;
+        --caution: #5c4300;
+        --caution-bg: #fff4da;
+        color-scheme: light;
+    }
+    :root,
+    :root body {
+        background: #fff;
+    }
+    :root body {
+        font-size: 11pt;
+        line-height: 1.45;
+    }
+    /* html:root[data-theme] outranks Reader's 68ch reading cap: a page is 170 mm wide in every theme. */
+    :root .doc,
+    html:root[data-theme] .doc {
+        max-width: none;
+        margin: 0;
+        padding: 0;
+    }
+    :root section.sec,
+    :root section.sec.mounted {
+        content-visibility: visible;
+        height: auto !important;
+    }
+    :root h1 {
+        font-size: 20pt;
+    }
+    :root h2 {
+        font-size: 16pt;
+    }
+    :root h3 {
+        font-size: 13pt;
+    }
+    :root h4 {
+        font-size: 11.5pt;
+    }
+    /* Prose keeps a readable measure on the 170 mm column (see the page-mode rule). */
+    :root :is(p, li, dd, blockquote) {
+        max-width: var(--print-measure);
+    }
+    :root :is(h1, h2, h3, h4, h5, h6) {
+        font-weight: 700;
+        break-after: avoid-page;
+        break-inside: avoid;
+    }
+    :root :is(code, pre, pre code, table, th, td) {
+        font-size: 9.5pt;
+    }
+    :root pre.code-block,
+    :root pre.code-block code {
+        white-space: pre-wrap;
+        overflow: visible;
+    }
+    :root table {
+        display: table;
+        overflow: visible;
+        -webkit-mask-image: none;
+    }
+    :root :is(tr, img, svg, .diagram, .math-block, figure) {
+        break-inside: avoid;
+    }
+    :root :is(.footnote-def, figcaption) {
+        font-size: 9pt;
+    }
+    :root :is(img, .diagram-svg svg) {
+        max-width: 100%;
+    }
+    :root :is(.edit-in-code, .table-toolbar) {
+        display: none !important;
+    }
+    :root a {
+        color: inherit;
+    }
+}
+
+/* A4 page mode: the print stylesheet at true scale on screen. On a phone the
+   type is small by design ("true scale, pinch to read"). */
+:root.page-mode,
+:root.page-mode[data-dark="true"] {
+    --bg: var(--l-bg);
+    --text: var(--l-text);
+    --heading: var(--l-heading);
+    --link: var(--l-link);
+    --code-bg: var(--l-code-bg);
+    --muted: var(--l-muted);
+    --border: var(--l-border);
+    color-scheme: light;
+}
+:root.page-mode body {
+    background: #e8e8ea;
+    font-size: 11pt;
+    line-height: 1.45;
+}
+:root.page-mode .doc,
+:root[data-theme].page-mode .doc {
+    box-sizing: border-box;
+    width: 210mm;
+    max-width: none;
+    min-height: 297mm;
+    margin: 12px auto;
+    padding: 20mm;
+    background: #fff;
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.2);
+    background-image: repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent calc(297mm - 1px),
+        #c8c8cc calc(297mm - 1px),
+        #c8c8cc 297mm
+    );
+}
+/* 11 pt across 170 mm sets 91-99 characters a line, past the comfortable 90:
+   prose stops at 39 em, 81-88 characters in the built-in faces; tables, code and pictures
+   keep the full column. The left margin stays 20 mm. */
+:root {
+    --print-measure: 39em;
+}
+:root.page-mode :is(p, li, dd, blockquote) {
+    max-width: var(--print-measure);
+}
+:root.page-mode h1 {
+    font-size: 20pt;
+}
+:root.page-mode h2 {
+    font-size: 16pt;
+}
+:root.page-mode h3 {
+    font-size: 13pt;
+}
+:root.page-mode h4 {
+    font-size: 11.5pt;
+}
+:root.page-mode :is(code, pre, table) {
+    font-size: 9.5pt;
+}

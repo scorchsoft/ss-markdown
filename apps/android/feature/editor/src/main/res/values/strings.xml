@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Read by TalkBack when the Code pane is empty. -->
+    <string name="editor_a11y_hint">Start writing…</string>
+    <!-- Custom accessibility actions on the Code pane: move the cursor to a heading. -->
+    <string name="editor_a11y_next_heading">Next heading</string>
+    <string name="editor_a11y_previous_heading">Previous heading</string>
+</resources>

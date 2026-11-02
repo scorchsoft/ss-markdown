@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A page with a folded corner and three lines of text, centred in the
+     108 dp adaptive canvas and kept inside its 66 dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M40,32h20l12,12v30c0,1.1 -0.9,2 -2,2H40c-1.1,0 -2,-0.9 -2,-2V34c0,-1.1 0.9,-2 2,-2z" />
+    <path
+        android:fillColor="#FFB3191B"
+        android:pathData="M58,34v10c0,1.1 0.9,2 2,2h10z" />
+    <path
+        android:fillColor="#FFB3191B"
+        android:pathData="M44,52h20v3H44zM44,59h20v3H44zM44,66h14v3H44z" />
+</vector>

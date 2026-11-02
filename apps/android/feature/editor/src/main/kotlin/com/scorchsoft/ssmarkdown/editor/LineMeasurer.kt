@@ -1,0 +1,114 @@
+package com.scorchsoft.ssmarkdown.editor
+
+import android.graphics.Paint
+import com.scorchsoft.ssmarkdown.text.PieceTree
+import java.text.Bidi
+
+/**
+ * Turns a window of one line into a [LineLayout] with a single
+ * `Paint.getTextRunAdvances` call: the unwrapped path from robustness.md
+ * ("Unwrapped lines use getRunAdvance + drawTextRun"), and the same
+ * advances broken greedily into rows for Wrap mode ([measureWrapped]).
+ * Wrapping runs on the main thread over at most [WrapLayout.WRAP_WINDOW]
+ * chars; moving it to `MeasuredText` + `LineBreaker` on a background
+ * thread is a later iteration.
+ *
+ * Reads only `[lineStart + start, lineStart + end)` from the tree, so a
+ * 5 MB single line costs the same as a 2,000-char one.
+ */
+internal class LineMeasurer(
+    private val paint: Paint,
+) {
+    /** Width of one monospace cell; the estimate for unmeasured columns. */
+    var charWidth: Float = paint.measureText(CELL)
+        private set
+
+    /** Call after changing the paint's size or typeface. */
+    fun onPaintChanged() {
+        charWidth = paint.measureText(CELL)
+    }
+
+    /** Lays out [line] of [text] for a window requested to start at [windowStart]. */
+    fun measure(
+        text: PieceTree,
+        line: Int,
+        windowStart: Int,
+    ): LineLayout {
+        val lineStart = text.lineStartOffset(line)
+        val length = text.lineEndOffset(line) - lineStart
+        var start = windowStart.coerceIn(0, length)
+        var end = if (length <= LineWindow.SIZE) length else minOf(length, start + LineWindow.SIZE)
+        // Never cut a surrogate pair at either edge: widen by one instead.
+        if (start in 1 until length && text[lineStart + start].isLowSurrogate()) start--
+        if (end in 1 until length && text[lineStart + end].isLowSurrogate()) end++
+        val chars = text.getText(lineStart + start, lineStart + end).toCharArray()
+        val paragraph = BidiText.paragraph(chars)
+        val positions = positionsOf(chars, start, paragraph)
+        val bidi = paragraph?.let { BidiText.layOut(it, chars, positions, SINGLE_ROW, start, positions[0]) }
+        return LineLayout(length, start, chars, positions, charWidth, bidi)
+    }
+
+    /**
+     * Lays out [line] of [text] wrapped to [maxWidth] px. Only the first
+     * [WrapLayout.WRAP_WINDOW] chars are measured; the rest is estimated in
+     * rows of whole monospace cells.
+     */
+    fun measureWrapped(
+        text: PieceTree,
+        line: Int,
+        maxWidth: Float,
+    ): WrapLayout {
+        val lineStart = text.lineStartOffset(line)
+        val length = text.lineEndOffset(line) - lineStart
+        var end = minOf(length, WrapLayout.WRAP_WINDOW)
+        if (end in 1 until length && text[lineStart + end].isLowSurrogate()) end++
+        val chars = text.getText(lineStart, lineStart + end).toCharArray()
+        val paragraph = BidiText.paragraph(chars)
+        val positions = positionsOf(chars, 0, paragraph)
+        val width = maxWidth.coerceAtLeast(charWidth)
+        val rows = WrapLayout.breakRows(chars, positions, width)
+        // Rows are broken on logical widths, then each is reordered on its own (UAX #9, L1-L2).
+        val bidi = paragraph?.let { BidiText.layOut(it, chars, positions, rows, 0, 0f) }
+        return WrapLayout(length, chars, positions, rows, charWidth, width, bidi)
+    }
+
+    /**
+     * Prefix sums of the advances, starting at the window's estimated x.
+     * Tabs are [TAB_CELLS] cells wide. A line with right-to-left text
+     * ([paragraph] not null) is measured one direction run at a time, so
+     * Arabic is shaped (and joined) as it will be drawn.
+     */
+    private fun positionsOf(
+        chars: CharArray,
+        windowStart: Int,
+        paragraph: Bidi?,
+    ): FloatArray {
+        val count = chars.size
+        val advances = FloatArray(count)
+        if (paragraph == null) {
+            if (count > 0) paint.getTextRunAdvances(chars, 0, count, 0, count, false, advances, 0)
+        } else {
+            for (run in 0 until paragraph.runCount) {
+                val start = paragraph.getRunStart(run)
+                val runLength = paragraph.getRunLimit(run) - start
+                val rtl = paragraph.getRunLevel(run) % 2 == 1
+                paint.getTextRunAdvances(chars, start, runLength, start, runLength, rtl, advances, start)
+            }
+        }
+        val positions = FloatArray(count + 1)
+        positions[0] = windowStart * charWidth
+        for (i in 0 until count) {
+            val advance = if (chars[i] == '\t') TAB_CELLS * charWidth else advances[i]
+            positions[i + 1] = positions[i] + advance
+        }
+        return positions
+    }
+
+    companion object {
+        /** A tab is drawn as this many cells (no tab stops yet: a spike limit). */
+        const val TAB_CELLS: Int = 4
+
+        private const val CELL = "M"
+        private val SINGLE_ROW = intArrayOf(0)
+    }
+}

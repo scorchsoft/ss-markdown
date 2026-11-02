@@ -17,3 +17,7 @@ rather than rewriting it.
 | [0008](0008-piece-tree.md) | The text model is a piece tree ported from VS Code |
 | [0009](0009-font-bundling.md) | Which fonts ship in the APK |
 | [0010](0010-module-graph.md) | The module graph and its rules |
+| [0011](0011-recovery-journal.md) | The recovery journal records every op and is written by one thread |
+| [0012](0012-safe-save-pipeline.md) | Saves back up, record their intent, write, then verify; interrupted saves are repaired at launch |
+| [0013](0013-emulator-evidence.md) | Performance evidence comes from CI's emulator, gated only where it is stable |
+| [0014](0014-leakcanary-test-apk-only.md) | LeakCanary runs over the instrumented tests and never ships |

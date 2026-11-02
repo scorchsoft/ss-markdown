@@ -151,6 +151,8 @@
     <string name="about_made_by">Made by Scorchsoft</string>
     <string name="about_site">scorchsoft.com</string>
     <string name="about_licence">Licensed under the Apache License 2.0</string>
+    <string name="about_source">Source code on GitHub</string>
+    <string name="about_source_link" translatable="false">github.com/scorchsoft/ss-markdown</string>
     <string name="about_disclaimer">Provided as is, without warranty of any kind. Keep your own backups of anything important.</string>
     <string name="about_licences">Open-source licences</string>
     <string name="licences_title">Open-source licences</string>

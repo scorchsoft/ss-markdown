@@ -30,6 +30,7 @@ import com.scorchsoft.ssmarkdown.storage.ClearKind
 import com.scorchsoft.ssmarkdown.storage.StorageReducer
 import com.scorchsoft.ssmarkdown.storage.StorageScreen
 import com.scorchsoft.ssmarkdown.storage.StorageUiState
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -93,8 +94,12 @@ class OtherScreensRenderTest(
 
     @Test
     fun about() {
-        rule.setContent { Themed(dark) { AboutScreen("0.1.0", {}, {}, {}) } }
+        var openedSource = 0
+        rule.setContent { Themed(dark) { AboutScreen("0.1.0", {}, { openedSource++ }, {}, {}) } }
         rule.onNodeWithText("Made by Scorchsoft").assertIsDisplayed()
+        rule.onNodeWithText("github.com/scorchsoft/ss-markdown").assertIsDisplayed()
+        rule.onNodeWithText("Source code on GitHub").performClick()
+        assertEquals(1, openedSource)
         rule
             .onNodeWithText(
                 "Provided as is, without warranty of any kind. Keep your own backups of anything important.",

@@ -87,7 +87,11 @@ internal class EditorRenderer(
     ) {
         val theme = styles.theme
         halfCell = frame.baseline / 2
-        canvas.drawColor(theme.background)
+        // The page is the view's rectangle, never drawColor: that fills the whole clip, and a
+        // host that draws the view without clipping it first (a software capture of the Compose
+        // screen) lost its header under the page (PaintBoundsTest).
+        fill.color = theme.background
+        canvas.drawRect(0f, 0f, frame.width.toFloat(), frame.height.toFloat(), fill)
         canvas.save()
         canvas.clipRect(frame.gutterWidth, 0, frame.width, frame.height)
         for (line in visible) drawLine(canvas, line, frame)

@@ -320,8 +320,9 @@ export class Editor implements SessionHost {
         if (!this.session) return null;
         this.session.flush();
         const range = this.session?.selectionRange() ?? null;
-        // The edit re-renders the block under the caret: hand over, keep the keyboard (Bold, ¶).
-        this.end(true);
+        // The edit re-renders the block under the caret: hand over, keep the keyboard (Bold, ¶). No
+        // re-pad now: it would race the edit, whose insert inside a re-padded row lands at its end.
+        this.end(true, false);
         return range;
     }
 

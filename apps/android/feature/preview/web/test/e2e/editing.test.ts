@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Page } from "playwright";
 import type { PageMessage } from "../../src/protocol";
 import { applyEdit } from "../../src/core/minimalEdit";
+import { transform } from "../../src/core/ot";
 import {
     clearReceived,
     corpus,
@@ -214,6 +215,52 @@ describe("tables", () => {
         await page.waitForTimeout(300);
         expect(await applySent(page, source)).toBe(
             "| Name      | Value |\n| --------- | ----- |\n| one-plusZ | 1     |\n| two       | 2     |\n\nAfter",
+        );
+    });
+
+    it("takes a strip command in a widened padded table without a re-pad racing Kotlin's edit", async () => {
+        const page = await openPreview(h);
+        const source = "| Name | Value |\n| ---- | ----- |\n| one  | 1     |\n| two  | 2     |\n\nAfter";
+        await loadMarkdown(page, source);
+        await clearReceived(page);
+        await page.locator("td", { hasText: "one" }).first().click();
+        await page.keyboard.press("End");
+        await page.keyboard.type("-plus");
+        await page.waitForTimeout(300);
+        let kotlin = await applySent(page, source);
+        await page.evaluate(() => ((window as unknown as { __autoAck: boolean }).__autoAck = false));
+        await clearReceived(page);
+        await send(page, { type: "format", action: "bold" });
+        const request = (await waitForMessage(page, (m) => m.type === "formatRequest")) as Extract<
+            PageMessage,
+            { type: "formatRequest" }
+        >;
+        // Kotlin applies Bold at the caret as revision 3 (the typing was revision 2).
+        const bold = { from: request.from, to: request.to, insert: "****" };
+        kotlin = applyEdit(kotlin, bold);
+        await send(page, {
+            type: "edit",
+            rev: 3,
+            changes: [{ fromLine: 2, toLine: 3, lines: [kotlin.split("\n")[2] ?? ""] }],
+            ops: [bold],
+        });
+        await page.evaluate(() => {
+            const w = window as unknown as { __autoAck: boolean; __rev: number };
+            w.__rev = 3;
+            w.__autoAck = true;
+        });
+        await send(page, { type: "select", rev: 3, from: request.from + 2, to: request.from + 2 });
+        await page.waitForTimeout(300);
+        await send(page, { type: "endEditing" });
+        await page.waitForTimeout(300);
+        for (const m of await received(page)) {
+            if (m.type !== "sourceEdit") continue;
+            // An edit made before the page saw revision 3 is rebased over it, as PreviewEditSync does.
+            const edits = m.baseRev < 3 ? transform([bold], m.edits).page : m.edits;
+            for (const e of [...edits].sort((a, b) => b.from - a.from)) kotlin = applyEdit(kotlin, e);
+        }
+        expect(kotlin).toBe(
+            "| Name         | Value |\n| ------------ | ----- |\n| one-plus**** | 1     |\n| two          | 2     |\n\nAfter",
         );
     });
 

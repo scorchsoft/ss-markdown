@@ -192,7 +192,7 @@ class DocumentStoreTest {
             val store = fixture().store
             val doc = store.opened(bad)
 
-            assertEquals(ReadOnlyReason.NotUtf8(1), doc.readOnly)
+            assertEquals(ReadOnlyReason.InvalidText(1, "UTF-8"), doc.readOnly)
             assertNull(doc.replace(0, 0, "x"))
             assertEquals(SaveOutcome.ReadOnly, store.save(bad))
         }

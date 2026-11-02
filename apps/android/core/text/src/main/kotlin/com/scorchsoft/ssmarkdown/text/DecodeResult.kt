@@ -4,7 +4,7 @@ import java.io.IOException
 
 /**
  * The outcome of reading a file as text. Errors are values here
- * (docs/engineering.md): a file that is not valid UTF-8 is a normal thing
+ * (docs/engineering.md): a file that is not valid text is a normal thing
  * to meet, and the UI must explain it rather than open a silently
  * damaged copy that would then be saved over the original.
  */
@@ -17,13 +17,15 @@ public sealed interface DecodeResult {
         public val format: TextFileFormat,
     ) : DecodeResult
 
-    /** The bytes are not valid UTF-8; [byteOffset] is where the first bad sequence starts. */
+    /** The bytes are not valid in [encoding]; [byteOffset] is where the first bad sequence starts. */
     public data class Malformed(
         /** Offset in the file, counting any BOM. */
         public val byteOffset: Long,
+        /** The encoding the file was read as: UTF-8 unless a BOM or the NUL pattern said UTF-16. */
+        public val encoding: TextEncoding = TextEncoding.UTF_8,
     ) : DecodeResult
 
-    /** The file declares another encoding through its BOM (UTF-16 or UTF-32). */
+    /** The file declares, through its BOM, an encoding the editor does not write (UTF-32). */
     public data class UnsupportedEncoding(
         /** The encoding's canonical name, e.g. `UTF-16LE`. */
         public val encoding: String,

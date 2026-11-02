@@ -21,6 +21,7 @@ import com.scorchsoft.ssmarkdown.text.Utf8Decoder
 import java.io.FilterInputStream
 import java.io.InputStream
 import java.io.OutputStream
+import java.nio.charset.Charset
 import java.security.MessageDigest
 
 /** A file read from disk, before the store decides what to do with it. */
@@ -45,11 +46,6 @@ internal sealed interface LoadResult {
     /** Would not fit in memory. */
     data class Declined(
         val admission: Admission.Declined,
-    ) : LoadResult
-
-    /** Not UTF-8 by its BOM. */
-    data class UnsupportedEncoding(
-        val encoding: String,
     ) : LoadResult
 
     /** The provider failed. */
@@ -159,11 +155,19 @@ internal class DocumentLoader(
             }
 
             is DecodeResult.Malformed -> {
-                loadLossy(uri, fingerprint, metadata, budget, ReadOnlyReason.NotUtf8(result.byteOffset))
+                val name = result.encoding.charsetName
+                loadLossy(uri, fingerprint, metadata, budget, ReadOnlyReason.InvalidText(result.byteOffset, name), name)
             }
 
             is DecodeResult.UnsupportedEncoding -> {
-                LoadResult.UnsupportedEncoding(result.encoding)
+                loadLossy(
+                    uri,
+                    fingerprint,
+                    metadata,
+                    budget,
+                    ReadOnlyReason.UnsupportedEncoding(result.encoding),
+                    result.encoding,
+                )
             }
 
             is DecodeResult.ReadFailed -> {
@@ -172,23 +176,31 @@ internal class DocumentLoader(
         }
     }
 
-    /** Shows invalid UTF-8 with replacement characters, read-only, so it can never be saved over. */
+    /**
+     * Shows a file the editor must not write as [charsetName] text, with
+     * replacement characters where it is invalid, read-only so it can never
+     * be saved over: invalid UTF-8 or UTF-16, or UTF-32.
+     */
+    @Suppress("LongParameterList") // The loaded file's facts, passed through to LoadResult.Loaded.
     private fun loadLossy(
         uri: DocumentUri,
         fingerprint: BaseFingerprint,
         metadata: FileMetadata,
         budget: Budget,
         reason: ReadOnlyReason,
+        charsetName: String,
     ): LoadResult {
+        val charset = Charset.forName(charsetName)
         val text =
             when (val input = provider.openInput(uri)) {
-                is ProviderResult.Ok -> providerCall { input.value.use { it.reader(Charsets.UTF_8).readText() } }
+                is ProviderResult.Ok -> providerCall { input.value.use { it.reader(charset).readText() } }
                 is ProviderResult.Failure -> input
             }
         return when (text) {
             is ProviderResult.Ok -> {
                 LoadResult.Loaded(
-                    TextDocument(PieceTree.of(text.value)),
+                    // A byte order mark decodes to U+FEFF; it is not text the user typed.
+                    TextDocument(PieceTree.of(text.value.removePrefix(BYTE_ORDER_MARK))),
                     fingerprint,
                     metadata,
                     reason,
@@ -253,6 +265,7 @@ internal class DocumentLoader(
 
     private companion object {
         const val BINARY_PROBE_CHARS = 64 * 1024
+        const val BYTE_ORDER_MARK = "\uFEFF"
         const val DRAIN_BUFFER = 64 * 1024
     }
 }

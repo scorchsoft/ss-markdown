@@ -28,15 +28,6 @@ sealed interface OpenOutcome {
     ) : OpenOutcome
 
     /**
-     * Encoded in something other than UTF-8 (UTF-16 or UTF-32, by BOM).
-     *
-     * @property encoding the encoding's name.
-     */
-    data class UnsupportedEncoding(
-        val encoding: String,
-    ) : OpenOutcome
-
-    /**
      * The provider failed: gone, no permission, or broken.
      *
      * @property failure what it said.

@@ -39,18 +39,14 @@ class Utf8CodecTest {
     }
 
     @Test
-    fun `UTF-16 and UTF-32 BOMs are refused by name`() {
-        assertEquals(
-            DecodeResult.UnsupportedEncoding("UTF-16LE"),
-            Utf8Decoder.decode(byteArrayOf(0xFF.toByte(), 0xFE.toByte(), 0x41, 0)),
-        )
-        assertEquals(
-            DecodeResult.UnsupportedEncoding("UTF-16BE"),
-            Utf8Decoder.decode(byteArrayOf(0xFE.toByte(), 0xFF.toByte(), 0, 0x41)),
-        )
+    fun `UTF-32 BOMs are refused by name`() {
         assertEquals(
             DecodeResult.UnsupportedEncoding("UTF-32LE"),
             Utf8Decoder.decode(byteArrayOf(0xFF.toByte(), 0xFE.toByte(), 0, 0)),
+        )
+        assertEquals(
+            DecodeResult.UnsupportedEncoding("UTF-32BE"),
+            Utf8Decoder.decode(byteArrayOf(0, 0, 0xFE.toByte(), 0xFF.toByte())),
         )
     }
 

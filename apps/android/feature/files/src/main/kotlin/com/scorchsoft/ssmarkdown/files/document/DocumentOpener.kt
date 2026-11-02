@@ -228,7 +228,6 @@ internal class DocumentOpener(
     ): OpenOutcome =
         when (result) {
             is LoadResult.Declined -> OpenOutcome.TooLarge(result.admission)
-            is LoadResult.UnsupportedEncoding -> OpenOutcome.UnsupportedEncoding(result.encoding)
             is LoadResult.Failed -> OpenOutcome.Failed(result.failure, hasJournal)
             is LoadResult.Loaded -> error("not a failure")
         }

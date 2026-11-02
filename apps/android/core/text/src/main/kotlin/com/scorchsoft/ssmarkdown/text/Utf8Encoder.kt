@@ -4,26 +4,27 @@ import java.io.ByteArrayOutputStream
 import java.io.OutputStream
 import java.nio.ByteBuffer
 import java.nio.CharBuffer
+import java.nio.charset.Charset
 import java.nio.charset.CharsetEncoder
 import java.nio.charset.CodingErrorAction
 
 /**
- * Writes a [Snapshot] back to UTF-8 bytes with the file's own line breaks
- * and BOM, streaming chunk by chunk. For a file opened and saved without
- * edits the output is byte-identical to the input.
+ * Writes a [Snapshot] back to bytes in the file's own encoding (UTF-8, or
+ * UTF-16 when it was opened as UTF-16), line breaks and BOM, streaming
+ * chunk by chunk. For a file opened and saved without edits the output is
+ * byte-identical to the input.
  *
  * Runs on any thread: it only reads the snapshot.
  */
 public object Utf8Encoder {
     private const val BUFFER_SIZE = 64 * 1024
 
-    /** U+FFFD, written in place of a lone surrogate; see [write]. */
-    private val REPLACEMENT = byteArrayOf(0xEF.toByte(), 0xBF.toByte(), 0xBD.toByte())
-    private val UTF8_BOM = byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte())
+    /** The most bytes one char takes in any [TextEncoding] (UTF-8, 3). */
+    private const val MAX_BYTES_PER_CHAR = 3
 
     /**
-     * Encodes [text] to [out]. A lone surrogate cannot exist in UTF-8; one
-     * only appears if an edit split a pair (the editor moves by
+     * Encodes [text] to [out]. A lone surrogate cannot be encoded; one only
+     * appears if an edit split a pair (the editor moves by
      * [GraphemeBoundaries] so it does not), and it is written as U+FFFD
      * rather than failing the save.
      */
@@ -32,8 +33,8 @@ public object Utf8Encoder {
         format: TextFileFormat,
         out: OutputStream,
     ) {
-        if (format.hasByteOrderMark) out.write(UTF8_BOM)
-        val sink = EncodingSink(out)
+        if (format.hasByteOrderMark) out.write(format.encoding.byteOrderMark)
+        val sink = EncodingSink(out, Charset.forName(format.encoding.charsetName))
         val endings = format.lineEndings
         var line = 0
         text.forEachChunk { chars, start, count ->
@@ -54,15 +55,16 @@ public object Utf8Encoder {
     /** Stages chars, encodes them in blocks and writes the bytes out. */
     private class EncodingSink(
         private val out: OutputStream,
+        charset: Charset,
     ) {
         private val encoder: CharsetEncoder =
-            Charsets.UTF_8
+            charset
                 .newEncoder()
                 .onMalformedInput(CodingErrorAction.REPLACE)
                 .onUnmappableCharacter(CodingErrorAction.REPLACE)
-                .replaceWith(REPLACEMENT)
+                .replaceWith("\uFFFD".toByteArray(charset))
         private val chars = CharBuffer.allocate(BUFFER_SIZE)
-        private val bytes = ByteBuffer.allocate(BUFFER_SIZE * 3)
+        private val bytes = ByteBuffer.allocate(BUFFER_SIZE * MAX_BYTES_PER_CHAR)
 
         fun put(c: Char) {
             if (!chars.hasRemaining()) encode(endOfInput = false)

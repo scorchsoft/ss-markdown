@@ -454,7 +454,6 @@ class EditorViewModel(
         previous?.release()
         val document = ActiveDocument(open, this, DocumentThreads(deps.outlineWork, deps.scope))
         activeFlow.value = document
-        preview.bind(document)
         val uri = open.uri.value
         val meta = meta(uri)
         val settings = deps.settings.settings.value
@@ -478,6 +477,9 @@ class EditorViewModel(
             // The panes report the new document's position as they draw it.
             paneFractions.fill(0f)
         }
+        // After the anchor: the page opens at this document's place, not the last one's (and its
+        // first top-line report would otherwise carry the old line over as this one's anchor).
+        preview.bind(document)
         rememberRecent(open)
         refresh()
     }

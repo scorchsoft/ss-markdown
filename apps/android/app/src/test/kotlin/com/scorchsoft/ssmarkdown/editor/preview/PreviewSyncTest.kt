@@ -46,6 +46,20 @@ class PreviewSyncTest {
     }
 
     @Test
+    fun `another file opens in Preview at its own place, not at the line the last one was read to`() {
+        val f = fixture()
+        f.vm.onAction(EditorAction.SelectMode(ViewMode.Preview))
+        f.vm.onPaneTopLine(Pane.Preview, 40)
+        page.clear()
+
+        f.vm.openDocument(f.file("b.md", (1..60).joinToString("") { "other $it\n" }))
+
+        val load = page.filterIsInstance<HostMessage.Load>().single()
+        assertEquals("b.md has no remembered place: it opens at the top", 0, load.anchorLine)
+        assertEquals(0, f.vm.anchorLine.value)
+    }
+
+    @Test
     fun `in Split the Code view taking focus takes the strip back from a page that was editing`() {
         val f = fixture()
         f.vm.onAction(EditorAction.SelectMode(ViewMode.Split))

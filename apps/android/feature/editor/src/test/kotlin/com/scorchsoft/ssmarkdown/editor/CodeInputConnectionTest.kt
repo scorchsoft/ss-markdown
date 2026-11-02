@@ -45,6 +45,22 @@ class CodeInputConnectionTest {
         assertEquals(14, view.session.caret)
     }
 
+    /** edge-cases "The keyboard's editing panel did nothing": Gboard's Select all, Undo and Redo. */
+    @Test
+    fun `the keyboard's editing panel selects all, undoes and redoes`() {
+        val ic = connect("one two")
+        assertTrue(ic.performContextMenuAction(android.R.id.selectAll))
+        assertEquals(0, view.session.selectionStart)
+        assertEquals(7, view.session.selectionEnd)
+        view.setCaret(7)
+        ic.commitText("!", 1)
+        assertTrue(ic.performContextMenuAction(android.R.id.undo))
+        assertEquals("one two", text)
+        assertTrue(ic.performContextMenuAction(android.R.id.redo))
+        assertEquals("one two!", text)
+        assertEquals(false, ic.performContextMenuAction(android.R.id.switchInputMethod))
+    }
+
     @Test
     fun `autocorrect replaces the composing word`() {
         val ic = connect("I ")

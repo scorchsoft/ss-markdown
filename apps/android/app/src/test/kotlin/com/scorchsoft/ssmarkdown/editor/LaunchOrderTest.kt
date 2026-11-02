@@ -2,6 +2,7 @@ package com.scorchsoft.ssmarkdown.editor
 
 import com.scorchsoft.ssmarkdown.fixtures.EditorFixture
 import com.scorchsoft.ssmarkdown.settings.AppSettings
+import com.scorchsoft.ssmarkdown.settings.OnLaunch
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
@@ -50,6 +51,25 @@ class LaunchOrderTest {
         f.settings.update { AppSettings(lastFile = last) }
 
         f.vm.start()
+        scheduler.advanceUntilIdle()
+
+        assertEquals(
+            last,
+            f.vm.active
+                ?.open
+                ?.uri
+                ?.value,
+        )
+    }
+
+    @Test
+    fun `a restored Activity comes back to the last file even when launches start a new draft`() {
+        val f = EditorFixture(temp.root, StandardTestDispatcher(scheduler))
+        val last = f.file("last.md", "# Last\n")
+        f.settings.update { AppSettings(lastFile = last, onLaunch = OnLaunch.NewDraft) }
+
+        // The process died in the background; Android rebuilds the Activity where the user left it.
+        f.vm.start(restoring = true)
         scheduler.advanceUntilIdle()
 
         assertEquals(

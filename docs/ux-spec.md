@@ -999,7 +999,9 @@ code-font setting.
 ## Settings
 
 - Opening: when a file opens, show Code / Preview / Last used. On launch,
-  reopen the last file or start a new scratch doc.
+  reopen the last file or start a new scratch doc. Returning to the app
+  after Android ended it in the background is not a launch: it comes
+  back to the file you were in either way.
 - Text: default zoom for each pane (− / + steppers, as on the View
   sheet), and line numbers. The code font and preview font rows point to
   the theme, where both are set (see "Where each font lives" under Themes).

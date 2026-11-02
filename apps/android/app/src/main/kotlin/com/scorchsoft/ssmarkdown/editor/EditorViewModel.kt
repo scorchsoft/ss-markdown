@@ -98,8 +98,13 @@ class EditorViewModel(
     /**
      * The launch sequence, once per process: recover unsaved edits first,
      * then open what was asked for, else the last file, else a draft.
+     * [restoring] is an Activity Android rebuilt from saved state: it
+     * reopens the last file even when launches start a new draft.
      */
-    fun start(request: LaunchRequest? = null) {
+    fun start(
+        request: LaunchRequest? = null,
+        restoring: Boolean = false,
+    ) {
         if (request != null) explicitOpen = true
         if (started) {
             if (request != null) {
@@ -123,7 +128,9 @@ class EditorViewModel(
                     Unit
                 }
 
-                settings.onLaunch == OnLaunch.ReopenLast && reopenable(settings.lastFile) -> {
+                // A restored Activity (the process died in the background) comes back where the user was,
+                // whatever a fresh launch would open: Android promises that a process death goes unnoticed.
+                (restoring || settings.onLaunch == OnLaunch.ReopenLast) && reopenable(settings.lastFile) -> {
                     openDocument(settings.lastFile.orEmpty())
                 }
 

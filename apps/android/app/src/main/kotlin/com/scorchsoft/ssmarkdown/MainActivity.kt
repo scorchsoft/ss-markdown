@@ -58,7 +58,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        graph.editor.start(launchRequest(intent))
+        // A recreated Activity (process death, "Don't keep activities", a locale change) is handed its
+        // ORIGINAL intent again: acting on it would reopen the file it first opened over the one the user
+        // went on to, and re-take its grant. The editor already knows where the user is.
+        val restored = savedInstanceState != null
+        graph.editor.start(if (restored) null else launchRequest(intent), restoring = restored)
         val platform = PlatformActions(this, graph.io)
         // Parsed when the Licences screen first opens, not on every launch (PERF-21).
         val licences by lazy { Licences.parse(readAsset(LICENCES_ASSET)) }

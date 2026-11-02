@@ -54,7 +54,11 @@ class LaunchTest {
             val editor = rule.activity.graph().editor
             editor.onAction(EditorAction.SelectMode(ViewMode.Code))
             val doc = editor.active ?: error("nothing open")
-            doc.surface.apply(listOf(EditOp(0, "", SAMPLE)), TextSelection.caret(SAMPLE.length))
+            // Replace the whole buffer and start at the top: the launch reopens
+            // whatever an earlier test left open, scrolled where it left it, so
+            // prepending would leave this sample off screen (FindNextDeviceTest).
+            doc.surface.apply(listOf(EditOp(0, doc.text.text.toString(), SAMPLE)), TextSelection.caret(0))
+            codeViewIn(rule.activity.window.decorView)?.scrollTo(0, 0)
         }
         rule.waitForIdle()
         var runs: List<Run> = emptyList()

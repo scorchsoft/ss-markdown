@@ -52,6 +52,14 @@ import com.scorchsoft.ssmarkdown.editor.chrome.ZoomChip
 /** Split goes side by side from this width (ux-spec "Layouts"). */
 val SideBySideWidth = 600.dp
 
+/**
+ * Below this page height, stacked Split would leave each pane a few lines
+ * (a 300 dp split-screen window): the Code pane keeps the page and Preview
+ * folds into its one-line strip, as while the keyboard is up (edge-cases
+ * "Tiny split-screen window").
+ */
+val MinStackedSplitHeight = 280.dp
+
 private val DividerTouch = 48.dp
 private val DividerHandle = 14.dp
 private val HandleLength = 36.dp
@@ -69,7 +77,8 @@ private const val EVEN_SPLIT = 0.5f
  *
  * @param codePane draws the Code pane into the modifier it is given.
  * @param previewPane draws the Preview pane; see [PreviewHostState].
- * @param imeVisible in portrait Split the preview collapses to a one-line strip while the keyboard is up.
+ * @param imeVisible in portrait Split the preview collapses to a one-line strip while the keyboard is up;
+ *   it does the same in a window too short to stack two panes ([MinStackedSplitHeight]).
  */
 @Composable
 fun EditorPanes(
@@ -94,6 +103,7 @@ fun EditorPanes(
     val showPreview = state.isMarkdown
     BoxWithConstraints(modifier.fillMaxSize().background(SS.colors.bg)) {
         val sideBySide = maxWidth >= SideBySideWidth
+        val tooShortToStack = !sideBySide && maxHeight < MinStackedSplitHeight
         when {
             state.mode == ViewMode.Code || !showPreview -> {
                 CodeWithChip(state, onAction, code, Modifier.fillMaxSize())
@@ -110,7 +120,7 @@ fun EditorPanes(
             }
 
             else -> {
-                Split(state, onAction, code, preview, previewState, sideBySide, imeVisible)
+                Split(state, onAction, code, preview, previewState, sideBySide, imeVisible || tooShortToStack)
             }
         }
         state.pinchPercent?.let { PinchPill(it, Modifier.align(Alignment.TopCenter).padding(top = 12.dp)) }
@@ -161,13 +171,14 @@ private fun Split(
     preview: @Composable (PreviewHostState, Modifier) -> Unit,
     previewState: PreviewHostState,
     sideBySide: Boolean,
-    imeVisible: Boolean,
+    collapsePreview: Boolean,
 ) {
     // The divider position is remembered separately for each orientation (ux-spec "Layouts").
     var fraction by rememberSaveable(sideBySide) { mutableFloatStateOf(EVEN_SPLIT) }
     val setFraction: (Float) -> Unit = { fraction = it.coerceIn(MIN_FRACTION, MAX_FRACTION) }
-    if (!sideBySide && imeVisible) {
-        // Portrait with the keyboard up: editing gets the space; the preview is a one-line breadcrumb strip.
+    if (!sideBySide && collapsePreview) {
+        // Stacked with the keyboard up, or too short to stack: editing gets the space and the
+        // preview is a one-line breadcrumb strip.
         Column(Modifier.fillMaxSize()) {
             CodeWithChip(state, onAction, code, Modifier.weight(1f).fillMaxWidth())
             CollapsedPreviewStrip(state.breadcrumb.lastOrNull())

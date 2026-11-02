@@ -8,6 +8,7 @@ import com.scorchsoft.ssmarkdown.conflict.OverlapChoice
 import com.scorchsoft.ssmarkdown.files.document.ConflictState
 import com.scorchsoft.ssmarkdown.files.document.ResolveOutcome
 import com.scorchsoft.ssmarkdown.files.merge.MergeResult
+import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.history.versions.LineDiff
 import com.scorchsoft.ssmarkdown.nav.AppScreen
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +31,9 @@ class ConflictController(
     private val compareState = MutableStateFlow<CompareUiState?>(null)
     private val mergeState = MutableStateFlow<MergeUiState?>(null)
     private var pendingMerge: MergeResult? = null
+
+    /** The document [pendingMerge] was made for: MergeResolve's Done applies to it and no other. */
+    private var pendingMergeUri: DocumentUri? = null
     private var cached: CachedMerge? = null
 
     /** A merge computed for the sheet, valid while [conflict] is pending and the buffer is at [version]. */
@@ -84,10 +88,13 @@ class ConflictController(
         val mine = doc.text.snapshot()
         host.deps.scope.launch {
             val result = reuse ?: withContext(host.deps.io) { conflict.merge(mine) } ?: return@launch
+            // Another file came on screen while the merge ran: its conflict is not this one.
+            if (host.active !== doc || doc.open.conflict !== conflict) return@launch
             if (result.cleanText() != null) {
                 resolve { uri -> host.deps.store.useCleanMerge(uri) }
             } else {
                 pendingMerge = result
+                pendingMergeUri = doc.open.uri
                 mergeState.value =
                     MergeUiState
                         .of(doc.open.displayName.orEmpty(), result)
@@ -116,8 +123,15 @@ class ConflictController(
         val state = mergeState.value ?: return
         val result = pendingMerge ?: return
         val text = state.mergedText(result)
+        val madeFor = pendingMergeUri
         mergeState.value = null
         pendingMerge = null
+        pendingMergeUri = null
+        if (madeFor != host.active?.open?.uri) {
+            // Never into another file's buffer: the version check alone cannot tell two documents apart.
+            host.message(MessageKind.ActionFailed)
+            return
+        }
         // Its note said the originals are not kept when History was off: the user has accepted that.
         applyMerge(text, state.madeFromVersion, evenIfNotKept = !state.historyOn)
     }
@@ -180,7 +194,7 @@ class ConflictController(
 
     private fun resolve(
         step: NotKeptStep? = null,
-        block: suspend (com.scorchsoft.ssmarkdown.files.provider.DocumentUri) -> ResolveOutcome,
+        block: suspend (DocumentUri) -> ResolveOutcome,
     ) {
         val open = host.active?.open ?: return
         host.update { it.copy(overlay = null) }

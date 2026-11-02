@@ -249,9 +249,15 @@ internal object EditorEffects {
             EditorAction.KeepEditing,
             is EditorAction.ImeVisibilityChanged,
             EditorAction.BigFileChipTapped,
-            EditorAction.MessageShown,
             -> {
                 Unit
+            }
+
+            EditorAction.MessageShown -> {
+                // The discard's Undo has gone with its message: let go of the text it held (up to a whole file).
+                if (before.message?.undo == true && before.message.kind != MessageKind.DraftDeleted) {
+                    vm.recovery.forgetDiscard()
+                }
             }
         }
     }

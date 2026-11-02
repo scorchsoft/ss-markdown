@@ -141,6 +141,7 @@ fun RowScope.TopBarActions(
             copyInMenu = copyInMenu,
             onChoose = { onAction(EditorAction.ChooseMenuItem(it)) },
             onDismiss = { onAction(EditorAction.DismissOverlay) },
+            unsavedCount = state.folder?.unsavedCount ?: 0,
         )
         SaveMenu(state, onAction)
         CopyMenu(state, onAction)

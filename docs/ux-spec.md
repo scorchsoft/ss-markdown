@@ -41,7 +41,9 @@ mockups agreed with Andrew win, and this file gets updated.
 - **⋮** opens: New · Open file · Open folder · Save as │ Find & replace ·
   Version history │ Export PDF · Export images… · Share │ Display ·
   Settings. Share also offers *Copy as rich text*, the twin for
-  long-pressing Copy.
+  long-pressing Copy. In folder mode, while any file is unsaved, **Save
+  all (N)** follows Save as (one tap after ⋮, rubric #9); it is absent
+  otherwise, and the ≡ panel keeps its own Save all row.
 
 **Bottom bar (64 dp)**
 - A segmented Code | Split | Preview control: labels at normal sizes,
@@ -403,7 +405,11 @@ SS Markdown is a share target for text (`text/plain`, `text/markdown`)
 and for `.md` files. Sharing text opens a small sheet over the sending
 app:
 - **New note** — an untitled draft containing the text.
-- **Append to…** — recent and pinned files, newest first.
+- **Append to…** — recent and pinned files, newest first, as rows in
+  the sheet itself, the last-used one first and pre-selected. So the
+  last-used file is SS Markdown → Append, and any other recent file is
+  SS Markdown → the file → Append (2 and 3 taps after the sending app's
+  Share; `TapCountAuditTest`).
   - Options: Bottom (default) or Top; a prefix of none (default) or a
     `### <date time>` heading.
   - The last-used target and options are remembered.

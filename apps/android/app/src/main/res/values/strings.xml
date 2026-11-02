@@ -64,6 +64,8 @@
     <string name="menu_open_file">Open file…</string>
     <string name="menu_open_folder">Open folder…</string>
     <string name="menu_save_as">Save as…</string>
+    <!-- Folder mode only, while files are unsaved; %1$d is how many. -->
+    <string name="menu_save_all">Save all (%1$d)</string>
     <string name="menu_find_replace">Find &amp; replace</string>
     <string name="menu_find_hint">Ctrl F</string>
     <string name="menu_version_history">Version history</string>

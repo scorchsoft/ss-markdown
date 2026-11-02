@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextInput
@@ -13,6 +14,11 @@ import com.scorchsoft.ssmarkdown.editor.EditorAction
 import com.scorchsoft.ssmarkdown.editor.EditorEvent
 import com.scorchsoft.ssmarkdown.editor.EditorOverlay
 import com.scorchsoft.ssmarkdown.editor.EditorUiState
+import com.scorchsoft.ssmarkdown.files.document.DocumentStore
+import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
+import com.scorchsoft.ssmarkdown.files.provider.ProviderResult
+import com.scorchsoft.ssmarkdown.files.saf.FolderRow
+import com.scorchsoft.ssmarkdown.files.saf.TreeEntry
 import com.scorchsoft.ssmarkdown.fixtures.EditorFixture
 import com.scorchsoft.ssmarkdown.fixtures.LiveEditor
 import com.scorchsoft.ssmarkdown.fixtures.Samples
@@ -20,12 +26,15 @@ import com.scorchsoft.ssmarkdown.fixtures.TapCounter
 import com.scorchsoft.ssmarkdown.folder.FolderAction
 import com.scorchsoft.ssmarkdown.folder.FolderEntryRow
 import com.scorchsoft.ssmarkdown.folder.FolderReducer
+import com.scorchsoft.ssmarkdown.folder.FolderSource
 import com.scorchsoft.ssmarkdown.folder.FolderUiState
+import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.settings.RecentFile
 import com.scorchsoft.ssmarkdown.share.ShareAction
 import com.scorchsoft.ssmarkdown.share.SharePhase
 import com.scorchsoft.ssmarkdown.share.ShareSheet
 import com.scorchsoft.ssmarkdown.share.ShareViewModel
+import com.scorchsoft.ssmarkdown.text.EditOp
 import com.scorchsoft.ssmarkdown.theme.BuiltInThemes
 import com.scorchsoft.ssmarkdown.themes.ThemeControls
 import com.scorchsoft.ssmarkdown.themes.ThemeEditorScreen
@@ -52,7 +61,9 @@ import org.robolectric.annotation.Config
  *   own button, as J7 counts it);
  * - any heading or recent file is three interactions through the
  *   Navigator: tap the title, type 2–3 letters, tap the result;
- * - a snippet shared in lands in a file from the sheet over the sending app.
+ * - Save all is also one tap after ⋮ while a folder file is unsaved;
+ * - a snippet shared in lands in any recent file from the sheet over the
+ *   sending app: the chooser, the file (unless it was the last used), Append.
  *
  * Each test counts real clicks on the rendered UI and asserts where they
  * landed (the view model's state, the event the app acts on, the file).
@@ -120,6 +131,50 @@ class TapCountAuditTest {
         taps.tap("Save all")
         assertTrue(EditorAction.Folder(FolderAction.SaveAll) in actions)
         assertEquals(2, taps.taps)
+    }
+
+    /** A folder of one file, notes.md, open and edited but not saved. */
+    private fun unsavedFolderFile(): EditorFixture {
+        val rows = ArrayList<FolderRow>()
+        val f = EditorFixture(temp.root, dispatcher, folders = OneListFolder(rows))
+        val uri = f.file("notes.md", "# Notes\n")
+        rows +=
+            FolderRow(TreeEntry(DocumentUri(uri), "notes", "notes.md", false, 0, 0, "text/markdown"), 0, false, false)
+        f.vm.openDocument(uri)
+        f.vm.folder.onFolderPicked(TREE)
+        f.vm.onAction(EditorAction.Folder(FolderAction.CloseDrawer))
+        val doc = f.vm.active ?: error("nothing open")
+        doc.surface.apply(listOf(EditOp(0, "", "x")), TextSelection.caret(1))
+        return f
+    }
+
+    @Test
+    fun `Save all is one tap after the menu while a folder file is unsaved`() {
+        val f = unsavedFolderFile()
+        rule.setContent { Themed(dark = false) { LiveEditor(f) } }
+        assertEquals(
+            1,
+            f.vm.uiState.value.folder
+                ?.unsavedCount,
+        )
+        val taps = TapCounter(rule)
+        taps.tap(MORE)
+        taps.tap("Save all (1)")
+        rule.waitUntil(TIMEOUT) { f.disk("notes.md") == "x# Notes\n" }
+        assertEquals(
+            0,
+            f.vm.uiState.value.folder
+                ?.unsavedCount,
+        )
+        assertEquals(1, taps.afterMenu())
+    }
+
+    @Test
+    fun `the menu offers Save all only while a folder file is unsaved`() {
+        val (_, taps) = editor()
+        taps.tap(MORE)
+        rule.onNodeWithText("Save as…").assertIsDisplayed()
+        assertEquals(0, rule.onAllNodes(hasText("Save all", substring = true)).fetchSemanticsNodes().size)
     }
 
     @Test
@@ -252,23 +307,63 @@ class TapCountAuditTest {
     }
 
     @Test
-    fun `sharing into the last-used file is one tap in the sheet, three with the system share`() {
+    fun `sharing into the last-used file is one tap in the sheet, two in all`() {
         val (_, taps) = share(remembered = true)
         assertEquals(1, taps.taps)
-        assertEquals(SYSTEM_SHARE_TAPS + 1, SYSTEM_SHARE_TAPS + taps.taps)
+        assertEquals(2, CHOOSER_TAPS + taps.taps)
     }
 
     @Test
-    fun `sharing into another recent file is two taps in the sheet`() {
+    fun `sharing into any other recent file is two taps in the sheet, three in all`() {
+        // Every recent file is a row in the sheet itself (no picker), so
+        // choosing one is a single tap, then Append.
         val (_, taps) = share(remembered = false)
         assertEquals(2, taps.taps)
+        assertEquals(3, CHOOSER_TAPS + taps.taps)
+    }
+
+    /** A folder whose listing is [rows]; nothing in it can be renamed or created. */
+    private class OneListFolder(
+        private val rows: List<FolderRow>,
+    ) : FolderSource {
+        override fun list(
+            treeUri: String,
+            store: DocumentStore?,
+            showAllFiles: Boolean,
+        ) = ProviderResult.Ok(rows.toList())
+
+        override fun rootOf(treeUri: String) = treeUri
+
+        override fun create(
+            parent: String,
+            name: String,
+        ) = ProviderResult.NotFound
+
+        override fun rename(
+            uri: String,
+            name: String,
+        ) = ProviderResult.NotFound
+
+        override fun duplicate(
+            uri: String,
+            parent: String,
+            name: String,
+        ) = ProviderResult.NotFound
+
+        override fun delete(uri: String) = ProviderResult.NotFound
     }
 
     private companion object {
         const val MORE = "More"
+        const val TREE = "content://tree/notes"
 
-        /** Share, then SS Markdown in the system sheet: taps the sending app and Android own. */
-        const val SYSTEM_SHARE_TAPS = 2
+        /**
+         * SS Markdown in the system share sheet: the one tap Android owns. As
+         * J9 counts it (Share → SS Markdown → Append, "2–3 taps"), the count
+         * starts once the sending app's Share is open; counting that Share
+         * button too adds one to each total.
+         */
+        const val CHOOSER_TAPS = 1
         const val TIMEOUT = 5_000L
     }
 }

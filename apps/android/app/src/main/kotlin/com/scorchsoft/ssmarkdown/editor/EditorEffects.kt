@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.editor
 
 import com.scorchsoft.ssmarkdown.editor.preview.PreviewEffects
+import com.scorchsoft.ssmarkdown.folder.FolderAction
 import com.scorchsoft.ssmarkdown.nav.AppScreen
 
 /**
@@ -193,6 +194,7 @@ internal object EditorEffects {
             MenuItem.OpenFile -> vm.emit(EditorEvent.PickFileToOpen)
             MenuItem.OpenFolder -> vm.emit(EditorEvent.PickFolder)
             MenuItem.SaveAs -> vm.saves.saveAs()
+            MenuItem.SaveAll -> vm.onAction(EditorAction.Folder(FolderAction.SaveAll))
             MenuItem.FindReplace -> vm.onAction(EditorAction.Find(com.scorchsoft.ssmarkdown.find.FindAction.Open))
             MenuItem.VersionHistory -> vm.emit(EditorEvent.Open(AppScreen.History))
             MenuItem.ExportPdf -> PreviewEffects.exportPdf(vm)

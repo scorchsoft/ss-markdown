@@ -20,6 +20,9 @@ enum class MenuItem {
     OpenFile,
     OpenFolder,
     SaveAs,
+
+    /** Only in folder mode while a file is unsaved: the ≡ panel's Save all, two taps from ⋮ (rubric #9). */
+    SaveAll,
     FindReplace,
     VersionHistory,
     ExportPdf,

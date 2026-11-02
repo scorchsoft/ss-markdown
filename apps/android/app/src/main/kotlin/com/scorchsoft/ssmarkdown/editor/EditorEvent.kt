@@ -51,6 +51,12 @@ sealed interface EditorEvent {
     /** Close the keyboard (Preview's Done key). */
     data object HideKeyboard : EditorEvent
 
+    /**
+     * The Link sheet closed (Done, Remove link or Cancel): its fields had the
+     * keyboard, so give it back to the text, where the caret already is.
+     */
+    data object ReturnKeyboard : EditorEvent
+
     /** A light tick: mode switch, save success. */
     data object Tick : EditorEvent
 

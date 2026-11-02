@@ -202,6 +202,10 @@ private suspend fun onEditorEvent(
             targets.keyboard?.hide()
         }
 
+        EditorEvent.ReturnKeyboard -> {
+            KeyboardReturn.toFocusedText(targets.view)
+        }
+
         EditorEvent.Tick -> {
             platform.haptic(targets.view, error = false)
         }

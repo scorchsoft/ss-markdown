@@ -74,6 +74,14 @@ class LinkPromptTest {
         f.vm.onAction(EditorAction.LinkDone("docs", "https://d.example"))
         assertEquals("Read the [docs](https://d.example) today\n", f.text())
         assertNull(f.vm.uiState.value.overlay)
+        // The sheet's fields had the keyboard: it goes back to the text, the caret after the link.
+        assertTrue(EditorEvent.ReturnKeyboard in f.events)
+        assertEquals(
+            TextSelection.caret(34),
+            f.vm.active
+                ?.surface
+                ?.selection,
+        )
     }
 
     @Test
@@ -118,6 +126,14 @@ class LinkPromptTest {
         f.vm.onAction(EditorAction.DismissOverlay)
         assertNull(f.vm.uiState.value.overlay)
         assertEquals("Read the docs today\n", f.text())
+        // The keyboard and the selection go back to the text as they were.
+        assertTrue(EditorEvent.ReturnKeyboard in f.events)
+        assertEquals(
+            TextSelection(9, 13),
+            f.vm.active
+                ?.surface
+                ?.selection,
+        )
         assertTrue(
             f.vm.active
                 ?.text

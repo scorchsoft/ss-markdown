@@ -191,11 +191,20 @@ internal object EditorEffects {
                         action.text,
                         action.url,
                     )
+                    vm.emit(EditorEvent.ReturnKeyboard)
                 }
             }
 
             EditorAction.LinkRemove -> {
-                (before.overlay as? EditorOverlay.LinkPrompt)?.let { vm.strip.links.onRemove(it) }
+                (before.overlay as? EditorOverlay.LinkPrompt)?.let {
+                    vm.strip.links.onRemove(it)
+                    vm.emit(EditorEvent.ReturnKeyboard)
+                }
+            }
+
+            EditorAction.DismissOverlay -> {
+                // Cancelling the Link sheet hands the keyboard back as Done does; other overlays never had it.
+                if (before.overlay is EditorOverlay.LinkPrompt) vm.emit(EditorEvent.ReturnKeyboard)
             }
 
             is EditorAction.Find -> {
@@ -216,7 +225,6 @@ internal object EditorEffects {
 
             // The reducer does all there is to do for these.
             EditorAction.CopyLongPressed,
-            EditorAction.DismissOverlay,
             is EditorAction.AnchorChanged,
             EditorAction.RecoveryGotIt,
             EditorAction.ShowFailureDetails,

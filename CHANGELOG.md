@@ -7,6 +7,36 @@ release may change behaviour.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-02
+
+Fixes from the first phone test of 0.2.0.
+
+### Fixed
+
+- Text no longer disappears from the Code view after scrolling down and back
+  up (a line's freed drawing is recorded again), and a tap that stops a fling
+  no longer moves the cursor or shows a stray handle.
+- Flinging upwards no longer judders as lines above are measured.
+- The reading line under the header reaches the end at the very bottom.
+- Export PDF works from Code, Split or Preview and prints only the file it
+  was asked for; a document switch cancels it with a message. The same
+  binding now covers diagram and image exports and rich-text copy.
+- PDF pages have 20 mm margins; headings stay with the text after them.
+- Deleting a table row in Preview no longer leaves a blank line that breaks
+  the table; several other table edits (no outer pipes, pipes in code,
+  rows at the end of a file) are fixed too.
+- Enter on an empty list item ends the list, in Code and Preview alike.
+
+### Changed
+
+- The Navigator fills the space below the header and closes with its ×,
+  a second tap on the title, or Back; tablets get a 420 dp popover.
+- The ⋮ menu starts with Undo and Redo, puts the keyboard away, and scrolls
+  when it doesn't fit.
+- The formatting strip's ¶ key opens a block-type menu (paragraph, headings,
+  lists, task, quote, code block), and Link asks for the address.
+- The strip's scrolling keys run up to the pinned group, cut at about half.
+
 ## [0.2.0] - 2026-11-02
 
 ### Added

@@ -22,14 +22,42 @@ adb shell settings put global package_verifier_enable 0 || true
 # property is read when the runtime starts, so restart it.
 adb root > /dev/null && adb wait-for-device
 adb shell setprop dalvik.vm.heapgrowthlimit 256m
-adb shell stop && adb shell start
-adb wait-for-device
-until [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1" ]; do sleep 2; done
-sleep 10
+
+# Restarts the Android framework (not the emulator) and waits until it has
+# booted: applies the heap property above, and clears a wedged system_server.
+restart_framework() {
+  adb shell stop && adb shell start
+  adb wait-for-device
+  until [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1" ]; do sleep 2; done
+  sleep 10
+}
+restart_framework
+# One emulator stage under a time limit, retried once. The API 34 image
+# sometimes wedges inside system_server on `am start -W` (a coldStart
+# iteration sat for about an hour with our process never forked, until the
+# job's 90-minute limit killed it), so a stage that overruns is stopped, the
+# framework restarted, and the stage run again. A healthy stage takes about
+# 7 minutes. A retry is reported as a warning, never hidden.
+STAGE_LIMIT=${STAGE_LIMIT:-20m}
+run_stage() {
+  local name=$1; shift
+  local attempt rc
+  for attempt in 1 2; do
+    timeout --kill-after=60s "$STAGE_LIMIT" "$@"
+    rc=$?
+    if [ $rc -ne 124 ] && [ $rc -ne 137 ]; then return $rc; fi
+    echo "::warning::$name overran $STAGE_LIMIT on attempt $attempt (emulator stall); restarting the framework"
+    adb shell am force-stop "$pkg" > /dev/null 2>&1 || true
+    restart_framework
+  done
+  echo "::error::$name overran $STAGE_LIMIT twice"
+  return 1
+}
+
 echo "heap: growthlimit=$(adb shell getprop dalvik.vm.heapgrowthlimit) heapsize=$(adb shell getprop dalvik.vm.heapsize) ram=$(adb shell cat /proc/meminfo | head -1)"
 
 echo "::group::Baseline Profile"
-if ! gradle "${gradle_args[@]}" :app:generateBaselineProfile \
+if ! run_stage "Baseline Profile" gradle "${gradle_args[@]}" :app:generateBaselineProfile \
     -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=BaselineProfile; then
   echo "::error::Baseline Profile generation failed"
   status=1
@@ -38,7 +66,7 @@ cp -r apps/android/app/src/main/generated/baselineProfiles "$out/" 2>/dev/null |
 echo "::endgroup::"
 
 echo "::group::Macrobenchmarks"
-if ! gradle "${gradle_args[@]}" :benchmark:connectedBenchmarkReleaseAndroidTest \
+if ! run_stage "Macrobenchmarks" gradle "${gradle_args[@]}" :benchmark:connectedBenchmarkReleaseAndroidTest \
     -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=Macrobenchmark; then
   echo "::error::Macrobenchmarks failed"
   status=1

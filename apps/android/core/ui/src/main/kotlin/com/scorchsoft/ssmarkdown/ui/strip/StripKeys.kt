@@ -31,6 +31,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.scorchsoft.ssmarkdown.core.ui.SS
@@ -72,6 +73,7 @@ internal fun StripKeyButton(
     key: StripKey,
     pressed: Boolean,
     enabled: Boolean,
+    width: Dp = SS.dimens.key,
     onClick: () -> Unit,
 ) {
     val colors = SS.colors
@@ -87,7 +89,7 @@ internal fun StripKeyButton(
         contentAlignment = Alignment.Center,
         modifier =
             Modifier
-                .size(SS.dimens.key)
+                .size(width, SS.dimens.key)
                 .semantics { contentDescription = label }
                 .then(action),
     ) {
@@ -216,6 +218,7 @@ internal fun SymbolsToggleKey(
 @Composable
 internal fun SymbolKeyButton(
     symbol: SymbolKey,
+    width: Dp = SS.dimens.key,
     onClick: () -> Unit,
 ) {
     val label = stringResource(symbol.label)
@@ -223,7 +226,7 @@ internal fun SymbolKeyButton(
         contentAlignment = Alignment.Center,
         modifier =
             Modifier
-                .size(SS.dimens.key)
+                .size(width, SS.dimens.key)
                 .semantics { contentDescription = label }
                 .clickable(role = Role.Button, onClick = onClick),
     ) {
@@ -245,6 +248,7 @@ internal fun SymbolKeyButton(
 internal fun CursorKey(
     step: CursorStep,
     onStep: (CursorStep) -> Unit,
+    width: Dp = SS.dimens.key,
 ) {
     val label = stringResource(if (step == CursorStep.Left) StripLabels.cursorLeft else StripLabels.cursorRight)
     val currentOnStep by rememberUpdatedState(onStep)
@@ -252,7 +256,7 @@ internal fun CursorKey(
         contentAlignment = Alignment.Center,
         modifier =
             Modifier
-                .size(SS.dimens.key)
+                .size(width, SS.dimens.key)
                 .semantics {
                     contentDescription = label
                     role = Role.Button

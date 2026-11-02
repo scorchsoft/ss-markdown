@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
@@ -63,6 +64,29 @@ class FormattingStripTest {
         node("Symbols").performClick()
         assertEquals(listOf(StripKey.Outdent, StripKey.Undo, StripKey.Symbols), keys)
         node("Done").assertDoesNotExist()
+    }
+
+    @Test
+    fun pinnedGroupIsExactlyItsKeysAndTheScrollingKeysRunUpToIt() {
+        // Andrew, 2026-11-02: a gap before Undo made the pinned group look too wide.
+        show(FormattingStripState(mode = StripMode.Preview, canUndo = true))
+        val undo = node("Undo").fetchSemanticsNode().boundsInRoot
+        val done = node("Done").fetchSemanticsNode().boundsInRoot
+        val root = rule.onRoot().fetchSemanticsNode().boundsInRoot
+        val density = rule.density.density
+        assertEquals(48f, undo.width / density, 0.5f)
+        assertEquals(48f, done.width / density, 0.5f)
+        assertEquals(undo.right, done.left, 0.5f)
+        assertEquals(root.right, done.right, 0.5f)
+        // The last visible scrolling key is cut at Undo's left edge, about half of it showing.
+        // Unclipped bounds: the key cut by the edge is wider than what shows of it.
+        val cut =
+            listOf("Block style", "Bold", "Italic", "Code", "Link", "Bulleted list", "Table")
+                .map { node(it).fetchSemanticsNode() }
+                .map { it.positionInRoot.x to it.size.width.toFloat() }
+                .first { (left, width) -> left + width > undo.left + 0.5f }
+        val shown = (undo.left - cut.first) / cut.second
+        assertEquals(0.5f, shown, 0.02f)
     }
 
     @Test

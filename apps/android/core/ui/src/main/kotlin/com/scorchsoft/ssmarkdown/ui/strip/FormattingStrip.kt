@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.core.ui.SS
 
 private val EdgePadding = 4.dp
-private val FadeWidth = 24.dp
+private val FadeWidth = 12.dp
 
 /**
  * The formatting strip: the one row that replaces the bottom bar while
@@ -83,8 +83,11 @@ fun FormattingStrip(
         } else {
             StripKeyButton(StripKey.Done, pressed = false, enabled = true) { onKey(StripKey.Done) }
         }
-        state.document?.let { StripSaveButton(it.save, onSave) }
-        Spacer(Modifier.width(EdgePadding))
+        state.document?.let {
+            StripSaveButton(it.save, onSave)
+            // Only the Save pill needs air before the screen edge; a 48 dp key carries its own.
+            Spacer(Modifier.width(EdgePadding))
+        }
     }
 }
 
@@ -101,6 +104,7 @@ private fun ScrollingKeys(
     val keys = StripLayout.scrollingKeys(state.mode)
     val count = if (symbols) StripLayout.symbols.size + CursorStep.entries.size else keys.size
     val scroll = rememberScrollState()
+    val width = PeekLayout.keyWidth(available, SS.dimens.key, count, EdgePadding)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier =
@@ -112,12 +116,14 @@ private fun ScrollingKeys(
                 .padding(start = EdgePadding),
     ) {
         if (symbols) {
-            StripLayout.symbols.forEach { SymbolKeyButton(it) { onSymbol(it.text) } }
-            CursorStep.entries.forEach { CursorKey(it, onCursor) }
+            StripLayout.symbols.forEach { SymbolKeyButton(it, width) { onSymbol(it.text) } }
+            CursorStep.entries.forEach { CursorKey(it, onCursor, width) }
         } else {
             keys.forEach { key ->
                 val enabled = key != StripKey.Redo || state.canRedo
-                StripKeyButton(key, pressed = key.toggles && key in state.pressed, enabled = enabled) { onKey(key) }
+                StripKeyButton(key, pressed = key.toggles && key in state.pressed, enabled = enabled, width = width) {
+                    onKey(key)
+                }
             }
         }
     }
@@ -131,7 +137,8 @@ private fun Modifier.edgeFade(
     drawWithContent {
         drawContent()
         if (visible) {
-            // As wide as the peek, so the cut key fades out rather than vanishing.
+            // Over the last quarter of a 48 dp key, at the edge by the pinned keys: the cut
+            // key reads as half a key that fades at the cut, not as a key faded early.
             val fade = FadeWidth.toPx()
             val left = size.width - fade
             drawRect(

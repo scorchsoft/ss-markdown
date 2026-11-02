@@ -200,9 +200,13 @@ Never put a one-sided coloured border on anything.
 
 ## More decisions from review 3
 
-- **Strip discoverability:** the scrolling part of the strip is sized so
-  the last visible key is cut at about half, plus an edge fade, so it
-  obviously scrolls. Order: H B I list task code link indent table
+- **Strip discoverability:** the scrolling part of the strip runs right
+  up to the pinned group, which is exactly its 48 dp keys with no padding,
+  and its last visible key is cut at about half (35–65%), so it obviously
+  scrolls. When 48 dp keys would cut elsewhere, the scrolling keys widen a
+  little (at most a fifth on a phone) rather than leave a gap before the
+  pinned group. A 12 dp fade sits at the cut, by the pinned group, so the
+  cut key reads as half a key, not as a key faded early. Order: H B I list task code link indent table
   quote redo outdent. Undo and `{ }` are pinned on the right.
 - **Split divider:** 48 dp invisible touch area around the 14 dp
   handle, plus TalkBack actions "Make top larger / smaller". Task

@@ -107,6 +107,26 @@ object Samples {
             "- [x] Code, Split and Preview",
             "- [x] Copy and Save always visible",
         )
+
+    /**
+     * What the real Code pane shows in screenshots: [sampleLines], then a
+     * line of every inline kind and a fenced block, so a shot shows
+     * headings, muted markers, links, code chips and the code band.
+     */
+    val codeSample: String =
+        (
+            sampleLines +
+                listOf(
+                    "- [ ] Mermaid and themes",
+                    "",
+                    "A **calm**, *fast* editor with `inline code`.",
+                    "See [the docs](https://example.com/docs) for more.",
+                    "",
+                    "```kotlin",
+                    "fun main() = println(\"Hello\")",
+                    "```",
+                )
+        ).joinToString("\n")
 }
 
 /** A stand-in for the Code pane: line numbers and text, so screens render without the view. */

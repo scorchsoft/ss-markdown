@@ -8,9 +8,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.scorchsoft.ssmarkdown.core.ui.SS
 import com.scorchsoft.ssmarkdown.document.ActiveDocument
+import com.scorchsoft.ssmarkdown.editor.EditorListener
 import com.scorchsoft.ssmarkdown.editor.EditorTheme
 import com.scorchsoft.ssmarkdown.editor.MarkdownCodeView
 import com.scorchsoft.ssmarkdown.editor.compose.MarkdownEditor
+import com.scorchsoft.ssmarkdown.text.TextDocument
 import com.scorchsoft.ssmarkdown.ui.ChromeFonts
 import java.util.concurrent.Executor
 
@@ -37,19 +39,13 @@ fun CodePaneHost(
 ) {
     val doc = document ?: return
     val holder = remember { ViewHolder() }
-    val colors = SS.colors
-    val theme = remember(colors) { EditorTheme.fromColors(colors) }
-    val assets = LocalContext.current.assets
-    val typeface = remember { ChromeFonts.codeTypeface(assets) }
-    MarkdownEditor(
-        document = doc.text,
-        modifier = modifier,
-        theme = theme,
+    CodePane(
+        text = doc.text,
         wrap = wrap,
         zoomPercent = zoomPercent,
-        typeface = typeface,
         listener = doc,
         background = background,
+        modifier = modifier,
         onViewReady = { view ->
             holder.view = view
             onAttach(view)
@@ -59,6 +55,40 @@ fun CodePaneHost(
     DisposableEffect(Unit) {
         onDispose { holder.view?.let(onDetach) }
     }
+}
+
+/**
+ * The Code pane's look in the app: [MarkdownEditor] over [text] with the
+ * core/ui colours ([EditorTheme.fromColors]) and the bundled code font
+ * ([ChromeFonts.codeTypeface]). [CodePaneHost] binds it to the open
+ * document; the screenshot harness draws it over a sample, so the
+ * screenshots show the colouring the app really draws.
+ */
+@Composable
+internal fun CodePane(
+    text: TextDocument,
+    wrap: Boolean,
+    zoomPercent: Int,
+    modifier: Modifier = Modifier,
+    listener: EditorListener? = null,
+    background: Executor? = null,
+    onViewReady: (MarkdownCodeView) -> Unit = {},
+) {
+    val colors = SS.colors
+    val theme = remember(colors) { EditorTheme.fromColors(colors) }
+    val assets = LocalContext.current.assets
+    val typeface = remember { ChromeFonts.codeTypeface(assets) }
+    MarkdownEditor(
+        document = text,
+        modifier = modifier,
+        theme = theme,
+        wrap = wrap,
+        zoomPercent = zoomPercent,
+        typeface = typeface,
+        listener = listener,
+        background = background,
+        onViewReady = onViewReady,
+    )
 }
 
 private class ViewHolder {

@@ -26,7 +26,8 @@ import com.scorchsoft.ssmarkdown.share.ShareSheet
 import com.scorchsoft.ssmarkdown.storage.StorageScreen
 import com.scorchsoft.ssmarkdown.storage.StorageUiState
 import com.scorchsoft.ssmarkdown.themes.ThemeEditorScreen
-import com.scorchsoft.ssmarkdown.ui.EditorFor
+import com.scorchsoft.ssmarkdown.ui.EditorWith
+import com.scorchsoft.ssmarkdown.ui.RealCodePane
 import com.scorchsoft.ssmarkdown.ui.Themed
 import org.junit.Rule
 import org.junit.Test
@@ -67,24 +68,24 @@ class ScreenshotTest(
 
     @Test fun editorSplit() = editor("editor-split", Samples.zoomed.copy(mode = ViewMode.Split))
 
-    @Test fun editorLargeFont() = shot("editor-font-200", fontScale = 2f) { EditorFor(Samples.unsaved) }
+    @Test fun editorLargeFont() = shot("editor-font-200", fontScale = 2f) { EditorShot(Samples.unsaved) }
 
     // UX-7: the header at a large font, with a breadcrumb and with a failed save.
     @Test fun editorLargeFontSection() =
         shot(
             "editor-font-200-breadcrumb",
             fontScale = 2f,
-        ) { EditorFor(Samples.section) }
+        ) { EditorShot(Samples.section) }
 
-    @Test fun editorLargeFontFailed() = shot("editor-font-200-failed", fontScale = 2f) { EditorFor(Samples.failed) }
-
-    @Test
-    @Config(qualifiers = "w915dp-h412dp-land-420dpi")
-    fun editorLandscapeFont130() = shot("editor-font-130-landscape", fontScale = 1.3f) { EditorFor(Samples.section) }
+    @Test fun editorLargeFontFailed() = shot("editor-font-200-failed", fontScale = 2f) { EditorShot(Samples.failed) }
 
     @Test
     @Config(qualifiers = "w915dp-h412dp-land-420dpi")
-    fun editorLandscapeFont200() = shot("editor-font-200-landscape", fontScale = 2f) { EditorFor(Samples.failed) }
+    fun editorLandscapeFont130() = shot("editor-font-130-landscape", fontScale = 1.3f) { EditorShot(Samples.section) }
+
+    @Test
+    @Config(qualifiers = "w915dp-h412dp-land-420dpi")
+    fun editorLandscapeFont200() = shot("editor-font-200-landscape", fontScale = 2f) { EditorShot(Samples.failed) }
 
     // UX-8: segmented controls at a large font fall back to radio rows rather than clipping.
     @Test fun settingsLargeFont() =
@@ -99,21 +100,25 @@ class ScreenshotTest(
         }
 
     // UX2-1 / UX2-13: every Save state at 2× font, so a clipped pill can never hide again.
-    @Test fun saveDraftLargeFont() = shot("save-font-200-draft", fontScale = 2f) { EditorFor(Samples.draft) }
+    @Test fun saveDraftLargeFont() = shot("save-font-200-draft", fontScale = 2f) { EditorShot(Samples.draft) }
 
-    @Test fun saveReadOnlyLargeFont() = shot("save-font-200-read-only", fontScale = 2f) { EditorFor(Samples.readOnly) }
+    @Test fun saveReadOnlyLargeFont() = shot("save-font-200-read-only", fontScale = 2f) { EditorShot(Samples.readOnly) }
 
     @Test
     fun saveReadOnlyCleanLargeFont() =
-        shot("save-font-200-read-only-clean", fontScale = 2f) { EditorFor(Samples.readOnlyClean) }
+        shot("save-font-200-read-only-clean", fontScale = 2f) { EditorShot(Samples.readOnlyClean) }
 
-    @Test fun saveRetryLargeFont() = shot("save-font-200-retry", fontScale = 2f) { EditorFor(Samples.failed) }
+    @Test fun saveRetryLargeFont() = shot("save-font-200-retry", fontScale = 2f) { EditorShot(Samples.failed) }
 
-    @Test fun saveSavingLargeFont() = shot("save-font-200-saving", fontScale = 2f) { EditorFor(Samples.saving) }
+    @Test fun saveSavingLargeFont() = shot("save-font-200-saving", fontScale = 2f) { EditorShot(Samples.saving) }
 
-    @Test fun savePausedLargeFont() = shot("save-font-200-paused", fontScale = 2f) { EditorFor(Samples.autosavePaused) }
+    @Test fun savePausedLargeFont() =
+        shot(
+            "save-font-200-paused",
+            fontScale = 2f,
+        ) { EditorShot(Samples.autosavePaused) }
 
-    @Test fun recoveredLargeFont() = shot("editor-font-200-recovered", fontScale = 2f) { EditorFor(Samples.recovered) }
+    @Test fun recoveredLargeFont() = shot("editor-font-200-recovered", fontScale = 2f) { EditorShot(Samples.recovered) }
 
     @Test fun bigFile() = editor("editor-big-file", Samples.bigFile)
 
@@ -126,7 +131,7 @@ class ScreenshotTest(
     @Config(qualifiers = "w360dp-h780dp-420dpi")
     fun width360LargeFont() =
         shot("width-360-font-200-read-only", fontScale = 2f) {
-            EditorFor(Samples.readOnly.copy(folder = ScreenSamples.folder))
+            EditorShot(Samples.readOnly.copy(folder = ScreenSamples.folder))
         }
 
     @Test
@@ -158,7 +163,7 @@ class ScreenshotTest(
 
     @Test fun find() = editor("find", ScreenSamples.find)
 
-    @Test fun findLargeFont() = shot("find-font-200", fontScale = 2f) { EditorFor(ScreenSamples.find) }
+    @Test fun findLargeFont() = shot("find-font-200", fontScale = 2f) { EditorShot(ScreenSamples.find) }
 
     @Test fun conflict() = sheet("conflict-sheet", Samples.conflict)
 
@@ -199,14 +204,14 @@ class ScreenshotTest(
     private fun editor(
         name: String,
         state: EditorUiState,
-    ) = shot(name) { EditorFor(state) }
+    ) = shot(name) { EditorShot(state) }
 
     /** An editor state with a modal sheet open: the sheet is its own window, and must be in the shot. */
     private fun sheet(
         name: String,
         state: EditorUiState,
     ) {
-        render { EditorFor(state) }
+        render { EditorShot(state) }
         val windows = capture(name)
         check(windows > 1) { "$name: the sheet's window was not captured" }
     }
@@ -223,7 +228,7 @@ class ScreenshotTest(
         lateinit var view: View
         render(fontScale) {
             view = LocalView.current
-            EditorFor(state)
+            EditorShot(state)
         }
         rule.runOnIdle {
             val ime = (KEYBOARD_DP * view.resources.displayMetrics.density).toInt()
@@ -293,6 +298,10 @@ class ScreenshotTest(
         val views = global.getDeclaredField("mViews").apply { isAccessible = true }.get(instance)
         return (views as List<*>).filterIsInstance<View>()
     }
+
+    /** The editor in [state] with the real Code pane, so shots show the app's syntax colouring. */
+    @Composable
+    private fun EditorShot(state: EditorUiState) = EditorWith(state, codePane = { RealCodePane(state, it) })
 
     companion object {
         private const val PNG_QUALITY = 100

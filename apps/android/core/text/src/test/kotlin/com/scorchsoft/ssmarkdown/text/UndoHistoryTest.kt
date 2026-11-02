@@ -97,6 +97,22 @@ class UndoHistoryTest {
     }
 
     @Test
+    fun `hasHistoryTail says whether the exported tail keeps a step, a step over the cap counting as none`() {
+        assertFalse(document.hasHistoryTail())
+        type("ab")
+        assertTrue(document.hasHistoryTail())
+        // Review r3 M2: one paste larger than the cap on its own is not kept, so there is no tail.
+        document.breakTypingRun()
+        document.replace(0, 0, "p".repeat(100))
+        assertFalse(document.hasHistoryTail(maxBytes = 100))
+        assertTrue(document.exportHistory(maxBytes = 100).isEmpty)
+        // Undone, it is still too big as a redo step, but the typing before it is the newest undo step now.
+        document.undo()
+        assertTrue(document.hasHistoryTail(maxBytes = 100))
+        assertEquals(document.hasHistoryTail(maxBytes = 100), !document.exportHistory(maxBytes = 100).isEmpty)
+    }
+
+    @Test
     fun `export and restore round-trip both stacks`() {
         type("abc")
         now += 5_000

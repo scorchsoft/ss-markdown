@@ -118,6 +118,22 @@ class LinkPromptTest {
         assertEquals("A [link](https://new.example) here\n", f.text())
     }
 
+    /**
+     * edge-cases "Link prompt across a file switch": another file opened
+     * (a share, a recent file, Direct Share) while the prompt was up, and
+     * Done then wrote the link into that file at the first file's offsets.
+     */
+    @Test
+    fun `a file opened while the prompt is up closes it, and nothing is written there`() {
+        val f = fixture("Read the docs today\n")
+        f.select(9, 13)
+        f.vm.onAction(EditorAction.StripKeyTapped(StripKey.Link))
+        f.vm.openDocument(f.file("other.md", "Another file entirely\n"))
+        assertNull(f.vm.uiState.value.overlay)
+        f.vm.onAction(EditorAction.LinkDone("docs", "https://d.example"))
+        assertEquals("Another file entirely\n", f.text())
+    }
+
     @Test
     fun `Cancel changes nothing`() {
         val f = fixture("Read the docs today\n")

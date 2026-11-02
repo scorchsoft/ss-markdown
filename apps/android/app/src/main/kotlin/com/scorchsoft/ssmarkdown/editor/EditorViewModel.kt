@@ -468,6 +468,9 @@ class EditorViewModel(
                 codeWrap = settings.codeWrap,
                 find = null,
                 navigator = null,
+                // The Link prompt holds offsets into the text it was opened on; Done must never write them
+                // into another file or into reloaded content (edge-cases "Link prompt across a file switch").
+                overlay = it.overlay.takeUnless { overlay -> overlay is EditorOverlay.LinkPrompt },
                 // The page asks afresh about this document's pictures.
                 preview = it.preview.copy(picturesNeedFolder = false),
             )

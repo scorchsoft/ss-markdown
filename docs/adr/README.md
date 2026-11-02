@@ -23,3 +23,4 @@ rather than rewriting it.
 | [0014](0014-leakcanary-test-apk-only.md) | LeakCanary runs over the instrumented tests and never ships |
 | [0016](0016-undo-survives-process-death.md) | Undo survives process death, through the recovery journal (format 2) |
 | [0017](0017-direct-share-targets.md) | Recent files are Direct Share targets that preselect, never append |
+| [0018](0018-picture-folder-grants.md) | A file opened on its own gets its pictures through a folder grant it is checked against |

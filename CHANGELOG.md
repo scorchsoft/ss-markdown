@@ -7,6 +7,20 @@ release may change behaviour.
 
 ## [Unreleased]
 
+### Added
+
+- Pictures that cannot be shown get a calm placeholder saying why (not
+  found, no folder access, not a picture, too large, online) with the alt
+  text and path, instead of a broken image.
+- A file opened on its own (from Files, Drive or another app) can show the
+  pictures beside it: Allow access asks once for its folder, checks the
+  folder really holds the file and remembers it. Folders already granted
+  are reused.
+- Insert image, from the strip and ⋮, in Code and Preview: the picker
+  starts next to the file; a picture in the file's folder is linked by its
+  relative path, and one elsewhere can be copied into `images/` beside the
+  file.
+
 ### Changed
 
 - Copy opens a small chooser: **Copy Markdown** or **Copy formatted text**,
@@ -20,6 +34,11 @@ release may change behaviour.
   embedded as images within the clipboard's limit, maths as readable text,
   and a plain-text version without Markdown symbols for apps that paste text.
   A document too long for the clipboard is shortened, and the message says so.
+
+### Fixed
+
+- `../` picture paths now show in Preview (the address lost its `..` on
+  the way to the app).
 
 ## [0.2.1] - 2026-11-02
 

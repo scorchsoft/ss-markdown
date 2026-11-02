@@ -53,12 +53,15 @@ mockups agreed with Andrew win, and this file gets updated.
   - Every successful save confirms with a short "Saved to <place>"
     message.
 - **⋮** opens: New · Open file · Open folder · Save as │ Find & replace ·
-  Version history │ Export PDF · Export images… · Share · Copy as… │
+  Insert image… · Version history │ Export PDF · Export images… · Share · Copy as… │
   Display · Settings. **Copy as…** opens the same Copy chooser (anchored to
   Copy). Above 1.5× font, when Copy itself moves into ⋮, its row opens the
   chooser and Copy as… is left out as a twin. In folder mode, while any file is unsaved, **Save
   all (N)** follows Save as (one tap after ⋮, rubric #9); it is absent
-  otherwise, and the ≡ panel keeps its own Save all row.
+  otherwise, and the ≡ panel keeps its own Save all row. While the
+  preview has pictures it cannot show without the document's folder,
+  **Show pictures beside this file…** follows Insert image… (see
+  "Pictures").
 - The menu's **top row is Undo · Redo**, two 48 dp icons side by side
   (as in Chrome's menu). Each is dimmed and read as unavailable when
   there is nothing to undo or redo; a tap applies it and keeps the menu
@@ -92,7 +95,9 @@ mockups agreed with Andrew win, and this file gets updated.
     focus leave text. Only the Link sheet takes the keyboard, for its own
     fields; closing it gives the caret back to the text.
   - It holds ¶, B, I, list, task, code, link, indent and undo, and
-    scrolls horizontally to reveal table, quote, redo and outdent.
+    scrolls horizontally to reveal table, **insert image** (a picture
+    icon; TalkBack "Insert image"), quote, redo and outdent. Preview's
+    strip has insert image after table too.
   - **Enter in a list** starts the next item (same bullet, the next
     number, a fresh `[ ]`). **Enter on an empty item ends the list**: the
     marker goes and the caret sits on a plain line, after a blank line so
@@ -773,6 +778,70 @@ long-press sheet, opens a full-screen viewer:
   tap to move between them ("2 of 5").
 - Save and Share sit in the viewer's header.
 
+## Pictures
+
+`![alt](path)` with a relative path shows the picture beside the
+document. Remote pictures are never fetched: the app is offline.
+
+**Where a path resolves.** Against the document's own folder, never
+climbing out of the folder the user granted (SEC-9):
+- in folder mode, through the open folder;
+- for a file opened on its own (Files, Drive, another app's View, Open
+  file), through the folder the user granted for it once ("Allow
+  access", below), or through any folder grant the app already holds that
+  contains it, so a file inside a folder opened before needs nothing new
+  (ADR 0018);
+- for a draft, in the drafts folder (its `images/`).
+
+**Placeholders.** A picture that cannot be drawn becomes a calm box in
+its place: a line icon, the reason, the alt text and the path as written
+(the URL for a remote one). It is the size of a short paragraph, and a
+picture still loading holds the same room, so text does not jump when it
+arrives. The box cannot take a caret, and a tap on it does nothing (no
+viewer, no editing). TalkBack reads "Picture not shown: <alt>. <reason>.
+<path>".
+
+| State | Says | Action |
+|---|---|---|
+| Not found | "Not found next to this file" | — |
+| No folder access | "Allow access to this folder to show its images" | **Allow access** button |
+| Not a picture | "Not a picture this preview can show" (also a format WebView cannot decode) | — |
+| Too large | "Too large to show here" (over 32 MB) | — |
+| Remote | "Online images aren't loaded", with the URL | — |
+| Unsupported | "Only pictures next to this file can be shown" (`file:`, `content:`, absolute paths) | — |
+
+The page asks the app why once per burst of failures (one `imageQuery`
+for every picture that failed in ~40 ms), never once per picture. The
+viewer and Export images skip a picture that cannot be read.
+
+**Allow access.** The button, or ⋮ → Show pictures beside this file…,
+opens the system folder picker at the document's folder where the
+provider's ids say where that is, else at the document. The folder must
+contain the document; if it does not, "That folder doesn't hold this
+file. Choose the folder it's in." and nothing is kept. Otherwise the
+grant is kept, the folder is remembered for this file (reopening it
+asks nothing), the pictures load at once and "Showing pictures from
+<folder>" confirms it.
+
+**Insert image** (strip key or ⋮ → Insert image…, Code and Preview):
+1. The system picker for one picture opens in the document's folder.
+2. A picture inside the document's folder tree is written as
+   `![name](relative/path.png)` at the caret, replacing any selection:
+   `../` where it climbs, spaces and brackets percent-encoded
+   (`my%20pic.png`), other characters as typed. The alt text is the file
+   name without its extension, selected, so typing replaces it. One undo
+   step takes it away. In Preview it goes at the page's caret.
+3. A picture outside it (or any picture when the app has no folder yet)
+   asks "Copy this picture next to the file?" with **Copy into this
+   file's folder** and Cancel. Copy puts it in `images/` beside the
+   document (created if needed), as `name-2.png` when the name is taken,
+   and links the copy. If the app cannot write the folder yet, the Allow
+   access picker comes first, then the copy. A raw `content://` link is
+   never written: it would stop working.
+4. A draft copies into the drafts folder's own `images/`. **Save as** of
+   a draft with pictures does not move them: "Saved. Its pictures stayed
+   with the draft: insert them again here."
+
 ## Mermaid
 
 Long-press a rendered diagram to get a sheet with:
@@ -949,8 +1018,9 @@ Full evidence is in `research-findings.md`.
   and keeps its own undo stack, which includes Preview edits.
 - No smart quotes inside code. The copy button on a code block copies
   the exact source.
-- In folder mode, relative image paths (`../img/x.png`) resolve within
-  the opened folder.
+- Relative image paths (`../img/x.png`) resolve within the granted
+  folder, in folder mode and for a single file once its folder is
+  allowed (see "Pictures").
 - The theme editor warns when a custom theme's contrast is below AA.
 - The formatting strip is always one row and always sits above the
   keyboard, edge-to-edge-safe on Android 15+.

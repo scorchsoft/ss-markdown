@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.preview.editing
 
 import com.scorchsoft.ssmarkdown.markdown.edit.DocumentStyle
+import com.scorchsoft.ssmarkdown.markdown.edit.EditCommand
 import com.scorchsoft.ssmarkdown.markdown.edit.InlineFormat
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.preview.bridge.HostMessage
@@ -66,6 +67,25 @@ class PreviewEditorTest {
         assertEquals("Intro\n\nA heading\n\nOutro", doc.text)
         editor.onFormatRequest(PreviewFormatRequest(FormatAction.QUOTE, at, at, editor.rev, false))
         assertEquals("Intro\n\n> A heading\n\nOutro", doc.text)
+    }
+
+    @Test
+    fun `Enter on an empty list item ends the list exactly as Enter in Code does`() {
+        // (text, caret at the end of the empty item, after)
+        val cases =
+            listOf(
+                Triple("- one\n- ", 8, "- one\n\n"),
+                Triple("1. one\n2. [ ] \n3. two", 14, "1. one\n\n\n1. two"),
+                Triple("- one\n  - ", 10, "- one\n- "),
+                Triple("> - one\n> - ", 12, "> - one\n>\n> "),
+            )
+        for ((before, at, after) in cases) {
+            val (doc, editor, _) = editor(before)
+            assertTrue(editor.onFormatRequest(PreviewFormatRequest(FormatAction.LIST_EXIT, at, at, editor.rev, false)))
+            assertEquals(before, after, doc.text)
+            val code = EditCommand.Newline.apply(before, TextSelection.caret(at), DocumentStyle.detect(before))
+            assertEquals("same as Code", code.applyTo(before), doc.text)
+        }
     }
 
     @Test

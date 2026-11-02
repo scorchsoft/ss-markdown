@@ -157,14 +157,22 @@ public sealed interface EditCommand {
         ): EditResult = checked(text, selection) { IndentEdit.indent(text, selection, style, fences) }
     }
 
-    /** Outdents the selected lines one level. */
+    /**
+     * Outdents the selected lines one level. On a single top-level list item
+     * there is no level left, so it leaves the list: the marker comes off and
+     * the line becomes a paragraph, as Enter does on an empty item.
+     */
     public data object Outdent : EditCommand {
         override fun apply(
             text: CharSequence,
             selection: TextSelection,
             style: DocumentStyle,
             fences: FenceStates,
-        ): EditResult = checked(text, selection) { IndentEdit.outdent(text, selection, style, fences) }
+        ): EditResult =
+            checked(text, selection) {
+                ListContinuation.outOfTopLevelItem(text, selection, fences)
+                    ?: IndentEdit.outdent(text, selection, style, fences)
+            }
     }
 
     /**

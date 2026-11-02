@@ -36,6 +36,13 @@ enum class FormatAction(
     HEADING_5("heading5", EditCommand.SetHeading(level = 5), block = true),
     HEADING_6("heading6", EditCommand.SetHeading(level = 6), block = true),
 
+    /**
+     * Enter on an empty list item in Preview: Code's own Enter, which ends
+     * the list there (a nested item steps out one level), so both views
+     * leave a list the same way.
+     */
+    LIST_EXIT("listExit", EditCommand.Newline, block = true),
+
     /** Keyboard undo / redo inside Preview: the host's history, not a format. */
     UNDO("undo", command = null),
     REDO("redo", command = null),

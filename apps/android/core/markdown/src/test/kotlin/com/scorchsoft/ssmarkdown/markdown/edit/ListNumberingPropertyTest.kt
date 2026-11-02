@@ -133,6 +133,13 @@ class ListNumberingPropertyTest {
         return code
     }
 
+    private fun isMarginParagraph(
+        fences: FenceStates,
+        start: Int,
+        end: Int,
+        p: LinePrefix,
+    ): Boolean = end > start && !fences.roleAt(start).isCode && p.indentWidth + p.quoteEnd == 0
+
     /**
      * An independent check of the result: every numbered level counts up by
      * one, and a level that starts at or below [fromOffset] starts at 1.
@@ -163,6 +170,9 @@ class ListNumberingPropertyTest {
                     }
                 assertEquals(message, expected, number)
                 stack += width to number?.plus(1)
+            } else if (isMarginParagraph(fences, start, end, p)) {
+                // A paragraph at the margin (an item outdented out of the list) ends every list above.
+                stack.clear()
             }
             start = end + 1
         }

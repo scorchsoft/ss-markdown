@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { collectDefinitions, definitionSignature } from "../../src/core/definitions";
-import { newlineInsert } from "../../src/core/newline";
+import { isEmptyListItem, newlineInsert } from "../../src/core/newline";
 import { SourceDoc } from "../../src/core/sourceDoc";
 
 describe("collectDefinitions", () => {
@@ -65,6 +65,15 @@ describe("newlineInsert", () => {
         expect(newlineInsert("> quote", "paragraph")).toBe("\n>\n> ");
         expect(newlineInsert("para", "paragraph")).toBe("\n\n");
         expect(newlineInsert("x", "code")).toBe("\n");
+    });
+
+    it("knows an empty list item, where Enter leaves the list instead", () => {
+        for (const line of ["- ", "-", "* ", "2. ", "10) ", "- [ ] ", "- [x]", "  - ", "> - ", "> > 1. "]) {
+            expect(isEmptyListItem(line), line).toBe(true);
+        }
+        for (const line of ["- a", "- [ ] a", "1. x", "", "para", "> quote", "-- ", "1234567890. "]) {
+            expect(isEmptyListItem(line), line).toBe(false);
+        }
     });
 });
 

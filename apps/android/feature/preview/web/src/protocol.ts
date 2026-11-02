@@ -151,6 +151,7 @@ export type FormatAction =
     | "heading4"
     | "heading5"
     | "heading6"
+    | "listExit"
     | "undo"
     | "redo";
 

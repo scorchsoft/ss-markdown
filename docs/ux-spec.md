@@ -69,6 +69,14 @@ mockups agreed with Andrew win, and this file gets updated.
   It is **always one row**.
   - It holds H, B, I, list, task, code, link, indent and undo, and
     scrolls horizontally to reveal table, quote, redo and outdent.
+  - **Enter in a list** starts the next item (same bullet, the next
+    number, a fresh `[ ]`). **Enter on an empty item ends the list**: the
+    marker goes and the caret sits on a plain line, after a blank line so
+    what you type is a paragraph and not part of the item above; a nested
+    empty item steps out one level first, and a numbered rest of the list
+    counts from 1 again. **Outdent** on a top-level item does the same
+    with the item's text. Code and Preview behave identically: Preview
+    asks Kotlin to run Code's own Enter on the empty item (`listExit`).
   - **In Code view**, a `{ }` key is pinned at the right end. It flips
     the strip to a **symbols page**: `` ` `` `[` `]` `(` `)` `#` `*` `>`
     `|` `-` `=` `!` and ← → cursor keys (arrows with shafts, hold to

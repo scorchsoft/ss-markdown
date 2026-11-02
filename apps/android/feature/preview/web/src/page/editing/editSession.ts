@@ -7,7 +7,8 @@
  */
 import { runEdit } from "../../core/minimalEdit";
 import { mapOffset } from "../../core/ot";
-import { newlineInsert, type BlockKind } from "../../core/newline";
+import { isEmptyListItem, newlineInsert, type BlockKind } from "../../core/newline";
+import type { FormatAction } from "../../protocol";
 import { escapeTyped } from "../../core/minimalEdit";
 import type { SourceEdit } from "../../core/sourceDoc";
 import type { SectionView } from "../sectionView";
@@ -24,6 +25,8 @@ export interface SessionHost {
     commitAndRerender(edits: readonly SourceEdit[], caret: number): void;
     /** A browser input type that formats (formatBold…) or steps history. */
     requestFormat(inputType: string): void;
+    /** Asks Kotlin to apply [action] to the selection (Enter on an empty list item). */
+    format(action: FormatAction): void;
     nextCell(): void;
     /** A change could not be written back: undo it on screen and say so. */
     refuse(): void;
@@ -172,6 +175,7 @@ export class EditSession {
         if (type === "insertParagraph" || type === "insertLineBreak") {
             e.preventDefault();
             if (this.inTable) this.host.nextCell();
+            else if (type === "insertParagraph" && this.onEmptyListItem()) this.host.format("listExit");
             else this.structural(this.newline(type === "insertLineBreak"), null);
             return;
         }
@@ -222,6 +226,12 @@ export class EditSession {
         const r = this.selectionRange();
         const line = this.host.lineTextAt(r?.from ?? 0);
         return newlineInsert(line, this.blockKind(), hard);
+    }
+
+    private onEmptyListItem(): boolean {
+        if (this.blockKind() !== "listItem") return false;
+        const r = this.selectionRange();
+        return r !== null && r.from === r.to && isEmptyListItem(this.host.lineTextAt(r.from));
     }
 
     private blockKind(): BlockKind {

@@ -24,3 +24,15 @@ export function newlineInsert(lineText: string, kind: BlockKind, hardBreak = fal
     if (quote) return `\n${quote.trimEnd()}\n${quote}`;
     return "\n\n";
 }
+
+const EMPTY_ITEM = /^\s*(?:>\s?)*\s*(?:[-+*]|\d{1,9}[.)])(?:\s+\[[ xX]\])?\s*$/;
+
+/**
+ * True for a list item with no text (`- `, `2. `, `- [ ] `, quoted or
+ * nested). Enter there leaves the list instead of adding another empty
+ * item, as every editor does. Kotlin runs it (`listExit`) with the same
+ * command as Enter in Code, so both views end a list identically.
+ */
+export function isEmptyListItem(lineText: string): boolean {
+    return EMPTY_ITEM.test(lineText);
+}

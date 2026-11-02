@@ -304,6 +304,29 @@ describe("formatting from the strip", () => {
         expect(await page.locator(".editing").count()).toBe(1);
     });
 
+    it("Enter continues a list, and Enter on the new empty item asks Kotlin to end the list", async () => {
+        const page = await openPreview(h);
+        const source = "- one";
+        await loadMarkdown(page, source);
+        await tapText(page, "one", 0.9);
+        await waitForMessage(page, (m) => m.type === "editingChanged");
+        await page.keyboard.press("End");
+        await clearReceived(page);
+        await page.keyboard.press("Enter");
+        await waitForMessage(page, (m) => m.type === "sourceEdit");
+        expect(await applySent(page, source)).toBe("- one\n- ");
+        await page.waitForTimeout(300);
+        await clearReceived(page);
+        await page.keyboard.press("Enter");
+        // The same command as Enter in Code (EditCommand.Newline), run by Kotlin on the empty item.
+        expect(await waitForMessage(page, (m) => m.type === "formatRequest")).toMatchObject({
+            action: "listExit",
+            from: 8,
+            to: 8,
+        });
+        expect((await received(page)).filter((m) => m.type === "sourceEdit")).toEqual([]);
+    });
+
     it("turns a keyboard shortcut into the same request", async () => {
         const page = await openPreview(h);
         await loadMarkdown(page, "Some words.");

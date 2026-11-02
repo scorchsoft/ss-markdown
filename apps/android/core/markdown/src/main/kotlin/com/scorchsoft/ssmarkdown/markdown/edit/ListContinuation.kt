@@ -102,7 +102,47 @@ internal object ListContinuation {
         style: DocumentStyle,
     ): EditResult {
         if (p.indent.isNotEmpty()) return IndentEdit.outdent(text, selection, style, FenceStates.NONE)
-        return replace(text, line.start + p.quoteEnd, line.end, "")
+        return exitList(text, line, p, null)
+    }
+
+    /**
+     * Outdent on one top-level list item, which has no level left to step
+     * out of: [exitList], with the selection kept on its text. Null when the
+     * selection is anything else, for [IndentEdit.outdent] to handle.
+     */
+    fun outOfTopLevelItem(
+        text: CharSequence,
+        selection: TextSelection,
+        fences: FenceStates,
+    ): EditResult? {
+        val line = TextLines.targetLines(text, selection).singleOrNull() ?: return null
+        val p = LinePrefix.parse(line.content)
+        val topLevel = p.isListItem && p.indent.isEmpty()
+        return if (topLevel && !fences.roleAt(line.start).isCode) exitList(text, line, p, selection) else null
+    }
+
+    /**
+     * Turns the item on [line] into a plain line, its text kept. Right under
+     * another line of the list, a bare line would be a lazy continuation of
+     * the item above (CommonMark), still inside the list, so a blank line
+     * (in the same quote) goes between them first. The caret goes where the
+     * text starts, or [selection] follows the text it was on.
+     */
+    internal fun exitList(
+        text: CharSequence,
+        line: LineSpan,
+        p: LinePrefix,
+        selection: TextSelection?,
+    ): EditResult {
+        val above = TextLines.previous(text, line)
+        val joined = above != null && LinePrefix.parse(above.content).content.isNotBlank()
+        val separator = if (joined) p.quote.trimEnd() + "\n" else ""
+        val builder = EditBuilder(text)
+        builder.replace(line.start, line.start + p.contentStart, separator + p.quote)
+        // The items below are a new list now: it counts from 1 again.
+        if (p.marker is ListMarker.Ordered) Renumbering.after(text, builder, line, p, 1)
+        if (selection != null) return builder.buildMapping(selection)
+        return builder.build(TextSelection.caret(line.start + separator.length + p.quoteEnd))
     }
 
     private fun newline(

@@ -11,7 +11,10 @@ set -euo pipefail
 
 iterations="${1:-50}"
 app=com.scorchsoft.ssmarkdown
-runner="$app.test/androidx.test.runner.AndroidJUnitRunner"
+# The app's own runner (app/build.gradle.kts testInstrumentationRunner). With
+# the wrong name `am instrument` prints INSTRUMENTATION_FAILED and runs
+# nothing, which the checks below now refuse to read as a pass.
+runner="$app.test/$app.LeakCheckRunner"
 test_class="$app.KillLoopTest"
 
 adb shell pm clear "$app" > /dev/null
@@ -24,9 +27,15 @@ run() {
 for i in $(seq 1 "$iterations"); do
   out="$(run step -e killLoop 1 -e killLoopIteration "$i")"
   # The step must die (no "OK"), and must not fail its check of the previous iteration first.
-  if grep -qE 'FAILURES!!!|AssertionError|OK \(1 test\)' <<<"$out"; then
+  if grep -qE 'FAILURES!!!|AssertionError|OK \(1 test\)|INSTRUMENTATION_FAILED|OK \(0 tests\)' <<<"$out"; then
     echo "$out"
     echo "::error::kill loop iteration $i failed"
+    exit 1
+  fi
+  # Silence is not success: the step must have typed and reached its kill.
+  if ! adb logcat -d -s KillLoop:I | grep -q "iteration $i: typed"; then
+    echo "$out"
+    echo "::error::kill loop iteration $i never reached its kill"
     exit 1
   fi
 done

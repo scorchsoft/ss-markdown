@@ -64,8 +64,12 @@ class ShareViewModel(
     ) {
         val s = settings.settings.value
         val ranked = ShareTargets.ranked(s)
-        val chosen = preselect?.takeIf { p -> ranked.any { it.uri == p } }
-        val targets = if (chosen == null) ranked else ranked.sortedByDescending { it.uri == chosen }
+        // A file picked with "Another file…" before the text was read (the sheet rebuilt while the picker
+        // was open) stays chosen.
+        val picked = ui.value.target?.let { uri -> ui.value.targets.firstOrNull { it.uri == uri } }
+        val chosen = picked?.uri ?: preselect?.takeIf { p -> ranked.any { it.uri == p } }
+        val known = if (picked == null) ranked else listOf(picked) + ranked.filterNot { it.uri == picked.uri }
+        val targets = if (chosen == null) known else known.sortedByDescending { it.uri == chosen }
         ui.value =
             ShareUiState(
                 text = text,

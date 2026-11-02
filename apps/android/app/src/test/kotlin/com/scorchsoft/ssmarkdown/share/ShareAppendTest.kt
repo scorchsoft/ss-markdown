@@ -63,6 +63,26 @@ class ShareAppendTest {
     }
 
     @Test
+    fun `a file picked before the rebuilt sheet read its text stays chosen`() {
+        val f = EditorFixture(temp.root, dispatcher)
+        val notes = f.file("notes.md", "# Notes\n")
+        val picked = f.file("picked.md", "# Picked\n")
+        f.settings.update { it.copy(recentFiles = listOf(RecentFile(notes, "notes.md", "", 0))) }
+        val share = ShareViewModel(f.store, f.drafts, f.history, f.settings, f.vm, f.scope) { "1 Nov 2026" }
+        // The picker's answer reaches the rebuilt sheet before its text is read again.
+        share.onPicked(picked, "picked.md")
+        share.begin(SNIPPET, "example.org")
+
+        assertEquals(picked, share.state.value.target)
+        assertEquals(
+            picked,
+            share.state.value.targets
+                .first()
+                .uri,
+        )
+    }
+
+    @Test
     fun `a sheet that never received text appends nothing to the chosen file`() {
         val f = EditorFixture(temp.root, dispatcher)
         val uri = f.file("notes.md", "# Notes\n")

@@ -26,6 +26,10 @@ object AppIcons {
     val check by lazy { icon("M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z", "M8 12.5l3 3 5-6") }
     val menu by lazy { icon("M4 6h16", "M4 12h16", "M4 18h16") }
     val close by lazy { icon("M6 6l12 12", "M18 6L6 18") }
+
+    /** The keyboard strip's arrows, so Undo and Redo look the same in the ⋮ menu. */
+    val undo by lazy { icon("M9 14L4 9l5-5", "M4 9h10a6 6 0 0 1 0 12h-3") }
+    val redo by lazy { icon("M15 14l5-5-5-5", "M20 9H10a6 6 0 0 0 0 12h3") }
     val back by lazy { icon("M19 12H5", "M11 6l-6 6 6 6") }
     val chevronDown by lazy { icon("M6 9l6 6 6-6") }
     val chevronUp by lazy { icon("M6 15l6-6 6 6") }

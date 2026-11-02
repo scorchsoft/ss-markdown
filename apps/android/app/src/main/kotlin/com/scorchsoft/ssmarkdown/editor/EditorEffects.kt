@@ -45,6 +45,18 @@ internal object EditorEffects {
                 menu(vm, action.item)
             }
 
+            EditorAction.OpenMenu -> {
+                // The menu needs the room: the keyboard's word is committed first (R6), then the
+                // keyboard goes. Closing the menu does not bring it back; tapping the text does.
+                vm.active?.surface?.flushComposing()
+                vm.emit(EditorEvent.HideKeyboard)
+            }
+
+            is EditorAction.MenuHistory -> {
+                vm.active?.surface?.let { if (action.redo) it.redo() else it.undo() }
+                vm.refresh()
+            }
+
             EditorAction.TitleTapped -> {
                 vm.navigator.toggle()
             }
@@ -186,7 +198,6 @@ internal object EditorEffects {
 
             // The reducer does all there is to do for these.
             EditorAction.CopyLongPressed,
-            EditorAction.OpenMenu,
             EditorAction.DismissOverlay,
             is EditorAction.AnchorChanged,
             EditorAction.RecoveryGotIt,

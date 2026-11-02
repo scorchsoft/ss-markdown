@@ -408,6 +408,7 @@ class EditorViewModel(
                 bigFile = open.budget == Budget.Lean,
                 isMarkdown = open.displayName?.endsWith(".txt", ignoreCase = true) != true,
                 canUndo = doc.text.canUndo,
+                canRedo = doc.text.canRedo,
                 historyOn = settings.history.recording,
             )
         }

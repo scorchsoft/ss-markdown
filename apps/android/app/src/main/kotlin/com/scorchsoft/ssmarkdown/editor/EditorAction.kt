@@ -62,6 +62,11 @@ sealed interface EditorAction {
 
     data object OpenMenu : EditorAction
 
+    /** Undo or Redo from the top row of the ⋮ menu; the menu stays open for another tap. */
+    data class MenuHistory(
+        val redo: Boolean,
+    ) : EditorAction
+
     data class ChooseMenuItem(
         val item: MenuItem,
     ) : EditorAction

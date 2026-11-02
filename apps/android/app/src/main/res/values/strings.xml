@@ -142,6 +142,7 @@
     <string name="msg_autosave_file_on">Autosave on for this file</string>
     <string name="msg_autosave_file_off">Autosave off for this file</string>
     <string name="undo">Undo</string>
+    <string name="redo">Redo</string>
 
     <!-- Dirty prompt -->
     <string name="leave_title">Save changes to %1$s?</string>

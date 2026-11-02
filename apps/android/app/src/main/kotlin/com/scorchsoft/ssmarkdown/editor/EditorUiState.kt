@@ -54,6 +54,7 @@ data class EditorUiState(
     val loading: Boolean = false,
     val isMarkdown: Boolean = true,
     val canUndo: Boolean = false,
+    val canRedo: Boolean = false,
     val preview: PreviewPaneState = PreviewPaneState(),
     val historyOn: Boolean = true,
 ) {

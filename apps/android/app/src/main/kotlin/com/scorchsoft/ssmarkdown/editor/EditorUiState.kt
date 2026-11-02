@@ -5,6 +5,7 @@ import com.scorchsoft.ssmarkdown.files.document.CheckpointResult
 import com.scorchsoft.ssmarkdown.files.provider.ProviderResult
 import com.scorchsoft.ssmarkdown.find.FindUiState
 import com.scorchsoft.ssmarkdown.folder.FolderUiState
+import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.media.ExportImagesState
 import com.scorchsoft.ssmarkdown.navigator.NavigatorUiState
 import com.scorchsoft.ssmarkdown.preview.RendererState
@@ -318,6 +319,15 @@ sealed interface EditorOverlay {
 
     /** What Big-file mode pauses and why. */
     data object BigFileInfo : EditorOverlay
+
+    /**
+     * The strip's Link prompt, for [selection] (host offsets, taken when
+     * Link was tapped, in Code or from the page's selection in Preview).
+     */
+    data class LinkPrompt(
+        val fields: LinkFields,
+        val selection: TextSelection,
+    ) : EditorOverlay
 
     /** Details of a failed save. */
     data class SaveFailureDetails(

@@ -21,6 +21,9 @@ import com.scorchsoft.ssmarkdown.ui.strip.StripPaging
 class StripController(
     private val host: EditorHost,
 ) {
+    /** The Link key's prompt, in both views. */
+    val links: LinkController = LinkController(host)
+
     /** A strip key was tapped. Paging was applied by the reducer already. */
     fun onKey(key: StripKey) {
         val doc = host.active ?: return
@@ -31,9 +34,16 @@ class StripController(
         val surface = doc.surface
         when (key) {
             StripKey.Undo -> surface.undo()
+
             StripKey.Redo -> surface.redo()
+
             StripKey.Done -> host.emit(EditorEvent.HideKeyboard)
+
             StripKey.Symbols -> Unit
+
+            // Where the link goes is part of the tap: ask first (LinkController).
+            StripKey.Link -> links.open(surface.selection)
+
             else -> commandFor(key)?.let(::run)
         }
         host.refresh()

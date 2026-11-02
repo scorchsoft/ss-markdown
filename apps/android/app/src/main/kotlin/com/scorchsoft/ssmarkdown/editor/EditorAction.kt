@@ -170,6 +170,15 @@ sealed interface EditorAction {
         val step: CursorStep,
     ) : EditorAction
 
+    /** The Link prompt's Done: `[text](url)` over the prompt's selection or link. */
+    data class LinkDone(
+        val text: String,
+        val url: String,
+    ) : EditorAction
+
+    /** The Link prompt's Remove link: the link becomes its text. */
+    data object LinkRemove : EditorAction
+
     /** A type from the ¶ menu: every block in the selection becomes [choice]. */
     data class BlockChosen(
         val choice: BlockChoice,

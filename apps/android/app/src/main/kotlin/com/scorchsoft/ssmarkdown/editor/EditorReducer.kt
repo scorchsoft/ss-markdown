@@ -38,7 +38,12 @@ object EditorReducer {
                 state.copy(overlay = EditorOverlay.CopyMenu)
             }
 
-            EditorAction.DismissOverlay, EditorAction.KeepEditing, EditorAction.ConfirmNotKept -> {
+            EditorAction.DismissOverlay,
+            EditorAction.KeepEditing,
+            EditorAction.ConfirmNotKept,
+            is EditorAction.LinkDone,
+            EditorAction.LinkRemove,
+            -> {
                 state.copy(overlay = null)
             }
 

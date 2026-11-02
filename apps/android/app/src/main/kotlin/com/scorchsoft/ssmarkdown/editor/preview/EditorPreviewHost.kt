@@ -78,6 +78,10 @@ class EditorPreviewHost(
                 onFormat(event)
             }
 
+            is PreviewEvent.LinkPrompt -> {
+                vm.strip.links.open(event.selection)
+            }
+
             is PreviewEvent.EditRefused -> {
                 vm.message(MessageKind.EditRefused)
             }

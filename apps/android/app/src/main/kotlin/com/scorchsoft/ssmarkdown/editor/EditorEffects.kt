@@ -184,6 +184,20 @@ internal object EditorEffects {
                 vm.strip.onBlock(action.choice)
             }
 
+            is EditorAction.LinkDone -> {
+                (before.overlay as? EditorOverlay.LinkPrompt)?.let {
+                    vm.strip.links.onDone(
+                        it,
+                        action.text,
+                        action.url,
+                    )
+                }
+            }
+
+            EditorAction.LinkRemove -> {
+                (before.overlay as? EditorOverlay.LinkPrompt)?.let { vm.strip.links.onRemove(it) }
+            }
+
             is EditorAction.Find -> {
                 vm.find.onAction(action.action)
             }

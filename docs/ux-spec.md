@@ -217,6 +217,23 @@ Never put a one-sided coloured border on anything.
   cut key reads as half a key, not as a key faded early. Order: ¶ B I
   list task code link indent table quote redo outdent. Undo and `{ }`
   are pinned on the right.
+- **Link asks where it goes** (Code and Preview, 2026-11-02; it used to
+  write `[text]()` and leave the address to be typed into the syntax).
+  One tap opens a small sheet over the strip with two labelled fields,
+  Link text and Address (URL). Link text starts as the selection.
+  Address starts as the selection when that is itself an address,
+  otherwise as the clipboard's text when that is an address (`https://`,
+  `http://`, `mailto:`, `www.`); the keyboard opens on Address, whose
+  Done key is the same as the sheet's Done. Done writes `[text](address)`
+  over the selection, or `[address](address)` when there is no text;
+  brackets in the text are escaped, and an address with spaces or
+  unbalanced parentheses gets `<>`. Done waits until there is an
+  address. Inside an existing link the sheet is "Edit link", prefilled
+  from it, rewrites it (keeping its title) and offers **Remove link**,
+  which leaves its text. Cancel, or dismissing the sheet, changes
+  nothing. Each is one undo step. In Preview the page's selection is
+  mapped onto the source first; the edit then reaches the page like any
+  host edit.
 - **¶ is the block-type menu** (Code and Preview; it replaced Code's H
   key on 2026-11-02, because cycling H could not reach a list, a quote
   or code): Paragraph, Heading 1, Heading 2, Heading 3, Bulleted list,

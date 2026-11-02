@@ -194,6 +194,8 @@ open class ScreenshotTest(
 
     @Test fun display() = sheet("display", PreviewSamples.display)
 
+    @Test fun linkPrompt() = sheet("link-prompt", PreviewSamples.linkPrompt)
+
     @Test fun themeEditor() = shot("theme-editor") { ThemeEditorScreen(PreviewSamples.themeType, {}) }
 
     @Test fun themeEditorColours() = shot("theme-editor-colours") { ThemeEditorScreen(PreviewSamples.themeColours, {}) }

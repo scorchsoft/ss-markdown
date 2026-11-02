@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.editor.preview
 
 import com.scorchsoft.ssmarkdown.markdown.edit.FormatState
+import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.preview.RendererState
 import com.scorchsoft.ssmarkdown.preview.bridge.LinkTarget
 import com.scorchsoft.ssmarkdown.preview.bridge.MediaKind
@@ -58,6 +59,11 @@ sealed interface PreviewEvent {
     data class Format(
         val state: FormatState,
         val inTable: Boolean,
+    ) : PreviewEvent
+
+    /** The strip's Link key in Preview: the prompt opens on the page's [selection], in host offsets. */
+    data class LinkPrompt(
+        val selection: TextSelection,
     ) : PreviewEvent
 
     /** A change Preview could not write back was undone on screen. */

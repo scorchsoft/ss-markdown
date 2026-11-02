@@ -1,11 +1,13 @@
 package com.scorchsoft.ssmarkdown.fixtures
 
 import com.scorchsoft.ssmarkdown.editor.EditorOverlay
+import com.scorchsoft.ssmarkdown.editor.LinkFields
 import com.scorchsoft.ssmarkdown.editor.ViewMode
 import com.scorchsoft.ssmarkdown.fontpicker.FontOption
 import com.scorchsoft.ssmarkdown.fontpicker.FontOrigin
 import com.scorchsoft.ssmarkdown.fontpicker.FontPickerUiState
 import com.scorchsoft.ssmarkdown.fonts.FontCategory
+import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.media.ExportImagesState
 import com.scorchsoft.ssmarkdown.media.MediaItem
 import com.scorchsoft.ssmarkdown.media.MediaType
@@ -54,6 +56,20 @@ object PreviewSamples {
     /** "Tap to edit" off: the chip still asks first, without Edit link (SEC-7). */
     val linkChipReadOnly =
         linkChip.copy(overlay = EditorOverlay.LinkChip(LinkTarget.External("https://www.scorchsoft.com"), 3, false))
+
+    /** The strip's Link prompt inside an existing link: Done, Remove link, Cancel. */
+    val linkPrompt =
+        Samples.saved.copy(
+            overlay =
+                EditorOverlay.LinkPrompt(
+                    LinkFields("Scorchsoft", "https://www.scorchsoft.com", editing = true),
+                    TextSelection.caret(3),
+                ),
+        )
+
+    /** The Link prompt on a selection, with no address yet. */
+    val linkPromptEmpty =
+        Samples.saved.copy(overlay = EditorOverlay.LinkPrompt(LinkFields("the docs", ""), TextSelection(0, 8)))
 
     val display = Samples.zoomed.copy(overlay = EditorOverlay.Display)
 

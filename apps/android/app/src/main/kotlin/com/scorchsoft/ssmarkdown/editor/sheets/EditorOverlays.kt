@@ -69,6 +69,37 @@ fun EditorOverlays(
             SectionMenuSheet(overlay, onAction)
         }
 
+        EditorOverlay.BigFileInfo -> {
+            BigFileInfoDialog { onAction(EditorAction.DismissOverlay) }
+        }
+
+        is EditorOverlay.NotKept -> {
+            NotKeptDialog(overlay, onAction)
+        }
+
+        is EditorOverlay.SaveFailureDetails -> {
+            SaveFailureDialog(
+                overlay.problem,
+            ) { onAction(EditorAction.DismissOverlay) }
+        }
+
+        else -> {
+            EditingOverlays(overlay, onAction)
+        }
+    }
+}
+
+/** The sheets of editing and Preview: the Link prompt, the link chip, media, tables and image export. */
+@Composable
+private fun EditingOverlays(
+    overlay: EditorOverlay?,
+    onAction: (EditorAction) -> Unit,
+) {
+    when (overlay) {
+        is EditorOverlay.LinkPrompt -> {
+            LinkPromptSheet(overlay, onAction)
+        }
+
         is EditorOverlay.LinkChip -> {
             LinkChipSheet(overlay, onAction)
         }
@@ -83,20 +114,6 @@ fun EditorOverlays(
 
         is EditorOverlay.ExportImages -> {
             ExportImagesSheet(overlay.state, onAction)
-        }
-
-        EditorOverlay.BigFileInfo -> {
-            BigFileInfoDialog { onAction(EditorAction.DismissOverlay) }
-        }
-
-        is EditorOverlay.NotKept -> {
-            NotKeptDialog(overlay, onAction)
-        }
-
-        is EditorOverlay.SaveFailureDetails -> {
-            SaveFailureDialog(
-                overlay.problem,
-            ) { onAction(EditorAction.DismissOverlay) }
         }
 
         else -> {

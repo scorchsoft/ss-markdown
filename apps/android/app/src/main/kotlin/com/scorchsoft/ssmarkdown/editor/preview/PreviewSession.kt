@@ -281,6 +281,11 @@ class PreviewSession(
 
     override fun onFormatRequest(request: PreviewFormatRequest) {
         if (request.epoch != PageMessage.UNSTAMPED && request.epoch != editor?.epoch) return
+        if (request.action == FormatAction.LINK) {
+            // The Link key asks where the link goes first: the prompt opens on the page's selection.
+            editor?.selectionOf(request)?.let { host.onPreviewEvent(PreviewEvent.LinkPrompt(it)) }
+            return
+        }
         val handled = editor?.onFormatRequest(request) ?: return
         if (!handled) host.onPreviewEvent(PreviewEvent.History(redo = request.action == FormatAction.REDO))
     }

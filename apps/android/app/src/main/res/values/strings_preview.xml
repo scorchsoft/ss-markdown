@@ -12,6 +12,11 @@
     <!-- Links -->
     <string name="link_open">Open</string>
     <string name="link_edit">Edit link</string>
+    <string name="link_prompt_title">Add link</string>
+    <string name="link_prompt_text">Link text</string>
+    <string name="link_prompt_url">Address (URL)</string>
+    <string name="link_prompt_done">Done</string>
+    <string name="link_remove">Remove link</string>
     <string name="link_copy">Copy link</string>
     <string name="link_blocked">This link can\'t be opened from here.</string>
     <string name="msg_link_blocked">That link can\'t be opened</string>

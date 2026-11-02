@@ -148,6 +148,35 @@ public sealed interface EditCommand {
         ): EditResult = checked(text, selection) { InsertEdit.link(text, selection) }
     }
 
+    /**
+     * The Link prompt's Done: `[label](url)` over the link the selection is
+     * in, or over the selection ([ExistingLink]). A blank [label] shows the
+     * address.
+     */
+    public data class SetLink(
+        /** The link's text, as typed (brackets are escaped). */
+        public val label: String,
+        /** The destination; spaces or unbalanced parentheses get `<>`. */
+        public val url: String,
+    ) : EditCommand {
+        override fun apply(
+            text: CharSequence,
+            selection: TextSelection,
+            style: DocumentStyle,
+            fences: FenceStates,
+        ): EditResult = checked(text, selection) { LinkEdit.set(text, selection, label, url) }
+    }
+
+    /** The Link prompt's Remove link: the link at the selection becomes its text. */
+    public data object RemoveLink : EditCommand {
+        override fun apply(
+            text: CharSequence,
+            selection: TextSelection,
+            style: DocumentStyle,
+            fences: FenceStates,
+        ): EditResult = checked(text, selection) { LinkEdit.remove(text, selection) }
+    }
+
     /** A [columns] × [rows] table skeleton below the caret's line, in the document's table style. */
     public data class InsertTable(
         /** Number of columns. */

@@ -22,11 +22,15 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.core.ui.SS
 
 private val ButtonShape = RoundedCornerShape(12.dp)
+
+/** A button that cannot be used yet (Done with no address) fades, as Material's do. */
+private const val DISABLED_ALPHA = 0.38f
 
 /** A bottom sheet in the app's chrome colour, its content scrolling when the font is large. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -93,6 +97,7 @@ fun SheetButton(
     emphasis: Emphasis,
     onClick: () -> Unit,
     hint: String? = null,
+    enabled: Boolean = true,
 ) {
     val colors = SS.colors
     val (bg, fg) =
@@ -118,7 +123,8 @@ fun SheetButton(
                 .heightIn(min = SS.dimens.rowPrimary)
                 .background(bg, ButtonShape)
                 .then(border)
-                .clickable(role = Role.Button, onClick = onClick)
+                .alpha(if (enabled) 1f else DISABLED_ALPHA)
+                .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 10.dp),
     ) {
         Column {

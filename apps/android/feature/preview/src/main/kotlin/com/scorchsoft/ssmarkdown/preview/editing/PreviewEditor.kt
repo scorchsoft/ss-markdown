@@ -153,6 +153,14 @@ class PreviewEditor(
         return mappedSelection(from, to, baseRev, text.length)?.let { FormatState.at(text.chars, it) }
     }
 
+    /**
+     * [request]'s selection on the host's text now, or null if it is stale:
+     * for an action the host answers itself, such as the Link prompt, which
+     * asks where the link goes before anything is written.
+     */
+    fun selectionOf(request: PreviewFormatRequest): TextSelection? =
+        mappedSelection(request.from, request.to, request.baseRev, document.text().length)
+
     /** The page's selection on the host's text now, or null if it is stale or out of range. */
     private fun mappedSelection(
         from: Int,

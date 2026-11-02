@@ -72,7 +72,7 @@ fun TitleBlock(
                     }.padding(horizontal = SS.dimens.grid * 2, vertical = SS.dimens.grid),
         ) {
             val wide = maxWidth >= FullBreadcrumbWidth
-            // The second line says "Unsaved" itself in these states, so the dot stays silent (UX-30).
+            // The status says "Unsaved" itself in these states, in either header, so the dot stays silent (UX-30).
             val lineSaysUnsaved =
                 state.save.status.let {
                     it == SaveStatusLine.Unsaved ||
@@ -89,7 +89,7 @@ fun TitleBlock(
                         modifier = Modifier.layoutId(TITLE_ID),
                     )
                     if (state.save.showDirtyDot) {
-                        UnsavedDot(Modifier.layoutId(DOT_ID), labelled = compact || !lineSaysUnsaved)
+                        UnsavedDot(Modifier.layoutId(DOT_ID), labelled = !lineSaysUnsaved)
                     }
                     if (compact) CompactStatus(state.save.status, Modifier.layoutId(STATUS_ID))
                 }
@@ -149,14 +149,19 @@ private fun TitleFirstRow(content: @Composable () -> Unit) {
     }
 }
 
-/** The one-line status: only what needs attention, after the name. */
+/**
+ * The one-line status: only what needs attention, after the name. Unsaved
+ * is one of those: the red dot alone would make it a colour-only signal
+ * (rubric #10), so the word is there too and moves under a long name.
+ */
 @Composable
 private fun CompactStatus(
     status: SaveStatusLine,
     modifier: Modifier,
 ) {
     val worth =
-        status is SaveStatusLine.Failed ||
+        status == SaveStatusLine.Unsaved ||
+            status is SaveStatusLine.Failed ||
             status is SaveStatusLine.AutosavePaused ||
             status is SaveStatusLine.ReadOnly ||
             status is SaveStatusLine.UnsavedReadOnly ||
@@ -209,17 +214,19 @@ private fun SecondLine(
                     append(crumb)
                 }
             }
-            suffix?.let { append(" · $it") }
         }
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    val color = if (error) SS.colors.needsYouText else SS.colors.inkMuted
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        // The section name gives way first; the state ("Unsaved", "Couldn't save · …") is never cut.
         Text(
             text,
             style = SS.type.meta,
-            color = if (error) SS.colors.needsYouText else SS.colors.inkMuted,
+            color = color,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = false),
         )
+        suffix?.let { Text(" · $it", style = SS.type.meta, color = color, maxLines = 1, softWrap = false) }
     }
 }
 

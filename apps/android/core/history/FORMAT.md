@@ -65,6 +65,11 @@ Marker kinds:
 | 3 | StepEnd | nothing: the newest undo step is closed | 2 |
 | 4 | Undo | `opCount u32` (at least 1): the next `opCount` Ops are an undo | 2 |
 | 5 | Redo | `opCount u32` (at least 1): the next `opCount` Ops are a redo | 2 |
+| 6 | Rebase | `baseSize i64`, `baseLastModified i64`, `baseSha256` (32 bytes): a verified save; see "Saves" | 2 |
+
+Kind 6 was added to version 2 before any release carried version 2,
+so it needed no version bump: no build in anyone's hands writes or
+reads version 2 without it.
 
 ## Undo history (version 2)
 
@@ -114,20 +119,60 @@ first step that does not fit. Replay applies the same cap to what it
 rebuilds. The in-memory stack keeps up to 32 MB; after a restart, steps
 beyond the tail are gone.
 
+## Saves (version 2)
+
+A verified save does not rewrite the journal. While the document has
+undo history the journal would keep, the writer appends a **Rebase**
+marker naming the file the save wrote, and syncs it before the base
+copy of the old version is replaced. From that record on:
+
+- **The journal's base is the Rebase's**, not the header's. Every
+  reader that compares a base (replay, the launch scan, `markClean`,
+  `resume`) uses the newest whole Rebase, else the header.
+- **Replay** applies records to the text only after the newest Rebase,
+  starting from the saved file's text. Records before it still rebuild
+  the undo history, without the text: the text they applied to was the
+  file before the save. An Undo or Redo the Rebase cuts short is damage.
+- **Salvage** asks for the saved file's text (its base copy) at the
+  newest Rebase; without it, a Snapshot-based rebuild carries on through
+  the Rebase, which changes no text.
+
+So a save costs one 66-byte record and one `fsync`, however long the
+history, and the main thread never exports the undo stack for it. A torn
+Rebase leaves the journal on its old base with its edits, which is what
+it was before the save; the save's own pending-save record
+(`InterruptedSaves`) settles that at the next launch.
+
+A run that outlives saves is bounded by compaction alone: it is replaced
+by a Snapshot and its History once its ops outgrow the text (twice the
+text, and at least 1 MiB of chars or 16 MiB of records).
+
 ## Clean journals (version 2)
 
-A journal whose records are History records only is **clean**: its
-header's base is exactly the document's text, and it holds undo history
-and no unsaved edits. A verified save leaves one (instead of deleting
-the journal) while the document has undo steps, so Undo survives the
-save and a later death. The first edit after it is appended as usual.
-The launch scan tells clean journals apart by their record frames alone
-(no payload is read) and does not offer them for recovery; opening the
-document restores the history if the file still matches the base, and
-deletes the journal if it does not. A clean journal for a document the
-app does not reopen at launch is deleted once the launch has settled.
-A journal with no records at all is not clean: it is a run killed before
-its first edit landed, and is treated as it always was.
+A journal is **clean** when its records are History records alone,
+straight after the header, or when its newest Rebase has nothing after
+it: its base is exactly the document's text, and it holds undo history and no unsaved edits. A
+verified save leaves one while the document has undo steps, so Undo
+survives the save and a later death: a Rebase on the journal it had, or,
+for Save as and a launch that settles an interrupted save, a fresh file
+of History records only. The first edit after it is appended as usual.
+The launch scan tells clean journals apart by their record frames (no
+payload is read but a Rebase's 49 bytes) and does not offer them for
+recovery; opening the document restores the history if the file still
+matches the base, and deletes the journal if it does not. A clean
+journal for a document the app does not reopen at launch is deleted once
+the launch has settled.
+
+Any other record after the header or the newest Rebase (an Op, a
+Snapshot, an Undo or Redo marker, a step end) means edits began, and so
+does a journal with no records at all: a run killed before its first
+edit landed. Such a journal is offered as it always was, so a file
+changed meanwhile opens as a conflict, never as the outside version
+silently. That is why a clean journal always writes a History record,
+even an empty one when the history trimmed to nothing (every step over
+the cap), and why a save with no step the tail would keep ends the
+journal instead (review r3 M2: such a save used to leave a bare header,
+which the scan offered for recovery).
 
 ## Reading rules
 

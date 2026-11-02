@@ -40,7 +40,15 @@ recent files in the share sheet").
 - **The id is a hash, never the URI.** `recent:` plus the first 16 hex
   digits of SHA-256 of the document URI, so the URI never reaches the
   platform's shortcut store, the share sheet or the launcher. The hash is
-  not a secret and is not relied on as one.
+  not a secret and is not relied on as one: it is unsalted, so an app that
+  guesses a recent file's URI can compute its id and bring that file to
+  the editor or preselect it in our sheet. It learns nothing back and can
+  write nothing without the user's tap, so a per-install salt was judged
+  not worth its state (review r3 L9, left as this decision).
+- **A declined push is a failure.** On API 29 the compat library returns
+  false while the platform rate-limits shortcut updates; the sync treats
+  that like a thrown refusal and reads the published set back next time,
+  so a stale share sheet is retried, not trusted (review r3 L7).
 - **An incoming id is only mapped back through our own recents**
   (`DirectShareTargets.resolve`): the setting is on, a recent file hashes
   to it, and we hold a persisted write grant on it (on the document or on

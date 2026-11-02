@@ -37,6 +37,11 @@ release may change behaviour.
 
 - After recovering unsaved edits, one Undo no longer reverts every
   recovered edit at once; it takes back one step, as before the crash.
+- A save no longer rewrites the undo history kept for a crash: it adds
+  one small record to the recovery journal, so autosave stops writing
+  megabytes after every pause. A save on low storage, or one whose only
+  undo step was a huge paste, no longer leads to a recovery offer for
+  work that was saved.
 
 ### Build
 

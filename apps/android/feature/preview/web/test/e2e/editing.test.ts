@@ -384,6 +384,28 @@ describe("formatting from the strip", () => {
         expect(await page.locator("h1").textContent()).toBe("Make Xthis a heading.");
     });
 
+    it("keeps what was typed while a slow re-render held the keyboard, and writes it at the caret", async () => {
+        const page = await openPreview(h);
+        const source = "- one\n\nNext.";
+        await loadMarkdown(page, source);
+        await tapText(page, "one", 0.9);
+        await waitForMessage(page, (m) => m.type === "editingChanged");
+        await page.keyboard.press("End");
+        await clearReceived(page);
+        // A worker busy with a long document: the edited block's new HTML takes 2.5 s.
+        await page.evaluate(() => {
+            const proto = Worker.prototype as unknown as { postMessage: (...a: unknown[]) => void };
+            const post = proto.postMessage;
+            proto.postMessage = function (this: Worker, ...args: unknown[]) {
+                setTimeout(() => post.apply(this, args), 2500);
+            };
+        });
+        await page.keyboard.press("Enter");
+        await page.keyboard.type("two");
+        await page.waitForTimeout(4000);
+        expect(await applySent(page, source)).toBe("- one\n- two\n\nNext.");
+    });
+
     it("Enter continues a list, and Enter on the new empty item asks Kotlin to end the list", async () => {
         const page = await openPreview(h);
         const source = "- one";

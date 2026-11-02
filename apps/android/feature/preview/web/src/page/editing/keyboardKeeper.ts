@@ -41,7 +41,8 @@ export class KeyboardKeeper {
         this.timer = setTimeout(() => {
             this.timer = null;
             if (!this.holding) return;
-            this.release();
+            // The keyboard goes, but what was typed stays for the block when it does come back
+            // ([release]); a tap elsewhere or the end of editing ([drop]) discards it.
             el.blur();
             onTimeout();
         }, KeyboardKeeper.HOLD_LIMIT_MS);

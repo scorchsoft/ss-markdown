@@ -344,4 +344,5 @@ jobs:
             apps/android/benchmark/build/outputs/connected_android_test_additional_output/
             apps/android/app/src/main/generated/baselineProfiles/
             apps/android/app/build/outputs/apk/debug/*.apk
+            apps/android/app/build/outputs/mapping/debug/mapping.txt
           retention-days: 14

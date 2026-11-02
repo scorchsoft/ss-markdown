@@ -94,8 +94,11 @@ ships `PreviewActivity`, or loses `baseline.prof` or the licence texts.
   variant, the hand-over included, compiles it in. Generation needs a
   device: CI's `perf` job generates it on the API 34 emulator, builds the
   hand-over APK with it (same non-debuggable, no-provider, no-LeakCanary
-  checks) and uploads both in `emulator-evidence`. **Hand over that APK**:
-  the `checks` job's carries the library profiles only. The text is not
+  checks) and uploads both in `emulator-evidence`, with the APK's
+  `mapping.txt`. **Hand over that APK** with that mapping: the `checks`
+  job's carries the library profiles only. Locally, copying the
+  artifact's two profile files into that folder before building gives
+  the same result. The text is not
   committed (about 6 MB, different every run; `.gitignore`). An ordinary
   build never generates (`automaticGenerationDuringBuild = false`).
 - **APK size** is a guideline, not a hard limit (`docs/quality-bar.md` §4):

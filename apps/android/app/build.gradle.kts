@@ -153,10 +153,13 @@ androidComponents {
 }
 
 // The app's own Baseline Profile (rubric #4): generated on the CI
-// emulator by :benchmark's BaselineProfileGenerator and committed under
-// src/main/generated/baselineProfiles/, so EVERY non-debuggable variant
+// emulator by :benchmark's BaselineProfileGenerator into
+// src/main/generated/baselineProfiles/, where EVERY non-debuggable variant
 // compiles it in, the hand-over (minified debug) build included, not only
-// release. Generation needs a device, so an ordinary build never runs it:
+// release. It is not committed (.gitignore: ~6 MB that changes every run);
+// CI's perf job builds the APK with it and uploads the profile in its
+// emulator-evidence artifact. Generation needs a device, so an ordinary
+// build never runs it:
 //   gradle -p apps/android :app:generateBaselineProfile
 baselineProfile {
     mergeIntoMain = true

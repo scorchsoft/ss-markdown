@@ -130,9 +130,25 @@ class ActiveDocument(
     /** Where programmatic edits go: the Code view while it is attached, else the buffer. */
     val surface: EditorSurface get() = view?.let(::CodeViewSurface) ?: buffer
 
-    /** The Code view is on screen (or moved by `movableContentOf`; it is the same instance). */
+    /** The find highlights last asked for, so a new Code view draws them too; null when none. */
+    private var matches: FindHighlights? = null
+
+    /**
+     * The Code view is on screen (or moved by `movableContentOf`; it is the
+     * same instance). A *new* view (a recreated Activity, or the Code pane
+     * coming back after Preview) takes the selection and find highlights
+     * the document kept while no view was attached: the view must not
+     * decide where the cursor is (robustness §5a, rule 1).
+     */
     fun attach(codeView: MarkdownCodeView) {
+        if (view === codeView) return
+        view?.let { keepSelectionOf(it) }
         view = codeView
+        // A view still bound to another document's text (a file switch in progress) gets nothing of ours.
+        if (codeView.session.document !== text) return
+        val kept = buffer.selection
+        codeView.session.setSelection(kept.start, kept.end)
+        matches?.let { codeView.setFindMatches(it.starts, it.ends, it.current) }
     }
 
     /** Highlights find matches in the Code view, if it is on screen; [current] is an index or -1. */
@@ -141,12 +157,18 @@ class ActiveDocument(
         ends: IntArray,
         current: Int,
     ) {
+        matches = FindHighlights(starts, ends, current)
         view?.setFindMatches(starts, ends, current)
     }
 
     /** Removes the find highlights: the bar closed. */
     fun clearHighlights() {
+        matches = null
         view?.clearFindMatches()
+    }
+
+    private fun keepSelectionOf(codeView: MarkdownCodeView) {
+        buffer.select(codeView.session.selectionStart, codeView.session.selectionEnd)
     }
 
     /**
@@ -165,7 +187,10 @@ class ActiveDocument(
 
     /** The Code view left the composition. */
     fun detach(codeView: MarkdownCodeView) {
-        if (view === codeView) view = null
+        if (view !== codeView) return
+        // The selection outlives the view: the next one, or the buffer surface meanwhile, carries on from it.
+        keepSelectionOf(codeView)
+        view = null
     }
 
     /** This session is no longer on screen: it stops listening to the buffer. */
@@ -236,3 +261,10 @@ class ActiveDocument(
         changes?.onTextChanged(start, ops)
     }
 }
+
+/** Find matches as the Code view draws them: parallel offsets, and the current index or -1. */
+private class FindHighlights(
+    val starts: IntArray,
+    val ends: IntArray,
+    val current: Int,
+)

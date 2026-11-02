@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.res.Resources
 import androidx.test.runner.AndroidJUnitRunner
 import leakcanary.AppWatcher
+import leakcanary.RootViewWatcher
 
 /**
  * The instrumented tests' runner: AndroidJUnitRunner, plus LeakCanary's
@@ -29,7 +30,14 @@ class LeakCheckRunner : AndroidJUnitRunner() {
         super.callApplicationOnCreate(app)
         if (AppWatcher.isInstalled) return
         val host = LeakCanaryHost(app, context.resources)
-        AppWatcher.manualInstall(host, watchersToInstall = AppWatcher.appDefaultWatchers(app))
+        // RootViewWatcher reads its setting through the new window's own
+        // Resources (the app's, not the host's), which lack LeakCanary's
+        // booleans: every Dialog, so every modal sheet, crashed the test with
+        // `Resources$NotFoundException` the first time the rotation matrix
+        // opened one. Activities, fragments, their views, view models and
+        // services are still watched.
+        val watchers = AppWatcher.appDefaultWatchers(app).filterNot { it is RootViewWatcher }
+        AppWatcher.manualInstall(host, watchersToInstall = watchers)
     }
 
     /** The app under test as LeakCanary sees it: everything delegates to [app] but the resources. */

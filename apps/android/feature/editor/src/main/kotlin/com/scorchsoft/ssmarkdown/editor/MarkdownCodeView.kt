@@ -219,6 +219,20 @@ class MarkdownCodeView
             viewport.placeLine(line, viewY = 0f)
         }
 
+        /**
+         * Scrolls the least distance that shows `[start, end)` with two rows
+         * of context, wrapped rows included; its start wins when it is
+         * taller than the pane. A no-op when it is already in view. Hosts use
+         * it to show a find match or a selection they set.
+         */
+        fun revealRange(
+            start: Int,
+            end: Int,
+        ) {
+            val length = session.document.text.length
+            viewport.revealRange(start.coerceIn(0, length), end.coerceIn(0, length), rowHeight, rowHeight * REVEAL_ROWS)
+        }
+
         /** Commits the keyboard's in-progress word; hosts call it before layout changes, commands and saves. */
         fun requestFlushComposing() {
             session.finishComposingText()
@@ -280,7 +294,14 @@ class MarkdownCodeView
             oldh: Int,
         ) {
             super.onSizeChanged(w, h, oldw, oldh)
-            if (w != oldw) sizing.relayout(anchorLine, 0f)
+            if (w != oldw) {
+                sizing.relayout(anchorLine, 0f)
+            } else if (h in 1 until oldh) {
+                // The keyboard or the find bar took room: a caret that was on screen stays on screen,
+                // as in EditText, so a find match is never left under the keyboard.
+                val caretY = yForOffset(session.caret)
+                if (caretY >= 0f && caretY < oldh) viewport.reveal(session.caret, rowHeight)
+            }
         }
 
         /** Settles layout and scroll, and tokenises the visible lines within the main-thread budget. */
@@ -447,5 +468,8 @@ class MarkdownCodeView
 
         private companion object {
             const val PREFETCH_LINES_PER_FRAME = 4
+
+            /** Rows of context [revealRange] keeps above and below what it shows. */
+            const val REVEAL_ROWS = 2
         }
     }

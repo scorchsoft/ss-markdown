@@ -39,7 +39,11 @@ interface EditorSurface {
     /** Redoes one step; false when there was none. */
     fun redo(): Boolean
 
-    /** Selects `[start, end)` and scrolls it into view. */
+    /**
+     * Selects `[start, end)` and scrolls the least distance that shows it
+     * (its start, when it is taller than the pane). Callers that want a line
+     * at the top follow it with [scrollToLine].
+     */
     fun select(
         start: Int,
         end: Int,
@@ -88,11 +92,9 @@ class CodeViewSurface(
         end: Int,
     ) {
         view.session.setSelection(start, end)
-        view.scrollToLine(
-            view.session.document.text
-                .positionAt(start)
-                .line,
-        )
+        // The least scroll that shows the range, wrapped rows included. Putting its *line* at the top
+        // left a find match deep in a long paragraph below the pane (edge-cases "Find next does not move").
+        view.revealRange(start, end)
     }
 
     override fun scrollToLine(line: Int) = view.scrollToLine(line)

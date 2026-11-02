@@ -175,6 +175,64 @@ internal class EditorViewport(
             }
     }
 
+    /**
+     * Scrolls the least distance that shows `[start, end)` with [margin] px
+     * of context above and below, or its start when it is taller than the
+     * pane. Used for a find match or a selection set from outside, which may
+     * sit many rows down a wrapped paragraph: placing the *line* at the top
+     * would leave such a match below the pane (edge-cases "Find next does
+     * not move"). Nothing moves when the range is already in view.
+     *
+     * The rows between the pane's new top and the range are measured first,
+     * so the position is exact rather than an estimate that measuring
+     * corrects a frame later; a screen of lines at most.
+     */
+    fun revealRange(
+        start: Int,
+        end: Int,
+        rowHeight: Int,
+        margin: Int,
+    ) {
+        if (view.height == 0) return
+        stopFling()
+        val firstLine = geometry.locate(start).line
+        var line = firstLine
+        var above = 0L
+        while (line > 0 && above < view.height) {
+            line--
+            geometry.layoutFor(line)
+            above += geometry.heights.heightOf(line)
+        }
+        val first = geometry.locate(start)
+        val last = geometry.locate(maxOf(start, end))
+        val gap = margin.coerceIn(0, ((view.height - rowHeight) / 2).coerceAtLeast(0)).toLong()
+        val top = first.top - gap
+        val bottom = last.top + rowHeight + gap
+        val scrollY = view.scrollY.toLong()
+        val y =
+            when {
+                // The start must show; past a pane's height, the end gives way.
+                top < scrollY || bottom - top > view.height -> top
+
+                bottom > scrollY + view.height -> bottom - view.height
+
+                else -> scrollY
+            }.coerceIn(0L, maxScrollY().toLong()).toInt()
+        val textWidth = frame.textColumnWidth()
+        val x =
+            when {
+                geometry.wrap -> 0
+                first.x < view.scrollX -> first.x.toInt()
+                first.x > view.scrollX + textWidth - frame.gap -> (first.x - textWidth / 2).roundToInt()
+                else -> view.scrollX
+            }.coerceAtLeast(0)
+        if (x == view.scrollX && y == view.scrollY) return
+        // The target came from the heights as they are now: corrections owed to the old position are moot.
+        geometry.takeScrollShift()
+        view.scrollTo(x, y)
+        view.invalidate()
+    }
+
     /** Scrolls the least distance that shows [caret] with its row. */
     fun reveal(
         caret: Int,

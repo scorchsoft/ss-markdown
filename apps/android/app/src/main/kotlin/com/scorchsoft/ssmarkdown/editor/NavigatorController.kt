@@ -137,6 +137,8 @@ class NavigatorController(
         val tree = doc.text.text
         host.update { it.copy(overlay = null, mode = if (it.mode == ViewMode.Preview) ViewMode.Code else it.mode) }
         doc.surface.select(tree.lineStartOffset(range.first), tree.lineEndOffset(range.last))
+        // The section's heading at the top, as a Navigator jump puts it.
+        doc.surface.scrollToLine(range.first)
     }
 
     private fun exportSection(line: Int) {

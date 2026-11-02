@@ -22,7 +22,7 @@ counts as one.
 | J6 | **Export every diagram for a slide deck** | ⋮ → Export images… → Export | 3 taps to separate files in Downloads (the default); ZIP adds the folder picker once, then it's remembered | Saving each one by hand; blurry PNGs (2× default) |
 | J7 | **Tidy several files in a folder, then save them all** | ≡ → file → edit → ≡ → file → edit → Save all | Save all is 1 tap on tablets (docked panel) and 2 on phones (≡ → Save all). Conflicted files are skipped and listed | Losing which files are unsaved; Save all overwriting an outside change |
 | J8 | **Read a long doc in bed, in the dark, at a larger size** | Open → Preview (remembered) → pinch | Pinch reflows text smoothly; no white flash; the size is remembered | Bitmap-scaled blur; a white flash on load; the zoom resetting next time |
-| J9 | **Capture a snippet from Chrome into my notes file** | Share → SS Markdown → Append to notes.md | 2–3 taps; I stay in Chrome; the sheet confirms | Opening the full app; racing the editor; appending to a stale copy |
+| J9 | **Capture a snippet from Chrome into my notes file** | Share → SS Markdown → Append to notes.md, or Share → notes.md (a Direct Share target) → Append | 2 taps for any recent file through Direct Share, 2–3 through the SS Markdown row; I stay in Chrome; the sheet confirms. Never 1: a Direct Share target preselects, the Append tap confirms (ADR 0017) | Opening the full app; racing the editor; appending to a stale copy; another app appending through a forged shortcut |
 | J10 | **Copy one section into a chat or email** | Long-press the heading → Copy section | 2 taps; exact Markdown, or rich text on request | Copying the whole file; smart quotes inside code |
 
 The rubric's **Power depth** and **Editing ergonomics** criteria are

@@ -25,6 +25,10 @@ release may change behaviour.
 - Light and dark themes, built-in and custom Preview themes, bundled fonts and
   Google Fonts downloads.
 - The Open-source licences screen shows every licence text in full.
+- Direct Share: up to four recent files appear in Android's share sheet (and
+  the launcher's long-press menu). Tapping one opens the share sheet with that
+  file chosen; Append still confirms. On by default; Settings → Sharing turns
+  it off and removes the file names (ADR 0017).
 
 ### Build
 

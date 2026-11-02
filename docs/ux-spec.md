@@ -417,6 +417,22 @@ app:
   last-used file is SS Markdown → Append, and any other recent file is
   SS Markdown → the file → Append (2 and 3 taps after the sending app's
   Share; `TapCountAuditTest`).
+- **Direct Share** (ADR 0017): Android's own share sheet also shows up to
+  four recent files we may still write, as SS Markdown targets ranked
+  like the rows above, each labelled with the file name and a document
+  icon. Tapping one opens this sheet with that file chosen and listed
+  first, so any recent file is the file → Append (2 taps).
+  - It **preselects; it never appends.** The sheet is an exported
+    Activity, so any app could send a shortcut id; the user's Append is
+    the confirmation. The id is a hash of the file's URI, never the URI,
+    and is mapped back only through our own recents: an unknown or forged
+    id, a forgotten file or one whose write grant is gone just opens the
+    normal sheet.
+  - The same shortcuts appear when you long-press the app icon; tapping
+    one opens that file in the editor.
+  - **Privacy:** file names show in Android's share sheet and the
+    launcher's menu. Settings → Sharing → "Show recent files in the share
+    sheet" (on by default) removes them all.
   - Options: Bottom (default) or Top; a prefix of none (default) or a
     `### <date time>` heading.
   - The last-used target and options are remembered.
@@ -694,6 +710,10 @@ code-font setting.
 - Split view: scroll panes together.
 - Preview: "Tap to edit" (on by default; off = Preview is read-only;
   tapping a link still shows the *Open · Copy link* chip).
+- Sharing: "Show recent files in the share sheet" (on by default). Your
+  recent file names appear as Direct Share targets in Android's share
+  sheet and in the launcher's long-press menu; off removes them at once
+  (see "Share into SS Markdown").
 - Themes: manage custom themes.
 
 ## Version history (⋮ → Version history)

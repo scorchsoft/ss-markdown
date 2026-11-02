@@ -48,7 +48,10 @@ How it works under the hood: [docs/how-it-works.md](docs/how-it-works.md)
   the title.
 - Version history with compare, restore and pinning; recovery after a
   crash.
-- Folder mode with Save all, and share text in from any app.
+- Folder mode with Save all, and share text in from any app: your recent
+  files appear in Android's share sheet, so any of them is two taps away.
+  (Their names show there and in the launcher's menu; Settings → Sharing
+  turns that off.)
 - Light and dark themes following the system, built-in preview themes,
   custom themes and Google Fonts.
 - Export to PDF with proper print typography (A4 or Letter).

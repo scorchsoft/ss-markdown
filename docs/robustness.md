@@ -611,9 +611,15 @@ instead of hoping. A small `MemoryGovernor` service owns it.
 - If that fits within 40% of the free heap, open normally.
 - If it fits within 70%, open in the lean budget (caches capped, live
   preview off), with a quiet notice.
+- "Free" counts garbage not yet collected as used, so before saying no
+  the loader collects garbage once and looks again. Without that, the
+  same file opened or was declined depending on GC timing.
 - If it doesn't fit, explain: "This 60 MB file needs about 400 MB and
-  this phone allows 256 MB." Offer a read-only streamed view (paged from
-  disk) and nothing worse.
+  this phone allows 256 MB." When the file is within the ceiling and only
+  what is open now stands in the way, say that instead: "…needs about
+  178 MB, and only 120 MB is free right now. Closing other files may
+  help." Offer a read-only streamed view (paged from disk) and nothing
+  worse.
 - Opening a second large file in folder mode counts against the same
   budget. Dirty buffers are never evicted; clean ones are, and they
   reload from disk on demand.

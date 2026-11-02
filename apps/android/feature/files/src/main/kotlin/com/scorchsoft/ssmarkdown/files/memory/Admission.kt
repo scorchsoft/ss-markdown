@@ -30,11 +30,15 @@ sealed interface Admission {
      * @property fileBytes the file's size.
      * @property neededBytes the estimated cost of opening it.
      * @property allowedBytes this app's heap ceiling.
+     * @property usableNowBytes what a file may use right now: 70% of the
+     *   heap still free with what is already open. When [neededBytes] is
+     *   under [allowedBytes] this is the honest reason for the decline.
      */
     data class Declined(
         val fileBytes: Long,
         val neededBytes: Long,
         val allowedBytes: Long,
+        val usableNowBytes: Long = allowedBytes,
     ) : Admission
 }
 

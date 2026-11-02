@@ -44,4 +44,13 @@ interface MemorySource {
 
     /** `StorageManager.getAllocatableBytes()` for app storage: room for journals, history and backups. */
     fun allocatableStorageBytes(): Long
+
+    /**
+     * Asks the runtime to collect garbage, so the next [heap] counts only
+     * what is live. [HeapStats.usedBytes] includes garbage not yet
+     * collected, so without this the same file could open or be declined
+     * depending on when the last collection ran. Called only on the
+     * loader's thread, and only before a decline. The default does nothing.
+     */
+    fun collectGarbage() {}
 }

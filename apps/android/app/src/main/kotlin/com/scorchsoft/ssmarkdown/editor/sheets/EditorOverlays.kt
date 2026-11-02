@@ -217,12 +217,21 @@ fun TooLargeMessage(info: TooLargeInfo) {
     Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
         Column {
             Text(
-                stringResource(
-                    R.string.too_large,
-                    size(info.fileBytes),
-                    size(info.neededBytes),
-                    size(info.allowedBytes),
-                ),
+                if (info.fitsWhenFreed) {
+                    stringResource(
+                        R.string.too_large_now,
+                        size(info.fileBytes),
+                        size(info.neededBytes),
+                        size(info.usableNowBytes),
+                    )
+                } else {
+                    stringResource(
+                        R.string.too_large,
+                        size(info.fileBytes),
+                        size(info.neededBytes),
+                        size(info.allowedBytes),
+                    )
+                },
                 style = SS.type.body,
                 color = SS.colors.ink,
                 textAlign = TextAlign.Center,

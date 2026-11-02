@@ -283,7 +283,11 @@ class EditorViewModel(
 
             is OpenOutcome.TooLarge -> {
                 val a = outcome.admission
-                ui.update { it.copy(tooLarge = TooLargeInfo(a.fileBytes, a.neededBytes, a.allowedBytes)) }
+                ui.update {
+                    it.copy(
+                        tooLarge = TooLargeInfo(a.fileBytes, a.neededBytes, a.allowedBytes, a.usableNowBytes),
+                    )
+                }
             }
         }
     }

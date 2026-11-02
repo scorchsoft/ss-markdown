@@ -354,13 +354,21 @@ data class ConflictSummary(
     val canMerge: Boolean,
 )
 
-/** "This 180 MB file needs about 400 MB, and this phone allows 256 MB". */
+/**
+ * "This 180 MB file needs about 400 MB, and this phone allows 256 MB". When
+ * the file fits the ceiling but not what is free now ([usableNowBytes]),
+ * the message says that instead, so it never reads as a contradiction.
+ */
 @Immutable
 data class TooLargeInfo(
     val fileBytes: Long,
     val neededBytes: Long,
     val allowedBytes: Long,
-)
+    val usableNowBytes: Long = allowedBytes,
+) {
+    /** True when the file is within the ceiling and only what is open now stands in the way. */
+    val fitsWhenFreed: Boolean get() = neededBytes <= allowedBytes
+}
 
 /** A short message at the foot of the screen; [undo] offers an Undo action. */
 @Immutable

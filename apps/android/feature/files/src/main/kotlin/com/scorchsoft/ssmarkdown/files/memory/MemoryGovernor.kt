@@ -62,8 +62,21 @@ class MemoryGovernor(
      */
     fun admit(fileBytes: Long): Admission {
         val cost = estimateOpenCost(fileBytes.coerceAtLeast(0))
-        val free = freeHeapBytes()
-        return when {
+        return admitWithin(cost, freeHeapBytes()) ?: run {
+            // Used bytes include garbage not yet collected, so a decline
+            // could depend on GC timing (a 21 MB file on a 268 MB heap was
+            // refused on some emulator runs and opened on others). Collect
+            // once and look again before saying no.
+            source.collectGarbage()
+            admitWithin(cost, freeHeapBytes())
+        } ?: decline(fileBytes)
+    }
+
+    private fun admitWithin(
+        cost: Long,
+        free: Long,
+    ): Admission.Admitted? =
+        when {
             cost <= free * NORMAL_SHARE_PERCENT / PERCENT -> {
                 Admission.Admitted(if (source.isLowRamDevice) Budget.Lean else Budget.Normal, cost)
             }
@@ -73,10 +86,9 @@ class MemoryGovernor(
             }
 
             else -> {
-                decline(fileBytes)
+                null
             }
         }
-    }
 
     /**
      * Estimated cost of pasting [chars]: the clip as a `String`, its
@@ -95,7 +107,12 @@ class MemoryGovernor(
 
     /** The refusal for a file of [fileBytes], also used when a load runs out of memory part way. */
     fun decline(fileBytes: Long): Admission.Declined =
-        Admission.Declined(fileBytes, estimateOpenCost(fileBytes.coerceAtLeast(0)), heapCeilingBytes())
+        Admission.Declined(
+            fileBytes = fileBytes,
+            neededBytes = estimateOpenCost(fileBytes.coerceAtLeast(0)),
+            allowedBytes = heapCeilingBytes(),
+            usableNowBytes = freeHeapBytes() * LEAN_SHARE_PERCENT / PERCENT,
+        )
 
     /** True when free heap is under 15% of the ceiling or the system reports low memory. */
     fun underPressure(): Boolean =

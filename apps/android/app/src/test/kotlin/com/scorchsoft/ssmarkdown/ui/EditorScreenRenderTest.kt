@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.scorchsoft.ssmarkdown.editor.EditorAction
+import com.scorchsoft.ssmarkdown.editor.TooLargeInfo
 import com.scorchsoft.ssmarkdown.editor.ViewMode
 import com.scorchsoft.ssmarkdown.find.FindUiState
 import com.scorchsoft.ssmarkdown.fixtures.Samples
@@ -64,6 +65,21 @@ class EditorScreenRenderTest(
         rule.onNodeWithText("Untitled").assertIsDisplayed()
         rule.onNodeWithText("Draft · kept on this phone").assertIsDisplayed()
         rule.onNodeWithContentDescription("Save as…").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a file declined only for what is open now says so, never needs 178 of 268`() {
+        val mb = 1024L * 1024
+        render(Samples.draft.copy(tooLarge = TooLargeInfo(21 * mb, 178 * mb, 268 * mb, 120 * mb)))
+        rule.onNodeWithText("is free right now", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("this phone allows", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a file beyond the ceiling names the ceiling`() {
+        val mb = 1024L * 1024
+        render(Samples.draft.copy(tooLarge = TooLargeInfo(180 * mb, 400 * mb, 256 * mb, 150 * mb)))
+        rule.onNodeWithText("this phone allows", substring = true).assertIsDisplayed()
     }
 
     @Test

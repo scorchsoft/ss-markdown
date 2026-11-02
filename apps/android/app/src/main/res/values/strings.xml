@@ -254,6 +254,7 @@
     <string name="big_file_title">Big-file mode</string>
     <string name="big_file_body">This file is large for this phone, so a few extras are paused to keep typing fast: live preview while typing, the diagram cache and spell suggestions. Everything you type is still saved and recoverable.</string>
     <string name="too_large">This %1$s file needs about %2$s, and this phone allows %3$s.</string>
+    <string name="too_large_now">This %1$s file needs about %2$s, and only %3$s is free right now. Closing other files may help.</string>
     <string name="ok">OK</string>
 
     <!-- Save failure -->

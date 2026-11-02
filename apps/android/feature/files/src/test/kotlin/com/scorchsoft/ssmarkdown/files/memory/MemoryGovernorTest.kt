@@ -46,6 +46,36 @@ class MemoryGovernorTest {
     }
 
     @Test
+    fun `garbage not yet collected does not decline a file that fits (emulator perf flake)`() {
+        // 56 MB live plus 100 MB of garbage: only 100 MB looks free, so the lean line is 70 MB.
+        source.usedHeap = 156 * MB
+        source.garbage = 100 * MB
+
+        val admitted = governor.admit(fileCosting(140 * MB)) as Admission.Admitted
+
+        assertEquals(Budget.Lean, admitted.budget)
+        assertEquals(1, source.collections)
+    }
+
+    @Test
+    fun `a file that fits at once never forces a collection`() {
+        source.garbage = 10 * MB
+        governor.admit(fileCosting(80 * MB))
+        assertEquals(0, source.collections)
+    }
+
+    @Test
+    fun `a decline says how much a file may use now, not only the ceiling`() {
+        source.usedHeap = 156 * MB // live, not garbage: 100 MB free, 70 MB usable
+
+        val declined = governor.admit(fileCosting(140 * MB)) as Admission.Declined
+
+        assertEquals(256 * MB, declined.allowedBytes)
+        assertEquals(70 * MB, declined.usableNowBytes)
+        assertTrue(declined.neededBytes < declined.allowedBytes)
+    }
+
+    @Test
     fun `the memory class caps the ceiling because we never ask for largeHeap`() {
         source.memoryClassMegabytes = 128
         assertEquals(128 * MB, governor.heapCeilingBytes())

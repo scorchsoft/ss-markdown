@@ -21,6 +21,12 @@ class AndroidMemorySource(
         return HeapStats(runtime.maxMemory(), runtime.totalMemory() - runtime.freeMemory())
     }
 
+    // Only before a decline, off the main thread: see MemorySource.collectGarbage.
+    @Suppress("ExplicitGarbageCollectionCall")
+    override fun collectGarbage() {
+        Runtime.getRuntime().gc()
+    }
+
     override fun system(): SystemMemory {
         val info = ActivityManager.MemoryInfo().also(activityManager::getMemoryInfo)
         return SystemMemory(info.availMem, info.threshold, info.lowMemory)

@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# Installs the Android SDK pieces this project needs into $ANDROID_HOME
-# (default /root/android-sdk). Idempotent: re-running when everything is
+# Installs the Android SDK pieces this project needs (platform 36, the
+# build-tools AGP wants, platform-tools) on any Linux machine with a JDK.
+# Set ANDROID_HOME to choose where; it defaults to /root/android-sdk, the
+# path our cloud containers use. Idempotent: re-running when everything is
 # present is a no-op that takes under a second.
 #
-# Why this exists: Claude Code's cloud containers ship Gradle and a JDK but
-# no Android SDK, and every session starts from a fresh container. Run it
-# once per session, before the first `gradle -p apps/android ...`.
+# Use it if you have no Android Studio SDK, then run
+#   export ANDROID_HOME=<the same path>
+#   gradle -p apps/android check
+# from the repository root.
 set -euo pipefail
 
 ANDROID_HOME="${ANDROID_HOME:-/root/android-sdk}"

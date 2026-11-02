@@ -1,6 +1,6 @@
 ## What and why
 
-<!-- What changes, and the reason. Link the issue or review finding (e.g. PERF-1). -->
+<!-- What changes, and the reason. Link the issue (e.g. #12), or the `docs/edge-cases.md` row for an internal review finding. -->
 
 ## How it was tested
 

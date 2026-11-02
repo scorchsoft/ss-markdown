@@ -27,7 +27,9 @@ gradle -p apps/android ktlintFormat     # fix formatting before you commit
 ```
 
 `apps/android/CLAUDE.md` is the working map: every module, every command and
-the known traps.
+the known traps. A `check` that runs every test takes about 11 minutes on
+a 4-core machine (CI's `checks` job), plus a few minutes of downloads the
+first time; re-runs served from the Gradle build cache take a minute or two.
 
 ## Making a change
 

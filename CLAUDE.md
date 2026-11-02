@@ -31,8 +31,9 @@ verification.** Every module in the roadmap is built and tested on the
 host and in CI (editor, preview with tap-to-edit, history, folders,
 conflict merge, themes, fonts); the device budgets in
 `docs/quality-bar.md` §4 and ADR 0001 still need real-phone numbers.
-The design canvas is the visual source of truth:
-https://claude.ai/artifact/5Rjq5it6m3px6CNq1m4rLg
+The design canvas (internal, private to Scorchsoft) is the visual source
+of truth: https://claude.ai/artifact/5Rjq5it6m3px6CNq1m4rLg. Contributors
+outside Scorchsoft work from `docs/ux-spec.md` and the screenshots.
 
 ## Layout
 

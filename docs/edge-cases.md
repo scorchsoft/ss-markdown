@@ -7,7 +7,23 @@ and that every bug found in the wild adds a row here and a regression
 test before it's fixed.
 
 Status values: `planned` → `handled` (code merged) → `tested` (the test
-is green in CI).
+is green in CI). `device-only` means the case can only be shown on a
+physical phone; the row says what is needed and why.
+
+**Finding IDs.** Rows, commits and code comments cite IDs from internal
+review rounds. Those reviews are not in the repository: **this register
+is the durable record** of each finding, its handling and its test.
+
+| Prefix | Review |
+|---|---|
+| `DS-n` | Data safety (never lose work) |
+| `R2-DS-n` | The second data-safety round |
+| `KILL-n` | Kill and power-loss findings from the kill test |
+| `SEC-n` | Security |
+| `PERF-n`, `PERF-A`… | Performance |
+| `CC-n` | Code craft (`docs/engineering.md`) |
+| `UX-n`, `UX2-n` | UX reviews of the built app (first and second round) |
+| `M1`, `M2`, … and plain numbers | The design reviews, `docs/design-review-1.md` … `-4.md` |
 
 ## Files and storage
 

@@ -78,6 +78,48 @@ might fail:
    and Mercurial make. That gives a long, restorable history for a few
    megabytes.
 
+## From keystroke to disk (for contributors)
+
+The path one typed character takes, with the files that carry it. Paths
+are from the repository root; `…` stands for `src/main/kotlin/com/scorchsoft/ssmarkdown`.
+`docs/robustness.md` §1 and §2 are the contract each step keeps.
+
+1. **The view.** The keyboard talks to
+   `apps/android/feature/editor/…/editor/CodeInputConnection.kt`
+   (`commitText`, `setComposingText`, …), owned by the Code pane's view,
+   `apps/android/feature/editor/…/editor/MarkdownCodeView.kt`.
+2. **The editing session.** Each verb becomes one edit in
+   `apps/android/feature/editor/…/editor/EditingSession.kt` (with
+   `SessionKeys.kt`, `SessionReads.kt` and `SessionHistory.kt` beside it),
+   which also batches the cursor reports back to the keyboard. Main thread
+   only.
+3. **The text.** The edit is applied to the piece tree,
+   `apps/android/core/text/…/text/TextDocument.kt`. Before applying an op it
+   tells every `EditObserver` (`apps/android/core/text/…/text/EditObserver.kt`)
+   the op's exact characters.
+4. **The open document.** `apps/android/feature/files/…/files/document/OpenDocument.kt`
+   holds the observer that journals; it hands each op to
+   `apps/android/feature/files/…/files/document/JournalLink.kt`, which queues
+   it in main-thread order. `DocumentStore.kt` in the same folder owns every
+   open document and the dirty state the header shows.
+5. **The journal thread.** `apps/android/feature/files/…/files/document/JournalExecutor.kt`
+   (`DedicatedJournalThread`) is the only thread that writes the journal,
+   through `apps/android/core/history/…/history/journal/JournalStore.kt`,
+   `JournalWriter.kt` and `RecordCodec.kt` (format: `apps/android/core/history/FORMAT.md`).
+   `FlushPolicy.kt` and `FlushScheduler.kt` group-commit an `fsync` after
+   about a second of idle typing, on pause and before risky steps. From
+   here the keystroke survives a kill (ADR 0011).
+6. **Save.** Save, autosave and Save as go through
+   `apps/android/feature/files/…/files/save/SavePipeline.kt`: fingerprint
+   check, backup, a write-ahead intent (`PendingSaves`), the write, a
+   read-back verify. Only then is the document clean and its journal
+   ended (ADR 0012).
+
+The tests that hold this path together are `InterleavingTest` and
+`RandomKillTest` (feature/files), `NeverLoseWorkTest` (app) and the
+journal property tests in core/history; `docs/edge-cases.md` names the
+rest.
+
 ## Where history is stored, and why
 
 History and the recovery journal live in **SS Markdown's private app

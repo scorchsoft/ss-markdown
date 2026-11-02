@@ -77,9 +77,19 @@ gradle -p apps/android -Pssmarkdown.screenshots=true :app:testDebugUnitTest --te
 ```
 
 The Preview's web bundle is committed, so Gradle never needs Node. To
-change it you need Node 22 (see `feature/preview/web/.nvmrc`). More
-detail is in [`apps/android/README.md`](apps/android/README.md) and
+change it you need Node 22 (see `apps/android/feature/preview/web/.nvmrc`).
+
+The contributor map, with every module, every command and the known
+traps, is the **Android working map**,
+[`apps/android/CLAUDE.md`](apps/android/CLAUDE.md) (named for the tool
+that also reads it; it is written for people). More detail is in
+[`apps/android/README.md`](apps/android/README.md) and
 [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Rough times on a 4-core machine (CI's runners): a `check` that runs
+every test takes about 11 minutes and `:app:assembleDebug` about 4–5; a
+first run adds a few minutes of downloads. Re-runs served from the Gradle
+build cache take 1–2 minutes.
 
 ## Documentation
 

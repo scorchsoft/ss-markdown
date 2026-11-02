@@ -79,7 +79,7 @@ Nothing typed is ever left on screen without reaching the source:
   Text added at the edge of unmapped content goes to the neighbouring run's
   edge; anything else (deleting an emoji, a run removed) is undone by
   re-rendering from source and reported as `editRefused`. The Playwright test
-  `e2e/editSafety.test.ts` types, deletes and injects IME changes all over the
+  `test/e2e/editSafety.test.ts` types, deletes and injects IME changes all over the
   corpus and checks the screen always equals a fresh render of Kotlin's text.
 
 ### Loading large documents
@@ -134,3 +134,8 @@ All versions are pinned exactly. Third-party licences are collected into
 and summarised in the repository's `NOTICE`. To update a library: bump it in
 `package.json`, `npm install`, run `npm audit --omit=dev` (it must be clean),
 build, test, and commit the lock file and the rebuilt assets together.
+
+`npm ci` reports advisories (moderate and critical) in the **development**
+tools only (the test, lint and build chain, never shipped). `npm audit
+--omit=dev`, the dependencies that end up in the bundle, is clean, and that
+is the bar.

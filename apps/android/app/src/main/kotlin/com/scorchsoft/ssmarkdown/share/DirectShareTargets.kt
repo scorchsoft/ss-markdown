@@ -66,6 +66,13 @@ class DirectShareTargets(
      * offer now: the setting is on, the file is still recent, and we may
      * still write it. Anything else (unknown, forged, forgotten, lost
      * grant) is null, and the caller carries on as if no id came.
+     *
+     * Asking for the grants is a binder call, made only once [id] names one
+     * of our recents. `ShareActivity` calls this on [io]. `MainActivity`'s
+     * launcher shortcut calls it on the main thread, in `onCreate`, because
+     * the editor must know what to open before its first frame (resolving
+     * it later would open the launch default first, then switch); that path
+     * already takes persistable grants there too (review r3 L8).
      */
     fun resolve(id: String?): String? {
         id ?: return null
@@ -97,7 +104,9 @@ class DirectShareTargets(
             var ok = true
             if (stale.isNotEmpty()) ok = publisher.call { remove(stale.toList()) } != null
             wanted.values.filter { current[it.id] != it }.forEach { spec ->
-                ok = publisher.call { push(spec) } != null && ok
+                // A push the platform declined (rate-limited) is a failure too, so the next sync retries it
+                // rather than trusting a stale share sheet (review r3 L7).
+                ok = publisher.call { push(spec) } == true && ok
             }
             // After a failure the next sync reads the truth back rather than trusting this.
             published = if (ok) wanted else null
@@ -140,8 +149,8 @@ interface ShortcutPublisher {
     /** Our recent-file shortcuts as published now, dynamic or cached long-lived. */
     fun current(): List<ShortcutSpec>
 
-    /** Adds or updates [spec]. */
-    fun push(spec: ShortcutSpec)
+    /** Adds or updates [spec]; false when the platform did not take it (rate-limited). */
+    fun push(spec: ShortcutSpec): Boolean
 
     /** Removes [ids], dynamic and long-lived alike. */
     fun remove(ids: List<String>)

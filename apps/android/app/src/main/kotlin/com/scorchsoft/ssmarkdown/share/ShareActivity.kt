@@ -61,9 +61,11 @@ class ShareActivity : ComponentActivity() {
      * The recent file chosen in Android's share sheet, if this came from one
      * of our Direct Share targets. Mapped back through our own recents and
      * grants, never read as a URI (SEC-2); it only preselects (ADR 0017).
+     * Read on I/O: the grants are a binder call (review r3 L8).
      */
-    private val preselect: String? by lazy {
-        graph.directShare.resolve(intent.getStringExtra(ShortcutManagerCompat.EXTRA_SHORTCUT_ID))
+    private suspend fun preselect(): String? {
+        val id = intent.getStringExtra(ShortcutManagerCompat.EXTRA_SHORTCUT_ID) ?: return null
+        return withContext(graph.io) { graph.directShare.resolve(id) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -105,11 +107,13 @@ class ShareActivity : ComponentActivity() {
     private fun readShared(intent: Intent) {
         when (val request = IncomingRequests.parse(IntentFields.from(intent))) {
             is IncomingRequest.SharedText -> {
-                viewModel.begin(
-                    request.text,
-                    ShareReducer.sourceOf(request.text, request.title),
-                    preselect,
-                )
+                lifecycleScope.launch {
+                    viewModel.begin(
+                        request.text,
+                        ShareReducer.sourceOf(request.text, request.title),
+                        preselect(),
+                    )
+                }
             }
 
             is IncomingRequest.SharedStreams -> {
@@ -125,7 +129,7 @@ class ShareActivity : ComponentActivity() {
     private fun readStream(uri: DocumentUri) {
         lifecycleScope.launch {
             when (val content = withContext(graph.io) { graph.sharedReader.read(uri) }) {
-                is SharedContent.Text -> viewModel.begin(content.text, content.name, preselect)
+                is SharedContent.Text -> viewModel.begin(content.text, content.name, preselect())
                 is SharedContent.TooLarge -> viewModel.unusable(content.sizeBytes)
                 else -> viewModel.unusable(null)
             }

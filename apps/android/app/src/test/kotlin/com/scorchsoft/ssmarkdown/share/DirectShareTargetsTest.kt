@@ -37,16 +37,23 @@ class DirectShareTargetsTest {
         val published = linkedMapOf<String, ShortcutSpec>()
         val calls = mutableListOf<String>()
         var failNextPush = false
+        var declineNextPush = false
 
         override fun current(): List<ShortcutSpec> = published.values.toList()
 
-        override fun push(spec: ShortcutSpec) {
+        override fun push(spec: ShortcutSpec): Boolean {
             calls += "push ${spec.id}"
             if (failNextPush) {
                 failNextPush = false
                 error("rate limited")
             }
+            if (declineNextPush) {
+                // What ShortcutManagerCompat does on API 29 while rate limiting: no throw, just false.
+                declineNextPush = false
+                return false
+            }
             published[spec.id] = spec
+            return true
         }
 
         override fun remove(ids: List<String>) {
@@ -219,6 +226,21 @@ class DirectShareTargetsTest {
         val a = recent("a.md")
         writable(a)
         publisher.failNextPush = true
+        val settings = InMemorySettingsRepository(AppSettings(recentFiles = listOf(a)))
+        val targets = targets(settings)
+
+        targets.start()
+        assertTrue(ids().isEmpty())
+        targets.refresh()
+
+        assertEquals(listOf(DirectShareIds.of(a.uri)), ids())
+    }
+
+    @Test
+    fun `a push the platform declines is retried on the next sync`() {
+        val a = recent("a.md")
+        writable(a)
+        publisher.declineNextPush = true
         val settings = InMemorySettingsRepository(AppSettings(recentFiles = listOf(a)))
         val targets = targets(settings)
 

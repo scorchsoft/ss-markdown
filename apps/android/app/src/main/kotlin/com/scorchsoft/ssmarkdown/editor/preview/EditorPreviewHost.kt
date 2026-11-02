@@ -173,7 +173,9 @@ class EditorPreviewHost(
     }
 
     private fun onRenderer(state: RendererState) {
-        vm.update { it.copy(preview = it.preview.copy(renderer = state)) }
+        // A page that died took its editing session with it, and never says editing stopped.
+        val editing = vm.state.preview.editing && state == RendererState.RUNNING
+        vm.update { it.copy(preview = it.preview.copy(renderer = state, editing = editing)) }
         if (state == RendererState.RESTARTED) vm.message(MessageKind.PreviewRestarted)
     }
 

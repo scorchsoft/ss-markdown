@@ -210,8 +210,20 @@ class EditorViewModel(
     fun attach(view: MarkdownCodeView) {
         val doc = active ?: return
         doc.attach(view)
+        view.setOnFocusChangeListener { _, focused -> if (focused) onCodeFocused() }
         // A file's remembered position wins once; after that the Code pane lands on the shared anchor.
         if (!views.applyPendingTo(doc)) doc.surface.scrollToLine(anchorFlow.value)
+    }
+
+    /**
+     * The Code view took focus: in Split the caret is now in Code, so the page
+     * stops editing and the strip drives Code again. Without this, Bold went
+     * to the page's old selection: a WebView losing focus never says so.
+     */
+    fun onCodeFocused() {
+        if (!state.preview.editing) return
+        preview.endEditing()
+        update { it.copy(preview = it.preview.copy(editing = false)) }
     }
 
     /** The Code view left the composition. */

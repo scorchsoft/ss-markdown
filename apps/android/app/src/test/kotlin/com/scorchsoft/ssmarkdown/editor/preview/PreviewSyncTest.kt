@@ -5,6 +5,7 @@ import com.scorchsoft.ssmarkdown.editor.Pane
 import com.scorchsoft.ssmarkdown.editor.ViewMode
 import com.scorchsoft.ssmarkdown.fixtures.EditorFixture
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
+import com.scorchsoft.ssmarkdown.preview.RendererState
 import com.scorchsoft.ssmarkdown.preview.bridge.HostMessage
 import com.scorchsoft.ssmarkdown.preview.bridge.TextEdit
 import com.scorchsoft.ssmarkdown.settings.AppSettings
@@ -12,6 +13,7 @@ import com.scorchsoft.ssmarkdown.text.EditOp
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -41,6 +43,31 @@ class PreviewSyncTest {
     fun `the page opens at the anchor`() {
         fixture()
         assertTrue(page.first() is HostMessage.Load)
+    }
+
+    @Test
+    fun `in Split the Code view taking focus takes the strip back from a page that was editing`() {
+        val f = fixture()
+        f.vm.onAction(EditorAction.SelectMode(ViewMode.Split))
+        f.vm.preview.onEditingChanged(true)
+        assertTrue("the strip drives the page while it has the caret", f.vm.state.previewTyping)
+        page.clear()
+
+        f.vm.onCodeFocused()
+
+        assertFalse("Bold now goes to Code, where the caret is", f.vm.state.previewTyping)
+        assertTrue("the page stops editing", page.contains(HostMessage.EndEditing))
+    }
+
+    @Test
+    fun `a renderer restart ends Preview editing, so the strip is not left driving a page that lost it`() {
+        val f = fixture()
+        f.vm.onAction(EditorAction.SelectMode(ViewMode.Split))
+        f.vm.preview.onEditingChanged(true)
+
+        f.vm.preview.onRendererStateChanged(RendererState.RESTARTED)
+
+        assertFalse(f.vm.state.previewTyping)
     }
 
     @Test

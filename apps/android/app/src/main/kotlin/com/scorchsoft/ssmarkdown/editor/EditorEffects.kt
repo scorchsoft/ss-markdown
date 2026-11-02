@@ -45,7 +45,7 @@ internal object EditorEffects {
             }
 
             EditorAction.TitleTapped -> {
-                vm.navigator.open()
+                vm.navigator.toggle()
             }
 
             is EditorAction.ResetZoom, is EditorAction.StepZoom, is EditorAction.ZoomChanged -> {

@@ -26,6 +26,8 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -64,6 +66,10 @@ fun TitleBlock(
     compact: Boolean = false,
 ) {
     val title = state.title.ifEmpty { stringResource(R.string.untitled) }
+    val navigatorOpen = state.navigator != null
+    val navigatorState =
+        stringResource(if (navigatorOpen) R.string.navigator_expanded else R.string.navigator_collapsed)
+    val clickLabel = stringResource(if (navigatorOpen) R.string.close_navigator else R.string.open_navigator)
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         BoxWithConstraints(
             contentAlignment = Alignment.CenterStart,
@@ -71,7 +77,10 @@ fun TitleBlock(
                 Modifier
                     .weight(1f)
                     .heightIn(min = SS.dimens.pillHitArea)
-                    .clickable(onClickLabel = stringResource(R.string.open_navigator), role = Role.Button) {
+                    // The title toggles the Navigator: it stays above the sheet, so the control
+                    // that opened it closes it, and TalkBack hears which way it is.
+                    .semantics { stateDescription = navigatorState }
+                    .clickable(onClickLabel = clickLabel, role = Role.Button) {
                         onAction(EditorAction.TitleTapped)
                     }.padding(horizontal = SS.dimens.grid * 2, vertical = SS.dimens.grid),
         ) {

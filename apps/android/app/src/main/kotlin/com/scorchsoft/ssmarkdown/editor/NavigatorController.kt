@@ -25,7 +25,16 @@ class NavigatorController(
     private val vm get() = host as? EditorViewModel
     private var lastDeleted: DocumentUri? = null
 
-    /** Opens the sheet: tapping the title, Ctrl+K or Ctrl+P. */
+    /**
+     * Tapping the title, Ctrl+K or Ctrl+P: opens the sheet, or closes it
+     * when it is open. The title stays above the sheet, so the control that
+     * opened it is also a way out (ux-spec "Navigator").
+     */
+    fun toggle() {
+        if (host.state.navigator != null) host.update { it.copy(navigator = null) } else open()
+    }
+
+    /** Opens the sheet. */
     fun open() {
         val outline = outlineRows()
         host.update {

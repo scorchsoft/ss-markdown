@@ -2,6 +2,7 @@ package com.scorchsoft.ssmarkdown.editor
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -157,7 +158,7 @@ private fun EditorColumn(
             }
             state.navigator?.let { nav ->
                 // Below the header, so the title, the unsaved dot and Save stay visible.
-                NavigatorSheet(nav, { onAction(EditorAction.Navigator(it)) }, Modifier.heightIn(max = 560.dp))
+                NavigatorSurface { NavigatorSheet(nav, { action -> onAction(EditorAction.Navigator(action)) }, it) }
             }
             state.message?.let { MessageBar(it, onAction, Modifier.align(Alignment.BottomCenter)) }
         }
@@ -275,3 +276,31 @@ private fun Drawer(
 }
 
 private const val SCRIM_ALPHA = 0.32f
+
+/** From this width the Navigator is a popover under the title, not a sheet across the pane. */
+private val NavigatorPopoverFrom = 600.dp
+private val NavigatorPopoverWidth = 420.dp
+private val NavigatorPopoverMaxHeight = 560.dp
+
+/**
+ * Where the Navigator sits in the pane area below the header. On a phone
+ * it fills that area down to the mode bar, so it reads as a deliberate
+ * surface: capped at its content's height it stopped part way over the
+ * editor and looked like a layout fault. On a tablet it is a 420 dp
+ * popover under the title (ux-spec "Navigator").
+ */
+@Composable
+private fun NavigatorSurface(sheet: @Composable (Modifier) -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        if (maxWidth >= NavigatorPopoverFrom) {
+            sheet(
+                Modifier
+                    .width(NavigatorPopoverWidth)
+                    .heightIn(max = NavigatorPopoverMaxHeight)
+                    .border(SS.dimens.hairline, SS.colors.border),
+            )
+        } else {
+            sheet(Modifier.fillMaxSize())
+        }
+    }
+}

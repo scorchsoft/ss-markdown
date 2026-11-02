@@ -12,6 +12,9 @@
 
     <!-- Top bar -->
     <string name="open_navigator">Open Navigator: outline and files</string>
+    <string name="close_navigator">Close navigator</string>
+    <string name="navigator_expanded">Navigator, expanded</string>
+    <string name="navigator_collapsed">Navigator, collapsed</string>
     <string name="copy_all">Copy all</string>
     <string name="more">More</string>
     <string name="open_folder_drawer">Open folder</string>

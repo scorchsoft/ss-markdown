@@ -38,3 +38,74 @@ Weighted average = Σ(score × weight) / 23.
 | 0 · review 2 (design) | 4 | 4 | 4 | 3 | 3 | 3 | 4 | 3 | 4 | 3 | 3 | 3.52 |
 | 0 · review 3 (design) | 4 | 4 | 4 | 3 | 3 | 3 | 4 | 3 | 4 | 2 | 3 | 3.48 |
 | 0 · review 4 (design gate) | 4 | 4 | 4 | 3 | 3 | 3 | 4 | 3 | 4 | 3 | 3 | 3.52 · **gate passed** after M1/M2 fixes |
+| 6 · round-2 review panels (build) | 3 | 4 | 4 | 3 | – | 4 | 4 | 3 | 4 | 3 | 4 | not computed (#5 unscored); below the bar on #4 evidence |
+| 6 · unanchored scorer A (`912abcf`) | 4 | 5 | 4 | 4 | 4 | 4 | 4 | 4 | 5 | 3 | 4 | 4.13 · bar holds; two Majors (RTL drawn backwards, UTF-16 refused), both fixed |
+| 6 · unanchored scorer B (`dc5a312`) | 4 | 5 | 4 | 4 | 5 | 4 | 5 | 4 | 5 | 4 | 4 | 4.35 · bar holds; Majors: no phone evidence yet; rotation matrix incomplete (since completed) |
+| 6 · our score, release candidate (`6a5c706`) | 5 | 5 | 5 | 4 | 5 | 4 | 5 | 4 | 5 | 4 | 4 | 4.61 · **ship bar holds on host and CI evidence; release still needs the J1–J10 phone walk** |
+
+### Release candidate 0.1.0 (`6a5c706`): evidence and disagreements
+
+Scorers A and B were independent and unanchored: neither saw earlier
+reviews, this table or any self-score. Every CI number below is from run
+41410889697 (all four jobs green) or the runs named.
+
+Where our score differs from a scorer's by a point or more, both
+arguments are here so the reader can judge.
+
+**#1 Never lose work: us 5, A 4, B 4.**
+- *For 5:* 1000 seeded kills on the host model (`RandomKillTest`), 50 real
+  `SIGKILL`s per push on the emulator (worst loss 623 ms), a background
+  kill that comes back with every character, selection and line
+  (`BackgroundKillTest`), read-back verified saves with 300 random faults
+  (`SavePipelineTest`), outside edits caught before overwrite, and a
+  byte-for-byte round-trip corpus that now includes UTF-16.
+- *Against:* the 1000 kills are modelled, not real `kill -9`s (only 50
+  real ones run per push), and power loss can only be shown on a phone.
+  Undo does not survive process death; the docs promise text, view and
+  position, not undo.
+
+**#3 Position continuity: us 5, A 4, B 4.**
+- *For 5:* Code ↔ Preview lands within ±1 block at 190 of 190 corpus
+  positions at three viewports. The rotation matrix now runs every cell
+  on every push: rotation, resize, theme, font scale, Split, Preview,
+  mid-composition, mid-table-cell, find open, a sheet open, the unsaved
+  prompt open, "Don't keep activities" and a background `am kill`. It
+  found and fixed a cursor reset and a leaked Activity. Reopening
+  returns you to where you were.
+- *Against:* both scorers scored before the five last cells existed.
+  Still untested: a Preview edit in flight across a change, and every
+  state in every view mode (each state runs in Code only).
+
+**#5 Rendering fidelity: us 5, A 4 (B 5).**
+- *For 5:* every construct in the corpus is asserted in Playwright, and
+  every built-in theme renders it in light and dark with WCAG AA.
+- *A against:* the checks are structural, not golden images, and some
+  Mermaid diagram types (mindmap, architecture) show a "not supported"
+  box.
+
+**#7 Reading quality: us 5, A 4 (B 5).**
+- *For 5:* contrast is tested on every theme token and in the page;
+  `max-width: 75ch`; pinch reflows through a CSS font variable, never
+  page zoom.
+- *A against:* A could not see Preview body text in the Robolectric
+  stand-in. The README now carries the real Playwright renders.
+
+**#10 Accessibility: us 4, A 3 (B 4).**
+- *For 4:* the Accessibility Test Framework now scans all 50 screens and
+  sheets in both themes on every build, and fixed three findings.
+  Font scale and gesture twins are tested.
+- *A against:* A scored before the scanner existed. The TalkBack
+  listening pass still needs a phone, which is why we stop at 4.
+
+**Pending a phone (caps #4, #6 and #10 at 4, and blocks release):** the
+J1–J10 walk (quality-bar §5.3), the ADR 0001 budgets on a Pixel 6a-class
+and a 3 GB phone, the keyboard and IME pass (Gboard, Samsung,
+HeliBoard), TalkBack, a 20 MB file and a fling trace, and the Google
+Recorder share.
+
+**Known gaps we accepted:**
+- No hinge-aware foldable layout: a fold is treated as its window size.
+- Undo, open sheets and the find query do not survive process death.
+- The Preview bundle is at 98.8% of its 3.5 MiB budget.
+- About 150 `@Suppress` annotations, each with a reason, are worth a
+  sweep.

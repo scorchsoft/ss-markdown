@@ -88,8 +88,11 @@ class PreviewView
             PrintSession(
                 sendToPage = ::send,
                 openDialog = { job ->
-                    webView?.let { PreviewPrinter.print(context, it, job) { channel.send(HostMessage.FinishPrint) } } !=
-                        null
+                    webView?.let { web ->
+                        PreviewPrinter.print(context, web, job, screenBackground = backgroundColour) {
+                            channel.send(HostMessage.FinishPrint)
+                        }
+                    } != null
                 },
                 schedule = { delay, action ->
                     val run = Runnable(action)

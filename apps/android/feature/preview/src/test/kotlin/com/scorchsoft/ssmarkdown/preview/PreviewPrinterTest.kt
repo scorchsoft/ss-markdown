@@ -1,11 +1,15 @@
 package com.scorchsoft.ssmarkdown.preview
 
+import android.graphics.Color
 import android.print.PrintAttributes
+import android.webkit.WebView
+import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 
 /**
  * edge-cases "PDF prints flush against the left edge of the paper": the
@@ -49,5 +53,24 @@ class PreviewPrinterTest {
         assertEquals(787, margins.topMils)
         assertEquals(1_000, margins.rightMils)
         assertEquals(900, margins.bottomMils)
+    }
+
+    /**
+     * edge-cases "PDF margins print dark in a dark theme": WebView paints the
+     * page margins in its own background colour, so a job prints on white
+     * whatever the theme, and the screen gets its colour back afterwards.
+     */
+    @Test
+    fun `a dark theme prints on white paper and gets its colour back after the job`() {
+        val web = WebView(ApplicationProvider.getApplicationContext())
+        val dark = Color.rgb(0x1c, 0x1c, 0x1e)
+        web.setBackgroundColor(dark)
+        var finished = 0
+        val done = PreviewPrinter.onWhitePaper(web, dark) { finished++ }
+        assertEquals(Color.WHITE, shadowOf(web).backgroundColor)
+        assertEquals(0, finished)
+        done()
+        assertEquals(dark, shadowOf(web).backgroundColor)
+        assertEquals(1, finished)
     }
 }

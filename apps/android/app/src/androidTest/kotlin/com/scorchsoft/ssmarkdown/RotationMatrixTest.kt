@@ -167,17 +167,9 @@ class RotationMatrixTest {
 
     @Test
     fun everyConfigurationChangeKeepsTextSelectionScrollAndUndo() {
-        rule.waitUntil(CHANGE_TIMEOUT) {
-            rule.activity
-                .graph()
-                .editor.active != null
-        }
-        onMain {
-            val doc = active()
-            val lines = (0 until LINES).joinToString("") { "Line $it of the rotation matrix.\n" }
-            doc.surface.apply(listOf(EditOp(0, "", lines)), TextSelection.caret(0))
-        }
-        rule.waitForIdle()
+        start((0 until LINES).joinToString("") { "Line $it of the rotation matrix.\n" })
+        // The view mode is remembered between runs: another test may have left Split or Preview.
+        selectMode(ViewMode.Code)
 
         row("landscape") {
             onMain { rule.activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
@@ -222,7 +214,11 @@ class RotationMatrixTest {
         }
     }
 
-    /** Waits for the first document, then replaces its text with [text]. */
+    /**
+     * Waits for the first document, then replaces all of its text with
+     * [text]: the draft is reopened across tests, so whatever an earlier
+     * test left in it goes, and every test starts from the same buffer.
+     */
     private fun start(text: String) {
         rule.waitUntil(CHANGE_TIMEOUT) {
             rule.activity
@@ -231,7 +227,8 @@ class RotationMatrixTest {
         }
         onMain {
             val doc = active()
-            doc.surface.apply(listOf(EditOp(0, "", text)), TextSelection.caret(0))
+            val old = doc.text.text.toString()
+            doc.surface.apply(listOf(EditOp(0, old, text)), TextSelection.caret(0))
         }
         rule.waitForIdle()
     }
@@ -345,7 +342,8 @@ class RotationMatrixTest {
                 (0 until TABLE_ROWS).joinToString("") { "| row $it | cell $it |\n" }
         start("# Table\n\n$table")
         selectMode(ViewMode.Code)
-        val cell = onMain { active().text.text.indexOf("cell 7") + "cell".length }
+        // The end of the cell's text, "cell 7|", so the edit reads "cell 7 edited".
+        val cell = onMain { active().text.text.indexOf("cell 7 ") + "cell 7".length }
         onMain {
             val doc = active()
             doc.surface.apply(listOf(EditOp(cell, "", " edited")), TextSelection.caret(cell + " edited".length))

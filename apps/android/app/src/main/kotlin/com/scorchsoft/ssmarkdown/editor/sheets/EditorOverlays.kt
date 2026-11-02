@@ -206,6 +206,8 @@ private fun messageText(message: UserMessage): String =
         MessageKind.ImageSaved -> stringResource(R.string.msg_image_saved, message.argument)
         MessageKind.ImageCopied -> stringResource(R.string.msg_image_copied)
         MessageKind.NothingToExport -> stringResource(R.string.msg_nothing_to_export)
+        MessageKind.PdfFailed -> stringResource(R.string.msg_pdf_failed)
+        MessageKind.ExportStopped -> stringResource(R.string.msg_export_stopped)
     }
 
 /** "This 180 MB file needs about 400 MB, and this phone allows 256 MB" in place of the editor. */

@@ -6,6 +6,8 @@ import com.scorchsoft.ssmarkdown.preview.DocumentSnapshot
 import com.scorchsoft.ssmarkdown.preview.DocumentSource
 import com.scorchsoft.ssmarkdown.preview.PreviewListener
 import com.scorchsoft.ssmarkdown.preview.PreviewView
+import com.scorchsoft.ssmarkdown.preview.PrintOutcome
+import com.scorchsoft.ssmarkdown.preview.PrintTarget
 import com.scorchsoft.ssmarkdown.preview.RendererState
 import com.scorchsoft.ssmarkdown.preview.bridge.Crumb
 import com.scorchsoft.ssmarkdown.preview.bridge.HostMessage
@@ -19,6 +21,8 @@ import com.scorchsoft.ssmarkdown.preview.editing.PreviewEditor
 import com.scorchsoft.ssmarkdown.preview.editing.PreviewText
 import com.scorchsoft.ssmarkdown.text.EditOp
 import com.scorchsoft.ssmarkdown.text.Snapshot
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * The editor's side of the Preview: binds `PreviewEditor` to the document
@@ -38,13 +42,20 @@ class PreviewSession(
     private val host: PreviewHost,
 ) : PreviewListener {
     /** Rendered diagrams for the viewer, the Mermaid sheet and Export images. */
-    val exports = DiagramExports(::send, onFinished = { scrollTo(host.anchorLine) })
+    val exports =
+        DiagramExports(::send, onFinished = { scrollTo(host.anchorLine) }, owner = { bound }, awaitPage = ::awaitPage)
 
     /** The view on screen, if any. */
     var view: PreviewView? = null
         private set
 
     private var sender: ((HostMessage) -> Unit)? = null
+
+    /** What prints the page: the attached view, or a test's stand-in. Null: nothing can. */
+    private var printTarget: PrintTarget? = null
+
+    /** True while the attached page is drawn, so it renders and answers. */
+    private var onScreen: () -> Boolean = { false }
     private var editor: PreviewEditor? = null
 
     /**
@@ -67,6 +78,8 @@ class PreviewSession(
     /** [document] is now on screen (null: nothing is). Reloads the page if one is attached. */
     fun bind(document: ActiveDocument?) {
         if (document === bound) return
+        // A diagram being drawn for the previous document is not this one's.
+        exports.cancel()
         // Typing still waiting in the page goes out first, stamped with the old epoch (DS-13).
         send(HostMessage.Flush)
         bound?.changes = null
@@ -107,8 +120,12 @@ class PreviewSession(
     /** The Preview pane's view is on screen: it reports here and loads the document. */
     fun attach(target: PreviewView) {
         if (view === target) return
+        // A new page (another window's view): nothing asked of the old one is answered here.
+        exports.cancel()
         view = target
         sender = target::send
+        printTarget = target
+        onScreen = { target.isOnScreen }
         target.listener = this
         target.documentSource =
             DocumentSource { editor?.documentSource?.snapshot() ?: DocumentSnapshot("", 0) }
@@ -122,16 +139,71 @@ class PreviewSession(
         target.documentSource = null
         view = null
         sender = null
+        printTarget = null
+        onScreen = { false }
     }
 
     /**
      * Connects a page that is not a [PreviewView]: the tests' recording
      * page, which hears exactly what a WebView would.
      */
-    internal fun attachPage(send: (HostMessage) -> Unit) {
+    internal fun attachPage(
+        print: PrintTarget? = null,
+        send: (HostMessage) -> Unit,
+    ) {
         sender = send
+        printTarget = print
+        onScreen = { print?.isOnScreen ?: true }
         open()
     }
+
+    /**
+     * ⋮ → Export PDF for [document]: waits up to [waitMillis] for a page that
+     * holds it and is on screen (a switch to Preview attaches one within a
+     * frame or two), then prints it. Never prints anything else: if another
+     * document is bound first, or while the page prepares, the answer is
+     * [PrintOutcome.DocumentChanged] and nothing opens (edge-cases "Export PDF
+     * from Code did nothing, then printed the next file"). No page in time
+     * is [PrintOutcome.PageGone]. Call on the main thread.
+     */
+    suspend fun print(
+        document: ActiveDocument,
+        jobName: String,
+        waitMillis: Long = PAGE_WAIT_MILLIS,
+    ): PrintOutcome =
+        when (pageFor(document, waitMillis)) {
+            PageWait.Ready -> printTarget?.print(jobName) ?: PrintOutcome.PageGone
+            PageWait.DocumentChanged -> PrintOutcome.DocumentChanged
+            PageWait.NoPage -> PrintOutcome.PageGone
+        }
+
+    /** For [DiagramExports]: true once a page holding the bound document is on screen. */
+    private suspend fun awaitPage(): Boolean = bound?.let { pageFor(it, PAGE_WAIT_MILLIS) == PageWait.Ready } ?: false
+
+    private enum class PageWait { Ready, DocumentChanged, NoPage }
+
+    /**
+     * Waits for a page that holds [document] and is drawn. A page that is not
+     * drawn (Code view, another window's stopped Activity) may never finish
+     * rendering, so nothing is asked of it until it is.
+     */
+    private suspend fun pageFor(
+        document: ActiveDocument,
+        waitMillis: Long,
+    ): PageWait =
+        withTimeoutOrNull(waitMillis) {
+            var state: PageWait? = null
+            while (state == null) {
+                state =
+                    when {
+                        bound !== document -> PageWait.DocumentChanged
+                        sender != null && onScreen() -> PageWait.Ready
+                        else -> null
+                    }
+                if (state == null) delay(PAGE_POLL_MILLIS)
+            }
+            state
+        } ?: if (bound !== document) PageWait.DocumentChanged else PageWait.NoPage
 
     /** Scrolls the page so [line] is at the top. */
     fun scrollTo(line: Int) = send(HostMessage.ScrollToLine(line))
@@ -257,4 +329,10 @@ class PreviewSession(
         mime: String,
         bytes: ByteArray,
     ) = exports.onResult(requestId, bytes)
+
+    private companion object {
+        /** A switch to Preview attaches the page within a frame or two; this is generous. */
+        const val PAGE_WAIT_MILLIS = 3_000L
+        const val PAGE_POLL_MILLIS = 50L
+    }
 }

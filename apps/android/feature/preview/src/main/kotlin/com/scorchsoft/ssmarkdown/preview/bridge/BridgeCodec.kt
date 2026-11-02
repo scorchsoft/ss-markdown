@@ -98,7 +98,7 @@ object BridgeCodec {
             "tableMenu" to { j -> PageMessage.TableMenu(j.getInt("line"), j.getInt("row"), j.getInt("column")) },
             "exportResult" to
                 { j -> PageMessage.ExportResult.of(j.getInt("requestId"), j.getString("mime"), j.getString("data")) },
-            "printReady" to { _ -> PageMessage.PrintReady },
+            "printReady" to { j -> PageMessage.PrintReady(j.getInt("requestId")) },
             "htmlResult" to { j ->
                 PageMessage.HtmlResult(j.getInt("requestId"), if (j.isNull("html")) null else j.getString("html"))
             },

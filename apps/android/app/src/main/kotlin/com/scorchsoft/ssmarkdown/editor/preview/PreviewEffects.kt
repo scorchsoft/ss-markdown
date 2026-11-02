@@ -5,8 +5,11 @@ import com.scorchsoft.ssmarkdown.editor.EditorEvent
 import com.scorchsoft.ssmarkdown.editor.EditorOverlay
 import com.scorchsoft.ssmarkdown.editor.EditorUiState
 import com.scorchsoft.ssmarkdown.editor.EditorViewModel
+import com.scorchsoft.ssmarkdown.editor.MessageKind
 import com.scorchsoft.ssmarkdown.editor.ViewMode
+import com.scorchsoft.ssmarkdown.preview.PrintOutcome
 import com.scorchsoft.ssmarkdown.preview.bridge.HostMessage
+import kotlinx.coroutines.launch
 
 /**
  * The side effects of the Preview's actions: the link chip, the Mermaid
@@ -68,14 +71,29 @@ internal object PreviewEffects {
         }
     }
 
-    /** ⋮ → Export PDF: the page renders everything, then the system print dialog opens (A4, or Letter in the US). */
+    /**
+     * ⋮ → Export PDF: the page renders everything, then the system print
+     * dialog opens (A4, or Letter in the US), for the document on screen now
+     * and no other. From Code the Preview comes into view first, because a
+     * page that is not drawn may never finish rendering. A switch of document
+     * before the dialog opens stops the export and says so; a page that never
+     * comes or never answers says how to try again. Nothing is silent
+     * (edge-cases "Export PDF from Code did nothing, then printed the next file").
+     */
     fun exportPdf(vm: EditorViewModel) {
+        val document = vm.active ?: return
         if (vm.state.mode == ViewMode.Code) vm.onAction(EditorAction.SelectMode(ViewMode.Preview))
         val name =
             vm.state.title
                 .substringBeforeLast('.')
                 .ifEmpty { "Untitled" }
-        vm.emit(EditorEvent.Print(name))
+        vm.deps.scope.launch {
+            when (vm.preview.print(document, name)) {
+                PrintOutcome.Opened, PrintOutcome.Superseded, PrintOutcome.Cancelled -> Unit
+                PrintOutcome.DocumentChanged -> vm.message(MessageKind.ExportStopped)
+                PrintOutcome.PageGone, PrintOutcome.TimedOut -> vm.message(MessageKind.PdfFailed)
+            }
+        }
     }
 
     /** ⋮ → Copy as rich text. */

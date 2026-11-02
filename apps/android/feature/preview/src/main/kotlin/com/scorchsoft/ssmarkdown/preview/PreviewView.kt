@@ -34,7 +34,8 @@ class PreviewView
     constructor(
         context: Context,
         attrs: AttributeSet? = null,
-    ) : FrameLayout(context, attrs) {
+    ) : FrameLayout(context, attrs),
+        PrintTarget {
         var listener: PreviewListener? = null
         var documentSource: DocumentSource? = null
 
@@ -69,7 +70,7 @@ class PreviewView
                 when (message) {
                     is PageMessage.Rendered -> refreshTrace.onRendered(message.rev)
                     is PageMessage.TopLine -> topLine = message.line
-                    is PageMessage.PrintReady -> printing.onPageReady(webView)
+                    is PageMessage.PrintReady -> printing.onPageReady(message.requestId)
                     is PageMessage.HtmlResult -> htmlRequests.remove(message.requestId)?.invoke(message.html)
                     else -> Unit
                 }
@@ -83,7 +84,19 @@ class PreviewView
         private var backgroundColour = Color.WHITE
         private var settings = PreviewSettings()
         private var topLine = 0
-        private val printing: PrintSession = PrintSession(context) { channel.send(HostMessage.FinishPrint) }
+        private val printing: PrintSession =
+            PrintSession(
+                sendToPage = ::send,
+                openDialog = { job ->
+                    webView?.let { PreviewPrinter.print(context, it, job) { channel.send(HostMessage.FinishPrint) } } !=
+                        null
+                },
+                schedule = { delay, action ->
+                    val run = Runnable(action)
+                    postDelayed(run, delay)
+                    ({ removeCallbacks(run) })
+                },
+            )
 
         /**
          * Sends a message to the page: [HostMessage.Load] to open a document,
@@ -91,6 +104,9 @@ class PreviewView
          * requests. Queued, in order, until the page is ready.
          */
         fun send(message: HostMessage) {
+            // The page is about to hold a document (another one, or the same one afresh): anything
+            // asked of the page it holds now must not be answered from the next one.
+            if (message is HostMessage.Load) abandonPageRequests()
             ensureWebView()
             refreshTrace.onSent(message)
             channel.send(message)
@@ -122,11 +138,22 @@ class PreviewView
             send(HostMessage.Settings(settings))
         }
 
-        /** Renders every block, then opens the system print dialog ("Save as PDF" included). */
-        fun print(jobName: String) {
-            printing.request(jobName)
-            send(HostMessage.PreparePrint)
-        }
+        /** In a visible window and laid out: the page's frames, timers and idle callbacks are running. */
+        override val isOnScreen: Boolean
+            get() = isAttachedToWindow && windowVisibility == VISIBLE && isShown && width > 0 && height > 0
+
+        /**
+         * Renders every block, then opens the system print dialog ("Save as
+         * PDF" included), for the document the page holds now. Ends without a
+         * dialog if the page is given a document first, is destroyed, or does
+         * not answer within a minute (edge-cases "Export PDF from Code did
+         * nothing, then printed the next file"). Call on the main thread.
+         */
+        override suspend fun print(jobName: String): PrintOutcome =
+            suspendCancellableCoroutine { done ->
+                printing.request(jobName) { outcome -> if (done.isActive) done.resume(outcome) }
+                done.invokeOnCancellation { post { printing.cancel() } }
+            }
 
         /**
          * "Copy as rich text": the page's own rendering of source lines
@@ -160,15 +187,25 @@ class PreviewView
         /** Destroys the WebView. The view can be used again; it rebuilds on the next call. */
         fun release() {
             channel.close()
-            // The page that would have answered is gone: waiting exports copy plain text instead.
-            val waiting = htmlRequests.values.toList()
-            htmlRequests.clear()
-            waiting.forEach { it(null) }
+            printing.onPageGone()
+            abandonPageRequests()
             webView?.let {
                 removeView(it)
                 it.destroy()
             }
             webView = null
+        }
+
+        /**
+         * The page is about to hold another document, or is gone: a print it
+         * was preparing ends without a dialog, and rich-text exports waiting on
+         * it get null (the caller copies plain text).
+         */
+        private fun abandonPageRequests() {
+            printing.onDocumentLoaded()
+            val waiting = htmlRequests.values.toList()
+            htmlRequests.clear()
+            waiting.forEach { it(null) }
         }
 
         override fun dispatchTouchEvent(event: MotionEvent): Boolean {

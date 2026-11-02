@@ -102,9 +102,4 @@ sealed interface EditorEvent {
     data class EditTheme(
         val themeId: String,
     ) : EditorEvent
-
-    /** ⋮ → Export PDF: the system print dialog for the preview, named [jobName]. */
-    data class Print(
-        val jobName: String,
-    ) : EditorEvent
 }

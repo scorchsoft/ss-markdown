@@ -1,7 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Page } from "playwright";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
-import { loadMarkdown, openPreview, send, startHarness, waitForMessage, type Harness } from "./harness";
+import {
+    clearReceived,
+    loadMarkdown,
+    openPreview,
+    received,
+    send,
+    startHarness,
+    waitForMessage,
+    type Harness,
+} from "./harness";
 
 let h: Harness;
 beforeAll(async () => (h = await startHarness()));
@@ -19,8 +28,8 @@ interface TextItem {
 }
 
 async function printToPdf(page: Page): Promise<{ items: TextItem[]; pages: { width: number; height: number }[] }> {
-    await send(page, { type: "preparePrint" });
-    await waitForMessage(page, (m) => m.type === "printReady", 30_000);
+    await send(page, { type: "preparePrint", requestId: 1 });
+    await waitForMessage(page, (m) => m.type === "printReady" && m.requestId === 1, 30_000);
     const pdf = await page.pdf({ preferCSSPageSize: true, printBackground: true });
     const doc = await getDocument({ data: new Uint8Array(pdf), useSystemFonts: false }).promise;
     const items: TextItem[] = [];
@@ -79,8 +88,8 @@ describe("print and PDF", () => {
             type: "settings",
             settings: { tapToEdit: true, pageMode: false, zoom: 2, lean: false, readOnly: false },
         });
-        await send(page, { type: "preparePrint" });
-        await waitForMessage(page, (m) => m.type === "printReady", 30_000);
+        await send(page, { type: "preparePrint", requestId: 3 });
+        await waitForMessage(page, (m) => m.type === "printReady" && m.requestId === 3, 30_000);
         await page.emulateMedia({ media: "print" });
         const sizes = await page.evaluate(() => {
             const px = (sel: string): string => getComputedStyle(document.querySelector(sel) as Element).fontSize;
@@ -149,5 +158,34 @@ describe("print and PDF", () => {
         const pageNumbers = items.filter((i) => /^\d+$/.test(i.str.trim()) && i.y > 297 * MM - 15 * MM);
         expect(pageNumbers.length).toBe(pages.length);
         for (const n of pageNumbers) expect(Math.abs(n.size - 8)).toBeLessThan(0.2);
+    });
+
+    // edge-cases "Export PDF from Code did nothing, then printed the next file": a print
+    // prepared for one document is never answered once the page holds another.
+    it("abandons a print preparation when another document loads, and answers only the request that asked", async () => {
+        const page = await openPreview(h);
+        await loadMarkdown(page, doc());
+        await clearReceived(page);
+        await send(page, { type: "preparePrint", requestId: 5 });
+        await send(page, { type: "load", rev: 1, text: "# Document B\n\nOnly B." });
+        await waitForMessage(page, (m) => m.type === "rendered");
+        await send(page, { type: "preparePrint", requestId: 6 });
+        await waitForMessage(page, (m) => m.type === "printReady" && m.requestId === 6, 30_000);
+        // Give an abandoned preparation every chance to answer late.
+        await page.waitForTimeout(500);
+        const ready = (await received(page)).filter((m) => m.type === "printReady");
+        expect(ready).toEqual([{ type: "printReady", requestId: 6 }]);
+        expect(await page.evaluate(() => document.querySelector("h1")?.textContent)).toContain("Document B");
+    });
+
+    it("abandons a print preparation when the app finishes printing first", async () => {
+        const page = await openPreview(h);
+        await loadMarkdown(page, doc());
+        await clearReceived(page);
+        await send(page, { type: "preparePrint", requestId: 7 });
+        await send(page, { type: "finishPrint" });
+        await page.waitForTimeout(1_500);
+        expect((await received(page)).filter((m) => m.type === "printReady")).toEqual([]);
+        expect(await page.evaluate(() => document.documentElement.classList.contains("printing"))).toBe(false);
     });
 });

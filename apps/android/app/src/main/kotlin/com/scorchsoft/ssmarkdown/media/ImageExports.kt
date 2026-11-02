@@ -44,14 +44,20 @@ class ImageExports(
         }
     }
 
-    /** The files for [items] in [format] at [scale], numbered in document order. */
+    /**
+     * The files for [items] in [format] at [scale], numbered in document
+     * order. Stops, with what it has, as soon as another document is open:
+     * the rest would be drawn from that one.
+     */
     suspend fun files(
         items: List<MediaItem>,
         format: DiagramFormat,
         scale: Int,
     ): List<ExportFile> {
+        val document = vm.active
         val files = ArrayList<ExportFile>()
         items.forEachIndexed { index, item ->
+            if (vm.active !== document) return files
             for (svg in renditions(item, format)) {
                 val bytes = media.bytes(item, svg, scale) ?: continue
                 val (ext, mime) = ExportNames.typeOf(item, svg)
@@ -68,11 +74,17 @@ class ImageExports(
         if (sheet.running || sheet.count == 0) return
         setSheet(sheet.copy(running = true))
         media.ensurePreview()
+        val document = vm.active
         vm.deps.scope.launch {
             val files = files(sheet.chosen, sheet.format, sheet.scale)
             val zipFolder = vm.deps.settings.settings.value.export.zipFolder
             vm.deps.settings.update { it.copy(export = sheet.defaults(zipFolder)) }
             vm.update { it.copy(overlay = null) }
+            // Another file opened while the images were drawn: nothing of either is saved under this name.
+            if (vm.active !== document) {
+                vm.message(MessageKind.ExportStopped)
+                return@launch
+            }
             when {
                 files.isEmpty() -> {
                     vm.message(MessageKind.ImagesExportFailed)

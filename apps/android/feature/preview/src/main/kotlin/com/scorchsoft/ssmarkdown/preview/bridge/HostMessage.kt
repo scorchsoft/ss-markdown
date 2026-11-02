@@ -314,11 +314,19 @@ sealed interface HostMessage {
         }
     }
 
-    /** Renders and mounts every block, then the page answers [PageMessage.PrintReady]. */
-    data object PreparePrint : HostMessage {
+    /**
+     * Renders and mounts every block, then the page answers
+     * [PageMessage.PrintReady] with the same [requestId]. A `load` or
+     * [FinishPrint] before then abandons it: the page answers nothing.
+     */
+    data class PreparePrint(
+        val requestId: Int,
+    ) : HostMessage {
         override val type = "preparePrint"
 
-        override fun writeTo(json: JSONObject) = Unit
+        override fun writeTo(json: JSONObject) {
+            json.put("requestId", requestId)
+        }
     }
 
     /**

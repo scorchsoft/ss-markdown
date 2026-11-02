@@ -37,6 +37,8 @@ export class PreviewApp {
     private pinned: number | null = null;
     private scrollFrame = 0;
     private renderStarted = 0;
+    /** Bumped by each print preparation, `load` and `finishPrint`: a preparation answers only while it is current. */
+    private printRequest = 0;
 
     constructor(root: HTMLElement, worker: Worker) {
         this.bridge = new Bridge((m) => this.onHostMessage(m));
@@ -87,6 +89,8 @@ export class PreviewApp {
     private onHostMessage(m: HostMessage): void {
         switch (m.type) {
             case "load":
+                // A print being prepared was for the page as it was: abandon it (it never answers).
+                this.printRequest++;
                 this.editor.end();
                 this.renderStarted = performance.now();
                 this.anchorLine = m.anchorLine ?? null;
@@ -135,7 +139,7 @@ export class PreviewApp {
                 void this.exportImage(m.requestId, m.line, m.format, m.scale);
                 break;
             case "preparePrint":
-                void this.preparePrint();
+                void this.preparePrint(m.requestId);
                 break;
             case "flush":
                 this.editor.flushTyping();
@@ -144,6 +148,7 @@ export class PreviewApp {
                 void this.exportHtml(m.requestId, m.fromLine, m.toLine);
                 break;
             case "finishPrint":
+                this.printRequest++;
                 this.controller.virtualizer.keepAll = false;
                 document.documentElement.classList.remove("printing");
                 for (const v of this.controller.views) this.controller.virtualizer.update(v);
@@ -255,12 +260,19 @@ export class PreviewApp {
         this.bridge.post({ type: "htmlResult", requestId, html });
     }
 
-    /** Print is the one path that renders every block; Kotlin shows progress meanwhile. */
-    private async preparePrint(): Promise<void> {
+    /**
+     * Print is the one path that renders every block. The answer names the
+     * request; a `load` or `finishPrint` while it renders abandons it, so a
+     * request made for one document is never answered from the next.
+     */
+    private async preparePrint(requestId: number): Promise<void> {
+        const mine = ++this.printRequest;
+        const current = (): boolean => mine === this.printRequest;
         this.editor.end();
         this.controller.virtualizer.keepAll = true;
         document.documentElement.classList.add("printing");
         await this.controller.renderAll();
+        if (!current()) return;
         for (const v of this.controller.views) {
             v.mount();
             this.mermaid.enqueueIn(v.el, true);
@@ -268,7 +280,7 @@ export class PreviewApp {
         fillTocs(document, this.controller.outline());
         await this.mermaid.idle();
         await document.fonts.ready;
-        this.bridge.post({ type: "printReady" });
+        if (current()) this.bridge.post({ type: "printReady", requestId });
     }
 }
 

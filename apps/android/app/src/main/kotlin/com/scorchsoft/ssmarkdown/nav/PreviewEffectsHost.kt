@@ -11,15 +11,11 @@ import com.scorchsoft.ssmarkdown.editor.EditorAction
 import com.scorchsoft.ssmarkdown.editor.EditorEvent
 import com.scorchsoft.ssmarkdown.editor.MessageKind
 import com.scorchsoft.ssmarkdown.platform.PlatformActions
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withTimeoutOrNull
-
-private const val VIEW_WAIT_MILLIS = 2_000L
-private const val VIEW_POLL_MILLIS = 50L
 
 /**
  * The Preview's one-shot effects: rich text from the renderer, links,
- * image exports, PDF and the theme editor. Kept apart from
+ * image exports and the theme editor. PDF is not here: it prints through
+ * the page itself (`PreviewSession.print`), bound to its document. Kept apart from
  * [EditorEffectsHost] so each file reads as one area.
  */
 internal suspend fun onPreviewEvent(
@@ -47,10 +43,6 @@ internal suspend fun onPreviewEvent(
 
         is EditorEvent.SaveToDownloads -> {
             saved(graph, event.folder, graph.media.saveToDownloads(event.folder, event.files))
-        }
-
-        is EditorEvent.Print -> {
-            previewView(graph)?.print(event.jobName)
         }
 
         is EditorEvent.EditTheme -> {
@@ -99,13 +91,6 @@ internal fun onZipWritten(
     graph.settings.update { it.copy(export = it.export.copy(zipFolder = uri.toString())) }
     graph.editor.message(MessageKind.ImageSaved, uri.lastPathSegment?.substringAfterLast('/').orEmpty())
 }
-
-/** Print needs the page on screen; a switch to Preview attaches it within a frame or two. */
-private suspend fun previewView(graph: AppGraph) =
-    withTimeoutOrNull(VIEW_WAIT_MILLIS) {
-        while (graph.editor.preview.view == null) delay(VIEW_POLL_MILLIS)
-        graph.editor.preview.view
-    }
 
 /**
  * "Create document" that starts in the folder the last ZIP went to, so

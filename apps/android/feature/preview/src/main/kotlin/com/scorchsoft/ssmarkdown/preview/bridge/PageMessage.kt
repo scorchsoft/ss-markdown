@@ -227,7 +227,10 @@ sealed interface PageMessage {
         }
     }
 
-    data object PrintReady : PageMessage
+    /** The answer to [HostMessage.PreparePrint] [requestId]: every block is rendered and mounted. */
+    data class PrintReady(
+        val requestId: Int,
+    ) : PageMessage
 
     /**
      * The answer to [HostMessage.ExportHtml]: the rendered lines as clean

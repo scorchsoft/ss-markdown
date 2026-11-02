@@ -113,7 +113,11 @@ export type HostMessage =
           readonly format: "svg" | "png";
           readonly scale: number;
       }
-    | { readonly type: "preparePrint" }
+    /**
+     * Render and mount every block, then answer `printReady` with the same id.
+     * A `load` or `finishPrint` first abandons it: no answer comes.
+     */
+    | { readonly type: "preparePrint"; readonly requestId: number }
     | { readonly type: "finishPrint" }
     /** Write back typing still waiting for its pause, now: the app is pausing or switching document (DS-14). */
     | { readonly type: "flush" }
@@ -236,7 +240,7 @@ export type PageMessage =
       }
     | { readonly type: "tableMenu"; readonly line: number; readonly row: number; readonly column: number }
     | { readonly type: "exportResult"; readonly requestId: number; readonly mime: string; readonly data: string }
-    | { readonly type: "printReady" }
+    | { readonly type: "printReady"; readonly requestId: number }
     /** The answer to `exportHtml`; [html] is null when the lines could not be rendered. */
     | { readonly type: "htmlResult"; readonly requestId: number; readonly html: string | null }
     | { readonly type: "error"; readonly message: string };

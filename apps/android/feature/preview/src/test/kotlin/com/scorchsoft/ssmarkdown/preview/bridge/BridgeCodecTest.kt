@@ -74,7 +74,7 @@ class BridgeCodecTest {
         val export = encoded(HostMessage.ExportImage(requestId = 2, line = 7, png = true, scale = 9))
         assertEquals("png", export.getString("format"))
         assertEquals(3, export.getInt("scale"))
-        assertEquals("""{"type":"preparePrint"}""", BridgeCodec.encode(HostMessage.PreparePrint))
+        assertEquals("""{"type":"preparePrint","requestId":4}""", BridgeCodec.encode(HostMessage.PreparePrint(4)))
     }
 
     @Test
@@ -116,7 +116,7 @@ class BridgeCodecTest {
             PageMessage.OpenViewer(MediaKind.DIAGRAM, 0, 12),
             BridgeCodec.decode("""{"type":"openViewer","kind":"diagram","index":0,"line":12}"""),
         )
-        assertEquals(PageMessage.PrintReady, BridgeCodec.decode("""{"type":"printReady"}"""))
+        assertEquals(PageMessage.PrintReady(4), BridgeCodec.decode("""{"type":"printReady","requestId":4}"""))
         assertEquals(
             PageMessage.TableMenu(3, 1, 0),
             BridgeCodec.decode("""{"type":"tableMenu","line":3,"row":1,"column":0}"""),

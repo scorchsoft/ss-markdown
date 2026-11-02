@@ -410,4 +410,6 @@ enum class MessageKind {
     ImageSaved,
     ImageCopied,
     NothingToExport,
+    PdfFailed,
+    ExportStopped,
 }

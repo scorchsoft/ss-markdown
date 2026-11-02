@@ -634,6 +634,22 @@ diagrams, maths blocks if you want them, and embedded pictures.
 ⋮ → Export PDF renders through the A4 print stylesheet and opens the
 system print dialog, so "Save as PDF" and real printers both work.
 
+- It works from every view. Split and Preview print at once; Code
+  switches to Preview first, because the page renders only while it is
+  drawn, and prints as soon as it is.
+- It prints the file it was asked for and nothing else. Opening another
+  file before the dialog appears stops it, with the message "Export
+  stopped: another file opened. Nothing was saved." It never opens later
+  for a different file.
+- If the Preview cannot appear within 3 s, or does not finish rendering
+  within a minute, the message says so and how to try again: "Couldn't
+  prepare the PDF. Open Preview, then ⋮ → Export PDF again." It is never
+  silent.
+- Export images and the Mermaid sheet's Save / Share / Copy follow the same
+  rules: they wait for the Preview to be drawn, and another file opening
+  part-way stops them with the same message instead of saving that file's
+  diagrams under this one's name.
+
 **Print typography is fixed in physical units.** Screen zoom, pinch and
 the theme's on-screen base size never change it.
 

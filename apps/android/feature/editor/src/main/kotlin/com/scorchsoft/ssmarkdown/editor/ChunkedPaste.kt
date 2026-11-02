@@ -103,6 +103,27 @@ internal class ChunkedPaste(
         }
     }
 
+    /**
+     * Puts the rest of a running paste in now, as the same undo step, so an
+     * edit or undo from outside the keyboard can follow it: one made while
+     * the paste's edit group was open crashed (undo) or landed inside the
+     * pasted text (edge-cases "Undo or a command during a large paste").
+     * Returns false while the clip is still becoming text, when nothing can
+     * be settled yet and the caller must not edit.
+     */
+    fun completeNow(): Boolean {
+        val running = job
+        if (running != null) {
+            if (session.document === running.document && running.inserted < running.text.length) {
+                session.replaceRange(running.at, running.at, running.text.substring(running.inserted))
+                running.at += running.text.length - running.inserted
+                running.inserted = running.text.length
+            }
+            finish(running)
+        }
+        return !preparing
+    }
+
     /** Ends a running paste where it is, keeping what is in as one undo step. */
     fun cancel() {
         val running = job ?: return

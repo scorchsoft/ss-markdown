@@ -2,6 +2,7 @@ package com.scorchsoft.ssmarkdown.editor
 
 import android.view.inputmethod.EditorInfo
 import androidx.test.core.app.ApplicationProvider
+import com.scorchsoft.ssmarkdown.text.EditOp
 import com.scorchsoft.ssmarkdown.text.PieceTree
 import com.scorchsoft.ssmarkdown.text.TextDocument
 import org.junit.Assert.assertEquals
@@ -145,6 +146,48 @@ class ChunkedPasteTest {
         assertEquals("head\ntail", text)
         assertFalse(view.isPasting)
         assertEquals(null, preparedOn)
+    }
+
+    /**
+     * edge-cases "Undo or a command during a large paste": the strip's Undo
+     * and the text toolbar are not held by the paste's gate, and Undo
+     * inside its open edit group threw ("Cannot undo inside an open edit
+     * group"). They now finish the paste first; a host edit computed
+     * before it finished is refused, never written at stale offsets.
+     */
+    @Test
+    fun `undo from the toolbar mid-paste finishes the paste, then undoes it whole`() {
+        view.document = TextDocument(PieceTree.of("head\ntail"))
+        view.setCaret(5)
+        val pasted = "z".repeat(ChunkedPaste.CHUNK_CHARS * 3)
+        view.pasteText(pasted)
+        frames.removeFirst().run()
+        assertTrue(view.isPasting)
+
+        // A host edit made from a snapshot taken while the paste was half in is refused.
+        view.applyEdits(listOf(EditOp(0, "", "X")), 0, 0)
+        assertTrue(text.startsWith("head\n"))
+
+        assertTrue(view.commands.run(EditorCommand.UNDO))
+        assertFalse(view.isPasting)
+        assertEquals("head\ntail", text)
+        pumpFrames()
+        assertEquals("head\ntail", text)
+        assertTrue(view.session.redo())
+        assertEquals("head\n" + pasted + "tail", text)
+    }
+
+    @Test
+    fun `a host flush puts the rest of a paste in at once`() {
+        view.document = TextDocument(PieceTree.of("head\ntail"))
+        view.setCaret(5)
+        val pasted = "w".repeat(ChunkedPaste.CHUNK_CHARS * 3)
+        view.pasteText(pasted)
+        frames.removeFirst().run()
+        view.requestFlushComposing()
+        assertFalse(view.isPasting)
+        assertEquals("head\n" + pasted + "tail", text)
+        assertTrue(progress.last().done)
     }
 
     @Test

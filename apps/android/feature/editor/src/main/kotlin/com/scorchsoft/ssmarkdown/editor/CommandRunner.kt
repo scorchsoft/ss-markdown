@@ -33,6 +33,8 @@ internal class CommandRunner(
         extend: Boolean = false,
     ): Boolean {
         if (command !in VERTICAL) goalX = Float.NaN
+        // The toolbar and accessibility are not held by the paste's gate, as keys are: finish the paste first.
+        if (command in EDITS && !view.completePaste()) return false
         return edit(command) ?: move(command, extend)
     }
 
@@ -211,6 +213,18 @@ internal class CommandRunner(
 
         /** A clip item with no text yet (a URI): its size is known only once read, off the main thread. */
         const val UNKNOWN_LENGTH = -1
+
+        /** Commands that change the text or the history; they wait for a large paste to be in. */
+        val EDITS =
+            setOf(
+                EditorCommand.UNDO,
+                EditorCommand.REDO,
+                EditorCommand.CUT,
+                EditorCommand.PASTE,
+                EditorCommand.BACKSPACE,
+                EditorCommand.FORWARD_DELETE,
+                EditorCommand.ENTER,
+            )
 
         /** Commands that keep the goal x of the previous vertical move. */
         val VERTICAL = setOf(EditorCommand.UP, EditorCommand.DOWN, EditorCommand.PAGE_UP, EditorCommand.PAGE_DOWN)

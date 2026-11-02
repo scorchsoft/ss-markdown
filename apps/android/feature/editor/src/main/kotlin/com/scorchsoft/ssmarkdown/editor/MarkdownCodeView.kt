@@ -234,10 +234,21 @@ class MarkdownCodeView
             viewport.revealRange(start.coerceIn(0, length), end.coerceIn(0, length), rowHeight, rowHeight * REVEAL_ROWS)
         }
 
-        /** Commits the keyboard's in-progress word; hosts call it before layout changes, commands and saves. */
+        /**
+         * Commits the keyboard's in-progress word, and puts the rest of a large paste in
+         * ([completePaste]); hosts call it before layout changes, commands and saves.
+         */
         fun requestFlushComposing() {
+            completePaste()
             session.finishComposingText()
         }
+
+        /**
+         * Puts the rest of a running large paste in now, in its own undo step,
+         * so a host edit or undo can follow it. False while the clip is still
+         * becoming text: the host must not edit then ([applyEdits] refuses).
+         */
+        fun completePaste(): Boolean = paste.completeNow()
 
         /**
          * An edit from outside the keyboard (toolbar, Preview round-trip):
@@ -251,6 +262,8 @@ class MarkdownCodeView
             selectStart: Int = EditingSession.NONE,
             selectEnd: Int = EditingSession.NONE,
         ) {
+            // Inside a paste's open edit group it would join the paste and shift under its slices.
+            if (paste.isRunning) return
             session.document.beginEditGroup()
             try {
                 session.applyEdit(start, end, text, selectStart, selectEnd)
@@ -431,6 +444,8 @@ class MarkdownCodeView
             selectStart: Int,
             selectEnd: Int,
         ) {
+            // Ops computed before a paste finished are stale; the host completes it first (requestFlushComposing).
+            if (paste.isRunning) return
             val document = session.document
             session.beginBatchEdit()
             document.beginEditGroup()

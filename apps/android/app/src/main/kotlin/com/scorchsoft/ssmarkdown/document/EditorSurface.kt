@@ -84,9 +84,9 @@ class CodeViewSurface(
         view.applyEdits(ops, after.start, after.end)
     }
 
-    override fun undo(): Boolean = view.session.undo()
+    override fun undo(): Boolean = view.completePaste() && view.session.undo()
 
-    override fun redo(): Boolean = view.session.redo()
+    override fun redo(): Boolean = view.completePaste() && view.session.redo()
 
     override fun select(
         start: Int,

@@ -125,6 +125,12 @@ sealed interface EditorAction {
 
     data object DismissBanner : EditorAction
 
+    /** "Open a file…" on a failed open: the picker, for the same file again or another. */
+    data object OpenAnotherFile : EditorAction
+
+    /** "Try again" on a failed open: the same file once more. */
+    data object RetryOpen : EditorAction
+
     // The conflict sheet.
     data object MergeMine : EditorAction
 

@@ -121,6 +121,14 @@ internal object EditorEffects {
                 vm.saves.saveAs()
             }
 
+            EditorAction.OpenAnotherFile -> {
+                vm.emit(EditorEvent.PickFileToOpen)
+            }
+
+            EditorAction.RetryOpen -> {
+                (before.banner as? EditorBanner.OpenFailed)?.let { vm.openDocument(it.uri) }
+            }
+
             EditorAction.BackPressed -> {
                 if (EditorReducer.backLeaves(before)) vm.saves.leave(PendingLeave.Exit, discard = false)
             }

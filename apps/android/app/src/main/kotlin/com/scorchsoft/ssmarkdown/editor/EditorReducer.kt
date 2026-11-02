@@ -50,7 +50,12 @@ object EditorReducer {
                 state.copy(overlay = EditorOverlay.BigFileInfo)
             }
 
-            EditorAction.RecoveryGotIt, EditorAction.DismissBanner, EditorAction.DiscardKeptEdits -> {
+            EditorAction.RecoveryGotIt,
+            EditorAction.DismissBanner,
+            EditorAction.DiscardKeptEdits,
+            EditorAction.OpenAnotherFile,
+            EditorAction.RetryOpen,
+            -> {
                 state.copy(banner = null)
             }
 

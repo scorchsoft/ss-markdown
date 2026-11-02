@@ -327,12 +327,27 @@ appear.
 
 ### 4. Byte-faithful files (no silent corruption)
 
-- On open we detect the encoding (UTF-8 with or without BOM, or
-  UTF-16), the line endings (LF or CRLF), and whether there's a final
-  newline. On save we write back exactly the same.
-- **Invalid UTF-8 opens read-only** with an explanation. Decoding it as
-  replacement characters (`�`) and saving would quietly destroy the
-  file.
+- On open we detect the encoding, the line endings (LF, CRLF, CR or
+  mixed), and whether there's a final newline. On save we write back
+  exactly the same. Encodings:
+  - **UTF-8**, with or without a BOM: the default, and every new file.
+  - **UTF-16** (LE or BE), by its BOM, or without one by a strong NUL
+    pattern: in the first 4 KB one half of at least 90% of the 16-bit
+    units is zero, always the same half, the other half never is, and at
+    least 90% of the units are printable or a tab or line break. It is
+    edited normally and saved back in UTF-16 with its BOM (or without
+    one) and its line endings, byte for byte. A false positive is still
+    safe: valid UTF-16 decodes and encodes back to the same bytes.
+  - **UTF-32**, by its BOM, is not written: it opens **read-only**, shown
+    decoded, with a banner saying so ("This file is UTF-32, which SS
+    Markdown can't save") and Save as… for an editable UTF-8 copy.
+- **Invalid UTF-8 (or invalid UTF-16) opens read-only** with an
+  explanation banner and Save as…. Decoding it as replacement characters
+  (`�`) and saving would quietly destroy the file.
+- A file that **cannot be opened at all** (moved or deleted, permission
+  gone, a provider that timed out or failed) shows a banner that says
+  which, that nothing was changed, and the way forward: "Open a file…"
+  when picking it again is the fix, "Try again" when waiting is.
 - We never strip trailing whitespace or reflow text, and never
   normalise anything the user didn't edit. Edits in Preview are scoped
   to one block, and every other source line stays byte-identical.
@@ -645,7 +660,7 @@ phone. Rubric #1 is scored against the first five rows and the last.
 | **Save-fault injection**: a fake provider that fails mid-write, ignores truncation, or revokes permission | The document stays dirty, the backup survives, and the user sees the error and a way out. | **tested, host**: `SavePipelineTest` (300 random one-shot faults), `SaveTimeoutTest`, `InterruptedSaveTest` (a kill mid-write is repaired at the next launch; an outside edit after it is never touched), `DocumentStoreTest` |
 | **Journal property tests** (JVM, randomised ops) | Replay equals the live buffer; compaction keeps that true; a torn final record is ignored safely. | **tested, host**: `JournalRoundTripTest`, `CompactionTest`, `TornAndCorruptTest`, `FlushPolicyTest` (steady typing is synced every second) |
 | **Interleaving tests** (JVM, `InterleavingDispatcher`): a keystroke after every disk hop of save, autosave, Save as, reload, Use mine, merge and discard, then a crash | Recovery brings back exactly the live text, nothing typed is missing, and no journal is left on the wrong base. | **tested, host**: `InterleavingTest`, `DataSafetyRound2Test`, and every run of `RandomKillTest` (keystrokes land at random disk hops) |
-| **Round-trip corpus** | Opening and saving without edits is byte-identical, including CRLF, BOM, no final newline and odd encodings. Editing one line changes only that line's bytes. Invalid UTF-8 and NUL bytes open read-only and are never written. A Preview edit changes only its own block. | **tested, host**: `RoundTripCorpusTest` (feature/files, through the store and the safe save: LF, CRLF, CR-only, mixed, BOM, no final newline, emoji/ZWJ/flags/RTL, a 300 000-char line; five kinds of invalid UTF-8), `Utf8CodecTest` (core/text). Preview blocks: `CoveringEditTest` and the Playwright editing tests |
+| **Round-trip corpus** | Opening and saving without edits is byte-identical, including CRLF, BOM, no final newline and odd encodings. Editing one line changes only that line's bytes. Invalid UTF-8 and NUL bytes open read-only and are never written. UTF-16 round-trips the same way; UTF-32 opens read-only. A Preview edit changes only its own block. | **tested, host**: `RoundTripCorpusTest` (feature/files, through the store and the safe save: LF, CRLF, CR-only, mixed, BOM, no final newline, emoji/ZWJ/flags/RTL, a 300 000-char line; five kinds of invalid UTF-8; UTF-16 LE/BE with and without a BOM, no-op save and one-line edit; UTF-32 and invalid UTF-16 read-only), `Utf8CodecTest`, `Utf16CodecTest` (core/text), `OpenProblemsTest` (app). Preview blocks: `CoveringEditTest` and the Playwright editing tests |
 | **Large-file benchmarks** (macrobenchmark, Pixel 6a-class and a 3 GB low-end phone) | Open, type and scroll targets at 1, 20 and 100 MB. Frame cost doesn't grow with file size. | phone run planned (device). **Emulator trend line, tested**: `:benchmark` Macrobenchmarks in CI's `perf` job (API 34, 256 MB heap): cold start, open 1 / 20 MB, keystroke to commit and typing frames on 1 / 20 MB, 10 s of flings on 20 MB, Preview refresh at 50 KB. Gate: a central metric past 2x `docs/perf/emulator-baseline.json` (tails reported, not gated; `test_perf_report.py`); budgets advisory; numbers in `performance-techniques.md` |
 | **Memory-pressure tests**: a 128 MB heap emulator, `am send-trim-memory`, killing the WebView renderer (`chrome://crash` / `am kill`), and opening several large files | No out-of-memory crash; admission control refuses cleanly; the preview restarts after a renderer death; no unsaved work lost. | host part tested (`MemoryGovernorTest`); **device, tested**: `DeviceEdgeCasesTest` on CI's emulator (`chrome://crash` restarts the Preview, `am send-trim-memory` keeps unsaved work); the 128 MB-heap emulator and several large files at once still planned |
 | **Clipboard/share at 5 MB** | No `TransactionTooLargeException`; the fallback works. | planned (device) |

@@ -27,6 +27,7 @@ import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
 import com.scorchsoft.ssmarkdown.editor.EditorAction
 import com.scorchsoft.ssmarkdown.editor.EditorBanner
+import com.scorchsoft.ssmarkdown.editor.OpenProblem
 import com.scorchsoft.ssmarkdown.ui.AppIcons
 import java.text.DateFormat
 import java.util.Date
@@ -89,6 +90,23 @@ fun EditorBannerView(
             RecoveredCopyBanner(banner, onAction, modifier)
         }
 
+        is EditorBanner.OpenFailed -> {
+            OpenFailedBanner(banner, onAction, modifier)
+        }
+
+        is EditorBanner.EncodingReadOnly -> {
+            val title =
+                if (banner.invalid) {
+                    stringResource(R.string.encoding_invalid_title, banner.encoding)
+                } else {
+                    stringResource(R.string.encoding_unsupported_title, banner.encoding)
+                }
+            Callout(title, stringResource(R.string.encoding_read_only_body), Tone.Info, modifier) {
+                BannerButton(R.string.save_as) { onAction(EditorAction.SaveAsFromBanner) }
+                BannerButton(R.string.recovered_got_it) { onAction(EditorAction.DismissBanner) }
+            }
+        }
+
         EditorBanner.RecoveryCopiesStopped -> {
             val body = stringResource(R.string.recovery_stopped_body)
             Callout(stringResource(R.string.recovery_stopped_title), body, Tone.Error, modifier) {
@@ -126,6 +144,30 @@ private fun SaveAllBanner(
     val body = lines.joinToString("\n").ifEmpty { null }
     Callout(title, body, if (banner.skipped.isEmpty()) Tone.Info else Tone.Caution, modifier) {
         if (banner.skipped.isNotEmpty()) BannerButton(R.string.review) { onAction(EditorAction.ReviewConflict) }
+        BannerButton(R.string.dismiss) { onAction(EditorAction.DismissBanner) }
+    }
+}
+
+/** "Couldn't open that file" with why, and "Open a file…" or "Try again" (M2). */
+@Composable
+private fun OpenFailedBanner(
+    banner: EditorBanner.OpenFailed,
+    onAction: (EditorAction) -> Unit,
+    modifier: Modifier,
+) {
+    val body =
+        when (banner.problem) {
+            OpenProblem.Missing -> R.string.open_failed_missing
+            OpenProblem.NoPermission -> R.string.open_failed_permission
+            OpenProblem.TimedOut -> R.string.open_failed_timed_out
+            OpenProblem.Unreadable -> R.string.open_failed_unreadable
+        }
+    Callout(stringResource(R.string.open_failed_title), stringResource(body), Tone.Error, modifier) {
+        if (banner.problem.picksAnother) {
+            BannerButton(R.string.open_failed_pick) { onAction(EditorAction.OpenAnotherFile) }
+        } else {
+            BannerButton(R.string.open_failed_retry) { onAction(EditorAction.RetryOpen) }
+        }
         BannerButton(R.string.dismiss) { onAction(EditorAction.DismissBanner) }
     }
 }

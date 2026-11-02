@@ -106,6 +106,16 @@
     <string name="recreate">Recreate</string>
     <string name="save_all_skipped">Skipped %1$s: changed in another app</string>
     <string name="dismiss">Dismiss</string>
+    <string name="open_failed_title">Couldn\'t open that file</string>
+    <string name="open_failed_missing">It was moved or deleted, or the app that stored it is gone. Nothing was changed.</string>
+    <string name="open_failed_permission">SS Markdown no longer has permission to read it. Open it again to give access. Nothing was changed.</string>
+    <string name="open_failed_timed_out">Its storage took too long to answer. Nothing was changed; try again when it\'s reachable.</string>
+    <string name="open_failed_unreadable">The app that stores it couldn\'t read it. Nothing was changed.</string>
+    <string name="open_failed_pick">Open a file…</string>
+    <string name="open_failed_retry">Try again</string>
+    <string name="encoding_unsupported_title">This file is %1$s, which SS Markdown can\'t save</string>
+    <string name="encoding_invalid_title">This file isn\'t valid %1$s text</string>
+    <string name="encoding_read_only_body">It\'s open read-only, so the file stays exactly as it is. Save as… keeps an editable UTF-8 copy.</string>
 
     <!-- Messages -->
     <string name="msg_saved_to">Saved to %1$s</string>

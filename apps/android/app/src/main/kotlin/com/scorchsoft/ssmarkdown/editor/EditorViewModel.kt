@@ -11,6 +11,7 @@ import com.scorchsoft.ssmarkdown.files.document.CheckReason
 import com.scorchsoft.ssmarkdown.files.document.DocumentEvent
 import com.scorchsoft.ssmarkdown.files.document.OpenDocument
 import com.scorchsoft.ssmarkdown.files.document.OpenOutcome
+import com.scorchsoft.ssmarkdown.files.document.ReadOnlyReason
 import com.scorchsoft.ssmarkdown.files.memory.Budget
 import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.markdown.Heading
@@ -266,13 +267,15 @@ class EditorViewModel(
             is OpenOutcome.Opened -> {
                 updateMeta(uri) { it.copy(fromAnotherApp = fromAnotherApp, readOnlySource = readOnlySource) }
                 bind(outcome.document)
+                ui.update { it.copy(banner = openBanner(it.banner, outcome.document)) }
                 outcome.recovery?.let { recovery.onRecovered(it) }
             }
 
             is OpenOutcome.Failed -> {
                 // Unsaved edits whose file is out of reach come back as a copy, never as an empty draft (R2-DS-2).
                 if (outcome.hasUnsavedEdits && recovery.openUnreachableAsCopy(DocumentUri(uri))) return
-                message(MessageKind.ActionFailed)
+                // What failed and the way forward, in place of "That didn't work" (M2).
+                ui.update { it.copy(banner = EditorBanner.OpenFailed(uri, OpenProblem.of(outcome.failure))) }
                 if (active == null) newDraft()
             }
 
@@ -280,13 +283,35 @@ class EditorViewModel(
                 val a = outcome.admission
                 ui.update { it.copy(tooLarge = TooLargeInfo(a.fileBytes, a.neededBytes, a.allowedBytes)) }
             }
-
-            else -> {
-                message(MessageKind.ActionFailed)
-                if (active == null) newDraft()
-            }
         }
     }
+
+    /**
+     * The banner after [open] opens: why it is read-only when its bytes are
+     * the reason, else nothing in place of an earlier open's banner. A
+     * failed open stays over the draft opened in its place. Other banners
+     * (a failed save, a conflict) belong to their own flows.
+     */
+    private fun openBanner(
+        current: EditorBanner?,
+        open: OpenDocument,
+    ): EditorBanner? =
+        when (val reason = open.readOnly) {
+            is ReadOnlyReason.UnsupportedEncoding -> {
+                EditorBanner.EncodingReadOnly(reason.encoding, invalid = false)
+            }
+
+            is ReadOnlyReason.InvalidText -> {
+                EditorBanner.EncodingReadOnly(reason.encoding, invalid = true)
+            }
+
+            else -> {
+                current.takeUnless {
+                    it is EditorBanner.EncodingReadOnly ||
+                        (it is EditorBanner.OpenFailed && !open.uri.isDraft)
+                }
+            }
+        }
 
     /**
      * "New": reuses an empty, untouched draft rather than piling up empty

@@ -2,6 +2,7 @@ package com.scorchsoft.ssmarkdown.editor
 
 import androidx.compose.runtime.Immutable
 import com.scorchsoft.ssmarkdown.files.document.CheckpointResult
+import com.scorchsoft.ssmarkdown.files.provider.ProviderResult
 import com.scorchsoft.ssmarkdown.find.FindUiState
 import com.scorchsoft.ssmarkdown.folder.FolderUiState
 import com.scorchsoft.ssmarkdown.media.ExportImagesState
@@ -135,6 +136,58 @@ sealed interface EditorBanner {
         val saved: Int,
         val skipped: List<String>,
     ) : EditorBanner
+
+    /**
+     * A file could not be opened (M2): what happened, why, and the way
+     * forward ("Open a file…" or "Try again"), never a bare "That didn't work".
+     *
+     * @property uri the file that failed, for Try again.
+     */
+    data class OpenFailed(
+        val uri: String,
+        val problem: OpenProblem,
+    ) : EditorBanner
+
+    /**
+     * The file opened read-only because of its bytes: UTF-32, which the
+     * editor will not write ([invalid] false), or bytes that are not valid
+     * [encoding] ([invalid] true). "Save as… · Got it".
+     */
+    data class EncodingReadOnly(
+        val encoding: String,
+        val invalid: Boolean,
+    ) : EditorBanner
+}
+
+/** Why a file could not be opened, and so what the banner offers. */
+enum class OpenProblem(
+    /** True when the way forward is to pick the file again; false when it is to try again. */
+    val picksAnother: Boolean,
+) {
+    /** Moved, deleted, or its provider is gone. */
+    Missing(picksAnother = true),
+
+    /** The grant was revoked or never covered it; picking it again grants access. */
+    NoPermission(picksAnother = true),
+
+    /** A slow cloud provider did not answer in time. */
+    TimedOut(picksAnother = false),
+
+    /** Anything else the provider failed with. */
+    Unreadable(picksAnother = false),
+    ;
+
+    /** Maps provider failures. */
+    companion object {
+        /** The problem a provider [failure] means for the user. */
+        fun of(failure: ProviderResult.Failure): OpenProblem =
+            when (failure) {
+                ProviderResult.NotFound -> Missing
+                ProviderResult.PermissionDenied -> NoPermission
+                ProviderResult.TimedOut -> TimedOut
+                else -> Unreadable
+            }
+    }
 }
 
 /** Why edits are shown as a copy rather than in their own file. */

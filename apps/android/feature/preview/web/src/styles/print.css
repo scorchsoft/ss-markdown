@@ -86,8 +86,26 @@
         overflow: visible;
         -webkit-mask-image: none;
     }
-    :root :is(tr, img, svg, .diagram, .math-block, figure) {
+    /* A heading never ends a page. Each block is its own section, so the
+       section after a heading's section may not start the next page either. */
+    :root :is(h1, h2, h3, h4, h5, h6) + *,
+    :root section.sec:has(> :is(h1, h2, h3, h4, h5, h6):last-child) + section.sec {
+        break-before: avoid-page;
+    }
+    :root :is(tr, img, svg, .diagram, .math-block, figure, pre.code-block, blockquote) {
         break-inside: avoid;
+    }
+    :root :is(p, li) {
+        orphans: 3;
+        widows: 3;
+    }
+    :root thead {
+        display: table-header-group;
+    }
+    /* Nothing is wider than the text column: the page margins are the only margins. */
+    :root :is(table, pre.code-block, hr) {
+        max-width: 100%;
+        box-sizing: border-box;
     }
     :root :is(.footnote-def, figcaption) {
         font-size: 9pt;

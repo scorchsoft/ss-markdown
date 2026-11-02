@@ -13,6 +13,7 @@ interface TextItem {
     readonly str: string;
     readonly x: number;
     readonly y: number;
+    readonly width: number;
     readonly size: number;
     readonly page: number;
 }
@@ -32,7 +33,14 @@ async function printToPdf(page: Page): Promise<{ items: TextItem[]; pages: { wid
         for (const it of content.items) {
             if (!("str" in it) || it.str.trim().length === 0) continue;
             const [a, b, , , x, y] = it.transform as number[];
-            items.push({ str: it.str, x: x ?? 0, y: vp.height - (y ?? 0), size: Math.hypot(a ?? 0, b ?? 0), page: p });
+            items.push({
+                str: it.str,
+                x: x ?? 0,
+                y: vp.height - (y ?? 0),
+                width: it.width,
+                size: Math.hypot(a ?? 0, b ?? 0),
+                page: p,
+            });
         }
     }
     return { items: joinLines(items), pages };
@@ -44,7 +52,7 @@ function joinLines(items: TextItem[]): TextItem[] {
     for (const it of items) {
         const last = out[out.length - 1];
         if (last && last.page === it.page && Math.abs(last.y - it.y) < 0.5 && Math.abs(last.size - it.size) < 0.2) {
-            out[out.length - 1] = { ...last, str: last.str + it.str };
+            out[out.length - 1] = { ...last, str: last.str + it.str, width: it.x + it.width - last.x };
         } else {
             out.push(it);
         }
@@ -58,7 +66,8 @@ function doc(): string {
         { length: 12 },
         (_, i) => `Body paragraph ${i} with enough words to fill a printed line or two of text at eleven points.`,
     ).join("\n\n");
-    return `# Print title\n\n${paras}\n\n## Data\n\n| Col one | Col two |\n| --- | --- |\n${rows}\n\n\`\`\`mermaid\ngraph TD\n  A --> B\n\`\`\`\n\nThe end.`;
+    const code = Array.from({ length: 6 }, (_, i) => `const line${i} = "${"x".repeat(150)}";`).join("\n");
+    return `# Print title\n\n${paras}\n\n\`\`\`ts\n${code}\n\`\`\`\n\n## Data\n\n| Col one | Col two |\n| --- | --- |\n${rows}\n\n\`\`\`mermaid\ngraph TD\n  A --> B\n\`\`\`\n\nThe end.`;
 }
 
 describe("print and PDF", () => {
@@ -85,6 +94,16 @@ describe("print and PDF", () => {
                 tr: getComputedStyle(document.querySelector("tr") as Element).breakInside,
                 diagram: getComputedStyle(document.querySelector(".diagram") as Element).breakInside,
                 h2Break: getComputedStyle(document.querySelector("h2") as Element).breakAfter,
+                afterH2: getComputedStyle(
+                    document.querySelector("h2")?.closest("section")?.nextElementSibling as Element,
+                ).breakBefore,
+                pre: getComputedStyle(document.querySelector("pre.code-block") as Element).breakInside,
+                // The page margins (the host's print attributes, or @page in Chromium) are the only margins:
+                // nothing on the page adds its own, or the column would sit off centre.
+                offsets: ["html", "body", ".doc"].map((sel) => {
+                    const s = getComputedStyle(document.querySelector(sel) as Element);
+                    return [s.marginLeft, s.marginRight, s.paddingLeft, s.paddingRight].join(" ");
+                }),
             };
         });
         const pt = (n: number): string => `${Number(((n * 96) / 72).toFixed(4))}px`;
@@ -97,6 +116,9 @@ describe("print and PDF", () => {
         expect(sizes.tr).toBe("avoid");
         expect(sizes.diagram).toBe("avoid");
         expect(sizes.h2Break).toBe("avoid-page");
+        expect(sizes.afterH2).toBe("avoid-page");
+        expect(sizes.pre).toBe("avoid");
+        expect(sizes.offsets).toEqual(["0px 0px 0px 0px", "0px 0px 0px 0px", "0px 0px 0px 0px"]);
     });
 
     it("prints A4 with 11 pt body text, 20 mm margins and no split table rows", async () => {
@@ -114,6 +136,9 @@ describe("print and PDF", () => {
         for (const i of body) expect(Math.abs(i.size - 11)).toBeLessThan(0.2);
         const left = Math.min(...items.map((i) => i.x));
         expect(Math.abs(left - 20 * MM)).toBeLessThan(1.5);
+        // Symmetric: nothing, not even a long code line, runs into the right-hand 20 mm.
+        const right = Math.max(...items.map((i) => i.x + i.width));
+        expect(right).toBeLessThanOrEqual(190 * MM + 0.5);
         const firstOnPage = Math.min(...items.filter((i) => i.page === 1).map((i) => i.y - i.size));
         expect(firstOnPage).toBeGreaterThanOrEqual(20 * MM - 1);
         for (let r = 0; r < 120; r++) {

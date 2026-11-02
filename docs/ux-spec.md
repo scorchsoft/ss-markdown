@@ -647,6 +647,13 @@ the theme's on-screen base size never change it.
 | Footnotes and captions | 9 pt | |
 | Page number | 8 pt, centred in the footer | |
 
+- The margins are set by the app on the print job, not only by the
+  stylesheet: Android's WebView ignores `@page` margins and "Save as PDF"
+  offers none, so without that the text ran to the edge of the paper. A
+  printer that needs wider margins gets its own.
+- A heading stays with the block after it; code blocks, quotes, table
+  rows, diagrams and pictures are not split across pages when they fit on
+  one.
 - Diagrams and images scale to the text width and never split across
   pages.
 - Dark themes print with their **light** variant.

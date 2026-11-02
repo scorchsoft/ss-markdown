@@ -14,7 +14,14 @@ import java.util.Locale
 /**
  * Opens the system print dialog for the preview, so "Save as PDF" and real
  * printers both work (docs/ux-spec.md, "PDF"). The page's print stylesheet
- * fixes the typography in physical units; this only picks the paper.
+ * fixes the typography in physical units; this picks the paper and the
+ * margins.
+ *
+ * The margins have to come from here. WebView's print adapter lays every
+ * page out inside the print attributes' margins and ignores the
+ * stylesheet's `@page` margins, and "Save as PDF" reports no margins at all,
+ * so without [withPageMargins] the text ran flush to the left edge of the
+ * paper (edge-cases "PDF prints flush against the left edge").
  */
 internal object PreviewPrinter {
     fun print(
@@ -44,6 +51,35 @@ internal object PreviewPrinter {
             PrintAttributes.MediaSize.ISO_A4
         }
 
+    /**
+     * [attributes] as the dialog chose them, but with page margins of at
+     * least 20 mm, and 15 mm at the foot where the page number sits
+     * (docs/ux-spec.md, "PDF"). A printer that needs wider margins keeps them.
+     */
+    fun withPageMargins(attributes: PrintAttributes): PrintAttributes {
+        val printer = attributes.minMargins ?: PrintAttributes.Margins.NO_MARGINS
+        val margins =
+            PrintAttributes.Margins(
+                maxOf(printer.leftMils, SIDE_MILS),
+                maxOf(printer.topMils, SIDE_MILS),
+                maxOf(printer.rightMils, SIDE_MILS),
+                maxOf(printer.bottomMils, FOOT_MILS),
+            )
+        val builder = PrintAttributes.Builder().setMinMargins(margins)
+        // Zero means "not chosen yet"; the builder refuses it.
+        if (attributes.colorMode != 0) builder.setColorMode(attributes.colorMode)
+        attributes.mediaSize?.let(builder::setMediaSize)
+        attributes.resolution?.let(builder::setResolution)
+        if (attributes.duplexMode != 0) builder.setDuplexMode(attributes.duplexMode)
+        return builder.build()
+    }
+
+    /** 20 mm, the ux-spec page margin, in the thousandths of an inch print attributes use. */
+    private const val SIDE_MILS = 787
+
+    /** 15 mm at the foot: the page number sits in it. */
+    private const val FOOT_MILS = 591
+
     /** Delegates to WebView's adapter and tells the preview when the job is done. */
     private class FinishingAdapter(
         private val inner: PrintDocumentAdapter,
@@ -57,7 +93,13 @@ internal object PreviewPrinter {
             cancellationSignal: CancellationSignal?,
             callback: LayoutResultCallback,
             extras: Bundle?,
-        ) = inner.onLayout(oldAttributes, newAttributes, cancellationSignal, callback, extras)
+        ) = inner.onLayout(
+            oldAttributes?.let(::withPageMargins),
+            withPageMargins(newAttributes),
+            cancellationSignal,
+            callback,
+            extras,
+        )
 
         override fun onWrite(
             pages: Array<out PageRange>,

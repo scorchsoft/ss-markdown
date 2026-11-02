@@ -118,8 +118,14 @@ class OpenDocument internal constructor(
     private var cleanVersion = document.version
     private var forcedDirty = false
 
-    /** True when there is undo or redo history worth keeping in a clean journal after a save. */
-    internal val hasHistory: Boolean get() = document.canUndo || document.canRedo
+    /**
+     * True when there is undo or redo history worth keeping in a clean
+     * journal after a save: a step the journal's 8 MB tail would keep. A
+     * history of one oversize step (a 4.3 M char paste) keeps nothing, so
+     * the journal ends instead of lingering empty (review r3 M2). Costs the
+     * newest step's ops only.
+     */
+    internal val hasHistory: Boolean get() = document.hasHistoryTail()
 
     init {
         document.addEditObserver(journalObserver)

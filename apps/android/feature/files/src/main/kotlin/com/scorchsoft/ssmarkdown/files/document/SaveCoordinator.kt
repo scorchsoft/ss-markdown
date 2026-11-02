@@ -136,9 +136,10 @@ internal class SaveCoordinator(
 
     /**
      * A verified save: the saved version is clean, and the journal starts
-     * again from what was typed during the write, or becomes a clean
-     * journal holding only the undo history (ADR 0016: undo survives a
-     * save and a later death), or ends when there is no history to keep.
+     * again from what was typed during the write, or carries on as a clean
+     * journal on the saved file with one Rebase record (ADR 0016: undo
+     * survives a save and a later death), or ends when there is no history
+     * the journal would keep (none, or only steps over its 8 MB cap: r3 M2).
      *
      * Not a suspend function, on purpose. It runs in one step on the owner
      * thread, right after the write returns, so the version check and the
@@ -160,7 +161,7 @@ internal class SaveCoordinator(
         if (target != entry.uri) return // Save as: moveTo hands the journal over.
         when {
             typedDuringSave -> entry.journal.resume(saved.fingerprint, entry.document.snapshot())
-            entry.hasHistory -> entry.journal.resumeClean(saved.fingerprint)
+            entry.hasHistory -> entry.journal.saved(saved.fingerprint)
             else -> entry.journal.endClean()
         }
         settleAfterJournal(target, saved.fingerprint)

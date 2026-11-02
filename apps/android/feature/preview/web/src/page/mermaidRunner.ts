@@ -74,7 +74,8 @@ export function unsupportedDiagram(source: string): string | null {
     return `${name} diagrams aren't supported in Preview yet (mindmap and architecture diagrams are left out). Every other Mermaid type draws as usual.`;
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+/** Rejects with a "took longer than" error if [promise] has not settled within [ms]. */
+export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     return new Promise<T>((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error(`Diagram took longer than ${ms / 1000} s to draw.`)), ms);
         promise.then(

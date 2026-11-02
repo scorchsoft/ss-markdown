@@ -3,12 +3,14 @@ package com.scorchsoft.ssmarkdown.platform
 import android.content.Context
 import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
+import com.scorchsoft.ssmarkdown.fixtures.FileProviderCache
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -22,6 +24,9 @@ import java.io.File
 class PlatformActionsTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val actions = PlatformActions(context, Dispatchers.Unconfined)
+
+    @Before
+    fun freshFileProvider() = FileProviderCache.reset()
 
     @Test
     fun `share as file keeps a hostile display name inside cache-shared (SEC-1)`() {

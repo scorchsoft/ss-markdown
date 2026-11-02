@@ -211,6 +211,7 @@ private fun Footer(
                 onKey = { onAction(EditorAction.StripKeyTapped(it)) },
                 onSymbol = { onAction(EditorAction.SymbolTapped(it)) },
                 onCursor = { onAction(EditorAction.CursorStepped(it)) },
+                onBlock = { onAction(EditorAction.BlockChosen(it)) },
                 onSave = { onAction(EditorAction.SaveTapped) },
                 onTableAction = { action ->
                     onAction(EditorAction.Table(PreviewStripKeys.tableOp(action)))

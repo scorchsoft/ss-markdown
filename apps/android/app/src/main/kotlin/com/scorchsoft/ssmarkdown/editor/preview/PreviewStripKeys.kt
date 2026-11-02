@@ -1,7 +1,9 @@
 package com.scorchsoft.ssmarkdown.editor.preview
 
+import com.scorchsoft.ssmarkdown.markdown.edit.BlockType
 import com.scorchsoft.ssmarkdown.preview.bridge.TableOp
 import com.scorchsoft.ssmarkdown.preview.editing.FormatAction
+import com.scorchsoft.ssmarkdown.ui.strip.BlockChoice
 import com.scorchsoft.ssmarkdown.ui.strip.StripKey
 import com.scorchsoft.ssmarkdown.ui.strip.TableAction
 
@@ -26,6 +28,25 @@ object PreviewStripKeys {
             TableAction.DeleteColumn -> TableOp.DeleteColumn
             TableAction.DeleteTable -> TableOp.DeleteTable
         }
+
+    /** The page's format action for a ¶ menu choice: the same conversion Code runs. */
+    fun blockAction(choice: BlockChoice): FormatAction =
+        when (choice) {
+            BlockChoice.Paragraph -> FormatAction.BLOCK_PARAGRAPH
+            BlockChoice.Heading1 -> FormatAction.BLOCK_HEADING_1
+            BlockChoice.Heading2 -> FormatAction.BLOCK_HEADING_2
+            BlockChoice.Heading3 -> FormatAction.BLOCK_HEADING_3
+            BlockChoice.Bullet -> FormatAction.BLOCK_BULLET
+            BlockChoice.Numbered -> FormatAction.BLOCK_NUMBERED
+            BlockChoice.Task -> FormatAction.BLOCK_TASK
+            BlockChoice.Quote -> FormatAction.BLOCK_QUOTE
+            BlockChoice.CodeBlock -> FormatAction.BLOCK_CODE
+        }
+
+    /** core:markdown's type for a ¶ menu choice, and back (for the menu's tick). */
+    fun blockType(choice: BlockChoice): BlockType = BlockType.valueOf(choice.name)
+
+    fun choiceFor(type: BlockType?): BlockChoice? = type?.let { BlockChoice.valueOf(it.name) }
 
     /** The format action behind [key], or null for keys Preview handles otherwise (undo, Done) or not at all. */
     fun actionFor(

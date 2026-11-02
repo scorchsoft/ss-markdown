@@ -45,13 +45,13 @@ internal object CodeBlockToggle {
     }
 
     /** A fenced block's fence lines; [close] is null for a block left open to the end of the text. */
-    private class Block(
+    internal class Block(
         val open: LineSpan,
         val close: LineSpan?,
     )
 
     /** The fenced block holding [line], found by walking to its fences, or null when [line] is not code. */
-    private fun enclosingBlock(
+    fun enclosingBlock(
         text: CharSequence,
         line: LineSpan,
         fences: FenceStates,

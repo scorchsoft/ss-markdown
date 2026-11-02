@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.preview.editing
 
+import com.scorchsoft.ssmarkdown.markdown.edit.BlockType
 import com.scorchsoft.ssmarkdown.markdown.edit.DocumentStyle
 import com.scorchsoft.ssmarkdown.markdown.edit.EditCommand
 import com.scorchsoft.ssmarkdown.markdown.edit.InlineFormat
@@ -42,6 +43,17 @@ enum class FormatAction(
      * leave a list the same way.
      */
     LIST_EXIT("listExit", EditCommand.Newline, block = true),
+
+    // The ¶ menu: each converts the selected blocks, replacing their old syntax (EditCommand.SetBlockType).
+    BLOCK_PARAGRAPH("blockParagraph", EditCommand.SetBlockType(BlockType.Paragraph), block = true),
+    BLOCK_HEADING_1("blockHeading1", EditCommand.SetBlockType(BlockType.Heading1), block = true),
+    BLOCK_HEADING_2("blockHeading2", EditCommand.SetBlockType(BlockType.Heading2), block = true),
+    BLOCK_HEADING_3("blockHeading3", EditCommand.SetBlockType(BlockType.Heading3), block = true),
+    BLOCK_BULLET("blockBullet", EditCommand.SetBlockType(BlockType.Bullet), block = true),
+    BLOCK_NUMBERED("blockNumbered", EditCommand.SetBlockType(BlockType.Numbered), block = true),
+    BLOCK_TASK("blockTask", EditCommand.SetBlockType(BlockType.Task), block = true),
+    BLOCK_QUOTE("blockQuote", EditCommand.SetBlockType(BlockType.Quote), block = true),
+    BLOCK_CODE("blockCode", EditCommand.SetBlockType(BlockType.CodeBlock), block = true),
 
     /** Keyboard undo / redo inside Preview: the host's history, not a format. */
     UNDO("undo", command = null),

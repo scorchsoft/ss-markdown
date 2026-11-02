@@ -180,6 +180,10 @@ internal object EditorEffects {
                 vm.strip.onCursor(action.step)
             }
 
+            is EditorAction.BlockChosen -> {
+                vm.strip.onBlock(action.choice)
+            }
+
             is EditorAction.Find -> {
                 vm.find.onAction(action.action)
             }

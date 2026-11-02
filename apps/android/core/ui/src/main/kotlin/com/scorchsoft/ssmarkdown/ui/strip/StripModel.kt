@@ -69,6 +69,25 @@ enum class TableAction(
     DeleteTable(R.string.table_delete_table),
 }
 
+/**
+ * The block types behind the ¶ key, in menu order (docs/ux-spec.md,
+ * "Formatting strip"). The editor converts every block in the selection
+ * to the one chosen, in Code and in Preview alike.
+ */
+enum class BlockChoice(
+    @param:StringRes val label: Int,
+) {
+    Paragraph(R.string.block_paragraph),
+    Heading1(R.string.block_heading_1),
+    Heading2(R.string.block_heading_2),
+    Heading3(R.string.block_heading_3),
+    Bullet(R.string.block_bullet),
+    Numbered(R.string.block_numbered),
+    Task(R.string.block_task),
+    Quote(R.string.block_quote),
+    CodeBlock(R.string.block_code),
+}
+
 /** A key on the symbols page: the [text] it types and what TalkBack calls it. */
 @Immutable
 data class SymbolKey(
@@ -137,6 +156,8 @@ data class FormattingStripState(
      * Next cell ›, with the row and column actions behind ⋯.
      */
     val inTable: Boolean = false,
+    /** The caret's block type, ticked in the ¶ menu; null when it is none of [BlockChoice]. */
+    val block: BlockChoice? = BlockChoice.Paragraph,
 )
 
 /**
@@ -147,7 +168,7 @@ object StripLayout {
     /** Code mode's scrolling keys, in the spec's order. Undo and `{ }` are pinned, not listed. */
     val codeKeys: List<StripKey> =
         listOf(
-            StripKey.Heading,
+            StripKey.BlockStyle,
             StripKey.Bold,
             StripKey.Italic,
             StripKey.BulletList,

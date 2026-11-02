@@ -41,6 +41,16 @@
     <string name="table_delete_row">Delete row</string>
     <string name="table_delete_column">Delete column</string>
     <string name="table_delete_table">Delete table</string>
+    <string name="block_paragraph">Paragraph</string>
+    <string name="block_heading_1">Heading 1</string>
+    <string name="block_heading_2">Heading 2</string>
+    <string name="block_heading_3">Heading 3</string>
+    <string name="block_bullet">Bulleted list</string>
+    <string name="block_numbered">Numbered list</string>
+    <string name="block_task">Task</string>
+    <string name="block_quote">Quote</string>
+    <string name="block_code">Code block</string>
+    <string name="block_current">Current</string>
     <string name="symbol_backtick">Backtick</string>
     <string name="symbol_open_bracket">Open bracket</string>
     <string name="symbol_close_bracket">Close bracket</string>

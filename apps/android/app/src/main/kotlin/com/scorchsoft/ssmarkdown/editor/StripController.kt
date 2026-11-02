@@ -7,6 +7,7 @@ import com.scorchsoft.ssmarkdown.markdown.edit.InlineFormat
 import com.scorchsoft.ssmarkdown.markdown.edit.ListKind
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.preview.bridge.HostMessage
+import com.scorchsoft.ssmarkdown.ui.strip.BlockChoice
 import com.scorchsoft.ssmarkdown.ui.strip.CursorStep
 import com.scorchsoft.ssmarkdown.ui.strip.StripKey
 import com.scorchsoft.ssmarkdown.ui.strip.StripPage
@@ -57,6 +58,22 @@ class StripController(
         host.refresh()
     }
 
+    /**
+     * A ¶ menu choice: every block in the selection becomes [choice]. Code
+     * runs the command here; in Preview the page sends its selection and
+     * Kotlin runs the same command on it ([PreviewStripKeys.blockAction]).
+     */
+    fun onBlock(choice: BlockChoice) {
+        if (host.active == null) return
+        if (host.state.previewTyping) {
+            host.preview.format(PreviewStripKeys.blockAction(choice))
+        } else {
+            run(EditCommand.SetBlockType(PreviewStripKeys.blockType(choice)))
+            refreshPressed()
+        }
+        host.refresh()
+    }
+
     /** A symbols-page key: types [text] over the selection. The page stays (no hidden lock). */
     fun onSymbol(text: String) = run(EditCommand.Type(text))
 
@@ -97,12 +114,13 @@ class StripController(
         val sel = selection ?: return
         val snapshot = doc.text.snapshot()
         if (sel.end > snapshot.length) return
-        val format = FormatState.at(snapshot, sel)
+        val format = FormatState.at(snapshot, sel, doc.surface.fences)
         host.update {
             it.copy(
                 strip =
                     it.strip.copy(
                         pressed = pressedKeys(format),
+                        block = PreviewStripKeys.choiceFor(format.block),
                         canUndo = doc.text.canUndo,
                         canRedo = doc.text.canRedo,
                     ),

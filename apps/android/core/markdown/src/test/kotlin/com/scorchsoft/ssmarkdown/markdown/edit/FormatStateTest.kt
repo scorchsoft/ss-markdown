@@ -17,10 +17,10 @@ class FormatStateTest {
 
     @Test
     fun blockState() {
-        assertEquals(FormatState(headingLevel = 2), at("## Ti‸tle"))
-        assertEquals(FormatState(list = ListKind.Task, quote = true), at("> - [ ] ta‸sk"))
-        assertEquals(FormatState(list = ListKind.Numbered), at("3. ite‸m"))
-        assertEquals(FormatState(list = ListKind.Bullet), at("- ite‸m"))
+        assertEquals(FormatState(headingLevel = 2, block = BlockType.Heading2), at("## Ti‸tle"))
+        assertEquals(FormatState(list = ListKind.Task, quote = true, block = BlockType.Task), at("> - [ ] ta‸sk"))
+        assertEquals(FormatState(list = ListKind.Numbered, block = BlockType.Numbered), at("3. ite‸m"))
+        assertEquals(FormatState(list = ListKind.Bullet, block = BlockType.Bullet), at("- ite‸m"))
         assertEquals(FormatState(), at("‸"))
     }
 }

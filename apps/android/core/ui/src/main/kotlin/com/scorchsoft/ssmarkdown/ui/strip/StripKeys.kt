@@ -27,6 +27,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -74,6 +75,8 @@ internal fun StripKeyButton(
     pressed: Boolean,
     enabled: Boolean,
     width: Dp = SS.dimens.key,
+    // What TalkBack reads after the label, such as the ¶ key's current block type.
+    state: String? = null,
     onClick: () -> Unit,
 ) {
     val colors = SS.colors
@@ -90,8 +93,10 @@ internal fun StripKeyButton(
         modifier =
             Modifier
                 .size(width, SS.dimens.key)
-                .semantics { contentDescription = label }
-                .then(action),
+                .semantics {
+                    contentDescription = label
+                    state?.let { stateDescription = it }
+                }.then(action),
     ) {
         Box(
             contentAlignment = Alignment.Center,

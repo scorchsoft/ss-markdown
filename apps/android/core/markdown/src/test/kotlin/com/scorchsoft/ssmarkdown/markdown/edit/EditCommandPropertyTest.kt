@@ -52,6 +52,9 @@ class EditCommandPropertyTest {
             ListKind.entries.map { EditCommand.ToggleList(it) } +
             listOf(
                 EditCommand.SetHeading(2),
+                EditCommand.SetBlockType(BlockType.Paragraph),
+                EditCommand.SetBlockType(BlockType.Task),
+                EditCommand.SetBlockType(BlockType.CodeBlock),
                 EditCommand.CycleHeading,
                 EditCommand.ToggleBlockquote,
                 EditCommand.ToggleCodeBlock,

@@ -1,11 +1,17 @@
 package com.scorchsoft.ssmarkdown.ui.strip
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertWidthIsAtLeast
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -35,6 +41,7 @@ class FormattingStripTest {
     private val steps = mutableListOf<CursorStep>()
     private var saves = 0
     private val actions = mutableListOf<TableAction>()
+    private val blocks = mutableListOf<BlockChoice>()
 
     private fun show(state: FormattingStripState) =
         rule.setContent {
@@ -46,6 +53,7 @@ class FormattingStripTest {
                     onCursor = { steps += it },
                     onSave = { saves++ },
                     onTableAction = { actions += it },
+                    onBlock = { blocks += it },
                 )
             }
         }
@@ -55,7 +63,7 @@ class FormattingStripTest {
     @Test
     fun codeStripCarriesEveryKeyAndPinsUndoAndSymbols() {
         show(FormattingStripState(canUndo = true))
-        for (label in listOf("Heading", "Bold", "Italic", "Bulleted list", "Task", "Code", "Link", "Indent")) {
+        for (label in listOf("Block style", "Bold", "Italic", "Bulleted list", "Task", "Code", "Link", "Indent")) {
             node(label).assertExists()
         }
         // Past the peek, reachable by scrolling.
@@ -223,6 +231,28 @@ class FormattingStripTest {
         assertEquals(listOf(TableAction.DeleteRow), actions)
         // The menu closes after a choice, and ⋯ itself is not an edit key.
         rule.onNodeWithText("Add column right").assertDoesNotExist()
+        assertTrue(keys.isEmpty())
+    }
+
+    @Test
+    fun blockStyleKeyOpensEveryTypeWithTheCurrentOneTicked() {
+        show(FormattingStripState(block = BlockChoice.Heading2))
+        node("Block style").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Heading 2"))
+        node("Block style").performClick()
+        val labels =
+            "Paragraph|Heading 1|Heading 2|Heading 3|Bulleted list|Numbered list|Task|Quote|Code block".split(
+                '|',
+            )
+        for (label in labels) {
+            // 48 dp rows, read as radio buttons with the current one selected.
+            val row = rule.onNode(hasText(label) and SemanticsMatcher.keyIsDefined(SemanticsProperties.Selected))
+            row.assertHeightIsAtLeast(48.dp)
+            if (label == "Heading 2") row.assertIsSelected() else row.assertIsNotSelected()
+        }
+        rule.onNode(hasText("Task") and SemanticsMatcher.keyIsDefined(SemanticsProperties.Selected)).performClick()
+        assertEquals(listOf(BlockChoice.Task), blocks)
+        // The menu closes after a choice, and ¶ itself is not an edit key.
+        rule.onNodeWithText("Code block").assertDoesNotExist()
         assertTrue(keys.isEmpty())
     }
 

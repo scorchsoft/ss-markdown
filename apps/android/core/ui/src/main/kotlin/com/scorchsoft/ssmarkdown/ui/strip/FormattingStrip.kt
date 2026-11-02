@@ -41,7 +41,8 @@ private val FadeWidth = 12.dp
  * because the header has stepped aside. With the caret in a table, ⋯,
  * ‹ Prev cell and Next cell › are pinned before Undo ([StripLayout.tableKeys]);
  * Prev and Next come back through [onKey], the ⋯ menu's choices through
- * [onTableAction].
+ * [onTableAction]. The ¶ key opens the block-type menu ([BlockMenuKey]);
+ * a choice comes back through [onBlock].
  *
  * Stateless: [state] in, callbacks out. The editor runs each key's
  * command, flips [FormattingStripState.page] with [StripPaging], and
@@ -56,6 +57,7 @@ fun FormattingStrip(
     modifier: Modifier = Modifier,
     onSave: () -> Unit = {},
     onTableAction: (TableAction) -> Unit = {},
+    onBlock: (BlockChoice) -> Unit = {},
 ) {
     val colors = SS.colors
     val toolbarLabel = stringResource(StripLabels.toolbar)
@@ -74,7 +76,7 @@ fun FormattingStrip(
     ) {
         state.document?.let { StripDocumentHeader(it) }
         BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxHeight()) {
-            ScrollingKeys(state, maxWidth, onKey, onSymbol, onCursor)
+            ScrollingKeys(state, maxWidth, onKey, onSymbol, onCursor, onBlock)
         }
         TableKeys(StripLayout.tableKeys(state), onKey, onTableAction)
         StripKeyButton(StripKey.Undo, pressed = false, enabled = state.canUndo) { onKey(StripKey.Undo) }
@@ -99,6 +101,7 @@ private fun ScrollingKeys(
     onKey: (StripKey) -> Unit,
     onSymbol: (String) -> Unit,
     onCursor: (CursorStep) -> Unit,
+    onBlock: (BlockChoice) -> Unit,
 ) {
     val symbols = state.mode == StripMode.Code && state.page == StripPage.Symbols
     val keys = StripLayout.scrollingKeys(state.mode)
@@ -121,8 +124,17 @@ private fun ScrollingKeys(
         } else {
             keys.forEach { key ->
                 val enabled = key != StripKey.Redo || state.canRedo
-                StripKeyButton(key, pressed = key.toggles && key in state.pressed, enabled = enabled, width = width) {
-                    onKey(key)
+                if (key == StripKey.BlockStyle) {
+                    BlockMenuKey(state.block, width, onBlock)
+                } else {
+                    StripKeyButton(
+                        key,
+                        pressed = key.toggles && key in state.pressed,
+                        enabled = enabled,
+                        width = width,
+                    ) {
+                        onKey(key)
+                    }
                 }
             }
         }

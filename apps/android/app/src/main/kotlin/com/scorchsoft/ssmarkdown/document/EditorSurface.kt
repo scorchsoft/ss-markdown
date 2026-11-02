@@ -1,9 +1,11 @@
 package com.scorchsoft.ssmarkdown.document
 
 import com.scorchsoft.ssmarkdown.editor.MarkdownCodeView
+import com.scorchsoft.ssmarkdown.editor.fenceStates
 import com.scorchsoft.ssmarkdown.editor.redo
 import com.scorchsoft.ssmarkdown.editor.undo
 import com.scorchsoft.ssmarkdown.files.document.OpenDocument
+import com.scorchsoft.ssmarkdown.markdown.edit.FenceStates
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.text.EditOp
 import com.scorchsoft.ssmarkdown.text.Snapshot
@@ -42,6 +44,9 @@ interface EditorSurface {
         start: Int,
         end: Int,
     )
+
+    /** Which lines are fenced code, for the ¶ menu's tick; [FenceStates.NONE] when nothing tracks it cheaply. */
+    val fences: FenceStates get() = FenceStates.NONE
 
     /** Scrolls so [line] is at the top. */
     fun scrollToLine(line: Int)
@@ -91,6 +96,9 @@ class CodeViewSurface(
     }
 
     override fun scrollToLine(line: Int) = view.scrollToLine(line)
+
+    /** From the view's own tokenizer, so reading it costs nothing per caret move. */
+    override val fences: FenceStates get() = view.fenceStates()
 }
 
 /**

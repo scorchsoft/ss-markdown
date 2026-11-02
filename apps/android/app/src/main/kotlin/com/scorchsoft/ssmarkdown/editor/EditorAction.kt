@@ -8,6 +8,7 @@ import com.scorchsoft.ssmarkdown.navigator.NavigatorAction
 import com.scorchsoft.ssmarkdown.preview.bridge.TableOp
 import com.scorchsoft.ssmarkdown.settings.Appearance
 import com.scorchsoft.ssmarkdown.settings.PreviewWrap
+import com.scorchsoft.ssmarkdown.ui.strip.BlockChoice
 import com.scorchsoft.ssmarkdown.ui.strip.CursorStep
 import com.scorchsoft.ssmarkdown.ui.strip.StripKey
 
@@ -167,6 +168,11 @@ sealed interface EditorAction {
 
     data class CursorStepped(
         val step: CursorStep,
+    ) : EditorAction
+
+    /** A type from the ¶ menu: every block in the selection becomes [choice]. */
+    data class BlockChosen(
+        val choice: BlockChoice,
     ) : EditorAction
 
     data class ImeVisibilityChanged(

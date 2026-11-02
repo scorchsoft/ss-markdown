@@ -62,6 +62,22 @@ public sealed interface EditCommand {
         ): EditResult = checked(text, selection) { HeadingEdit.set(text, selection, level, fences) }
     }
 
+    /**
+     * The ¶ menu: makes every block in the selection a [type], replacing the
+     * block syntax it had and keeping its text ([BlockType]).
+     */
+    public data class SetBlockType(
+        /** What the blocks become. */
+        public val type: BlockType,
+    ) : EditCommand {
+        override fun apply(
+            text: CharSequence,
+            selection: TextSelection,
+            style: DocumentStyle,
+            fences: FenceStates,
+        ): EditResult = checked(text, selection) { BlockTypeEdit.apply(text, selection, style, type, fences) }
+    }
+
     /** The H key: paragraph → H1 → H2 → H3 → paragraph. */
     public data object CycleHeading : EditCommand {
         override fun apply(

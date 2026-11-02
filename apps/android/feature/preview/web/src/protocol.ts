@@ -152,6 +152,15 @@ export type FormatAction =
     | "heading5"
     | "heading6"
     | "listExit"
+    | "blockParagraph"
+    | "blockHeading1"
+    | "blockHeading2"
+    | "blockHeading3"
+    | "blockBullet"
+    | "blockNumbered"
+    | "blockTask"
+    | "blockQuote"
+    | "blockCode"
     | "undo"
     | "redo";
 

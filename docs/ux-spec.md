@@ -67,7 +67,7 @@ mockups agreed with Andrew win, and this file gets updated.
   zoom.
 - While the keyboard is up, the bar is replaced by the formatting strip.
   It is **always one row**.
-  - It holds H, B, I, list, task, code, link, indent and undo, and
+  - It holds ¶, B, I, list, task, code, link, indent and undo, and
     scrolls horizontally to reveal table, quote, redo and outdent.
   - **Enter in a list** starts the next item (same bullet, the next
     number, a fresh `[ ]`). **Enter on an empty item ends the list**: the
@@ -214,8 +214,24 @@ Never put a one-sided coloured border on anything.
   scrolls. When 48 dp keys would cut elsewhere, the scrolling keys widen a
   little (at most a fifth on a phone) rather than leave a gap before the
   pinned group. A 12 dp fade sits at the cut, by the pinned group, so the
-  cut key reads as half a key, not as a key faded early. Order: H B I list task code link indent table
-  quote redo outdent. Undo and `{ }` are pinned on the right.
+  cut key reads as half a key, not as a key faded early. Order: ¶ B I
+  list task code link indent table quote redo outdent. Undo and `{ }`
+  are pinned on the right.
+- **¶ is the block-type menu** (Code and Preview; it replaced Code's H
+  key on 2026-11-02, because cycling H could not reach a list, a quote
+  or code): Paragraph, Heading 1, Heading 2, Heading 3, Bulleted list,
+  Numbered list, Task, Quote, Code block, the caret's current type
+  ticked. The choice applies to the block at the caret or every block in
+  the selection and replaces each line's block syntax while keeping its
+  text: a bullet becomes `## text`, a heading becomes `- [ ] text` (a
+  checked task stays checked), several lines become one fenced block
+  (with a fence their content cannot close), and a code block's lines
+  come out of the fence as the new type, taken literally. A new
+  paragraph gets a blank line wherever it would otherwise join the
+  block above or below. Only those lines change. Rows are 48 dp and read
+  as radio buttons ("Heading 2, selected"); the key itself reads "Block
+  style, Heading 2". Preview sends the same conversion to Kotlin
+  (`blockHeading2`…), so both views give the same text.
 - **Split divider:** 48 dp invisible touch area around the 14 dp
   handle, plus TalkBack actions "Make top larger / smaller". Task
   checkboxes in Preview get a 48 dp hit area.
@@ -570,7 +586,7 @@ Preview is not read-only. Tap rendered text and the cursor lands there,
 the keyboard opens, and the block under edit gets a faint tint.
 
 - The formatting strip works on rendered text: a block-style picker
-  (Heading 1–3, Paragraph, Quote, Code block), then B, I, inline code,
+  (the ¶ menu: Paragraph, Heading 1–3, the three lists, Quote, Code block), then B, I, inline code,
   link, list, insert table, and undo. Toggles show their state, so Bold
   is pressed when the cursor is in bold text.
 - **Edits never rewrite bytes you didn't touch, even inside the block.**

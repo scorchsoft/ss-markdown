@@ -16,13 +16,16 @@ public data class FormatState(
     public val list: ListKind? = null,
     /** True inside a blockquote. */
     public val quote: Boolean = false,
+    /** The block type for the ¶ menu's tick, or null for none of its types. */
+    public val block: BlockType? = BlockType.Paragraph,
 ) {
     /** Reading the state. */
     public companion object {
-        /** The state at [selection] in [text]. */
+        /** The state at [selection] in [text]; [fences] says which lines are code, for [block]. */
         public fun at(
             text: CharSequence,
             selection: TextSelection,
+            fences: FenceStates = FenceStates.NONE,
         ): FormatState {
             require(selection.end <= text.length) { "selection $selection outside text of ${text.length}" }
             val line = TextLines.lineAt(text, selection.start)
@@ -41,7 +44,7 @@ public data class FormatState(
                     else -> null
                 }
             val (level, _) = HeadingEdit.parse(line.content.substring(p.quoteEnd))
-            return FormatState(inline, level, list, p.quoteEnd > 0)
+            return FormatState(inline, level, list, p.quoteEnd > 0, BlockType.at(text, selection, fences))
         }
     }
 }

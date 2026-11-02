@@ -152,8 +152,7 @@ class ChunkedPasteTest {
      * edge-cases "Undo or a command during a large paste": the strip's Undo
      * and the text toolbar are not held by the paste's gate, and Undo
      * inside its open edit group threw ("Cannot undo inside an open edit
-     * group"). They now finish the paste first; a host edit computed
-     * before it finished is refused, never written at stale offsets.
+     * group"). They now finish the paste first.
      */
     @Test
     fun `undo from the toolbar mid-paste finishes the paste, then undoes it whole`() {
@@ -164,16 +163,41 @@ class ChunkedPasteTest {
         frames.removeFirst().run()
         assertTrue(view.isPasting)
 
-        // A host edit made from a snapshot taken while the paste was half in is refused.
-        view.applyEdits(listOf(EditOp(0, "", "X")), 0, 0)
-        assertTrue(text.startsWith("head\n"))
-
         assertTrue(view.commands.run(EditorCommand.UNDO))
         assertFalse(view.isPasting)
         assertEquals("head\ntail", text)
         pumpFrames()
         assertEquals("head\ntail", text)
         assertTrue(view.session.redo())
+        assertEquals("head\n" + pasted + "tail", text)
+    }
+
+    /**
+     * A host edit (a Preview checkbox in Split, a strip command) whose ops
+     * were taken from the half-pasted text: the paste goes in first and the
+     * ops follow their text past it; one the paste landed inside is refused.
+     */
+    @Test
+    fun `a host edit mid-paste lands where its text went`() {
+        view.document = TextDocument(PieceTree.of("head\ntail"))
+        view.setCaret(5)
+        val pasted = "v".repeat(ChunkedPaste.CHUNK_CHARS * 3)
+        view.pasteText(pasted)
+        frames.removeFirst().run()
+        val tail = text.indexOf("tail")
+        view.applyEdits(listOf(EditOp(tail + 4, "", "!"), EditOp(0, "h", "H")), 0, 0)
+        assertFalse(view.isPasting)
+        assertEquals("Head\n" + pasted + "tail!", text)
+
+        // The first paste's next slice is still queued; it finds its paste over and does nothing.
+        pumpFrames()
+        view.document = TextDocument(PieceTree.of("head\ntail"))
+        view.setCaret(5)
+        view.pasteText(pasted)
+        frames.removeFirst().run()
+        val half = text
+        val at = half.indexOf("tail")
+        view.applyEdits(listOf(EditOp(at - 1, half.substring(at - 1, at + 1), "")), 0, 0)
         assertEquals("head\n" + pasted + "tail", text)
     }
 

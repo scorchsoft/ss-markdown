@@ -108,20 +108,37 @@ internal class ChunkedPaste(
      * edit or undo from outside the keyboard can follow it: one made while
      * the paste's edit group was open crashed (undo) or landed inside the
      * pasted text (edge-cases "Undo or a command during a large paste").
-     * Returns false while the clip is still becoming text, when nothing can
-     * be settled yet and the caller must not edit.
+     * Returns what went in now, so offsets taken before can follow it; null
+     * when no slices were running (while the clip is still becoming text no
+     * edit group is open and the document is untouched).
      */
-    fun completeNow(): Boolean {
-        val running = job
-        if (running != null) {
-            if (session.document === running.document && running.inserted < running.text.length) {
-                session.replaceRange(running.at, running.at, running.text.substring(running.inserted))
-                running.at += running.text.length - running.inserted
-                running.inserted = running.text.length
-            }
-            finish(running)
+    fun completeNow(): RestOfPaste? {
+        val running = job ?: return null
+        val at = running.at
+        val rest = running.text.length - running.inserted
+        val added = if (session.document === running.document && rest > 0) rest else 0
+        if (added > 0) {
+            session.replaceRange(at, at, running.text.substring(running.inserted))
+            running.at += added
+            running.inserted = running.text.length
         }
-        return !preparing
+        finish(running)
+        return RestOfPaste(at, added)
+    }
+
+    /** What [completeNow] inserted: [added] chars at [at]. */
+    class RestOfPaste(
+        val at: Int,
+        val added: Int,
+    ) {
+        /** Where [offset], taken before the insertion, is now: the text from [at] on moved past the paste. */
+        fun follow(offset: Int): Int = if (offset >= at) offset + added else offset
+
+        /** True when `[start, end)` had [at] strictly inside it, so the paste now splits it. */
+        fun splits(
+            start: Int,
+            end: Int,
+        ): Boolean = added > 0 && at in (start + 1) until end
     }
 
     /** Ends a running paste where it is, keeping what is in as one undo step. */

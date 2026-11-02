@@ -244,11 +244,14 @@ class MarkdownCodeView
         }
 
         /**
-         * Puts the rest of a running large paste in now, in its own undo step,
-         * so a host edit or undo can follow it. False while the clip is still
-         * becoming text: the host must not edit then ([applyEdits] refuses).
+         * Puts the rest of a running large paste in now, as part of its undo
+         * step, so a host edit or undo can follow it ([applyEdit] and
+         * [applyEdits] do this themselves, moving their offsets past it).
+         * While the clip is still becoming text nothing is open, and nothing waits.
          */
-        fun completePaste(): Boolean = paste.completeNow()
+        fun completePaste() {
+            paste.completeNow()
+        }
 
         /**
          * An edit from outside the keyboard (toolbar, Preview round-trip):
@@ -262,11 +265,13 @@ class MarkdownCodeView
             selectStart: Int = EditingSession.NONE,
             selectEnd: Int = EditingSession.NONE,
         ) {
-            // Inside a paste's open edit group it would join the paste and shift under its slices.
-            if (paste.isRunning) return
+            // Inside a paste's open edit group it would join the paste and shift under its slices: finish it first.
+            val rest = paste.completeNow()
+            if (rest != null && rest.splits(minOf(start, end), maxOf(start, end))) return
+            val follow = { at: Int -> if (rest == null || at == EditingSession.NONE) at else rest.follow(at) }
             session.document.beginEditGroup()
             try {
-                session.applyEdit(start, end, text, selectStart, selectEnd)
+                session.applyEdit(follow(start), follow(end), text, follow(selectStart), follow(selectEnd))
             } finally {
                 session.document.endEditGroup()
             }
@@ -444,8 +449,18 @@ class MarkdownCodeView
             selectStart: Int,
             selectEnd: Int,
         ) {
-            // Ops computed before a paste finished are stale; the host completes it first (requestFlushComposing).
-            if (paste.isRunning) return
+            // A running paste goes in first; ops taken before it follow the text past it, or are refused
+            // when it landed inside one of them (edge-cases "Undo or a command during a large paste").
+            val rest = paste.completeNow()
+            if (rest != null) {
+                if (ops.any { rest.splits(it.offset, it.offset + it.deleted.length) }) return
+                applyEdits(
+                    ops.map { EditOp(rest.follow(it.offset), it.deleted, it.inserted) },
+                    rest.follow(selectStart),
+                    rest.follow(selectEnd),
+                )
+                return
+            }
             val document = session.document
             session.beginBatchEdit()
             document.beginEditGroup()

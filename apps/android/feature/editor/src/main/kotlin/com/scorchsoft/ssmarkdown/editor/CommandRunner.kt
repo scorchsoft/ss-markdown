@@ -34,7 +34,7 @@ internal class CommandRunner(
     ): Boolean {
         if (command !in VERTICAL) goalX = Float.NaN
         // The toolbar and accessibility are not held by the paste's gate, as keys are: finish the paste first.
-        if (command in EDITS && !view.completePaste()) return false
+        if (command in EDITS) view.completePaste()
         return edit(command) ?: move(command, extend)
     }
 

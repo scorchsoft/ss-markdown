@@ -97,7 +97,9 @@ class EditorScreenRenderTest(
     fun `scrolled past a heading shows the current section with the save state`() {
         // A phone's title is narrower than 360 dp, so only the current section shows, never stubs.
         render(Samples.section)
-        rule.onNodeWithText("› Code review · Unsaved").assertIsDisplayed()
+        // The section and the state are two texts, so a tight line cuts the section, never "Unsaved".
+        rule.onNodeWithText("› Code review", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithText(" · Unsaved", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test

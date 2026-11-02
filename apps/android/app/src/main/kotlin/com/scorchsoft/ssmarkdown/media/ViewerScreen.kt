@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,7 +47,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.center
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toOffset
 import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
 import com.scorchsoft.ssmarkdown.ui.SecondaryScreen
@@ -101,14 +104,10 @@ private fun ZoomableImage(
 ) {
     var scale by remember(key) { mutableFloatStateOf(MIN_SCALE) }
     var offset by remember(key) { mutableStateOf(Offset.Zero) }
-    var size by remember(key) { mutableStateOf(IntSize.Zero) }
-    val transform =
-        rememberTransformableState { centroid, zoom, pan, _ ->
-            val centre = Offset(size.width / 2f, size.height / 2f)
-            val next = PinchZoom(scale, offset).zoomed(zoom, pan, centroid, centre, MAX_SCALE)
-            scale = next.scale
-            offset = next.offset
-        }
+    val zoom: (PinchZoom) -> Unit = { next ->
+        scale = next.scale
+        offset = next.offset
+    }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         when (image) {
             is ViewerImage.Loaded -> {
@@ -121,19 +120,7 @@ private fun ZoomableImage(
                             Modifier
                                 .fillMaxSize()
                                 .padding(16.dp)
-                                .onSizeChanged { size = it }
-                                .pointerInput(key) {
-                                    detectTapGestures(onDoubleTap = {
-                                        scale = if (scale > MIN_SCALE) MIN_SCALE else DOUBLE_TAP_SCALE
-                                        offset = Offset.Zero
-                                    })
-                                }.transformable(transform)
-                                .graphicsLayer {
-                                    scaleX = scale
-                                    scaleY = scale
-                                    translationX = offset.x
-                                    translationY = offset.y
-                                },
+                                .pinchZoomable(key, PinchZoom(scale, offset), zoom),
                     )
                 } ?: Message(R.string.viewer_failed)
             }
@@ -161,6 +148,36 @@ private fun ZoomableImage(
             )
         }
     }
+}
+
+/**
+ * Pinch (about the fingers), pan and double-tap on a picture showing
+ * [current], reporting each new zoom to [onZoom]; drawn scaled and moved.
+ */
+@Composable
+private fun Modifier.pinchZoomable(
+    key: Int,
+    current: PinchZoom,
+    onZoom: (PinchZoom) -> Unit,
+): Modifier {
+    var size by remember(key) { mutableStateOf(IntSize.Zero) }
+    val latest by rememberUpdatedState(current)
+    val transform =
+        rememberTransformableState { centroid, zoom, pan, _ ->
+            onZoom(latest.zoomed(zoom, pan, centroid, size.center.toOffset(), MAX_SCALE))
+        }
+    return onSizeChanged { size = it }
+        .pointerInput(key) {
+            detectTapGestures(onDoubleTap = {
+                onZoom(PinchZoom(if (latest.scale > MIN_SCALE) MIN_SCALE else DOUBLE_TAP_SCALE, Offset.Zero))
+            })
+        }.transformable(transform)
+        .graphicsLayer {
+            scaleX = current.scale
+            scaleY = current.scale
+            translationX = current.offset.x
+            translationY = current.offset.y
+        }
 }
 
 /**

@@ -64,7 +64,8 @@ internal object PressedKeyFace {
 }
 
 /**
- * One 48 dp strip key. A toggle key is a checkbox to TalkBack ("Bold,
+ * One 48 dp strip key. It never takes focus ([noFocus]): the editor keeps
+ * it, so the keyboard stays up while keys are tapped. A toggle key is a checkbox to TalkBack ("Bold,
  * checked"), the Android twin of `aria-pressed`, and shows a filled tint
  * inside an ink ring when pressed ([PressedKeyFace]): never an accent
  * colour, since red means "needs you".
@@ -84,9 +85,14 @@ internal fun StripKeyButton(
     val tint = if (enabled) colors.ink else colors.inkMuted.copy(alpha = DISABLED_ALPHA)
     val action =
         if (key.toggles) {
-            Modifier.toggleable(value = pressed, enabled = enabled, role = Role.Checkbox, onValueChange = { onClick() })
+            Modifier.noFocus().toggleable(
+                value = pressed,
+                enabled = enabled,
+                role = Role.Checkbox,
+                onValueChange = { onClick() },
+            )
         } else {
-            Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            Modifier.noFocus().clickable(enabled = enabled, role = Role.Button, onClick = onClick)
         }
     Box(
         contentAlignment = Alignment.Center,
@@ -198,6 +204,7 @@ internal fun SymbolsToggleKey(
             Modifier
                 .size(SS.dimens.key)
                 .semantics { contentDescription = label }
+                .noFocus()
                 .toggleable(value = showingSymbols, role = Role.Checkbox, onValueChange = { onClick() }),
     ) {
         val face = Modifier.size(KeyFace).clearAndSetSemantics {}
@@ -233,6 +240,7 @@ internal fun SymbolKeyButton(
             Modifier
                 .size(width, SS.dimens.key)
                 .semantics { contentDescription = label }
+                .noFocus()
                 .clickable(role = Role.Button, onClick = onClick),
     ) {
         Text(

@@ -100,6 +100,7 @@ internal fun StripSaveButton(
             Modifier
                 .height(SS.dimens.pillHitArea)
                 .padding(start = 4.dp)
+                .noFocus()
                 .clickable(enabled = !saving, role = Role.Button, onClick = onSave)
                 .clearAndSetSemantics {
                     contentDescription = label

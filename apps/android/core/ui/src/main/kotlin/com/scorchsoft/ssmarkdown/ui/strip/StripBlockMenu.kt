@@ -3,7 +3,6 @@ package com.scorchsoft.ssmarkdown.ui.strip
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -31,7 +30,9 @@ private val TickSize = 20.dp
  * Paragraph, Heading 1–3, the three lists, Quote and Code block, the
  * caret's current type ticked. Each row is 48 dp and a radio button to
  * TalkBack ("Heading 2, selected"); the key reads its current type
- * ("Block style, Paragraph"). The menu's open state is the only state
+ * ("Block style, Paragraph"). The menu opens above the strip and never
+ * takes focus ([StripMenu]), so the editor keeps its caret and the
+ * keyboard stays up. The menu's open state is the only state
  * here: what a choice does is the editor's business.
  */
 @Composable
@@ -45,9 +46,9 @@ internal fun BlockMenuKey(
     val selectedLabel = stringResource(R.string.block_current)
     Box {
         StripKeyButton(StripKey.BlockStyle, pressed = false, enabled = true, width = width, state = currentLabel) {
-            open = true
+            open = !open
         }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }, containerColor = SS.colors.chrome) {
+        StripMenu(open = open, onDismiss = { open = false }) {
             BlockChoice.entries.forEach { choice ->
                 val isCurrent = choice == current
                 DropdownMenuItem(
@@ -72,6 +73,7 @@ internal fun BlockMenuKey(
                     modifier =
                         Modifier
                             .heightIn(min = SS.dimens.key)
+                            .noFocus()
                             .semantics {
                                 role = Role.RadioButton
                                 selected = isCurrent

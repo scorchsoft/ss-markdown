@@ -274,7 +274,7 @@ class AppGraph(
             startDelayMillis = DIRECT_SHARE_START_DELAY_MILLIS,
         ).also { it.start() }
 
-    /** Downloads, ZIPs, sharing and the clipboard for exported images and rich text. */
+    /** Downloads, ZIPs, sharing and the clipboard for exported images and formatted text. */
     val media = MediaActions(app, io)
 
     /** The preview themes: built-ins plus custom JSON files. */

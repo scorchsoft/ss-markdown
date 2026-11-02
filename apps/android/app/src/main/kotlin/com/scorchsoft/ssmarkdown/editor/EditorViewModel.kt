@@ -72,6 +72,7 @@ class EditorViewModel(
     val anchorLine: StateFlow<Int> = anchorFlow.asStateFlow()
 
     val saves = SaveController(this)
+    val copies = CopyController(this)
     val conflicts = ConflictController(this)
     val recovery = RecoveryController(this)
     val strip = StripController(this)
@@ -410,6 +411,7 @@ class EditorViewModel(
                 canUndo = doc.text.canUndo,
                 canRedo = doc.text.canRedo,
                 historyOn = settings.history.recording,
+                copyFormat = settings.copyFormat,
             )
         }
         updateBreadcrumb()

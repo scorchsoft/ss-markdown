@@ -34,10 +34,6 @@ object EditorReducer {
                 state.copy(overlay = EditorOverlay.Menu)
             }
 
-            EditorAction.CopyLongPressed -> {
-                state.copy(overlay = EditorOverlay.CopyMenu)
-            }
-
             EditorAction.DismissOverlay,
             EditorAction.KeepEditing,
             EditorAction.ConfirmNotKept,

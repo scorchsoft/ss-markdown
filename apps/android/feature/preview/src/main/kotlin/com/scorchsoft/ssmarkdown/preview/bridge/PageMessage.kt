@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.preview.bridge
 
+import com.scorchsoft.ssmarkdown.preview.FormattedCopy
 import com.scorchsoft.ssmarkdown.preview.PreviewListener
 import com.scorchsoft.ssmarkdown.preview.editing.FormatAction
 import java.util.Base64
@@ -249,7 +250,13 @@ sealed interface PageMessage {
     data class HtmlResult(
         val requestId: Int,
         val html: String?,
-    ) : PageMessage
+        val text: String? = null,
+        val truncated: Boolean = false,
+    ) : PageMessage {
+        /** The copy, or null when the page could not render the lines. */
+        val copy: FormattedCopy?
+            get() = if (html != null && text != null) FormattedCopy(html, text, truncated) else null
+    }
 
     data class Error(
         val message: String,

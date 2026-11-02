@@ -28,6 +28,7 @@ enum class Appearance { System, Light, Dark }
  * @property previewThemeId the preview theme (Display → Preview theme): a built-in or custom theme's id.
  * @property previewWrap Display → Preview wrapping: Fluid, the A4 page, or No wrap.
  * @property export Export images' remembered choices.
+ * @property copyFormat what Copy put on the clipboard last; the Copy chooser lists it first.
  */
 data class AppSettings(
     val openWith: OpenWith = OpenWith.LastUsed,
@@ -48,6 +49,7 @@ data class AppSettings(
     val previewThemeId: String = "clean",
     val previewWrap: PreviewWrap = PreviewWrap.Fluid,
     val export: ExportDefaults = ExportDefaults(),
+    val copyFormat: CopyFormat = CopyFormat.Markdown,
 ) {
     /** Whether [uri] autosaves: drafts always do; otherwise its override, else the global mode. */
     fun autosaves(
@@ -108,6 +110,13 @@ data class ShareDefaults(
     val prefix: AppendPrefix = AppendPrefix.None,
     val directShare: Boolean = true,
 )
+
+/**
+ * What Copy puts on the clipboard (ux-spec "Top bar"): the Markdown source
+ * exactly, or the rendered document as formatted text (HTML with a plain-text
+ * twin) for mail and document editors.
+ */
+enum class CopyFormat { Markdown, Formatted }
 
 /** Export images → Diagrams as. */
 enum class DiagramFormat { Png, Svg, Both }

@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.preview.bridge
 
+import com.scorchsoft.ssmarkdown.preview.FormattedCopy
 import com.scorchsoft.ssmarkdown.preview.editing.FormatAction
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -149,6 +150,21 @@ class BridgeCodecTest {
             PageMessage.TableMenu(3, 1, 0),
             BridgeCodec.decode("""{"type":"tableMenu","line":3,"row":1,"column":0}"""),
         )
+    }
+
+    @Test
+    fun `a formatted copy carries its budget out and its HTML, plain text and truncation back`() {
+        val ask = encoded(HostMessage.ExportHtml(4, 0, 12, 400_000))
+        assertEquals(400_000, ask.getInt("maxChars"))
+        val answer =
+            BridgeCodec.decode(
+                """{"type":"htmlResult","requestId":4,"html":"<p>x</p>","text":"x","truncated":true}""",
+            ) as PageMessage.HtmlResult
+        assertEquals(FormattedCopy("<p>x</p>", "x", truncated = true), answer.copy)
+        val none =
+            BridgeCodec.decode("""{"type":"htmlResult","requestId":5,"html":null,"text":null,"truncated":false}""")
+                as PageMessage.HtmlResult
+        assertNull(none.copy)
     }
 
     @Test

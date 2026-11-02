@@ -1,5 +1,7 @@
 package com.scorchsoft.ssmarkdown.navigator
 
+import com.scorchsoft.ssmarkdown.settings.CopyFormat
+
 /** What the Navigator can do. */
 sealed interface NavigatorAction {
     data object Close : NavigatorAction
@@ -37,9 +39,10 @@ sealed interface NavigatorAction {
         val uri: String,
     ) : NavigatorAction
 
+    /** The section menu's Copy rows: the section from [line] as Markdown or as formatted text. */
     data class CopySection(
         val line: Int,
-        val richText: Boolean,
+        val format: CopyFormat,
     ) : NavigatorAction
 
     data class SelectSection(

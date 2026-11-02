@@ -176,28 +176,8 @@ class SaveController(
         }
     }
 
-    /** Copy (all, as Markdown) — or "Copy as rich text": the Markdown plus the preview's HTML. */
-    fun copyAll(richText: Boolean) {
-        val doc = host.active ?: return
-        doc.surface.flushComposing()
-        host.update { it.copy(overlay = null) }
-        val text = doc.text.snapshot()
-        when {
-            richText && text.length <= CLIPBOARD_LIMIT_CHARS -> {
-                host.emit(EditorEvent.CopyRichText(text, 0, doc.text.text.lineCount))
-                host.message(MessageKind.CopiedRichText)
-            }
-
-            text.length > CLIPBOARD_LIMIT_CHARS -> {
-                host.emit(EditorEvent.ShareAsFile(fileName(), text))
-            }
-
-            else -> {
-                host.emit(EditorEvent.CopyText(text))
-                host.message(MessageKind.Copied)
-            }
-        }
-    }
+    /** The name a large copy or share is offered under. */
+    internal fun shareName(): String = fileName()
 
     /** ⋮ → Share. Large documents go as a file, never as `EXTRA_TEXT` (robustness §5). */
     fun share(richText: Boolean) {
@@ -274,7 +254,7 @@ class SaveController(
     private fun fileName(): String =
         host.active?.open?.displayName ?: SuggestedFileName.forText(host.active?.text?.snapshot() ?: "")
 
-    private companion object {
+    internal companion object {
         /** About 1 MB of UTF-16 through Binder; larger copies go as a file (robustness §5). */
         const val CLIPBOARD_LIMIT_CHARS = 400_000
     }

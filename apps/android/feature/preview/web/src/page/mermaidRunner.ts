@@ -149,6 +149,40 @@ export class MermaidRunner {
         return contentHash(`${pre.textContent ?? ""}\u0000${this.themeKey}\u0000${width}`);
     }
 
+    /**
+     * Draws [source] off screen for "Copy formatted text": always in the light
+     * theme and a plain sans-serif face, which the pasted PNG keeps wherever it
+     * goes. Waits for the on-screen queue and holds it meanwhile, because
+     * Mermaid's configuration is global. Null when the diagram cannot be drawn.
+     */
+    async drawForCopy(source: string): Promise<string | null> {
+        if (unsupportedDiagram(source) ?? checkDiagramCaps(source)) return null;
+        while (this.running) await this.idle();
+        this.running = true;
+        const id = `ssmd-copy-${++idCounter}`;
+        try {
+            const mermaid = await loadMermaid();
+            mermaid.initialize({
+                startOnLoad: false,
+                securityLevel: "strict",
+                theme: "default",
+                maxTextSize: MAX_DIAGRAM_CHARS,
+                maxEdges: MAX_DIAGRAM_EDGES,
+                htmlLabels: false,
+                flowchart: { htmlLabels: false },
+                fontFamily: "Arial, Helvetica, sans-serif",
+            });
+            const { svg } = await withTimeout(mermaid.render(id, source), DIAGRAM_TIMEOUT_MS);
+            return sanitizeSvg(svg);
+        } catch {
+            document.getElementById(`d${id}`)?.remove();
+            return null;
+        } finally {
+            this.running = false;
+            this.pump();
+        }
+    }
+
     private pump(): void {
         if (this.running) return;
         const next = this.queue.shift();

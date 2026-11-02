@@ -10,10 +10,9 @@ import com.scorchsoft.ssmarkdown.AppGraph
 import com.scorchsoft.ssmarkdown.editor.EditorAction
 import com.scorchsoft.ssmarkdown.editor.EditorEvent
 import com.scorchsoft.ssmarkdown.editor.MessageKind
-import com.scorchsoft.ssmarkdown.platform.PlatformActions
 
 /**
- * The Preview's one-shot effects: rich text from the renderer, links,
+ * The Preview's one-shot effects: formatted text from the renderer, links,
  * image exports and the theme editor. PDF is not here: it prints through
  * the page itself (`PreviewSession.print`), bound to its document. Kept apart from
  * [EditorEffectsHost] so each file reads as one area.
@@ -21,12 +20,11 @@ import com.scorchsoft.ssmarkdown.platform.PlatformActions
 internal suspend fun onPreviewEvent(
     event: EditorEvent,
     graph: AppGraph,
-    platform: PlatformActions,
 ) {
     val vm = graph.editor
     when (event) {
-        is EditorEvent.CopyRichText -> {
-            copyRich(graph, platform, event)
+        is EditorEvent.CopyFormatted -> {
+            graph.media.copyFormatted(event.copy)
         }
 
         is EditorEvent.OpenLink -> {
@@ -55,18 +53,6 @@ internal suspend fun onPreviewEvent(
             Unit
         }
     }
-}
-
-/** HTML from the preview when it can give it; the plain Markdown always goes along. */
-private suspend fun copyRich(
-    graph: AppGraph,
-    platform: PlatformActions,
-    event: EditorEvent.CopyRichText,
-) {
-    val html =
-        graph.editor.preview.view
-            ?.exportHtml(event.fromLine, event.toLine)
-    if (html != null) graph.media.copyHtml(event.text, html) else platform.copy(event.text)
 }
 
 private fun saved(

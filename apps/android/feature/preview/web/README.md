@@ -32,6 +32,7 @@ Kotlin (PreviewView) ──WebMessagePort, JSON──▶ page main thread ──
 | `src/worker/` | The render worker entry. |
 | `src/page/` | The page: controller, virtualiser, scroll sync, outline, Mermaid, theme, gestures, bridge. |
 | `src/page/editing/` | Tap-to-edit: sessions, run mapping, table editing and its toolbar. |
+| `src/page/copy/` | "Copy formatted text": the allow-list rebuild with inline light styles (`formatted.ts`), its plain-text twin, maths as text and embedding pictures and diagrams within the clipboard budget. `exportHtml.ts` drives it. |
 | `src/styles/` | Theme-variable CSS, highlight.js palette, print stylesheet and A4 page mode. |
 | `src/shell/index.html` | The page shell and its Content Security Policy. |
 | `test/corpus/` | Markdown that covers every syntax, plus the hostile security corpus. |

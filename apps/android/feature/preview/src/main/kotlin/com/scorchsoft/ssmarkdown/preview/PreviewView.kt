@@ -59,8 +59,8 @@ class PreviewView
          */
         var backgroundExecutor: Executor = Executor(Runnable::run)
 
-        /** Rich-text exports waiting for the page's answer, by request id. Main thread only. */
-        private val htmlRequests = HashMap<Int, (String?) -> Unit>()
+        /** Formatted copies waiting for the page's answer, by request id. Main thread only. */
+        private val htmlRequests = HashMap<Int, (FormattedCopy?) -> Unit>()
         private var nextHtmlRequest = 1
 
         private val recovery = RendererRecovery()
@@ -71,7 +71,7 @@ class PreviewView
                     is PageMessage.Rendered -> refreshTrace.onRendered(message.rev)
                     is PageMessage.TopLine -> topLine = message.line
                     is PageMessage.PrintReady -> printing.onPageReady(message.requestId)
-                    is PageMessage.HtmlResult -> htmlRequests.remove(message.requestId)?.invoke(message.html)
+                    is PageMessage.HtmlResult -> htmlRequests.remove(message.requestId)?.invoke(message.copy)
                     else -> Unit
                 }
                 listener?.let(message::deliverTo)
@@ -159,23 +159,31 @@ class PreviewView
             }
 
         /**
-         * "Copy as rich text": the page's own rendering of source lines
-         * `[fromLine, toLine)` as clean HTML (no editing attributes or chips),
-         * or null when the preview cannot give it within [timeoutMillis]; the
-         * caller then copies plain Markdown. Only the sections holding those
+         * "Copy formatted text": source lines `[fromLine, toLine)` as HTML with
+         * inline light styles and its plain-text twin, together at most
+         * [maxChars], or null when the page cannot give it within [timeoutMillis]
+         * or is given another document first. Only the sections holding those
          * lines are rendered. Call on the main thread.
          */
-        suspend fun exportHtml(
+        override suspend fun exportFormatted(
             fromLine: Int,
             toLine: Int,
-            timeoutMillis: Long = EXPORT_TIMEOUT_MILLIS,
-        ): String? {
+            maxChars: Int,
+        ): FormattedCopy? = exportFormatted(fromLine, toLine, maxChars, EXPORT_TIMEOUT_MILLIS)
+
+        /** [exportFormatted] with its own [timeoutMillis]. */
+        suspend fun exportFormatted(
+            fromLine: Int,
+            toLine: Int,
+            maxChars: Int,
+            timeoutMillis: Long,
+        ): FormattedCopy? {
             val id = nextHtmlRequest++
             return withTimeoutOrNull(timeoutMillis) {
                 suspendCancellableCoroutine { done ->
-                    htmlRequests[id] = { html -> done.resume(html) }
+                    htmlRequests[id] = { copy -> done.resume(copy) }
                     done.invokeOnCancellation { post { htmlRequests.remove(id) } }
-                    send(HostMessage.ExportHtml(id, fromLine, toLine))
+                    send(HostMessage.ExportHtml(id, fromLine, toLine, maxChars))
                 }
             }
         }
@@ -201,8 +209,8 @@ class PreviewView
 
         /**
          * The page is about to hold another document, or is gone: a print it
-         * was preparing ends without a dialog, and rich-text exports waiting on
-         * it get null (the caller copies plain text).
+         * was preparing ends without a dialog, and formatted copies waiting on
+         * it get null (the caller says so and copies the Markdown).
          */
         private fun abandonPageRequests() {
             printing.onDocumentLoaded()
@@ -258,6 +266,7 @@ class PreviewView
         }
 
         private companion object {
-            const val EXPORT_TIMEOUT_MILLIS = 5_000L
+            /** Pictures and diagrams take the page up to 8 s (exportHtml.ts); this leaves room for the words. */
+            const val EXPORT_TIMEOUT_MILLIS = 20_000L
         }
     }

@@ -7,7 +7,7 @@ import type { HostMessage, PageMessage, PreviewSettings } from "../protocol";
 import { Bridge } from "./bridge";
 import { RenderController } from "./controller";
 import { Editor } from "./editing/editor";
-import { exportHtml } from "./exportHtml";
+import { exportHtml, type FormattedCopy } from "./exportHtml";
 import { exportDiagram } from "./exportImage";
 import { Gestures } from "./gestures";
 import { MermaidRunner } from "./mermaidRunner";
@@ -150,7 +150,7 @@ export class PreviewApp {
                 this.editor.flushTyping();
                 break;
             case "exportHtml":
-                void this.exportHtml(m.requestId, m.fromLine, m.toLine);
+                void this.exportHtml(m.requestId, m.fromLine, m.toLine, m.maxChars);
                 break;
             case "finishPrint":
                 this.printRequest++;
@@ -260,14 +260,22 @@ export class PreviewApp {
         }
     }
 
-    private async exportHtml(requestId: number, fromLine: number, toLine: number): Promise<void> {
-        let html: string | null = null;
+    private async exportHtml(requestId: number, fromLine: number, toLine: number, maxChars: number): Promise<void> {
+        let copy: FormattedCopy | null = null;
         try {
-            html = await exportHtml(this.controller, fromLine, toLine);
+            copy = await exportHtml(this.controller, fromLine, toLine, maxChars, (source) =>
+                this.mermaid.drawForCopy(source),
+            );
         } catch (e) {
             this.bridge.post({ type: "error", message: e instanceof Error ? e.message : String(e) });
         }
-        this.bridge.post({ type: "htmlResult", requestId, html });
+        this.bridge.post({
+            type: "htmlResult",
+            requestId,
+            html: copy?.html ?? null,
+            text: copy?.text ?? null,
+            truncated: copy?.truncated ?? false,
+        });
     }
 
     /**

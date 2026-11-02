@@ -7,6 +7,20 @@ release may change behaviour.
 
 ## [Unreleased]
 
+### Changed
+
+- Copy opens a small chooser: **Copy Markdown** or **Copy formatted text**,
+  the last-used first, so it stays two taps. Long-press Copy repeats the last
+  choice at once. ⋮ "Copy as rich text" is now **Copy as…**, opening the same
+  chooser, and a heading's section menu offers the same two copies. Messages
+  say what was copied ("Markdown copied", "Formatted text copied").
+- Formatted text now pastes well into Gmail, Google Docs, Word and Outlook:
+  inline light-theme styles only, tables with borders, code on grey, ☐/☑
+  tasks, footnotes at the end, pictures next to the file and Mermaid diagrams
+  embedded as images within the clipboard's limit, maths as readable text,
+  and a plain-text version without Markdown symbols for apps that paste text.
+  A document too long for the clipboard is shortened, and the message says so.
+
 ## [0.2.1] - 2026-11-02
 
 Fixes from the first phone test of 0.2.0.

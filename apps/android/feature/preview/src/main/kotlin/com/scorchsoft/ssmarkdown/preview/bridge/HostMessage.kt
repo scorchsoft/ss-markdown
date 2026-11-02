@@ -346,19 +346,25 @@ sealed interface HostMessage {
     }
 
     /**
-     * "Copy as rich text": asks for the page's rendering of lines
-     * `[fromLine, toLine)`; answered by [PageMessage.HtmlResult]. Use
-     * `PreviewView.exportHtml`, which pairs the two.
+     * "Copy formatted text": asks for lines `[fromLine, toLine)` as HTML with
+     * inline light styles plus a plain-text twin, together within [maxChars]
+     * (the clipboard crosses Binder); answered by [PageMessage.HtmlResult].
+     * Use `PreviewView.exportFormatted`, which pairs the two.
      */
     data class ExportHtml(
         val requestId: Int,
         val fromLine: Int,
         val toLine: Int,
+        val maxChars: Int,
     ) : HostMessage {
         override val type = "exportHtml"
 
         override fun writeTo(json: JSONObject) {
-            json.put("requestId", requestId).put("fromLine", fromLine).put("toLine", toLine)
+            json
+                .put("requestId", requestId)
+                .put("fromLine", fromLine)
+                .put("toLine", toLine)
+                .put("maxChars", maxChars)
         }
     }
 

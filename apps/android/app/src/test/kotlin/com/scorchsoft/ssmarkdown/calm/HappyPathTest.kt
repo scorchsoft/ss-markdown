@@ -77,10 +77,12 @@ class HappyPathTest {
         }
 
         taps.tap("Copy all")
+        taps.tap("Copy Markdown")
         assertTrue(f.events.any { it is EditorEvent.CopyText })
         assertCalm(f, "Copying")
 
-        // Save, three mode switches and Copy: one tap each, nothing in between.
-        assertEquals(5, taps.taps)
+        // Save and three mode switches: one tap each. Copy is two (Copy, then the choice, last used
+        // first); long-press Copy repeats the last choice in one.
+        assertEquals(6, taps.taps)
     }
 }

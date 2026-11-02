@@ -6,12 +6,15 @@ import androidx.compose.ui.res.stringResource
 import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.editor.EditorAction
 import com.scorchsoft.ssmarkdown.editor.EditorOverlay
+import com.scorchsoft.ssmarkdown.editor.chrome.copyOrder
 import com.scorchsoft.ssmarkdown.navigator.NavigatorAction
+import com.scorchsoft.ssmarkdown.settings.CopyFormat
 
 /**
- * The section menu (ux-spec "Navigator"; J10 in two taps): Copy section ·
- * Copy as rich text · Select section · Export section…, with Select text
- * instead as its last row.
+ * The section menu (ux-spec "Navigator"; J10 in two taps): Copy section as
+ * Markdown · Copy section as formatted text (the last-used first, as in the
+ * Copy chooser) · Select section · Export section…, with Select text instead
+ * as its last row.
  */
 @Composable
 fun SectionMenuSheet(
@@ -33,12 +36,17 @@ fun SectionMenuSheet(
                 ?: pluralStringResource(R.plurals.section_lines, menu.lineCount, menu.lineCount),
             muted = true,
         )
-        SheetButton(stringResource(R.string.section_copy), Emphasis.Ink, {
-            nav(NavigatorAction.CopySection(menu.headingLine, richText = false))
-        })
-        SheetButton(stringResource(R.string.section_copy_rich), Emphasis.Outline, {
-            nav(NavigatorAction.CopySection(menu.headingLine, richText = true))
-        })
+        // The same choice as the header's Copy, last-used first and filled.
+        copyOrder(menu.copyFirst).forEachIndexed { index, format ->
+            val label =
+                when (format) {
+                    CopyFormat.Markdown -> R.string.section_copy
+                    CopyFormat.Formatted -> R.string.section_copy_formatted
+                }
+            SheetButton(stringResource(label), if (index == 0) Emphasis.Ink else Emphasis.Outline, {
+                nav(NavigatorAction.CopySection(menu.headingLine, format))
+            })
+        }
         SheetButton(stringResource(R.string.section_select), Emphasis.Outline, {
             nav(NavigatorAction.SelectSection(menu.headingLine))
         })

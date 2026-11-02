@@ -122,11 +122,18 @@ export type HostMessage =
     /** Write back typing still waiting for its pause, now: the app is pausing or switching document (DS-14). */
     | { readonly type: "flush" }
     /**
-     * "Copy as rich text": the page's own rendering of source lines
-     * [fromLine, toLine), without editing attributes or chips. Answered by
+     * "Copy formatted text": source lines [fromLine, toLine) as HTML with
+     * inline light-theme styles only, plus its plain-text twin, together at
+     * most [maxChars] characters (the clipboard crosses Binder). Answered by
      * `htmlResult` with the same [requestId].
      */
-    | { readonly type: "exportHtml"; readonly requestId: number; readonly fromLine: number; readonly toLine: number };
+    | {
+          readonly type: "exportHtml";
+          readonly requestId: number;
+          readonly fromLine: number;
+          readonly toLine: number;
+          readonly maxChars: number;
+      };
 
 /**
  * Formatting actions Kotlin applies with core:markdown's EditCommand, in the
@@ -260,8 +267,18 @@ export type PageMessage =
     | { readonly type: "tableMenu"; readonly line: number; readonly row: number; readonly column: number }
     | { readonly type: "exportResult"; readonly requestId: number; readonly mime: string; readonly data: string }
     | { readonly type: "printReady"; readonly requestId: number }
-    /** The answer to `exportHtml`; [html] is null when the lines could not be rendered. */
-    | { readonly type: "htmlResult"; readonly requestId: number; readonly html: string | null }
+    /**
+     * The answer to `exportHtml`: [html] and its plain-text twin [text], both
+     * null when the lines could not be rendered; [truncated] when the copy
+     * stopped early to fit [maxChars].
+     */
+    | {
+          readonly type: "htmlResult";
+          readonly requestId: number;
+          readonly html: string | null;
+          readonly text: string | null;
+          readonly truncated: boolean;
+      }
     | { readonly type: "error"; readonly message: string };
 
 /** Document-wide definitions every section render needs (see core/definitions.ts). */

@@ -97,9 +97,6 @@ internal object PreviewEffects {
         }
     }
 
-    /** ⋮ → Copy as rich text. */
-    fun copyAllRich(vm: EditorViewModel) = vm.saves.copyAll(richText = true)
-
     /** The link chip's buttons; each closes the chip. */
     private val chipActions = setOf(EditorAction.OpenLink, EditorAction.CopyLink, EditorAction.EditLink)
 }

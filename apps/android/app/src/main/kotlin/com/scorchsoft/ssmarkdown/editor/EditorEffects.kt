@@ -26,7 +26,15 @@ internal object EditorEffects {
             }
 
             EditorAction.CopyTapped -> {
-                vm.saves.copyAll(richText = false)
+                vm.copies.openChooser()
+            }
+
+            EditorAction.CopyLongPressed -> {
+                vm.copies.copyDocument(vm.deps.settings.settings.value.copyFormat)
+            }
+
+            is EditorAction.CopyAs -> {
+                vm.copies.copyDocument(action.format)
             }
 
             EditorAction.SaveTapped -> {
@@ -224,7 +232,6 @@ internal object EditorEffects {
             }
 
             // The reducer does all there is to do for these.
-            EditorAction.CopyLongPressed,
             is EditorAction.AnchorChanged,
             EditorAction.RecoveryGotIt,
             EditorAction.ShowFailureDetails,
@@ -257,10 +264,10 @@ internal object EditorEffects {
             MenuItem.ExportPdf -> PreviewEffects.exportPdf(vm)
             MenuItem.ExportImages -> vm.imageExports.openExport()
             MenuItem.Share -> vm.saves.share(richText = false)
-            MenuItem.CopyRichText -> PreviewEffects.copyAllRich(vm)
+            MenuItem.CopyAs -> vm.copies.openChooser()
             MenuItem.Display -> vm.update { it.copy(overlay = EditorOverlay.Display) }
             MenuItem.Settings -> vm.emit(EditorEvent.Open(AppScreen.Settings))
-            MenuItem.Copy -> vm.saves.copyAll(richText = false)
+            MenuItem.Copy -> vm.copies.openChooser()
         }
     }
 }

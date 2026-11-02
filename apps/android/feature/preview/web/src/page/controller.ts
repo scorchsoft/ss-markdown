@@ -150,7 +150,7 @@ export class RenderController {
 
     /**
      * The sections holding lines [fromLine, toLine), once each has HTML for
-     * its current key. Only those sections are rendered: a rich-text copy of
+     * its current key. Only those sections are rendered: a formatted copy of
      * one section does not render the whole document.
      */
     async renderLines(fromLine: number, toLine: number): Promise<SectionView[]> {

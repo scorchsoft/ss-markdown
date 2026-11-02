@@ -31,6 +31,7 @@ import com.scorchsoft.ssmarkdown.editor.EditorAction
 import com.scorchsoft.ssmarkdown.editor.EditorOverlay
 import com.scorchsoft.ssmarkdown.editor.EditorUiState
 import com.scorchsoft.ssmarkdown.folder.FolderAction
+import com.scorchsoft.ssmarkdown.settings.CopyFormat
 import com.scorchsoft.ssmarkdown.ui.AppIcons
 
 /** The title's minimum width; Save leaves it this much before taking more (UX2-1). */
@@ -136,7 +137,12 @@ fun RowScope.TopBarActions(
         // title its minimum.
         reserve = TitleMinWidth + SS.dimens.iconButton * (if (copyInMenu) 1 else 2),
     )
-    if (!copyInMenu) CopyButton(onAction)
+    if (!copyInMenu) {
+        Box {
+            CopyButton(state.copyFormat, onAction)
+            CopyChooser(state, onAction)
+        }
+    }
     Box {
         IconButton(onClick = { onAction(EditorAction.OpenMenu) }) {
             Icon(AppIcons.more, stringResource(R.string.more), tint = SS.colors.ink)
@@ -156,14 +162,28 @@ fun RowScope.TopBarActions(
                 ),
         )
         SaveMenu(state, onAction)
-        CopyMenu(state, onAction)
+        // With Copy moved into ⋮, its chooser opens from ⋮.
+        if (copyInMenu) CopyChooser(state, onAction)
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun CopyButton(onAction: (EditorAction) -> Unit) {
+private fun CopyButton(
+    last: CopyFormat,
+    onAction: (EditorAction) -> Unit,
+) {
     val label = stringResource(R.string.copy_all)
+    val again =
+        stringResource(
+            if (last ==
+                CopyFormat.Formatted
+            ) {
+                R.string.copy_again_formatted
+            } else {
+                R.string.copy_again_markdown
+            },
+        )
     Box(
         contentAlignment = Alignment.Center,
         modifier =
@@ -172,7 +192,7 @@ private fun CopyButton(onAction: (EditorAction) -> Unit) {
                 .combinedClickable(
                     role = Role.Button,
                     onClickLabel = label,
-                    onLongClickLabel = stringResource(R.string.menu_copy_rich),
+                    onLongClickLabel = again,
                     onLongClick = { onAction(EditorAction.CopyLongPressed) },
                     onClick = { onAction(EditorAction.CopyTapped) },
                 ).semantics { contentDescription = label },

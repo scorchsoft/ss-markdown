@@ -11,6 +11,7 @@ import com.scorchsoft.ssmarkdown.navigator.NavigatorUiState
 import com.scorchsoft.ssmarkdown.preview.RendererState
 import com.scorchsoft.ssmarkdown.preview.bridge.LinkTarget
 import com.scorchsoft.ssmarkdown.preview.bridge.MediaKind
+import com.scorchsoft.ssmarkdown.settings.CopyFormat
 import com.scorchsoft.ssmarkdown.ui.strip.FormattingStripState
 
 /**
@@ -58,6 +59,8 @@ data class EditorUiState(
     val canRedo: Boolean = false,
     val preview: PreviewPaneState = PreviewPaneState(),
     val historyOn: Boolean = true,
+    /** What Copy put on the clipboard last: long-press Copy repeats it, the chooser lists it first. */
+    val copyFormat: CopyFormat = CopyFormat.Markdown,
 ) {
     /** The strip drives the Preview: in Preview, or in Split while the page has the caret. */
     val previewTyping: Boolean
@@ -261,8 +264,10 @@ sealed interface EditorOverlay {
         val autosaveThisFile: Boolean,
     ) : EditorOverlay
 
-    /** Long-press Copy: Copy as rich text. */
-    data object CopyMenu : EditorOverlay
+    /** The Copy chooser: Copy Markdown · Copy formatted text, [first] (the last used) on top. */
+    data class CopyChooser(
+        val first: CopyFormat,
+    ) : EditorOverlay
 
     /** The conflict sheet (ux-spec "File changed outside the app"). */
     data class Conflict(
@@ -280,12 +285,16 @@ sealed interface EditorOverlay {
     /** ⋮ → Display. */
     data object Display : EditorOverlay
 
-    /** The section menu for a heading: Copy section · rich text · Select · Export. */
+    /**
+     * The section menu for a heading: Copy section as Markdown · as formatted
+     * text ([copyFirst], the last used, on top) · Select · Export.
+     */
     data class SectionMenu(
         val headingLine: Int,
         val heading: String,
         val lineCount: Int,
         val nextHeading: String?,
+        val copyFirst: CopyFormat = CopyFormat.Markdown,
     ) : EditorOverlay
 
     /**
@@ -395,7 +404,9 @@ enum class MessageKind {
     SavedTo,
     AllSaved,
     Copied,
-    CopiedRichText,
+    CopiedFormatted,
+    CopiedFormattedShortened,
+    FormattedFailed,
     CopyTooLarge,
     PasteTooLarge,
     EditsDiscarded,
@@ -403,6 +414,7 @@ enum class MessageKind {
     EditsDiscardedNotKept,
     DraftDeleted,
     SectionCopied,
+    SectionCopiedFormatted,
     ReplacedAll,
     Restored,
     Renamed,

@@ -96,7 +96,7 @@ class EditorReducerTest {
     @Test
     fun `menus and sheets open and dismiss`() {
         assertEquals(EditorOverlay.Menu, reduce(clean, EditorAction.OpenMenu).overlay)
-        assertEquals(EditorOverlay.CopyMenu, reduce(clean, EditorAction.CopyLongPressed).overlay)
+        assertNull(reduce(clean, EditorAction.CopyLongPressed).overlay)
         assertEquals(EditorOverlay.ConfirmUseMine, reduce(clean, EditorAction.AskUseMine).overlay)
         assertNull(reduce(clean, EditorAction.OpenMenu, EditorAction.DismissOverlay).overlay)
     }

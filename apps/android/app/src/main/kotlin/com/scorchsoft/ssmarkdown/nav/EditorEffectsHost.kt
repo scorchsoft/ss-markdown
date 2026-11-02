@@ -224,7 +224,7 @@ private suspend fun onEditorEvent(
         }
 
         else -> {
-            onPreviewEvent(event, graph, platform)
+            onPreviewEvent(event, graph)
         }
     }
 }

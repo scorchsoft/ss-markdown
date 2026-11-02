@@ -12,6 +12,7 @@ import androidx.core.graphics.withTranslation
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.scorchsoft.ssmarkdown.about.AboutScreen
+import com.scorchsoft.ssmarkdown.editor.EditorOverlay
 import com.scorchsoft.ssmarkdown.editor.EditorUiState
 import com.scorchsoft.ssmarkdown.editor.ViewMode
 import com.scorchsoft.ssmarkdown.fixtures.PreviewSamples
@@ -21,6 +22,7 @@ import com.scorchsoft.ssmarkdown.fontpicker.FontPickerScreen
 import com.scorchsoft.ssmarkdown.history.HistoryScreen
 import com.scorchsoft.ssmarkdown.media.ViewerScreen
 import com.scorchsoft.ssmarkdown.settings.AppSettings
+import com.scorchsoft.ssmarkdown.settings.CopyFormat
 import com.scorchsoft.ssmarkdown.settings.SettingsScreen
 import com.scorchsoft.ssmarkdown.share.ShareSheet
 import com.scorchsoft.ssmarkdown.storage.StorageScreen
@@ -173,6 +175,11 @@ open class ScreenshotTest(
     @Test fun conflict() = sheet("conflict-sheet", Samples.conflict)
 
     @Test fun sectionMenu() = sheet("section-menu", ScreenSamples.sectionMenu)
+
+    /** The Copy chooser, anchored to Copy, with the last-used choice (formatted text) first. */
+    @Test
+    fun copyChooser() =
+        sheet("copy-chooser", Samples.saved.copy(overlay = EditorOverlay.CopyChooser(CopyFormat.Formatted)))
 
     @Test fun history() = shot("history") { HistoryScreen(ScreenSamples.history, {}) }
 

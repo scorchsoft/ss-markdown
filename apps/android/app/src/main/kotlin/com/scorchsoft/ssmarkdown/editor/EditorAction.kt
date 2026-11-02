@@ -7,6 +7,7 @@ import com.scorchsoft.ssmarkdown.media.MediaMenuAction
 import com.scorchsoft.ssmarkdown.navigator.NavigatorAction
 import com.scorchsoft.ssmarkdown.preview.bridge.TableOp
 import com.scorchsoft.ssmarkdown.settings.Appearance
+import com.scorchsoft.ssmarkdown.settings.CopyFormat
 import com.scorchsoft.ssmarkdown.settings.PreviewWrap
 import com.scorchsoft.ssmarkdown.ui.strip.BlockChoice
 import com.scorchsoft.ssmarkdown.ui.strip.CursorStep
@@ -29,11 +30,13 @@ enum class MenuItem {
     ExportPdf,
     ExportImages,
     Share,
-    CopyRichText,
+
+    /** "Copy as…": the Copy chooser, Markdown or formatted text. */
+    CopyAs,
     Display,
     Settings,
 
-    /** Only above 1.5× font scale, when Copy moves into ⋮. */
+    /** Only above 1.5× font scale, when Copy moves into ⋮: opens the Copy chooser, like the button. */
     Copy,
 }
 
@@ -51,9 +54,16 @@ sealed interface EditorAction {
         val mode: ViewMode,
     ) : EditorAction
 
+    /** The header's Copy: opens the chooser, last-used choice first. */
     data object CopyTapped : EditorAction
 
+    /** Long-press Copy: the last choice again, at once (the shortcut; the chooser is its visible twin). */
     data object CopyLongPressed : EditorAction
+
+    /** A row of the Copy chooser: copies the whole document as [format] and remembers it. */
+    data class CopyAs(
+        val format: CopyFormat,
+    ) : EditorAction
 
     data object SaveTapped : EditorAction
 

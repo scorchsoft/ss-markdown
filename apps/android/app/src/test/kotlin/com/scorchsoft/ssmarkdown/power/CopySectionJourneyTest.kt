@@ -76,7 +76,7 @@ class CopySectionJourneyTest {
         val menu = f.vm.uiState.value.overlay
         assertTrue("the long-press did not open the section menu: $menu", menu is EditorOverlay.SectionMenu)
         assertEquals("Installing", (menu as EditorOverlay.SectionMenu).heading)
-        taps.tap("Copy section")
+        taps.tap("Copy section as Markdown")
         assertNull("Copy section left the sheet up", f.vm.uiState.value.overlay)
         val copied = f.events.filterIsInstance<EditorEvent.CopyText>().single()
         // What the effects host does with it (nav/EditorEffectsHost.kt).

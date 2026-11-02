@@ -54,14 +54,18 @@ class PreviewViewRequestsTest {
     }
 
     @Test
-    fun `a rich-text copy waiting on the page gets nothing from the next document`() {
+    fun `a formatted copy waiting on the page gets nothing from the next document`() {
         val view = PreviewView(context)
         view.send(load("# A"))
-        val html = GlobalScope.async(Dispatchers.Unconfined, CoroutineStart.UNDISPATCHED) { view.exportHtml(0, 1) }
+        val html =
+            GlobalScope.async(
+                Dispatchers.Unconfined,
+                CoroutineStart.UNDISPATCHED,
+            ) { view.exportFormatted(0, 1, 1_000) }
 
         view.send(load("# B"))
 
-        assertTrue("the copy falls back to A's plain text at once", html.isCompleted)
+        assertTrue("the copy ends at once, with nothing", html.isCompleted)
         assertNull(html.getCompleted())
         view.release()
     }

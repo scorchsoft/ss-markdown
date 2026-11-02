@@ -2,6 +2,7 @@ package com.scorchsoft.ssmarkdown.editor
 
 import com.scorchsoft.ssmarkdown.media.ExportFile
 import com.scorchsoft.ssmarkdown.nav.AppScreen
+import com.scorchsoft.ssmarkdown.preview.FormattedCopy
 
 /**
  * One-shot effects only the Activity can perform: system pickers, the
@@ -37,7 +38,7 @@ sealed interface EditorEvent {
         val text: CharSequence,
     ) : EditorEvent
 
-    /** Share [text]; [richText] offers it as HTML too ("Copy as rich text" until Preview renders HTML). */
+    /** Share [text]; [richText] offers it as HTML too (a `<pre>` of the Markdown). */
     data class ShareText(
         val text: CharSequence,
         val richText: Boolean,
@@ -66,14 +67,9 @@ sealed interface EditorEvent {
     /** Leave the app. */
     data object Finish : EditorEvent
 
-    /**
-     * "Copy as rich text": [text] as Markdown plus the preview's rendering of
-     * source lines `[fromLine, toLine)` as HTML, when the preview can give it.
-     */
-    data class CopyRichText(
-        val text: CharSequence,
-        val fromLine: Int,
-        val toLine: Int,
+    /** "Copy formatted text": [copy]'s HTML with its plain-text twin, as one clip. */
+    data class CopyFormatted(
+        val copy: FormattedCopy,
     ) : EditorEvent
 
     /** Opens a web, mail or phone link in another app, after the user tapped Open on the chip. */

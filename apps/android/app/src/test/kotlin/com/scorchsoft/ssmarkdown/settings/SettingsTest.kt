@@ -25,6 +25,7 @@ class SettingsTest {
                 history = AppSettings().history.copy(totalLimit = StorageLimit.None, forgetUnusedAfterDays = 90),
                 autosaveOverrides = mapOf("content://a" to false),
                 share = ShareDefaults("content://a", AppendPosition.Top, AppendPrefix.DateHeading),
+                copyFormat = CopyFormat.Formatted,
             ).withRecent(RecentFile("content://a", "a.md", "Documents", 5, pinned = true))
         assertEquals(settings, SettingsJson.decode(JSONObject(SettingsJson.encode(settings).toString())))
     }
@@ -50,6 +51,20 @@ class SettingsTest {
         assertFalse(PreferencesSettingsStore(prefs).read().share.directShare)
         repository.update { SettingsReducer.reduce(it, SettingsAction.ToggleDirectShare) }
         assertTrue(PreferencesSettingsStore(prefs).read().share.directShare)
+    }
+
+    @Test
+    fun `the last Copy choice persists, and Markdown is the default`() {
+        assertEquals(CopyFormat.Markdown, AppSettings().copyFormat)
+        assertEquals(CopyFormat.Markdown, SettingsJson.decode(JSONObject("{}")).copyFormat)
+        val prefs =
+            ApplicationProvider
+                .getApplicationContext<Context>()
+                .getSharedPreferences("settings-copy-test", Context.MODE_PRIVATE)
+        PersistedSettingsRepository(
+            PreferencesSettingsStore(prefs),
+        ).update { it.copy(copyFormat = CopyFormat.Formatted) }
+        assertEquals(CopyFormat.Formatted, PreferencesSettingsStore(prefs).read().copyFormat)
     }
 
     @Test

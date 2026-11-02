@@ -18,8 +18,22 @@ mockups agreed with Andrew win, and this file gets updated.
     then the title, then Copy and Save. The title keeps a minimum width
     of about 120 dp and truncates with an ellipsis before it can push
     Copy or Save.
-- **Copy** is always visible and copies the whole document as Markdown.
-  Long-pressing it gives "Copy as rich text".
+- **Copy** is always visible and opens a small **Copy chooser** anchored
+  to it, two rows: **Copy Markdown** (the source, exactly) and **Copy
+  formatted text** (the rendered document, for Gmail, Google Docs, Word,
+  Outlook…; see "Copy formatted text" below). The last-used choice is
+  listed first (remembered in settings), so a copy is two taps in the same
+  place. Each row is 56 dp with a one-line purpose under its title, read
+  together by TalkBack.
+  - **Long-press Copy** repeats the last choice at once, with no chooser
+    (TalkBack: "Copy Markdown again" / "Copy formatted text again"). It is
+    a shortcut; the chooser is its visible twin.
+  - The message names what was copied: "Markdown copied", "Formatted text
+    copied", or "Formatted text copied, shortened to fit the clipboard".
+    If formatted text cannot be prepared (no page in time, or another file
+    opened first), the file's Markdown is copied instead and the message
+    says so. A document over the clipboard's limit (robustness §5) goes
+    as a file, as before.
 - **Save** is always visible. One table defines every state:
 
   | State | Looks like | Status line | Tap |
@@ -39,9 +53,10 @@ mockups agreed with Andrew win, and this file gets updated.
   - Every successful save confirms with a short "Saved to <place>"
     message.
 - **⋮** opens: New · Open file · Open folder · Save as │ Find & replace ·
-  Version history │ Export PDF · Export images… · Share │ Display ·
-  Settings. Share also offers *Copy as rich text*, the twin for
-  long-pressing Copy. In folder mode, while any file is unsaved, **Save
+  Version history │ Export PDF · Export images… · Share · Copy as… │
+  Display · Settings. **Copy as…** opens the same Copy chooser (anchored to
+  Copy). Above 1.5× font, when Copy itself moves into ⋮, its row opens the
+  chooser and Copy as… is left out as a twin. In folder mode, while any file is unsaved, **Save
   all (N)** follows Save as (one tap after ⋮, rubric #9); it is absent
   otherwise, and the ≡ panel keeps its own Save all row.
 - The menu's **top row is Undo · Redo**, two 48 dp icons side by side
@@ -155,8 +170,9 @@ layout budget assumes them:
    by itself (security review SEC-7).
 4. Tap on a **task checkbox** → toggles it (one character changes).
 5. Tap on **text** → caret and keyboard (if "Tap to edit" is on).
-6. **Long-press a heading** → the section menu directly (Copy section ·
-   Copy as rich text · Select section · Export section…), with **Select
+6. **Long-press a heading** → the section menu directly (Copy section as
+   Markdown · Copy section as formatted text, the last-used first · Select
+   section · Export section…), with **Select
    text instead** as its last row. That's J10 in 2 taps.
 7. **Long-press other text** → native selection.
 8. **Pinch** → this file's preview text size.
@@ -475,12 +491,65 @@ separate Recent menu.
 - The Navigator opens **below the header**, so the title, the unsaved
   dot and Save stay visible.
 - **Long-press a heading** here or in Preview to get:
-  - Copy section (Markdown)
-  - Copy section as rich text
+  - Copy section as Markdown
+  - Copy section as formatted text (the two in the Copy chooser's order:
+    the last-used first and filled; "Section copied as …" confirms)
   - Select section
   - Export section…
   A section runs from the heading to the next heading of the same or a
   higher level.
+
+## Copy formatted text
+
+What "Copy formatted text" (the Copy chooser, ⋮ → Copy as…, the section
+menu) puts on the clipboard: one `text/html` clip whose item holds HTML for
+apps that paste formatting and a plain-text twin for apps that paste text.
+It is Preview's own rendering, rebuilt for pasting (`web/src/page/copy/`):
+
+- **Inline styles only**, in fixed light colours whatever the app theme:
+  Gmail and Outlook drop `<style>` and classes, and dark text pasted into a
+  dark editor is unreadable. Body text inherits the target's font and size.
+- Headings bold at 20 / 18 / 16 / 15 / 14 / 13 px; paragraphs and lists
+  with small margins; blockquotes (and alerts, in their colour) with a left
+  border; tables with 1 px borders, padding, a shaded header row and their
+  column alignment; code blocks monospace on light grey, wrapping; inline
+  code monospace on a lighter grey; ==marks== highlighted.
+- Links stay `<a href>` (web, mail and phone only; links inside the
+  document or to other files become their text). Task lists are ☐ and ☑
+  (checkboxes do not paste). Footnote references are superscript numbers
+  and the footnotes follow at the end under a rule. Front matter, Edit in
+  Code chips, the table of contents placeholder and other page controls
+  are left out.
+- **Pictures** next to the file (and inline `data:` images) are embedded as
+  `data:` images on white, PNG first and then JPEG at falling sizes until
+  one fits: at most about 150 KB each and 225 KB in all (200 000 and
+  300 000 characters of data URL), shown at most 640 px wide. A picture
+  that does not fit, or cannot be read, becomes its alt text in brackets.
+  A web picture is never fetched (the app is offline): it pastes as a link,
+  "[alt]", to its address.
+- **Mermaid** diagrams are drawn afresh in the light theme and embedded as
+  a PNG with alt text ("Diagram: flowchart", or its `accTitle`); one that
+  cannot be drawn becomes "[Diagram: …]".
+- **Maths** is readable text laid out from KaTeX's MathML ("E = mc²",
+  "∫₀¹x² dx = 1/3", "(a + b)/2", "√x"), in a maths serif, because MathML
+  does not survive a paste into Gmail or Google Docs.
+- **Plain-text twin**: the same words without Markdown symbols: headings
+  as lines of their own, "•" and "1." list markers (nested lists
+  indented), ☐/☑ tasks, quotes indented four spaces, tables tab-separated
+  (a spreadsheet pastes them into cells), pictures as "[alt]", links as
+  "text (address)", footnotes as ¹ and a list at the end.
+- **Size**: HTML and plain text together stay within the clipboard's
+  Binder limit (400 000 characters, robustness §5). Words come first,
+  pictures get what is left. A longer document is rendered a slice at a
+  time and stops when the budget is spent, ending with "[Shortened to fit
+  the clipboard…]", and the message says it was shortened. The work runs
+  in the Preview page (its renderer and worker), never on the app's main
+  thread; pictures and diagrams have 8 s before the rest stand in as alt
+  text.
+- **From Code**, the Preview comes into view while the page renders (a
+  page that is not drawn may never finish, as for Export PDF) and Code
+  returns once the copy is made. The copy belongs to the document it was
+  asked for: if another file opens first, that file's text is never used.
 
 ## Share into SS Markdown
 

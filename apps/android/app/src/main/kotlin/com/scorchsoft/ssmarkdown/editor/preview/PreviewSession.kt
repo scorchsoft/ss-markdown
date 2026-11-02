@@ -4,6 +4,7 @@ import com.scorchsoft.ssmarkdown.document.ActiveDocument
 import com.scorchsoft.ssmarkdown.document.TextChangeListener
 import com.scorchsoft.ssmarkdown.preview.DocumentSnapshot
 import com.scorchsoft.ssmarkdown.preview.DocumentSource
+import com.scorchsoft.ssmarkdown.preview.FormattedCopy
 import com.scorchsoft.ssmarkdown.preview.PreviewListener
 import com.scorchsoft.ssmarkdown.preview.PreviewView
 import com.scorchsoft.ssmarkdown.preview.PrintOutcome
@@ -51,7 +52,7 @@ class PreviewSession(
 
     private var sender: ((HostMessage) -> Unit)? = null
 
-    /** What prints the page: the attached view, or a test's stand-in. Null: nothing can. */
+    /** What prints the page and copies it as formatted text: the attached view, or a test stand-in. */
     private var printTarget: PrintTarget? = null
 
     /** True while the attached page is drawn, so it renders and answers. */
@@ -176,6 +177,25 @@ class PreviewSession(
             PageWait.DocumentChanged -> PrintOutcome.DocumentChanged
             PageWait.NoPage -> PrintOutcome.PageGone
         }
+
+    /**
+     * "Copy formatted text" of [document]'s lines `[fromLine, toLine)`, within
+     * [maxChars]: waits, like [print], for a drawn page that holds it, then
+     * asks that page. Null when no page comes in time, the page cannot answer,
+     * or another document is bound first, so a copy is never of the wrong
+     * file. Call on the main thread.
+     */
+    suspend fun copyFormatted(
+        document: ActiveDocument,
+        fromLine: Int,
+        toLine: Int,
+        maxChars: Int,
+        waitMillis: Long = PAGE_WAIT_MILLIS,
+    ): FormattedCopy? {
+        if (pageFor(document, waitMillis) != PageWait.Ready) return null
+        val copy = printTarget?.exportFormatted(fromLine, toLine, maxChars)
+        return copy?.takeIf { bound === document }
+    }
 
     /** For [DiagramExports]: true once a page holding the bound document is on screen. */
     private suspend fun awaitPage(): Boolean = bound?.let { pageFor(it, PAGE_WAIT_MILLIS) == PageWait.Ready } ?: false

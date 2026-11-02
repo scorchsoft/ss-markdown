@@ -77,7 +77,14 @@
     <string name="menu_export_images">Export images…</string>
     <string name="menu_export_images_hint">ZIP or files</string>
     <string name="menu_share">Share</string>
-    <string name="menu_copy_rich">Copy as rich text</string>
+    <string name="menu_copy_as">Copy as…</string>
+    <!-- The Copy chooser (ux-spec "Top bar"): the last-used choice is listed first. -->
+    <string name="copy_markdown">Copy Markdown</string>
+    <string name="copy_markdown_hint">The source, exactly as written</string>
+    <string name="copy_formatted">Copy formatted text</string>
+    <string name="copy_formatted_hint">For Gmail, Google Docs, Word…</string>
+    <string name="copy_again_markdown">Copy Markdown again</string>
+    <string name="copy_again_formatted">Copy formatted text again</string>
     <string name="menu_display">Display</string>
     <string name="menu_display_hint">Theme · size · wrap</string>
     <string name="menu_settings">Settings</string>
@@ -124,14 +131,17 @@
     <!-- Messages -->
     <string name="msg_saved_to">Saved to %1$s</string>
     <string name="msg_all_saved">All saved</string>
-    <string name="msg_copied">Copied as Markdown</string>
-    <string name="msg_copied_rich">Copied as rich text</string>
+    <string name="msg_copied">Markdown copied</string>
+    <string name="msg_copied_formatted">Formatted text copied</string>
+    <string name="msg_copied_formatted_shortened">Formatted text copied, shortened to fit the clipboard</string>
+    <string name="msg_formatted_failed">Couldn\'t prepare formatted text, so the Markdown was copied</string>
     <string name="msg_copy_too_large">Too large to copy. Share as file instead.</string>
     <string name="msg_paste_too_large">Too large to paste on this phone. Nothing was changed.</string>
     <string name="msg_edits_discarded">Edits discarded · kept in History</string>
     <string name="msg_edits_discarded_no_history">Edits discarded · History is off, so only Undo brings them back</string>
     <string name="msg_draft_deleted">Draft deleted</string>
-    <string name="msg_section_copied">Section copied</string>
+    <string name="msg_section_copied">Section copied as Markdown</string>
+    <string name="msg_section_copied_formatted">Section copied as formatted text</string>
     <string name="msg_replaced_all">Replaced %1$s</string>
     <string name="msg_restored">Restored · your previous text is in History</string>
     <string name="msg_renamed">Renamed</string>
@@ -238,8 +248,8 @@
     <string name="nav_delete_draft">Delete draft</string>
 
     <!-- Section menu -->
-    <string name="section_copy">Copy section</string>
-    <string name="section_copy_rich">Copy as rich text</string>
+    <string name="section_copy">Copy section as Markdown</string>
+    <string name="section_copy_formatted">Copy section as formatted text</string>
     <string name="section_select">Select section</string>
     <string name="section_export">Export section…</string>
     <string name="section_select_text">Select text instead</string>

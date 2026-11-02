@@ -30,7 +30,7 @@
     "exportImage": { "type": "exportImage", "requestId": 7, "line": 3, "format": "png", "scale": 2 },
     "preparePrint": { "type": "preparePrint", "requestId": 4 },
     "finishPrint": { "type": "finishPrint" },
-    "exportHtml": { "type": "exportHtml", "requestId": 8, "fromLine": 2, "toLine": 9 },
+    "exportHtml": { "type": "exportHtml", "requestId": 8, "fromLine": 2, "toLine": 9, "maxChars": 400000 },
     "flush": { "type": "flush" }
   },
   "page": [
@@ -59,8 +59,8 @@
     { "kotlin": "TableMenu", "json": { "type": "tableMenu", "line": 3, "row": 1, "column": 2 } },
     { "kotlin": "ExportResult", "json": { "type": "exportResult", "requestId": 7, "mime": "image/svg+xml", "data": "<svg/>" } },
     { "kotlin": "PrintReady", "json": { "type": "printReady", "requestId": 4 } },
-    { "kotlin": "HtmlResult", "json": { "type": "htmlResult", "requestId": 8, "html": "<p>x</p>" } },
-    { "kotlin": "HtmlResult", "json": { "type": "htmlResult", "requestId": 9, "html": null } },
+    { "kotlin": "HtmlResult", "json": { "type": "htmlResult", "requestId": 8, "html": "<p>x</p>", "text": "x", "truncated": false } },
+    { "kotlin": "HtmlResult", "json": { "type": "htmlResult", "requestId": 9, "html": null, "text": null, "truncated": false } },
     { "kotlin": "Error", "json": { "type": "error", "message": "boom" } }
   ]
 }

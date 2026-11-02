@@ -54,14 +54,20 @@ private fun menuGroups(
             MenuItem.SaveAll.takeIf { saveAll },
         ),
         listOf(MenuItem.FindReplace, MenuItem.VersionHistory),
-        listOf(MenuItem.ExportPdf, MenuItem.ExportImages, MenuItem.Share, MenuItem.CopyRichText),
+        // With Copy in here already (it opens the same chooser), Copy as… would be a twin row.
+        listOfNotNull(
+            MenuItem.ExportPdf,
+            MenuItem.ExportImages,
+            MenuItem.Share,
+            MenuItem.CopyAs.takeUnless { copyInMenu },
+        ),
         listOf(MenuItem.Display, MenuItem.Settings),
     )
 
 /**
  * ⋮: an Undo · Redo icon row on top (as in Chrome's menu), then New · Open
  * file · Open folder · Save as · (Save all (N)) │ Find & replace · Version
- * history │ Export PDF · Export images… · Share · Copy as rich text │
+ * history │ Export PDF · Export images… · Share · Copy as… │
  * Display · Settings. Above 1.5× font scale, Copy moves in here too, under
  * the icon row. Save all (N) shows only in folder mode while
  * [unsavedCount] files are unsaved; the ≡ panel keeps its own row.
@@ -223,7 +229,7 @@ private fun labelOf(item: MenuItem): Int =
         MenuItem.ExportPdf -> R.string.menu_export_pdf
         MenuItem.ExportImages -> R.string.menu_export_images
         MenuItem.Share -> R.string.menu_share
-        MenuItem.CopyRichText -> R.string.menu_copy_rich
+        MenuItem.CopyAs -> R.string.menu_copy_as
         MenuItem.Display -> R.string.menu_display
         MenuItem.Settings -> R.string.menu_settings
         MenuItem.Copy -> R.string.menu_copy

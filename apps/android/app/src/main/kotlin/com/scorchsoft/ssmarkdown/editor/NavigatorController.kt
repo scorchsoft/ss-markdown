@@ -70,7 +70,7 @@ class NavigatorController(
             NavigatorAction.OpenFirstResult -> openFirstResult()
             NavigatorAction.OpenPicker -> host.emit(EditorEvent.PickFileToOpen)
             is NavigatorAction.DeleteDraft -> deleteDraft(action.uri)
-            is NavigatorAction.CopySection -> copySection(action.line, action.richText)
+            is NavigatorAction.CopySection -> vm?.copies?.copySection(action.line, action.format)
             is NavigatorAction.SelectSection -> selectSection(action.line)
             is NavigatorAction.ExportSection -> exportSection(action.line)
             else -> Unit
@@ -111,7 +111,14 @@ class NavigatorController(
         host.update {
             it.copy(
                 navigator = null,
-                overlay = EditorOverlay.SectionMenu(line, headings[index].text, range.last - range.first + 1, next),
+                overlay =
+                    EditorOverlay.SectionMenu(
+                        line,
+                        headings[index].text,
+                        range.last - range.first + 1,
+                        next,
+                        copyFirst = host.deps.settings.settings.value.copyFormat,
+                    ),
             )
         }
     }
@@ -122,22 +129,6 @@ class NavigatorController(
         val range = doc.outline.sectionRange(line) ?: return null
         val tree = doc.text.text
         return tree.getText(tree.lineStartOffset(range.first), tree.lineEndOffset(range.last))
-    }
-
-    private fun copySection(
-        line: Int,
-        richText: Boolean,
-    ) {
-        val text = sectionText(line) ?: return
-        host.update { it.copy(overlay = null) }
-        if (richText) {
-            val range = host.active?.outline?.sectionRange(line) ?: return
-            host.emit(EditorEvent.CopyRichText(text, range.first, range.last + 1))
-            host.message(MessageKind.CopiedRichText)
-        } else {
-            host.emit(EditorEvent.CopyText(text))
-            host.message(MessageKind.SectionCopied)
-        }
     }
 
     private fun selectSection(line: Int) {

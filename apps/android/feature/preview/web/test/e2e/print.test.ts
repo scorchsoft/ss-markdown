@@ -215,11 +215,11 @@ describe("print and PDF", () => {
         const right = Math.max(...body.map((i) => i.x + i.width));
         expect(right).toBeGreaterThan(180 * MM);
         expect(right).toBeLessThanOrEqual(190 * MM + 0.5);
-        // About 16 words a line, as Word sets 11 pt on A4 (it was about 12): over 72 letters on a
-        // full line. pdf.js drops the spaces in Chromium's PDFs, so count letters, not words.
-        const fullLines = body.filter((i) => i.width > 150 * MM).map((i) => i.str.replace(/\s/g, "").length);
-        expect(fullLines.length).toBeGreaterThan(10);
-        expect(fullLines.reduce((a, b) => a + b, 0) / fullLines.length).toBeGreaterThanOrEqual(72);
+        // Most prose lines fill the column, as Word sets 11 pt on A4. Measured as width, not letters, so
+        // it holds whatever font the machine renders with: the old 39 em measure capped every line at
+        // about 151 mm (11 pt x 39), so none passed 160 mm.
+        const wide = body.filter((i) => i.width > 160 * MM).length;
+        expect(wide / body.length).toBeGreaterThanOrEqual(0.6);
 
         // Plain paragraphs fill a page with at least 40 lines (Word: about 45; it was 25-30).
         const plain = Array.from(

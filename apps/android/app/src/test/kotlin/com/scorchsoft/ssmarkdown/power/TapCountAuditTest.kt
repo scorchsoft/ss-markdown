@@ -189,7 +189,7 @@ class TapCountAuditTest {
         val (f, taps) = editor()
         assertTrue(f.vm.uiState.value.codeWrap)
         taps.tap(MORE)
-        taps.tap("Display")
+        taps.tap("View")
         taps.tap("No wrap")
         assertFalse(f.vm.uiState.value.codeWrap)
         assertEquals(2, taps.afterMenu())
@@ -215,7 +215,7 @@ class TapCountAuditTest {
         }
         val taps = TapCounter(rule)
         taps.tap(MORE)
-        taps.tap("Display")
+        taps.tap("View")
         taps.tap("Edit theme…")
         assertEquals(BuiltInThemes.DEFAULT.id, editing)
         // The custom theme's fonts are the first rows there: no further tap to see them.

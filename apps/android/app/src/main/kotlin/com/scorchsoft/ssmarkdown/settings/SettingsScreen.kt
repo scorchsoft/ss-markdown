@@ -168,7 +168,7 @@ private fun ZoomRow(
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
-        // The Display sheet's − / + pills, not chevrons (UX2-8).
+        // The View sheet's − / + pills, not chevrons (UX2-8).
         StepperButtons(
             stringResource(R.string.settings_zoom_decrease, title),
             stringResource(R.string.settings_zoom_increase, title),

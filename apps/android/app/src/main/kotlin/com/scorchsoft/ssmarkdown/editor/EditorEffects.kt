@@ -240,6 +240,7 @@ internal object EditorEffects {
             }
 
             // The reducer does all there is to do for these.
+            is EditorAction.OpenView,
             is EditorAction.AnchorChanged,
             EditorAction.RecoveryGotIt,
             EditorAction.ShowFailureDetails,
@@ -273,7 +274,7 @@ internal object EditorEffects {
             MenuItem.ExportImages -> vm.imageExports.openExport()
             MenuItem.Share -> vm.saves.share(richText = false)
             MenuItem.CopyAs -> vm.copies.openChooser()
-            MenuItem.Display -> vm.update { it.copy(overlay = EditorOverlay.Display) }
+            MenuItem.Display -> vm.update { it.copy(overlay = EditorOverlay.Display()) }
             MenuItem.Settings -> vm.emit(EditorEvent.Open(AppScreen.Settings))
             MenuItem.Copy -> vm.copies.openChooser()
             MenuItem.InsertImage -> vm.pictures.insertHere()

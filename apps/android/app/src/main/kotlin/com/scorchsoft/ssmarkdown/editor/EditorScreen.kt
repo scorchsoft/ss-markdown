@@ -48,6 +48,7 @@ import com.scorchsoft.ssmarkdown.editor.chrome.LandscapeBar
 import com.scorchsoft.ssmarkdown.editor.chrome.ModeBar
 import com.scorchsoft.ssmarkdown.editor.chrome.TopBar
 import com.scorchsoft.ssmarkdown.editor.chrome.stripDocumentFor
+import com.scorchsoft.ssmarkdown.editor.chrome.viewHighlight
 import com.scorchsoft.ssmarkdown.editor.panes.EditorPanes
 import com.scorchsoft.ssmarkdown.editor.panes.PreviewHostState
 import com.scorchsoft.ssmarkdown.editor.preview.PreviewStripKeys
@@ -230,6 +231,7 @@ private fun Footer(
                 onSelect = { onAction(EditorAction.SelectMode(it)) },
                 iconOnly = layout.largeFont,
                 modes = if (state.isMarkdown) ViewMode.entries else listOf(ViewMode.Code),
+                onLongPress = { onAction(EditorAction.OpenView(it.viewHighlight())) },
                 modifier = Modifier.navigationBarsPadding(),
             )
         }

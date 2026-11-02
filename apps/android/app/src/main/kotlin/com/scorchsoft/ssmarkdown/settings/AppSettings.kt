@@ -165,7 +165,7 @@ fun AppSettings.withRecent(file: RecentFile): AppSettings {
 }
 
 /**
- * How Preview lays out its lines (ux-spec "Display sheet"): [Fluid] wraps
+ * How Preview lays out its lines (ux-spec "View sheet"): [Fluid] wraps
  * to the pane, [Page] shows the A4 page as it will print, and [NoWrap]
  * keeps code lines and tables at full width with a horizontal scroll.
  */

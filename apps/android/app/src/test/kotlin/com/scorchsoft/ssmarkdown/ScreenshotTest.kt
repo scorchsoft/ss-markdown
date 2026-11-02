@@ -14,6 +14,7 @@ import androidx.core.view.WindowInsetsCompat
 import com.scorchsoft.ssmarkdown.about.AboutScreen
 import com.scorchsoft.ssmarkdown.editor.EditorOverlay
 import com.scorchsoft.ssmarkdown.editor.EditorUiState
+import com.scorchsoft.ssmarkdown.editor.Pane
 import com.scorchsoft.ssmarkdown.editor.ViewMode
 import com.scorchsoft.ssmarkdown.fixtures.PreviewSamples
 import com.scorchsoft.ssmarkdown.fixtures.Samples
@@ -200,6 +201,10 @@ open class ScreenshotTest(
     @Test fun mermaidSheet() = sheet("mermaid-sheet", PreviewSamples.mermaidSheet)
 
     @Test fun display() = sheet("display", PreviewSamples.display)
+
+    /** The View sheet from a long-press on Code: the same layout, Code's Lines row tinted. */
+    @Test
+    fun viewFromCode() = sheet("view-from-code", Samples.saved.copy(overlay = EditorOverlay.Display(Pane.Code)))
 
     @Test fun linkPrompt() = sheet("link-prompt", PreviewSamples.linkPrompt)
 

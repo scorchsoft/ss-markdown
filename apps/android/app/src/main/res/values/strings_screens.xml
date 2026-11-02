@@ -22,7 +22,7 @@
     <string name="settings_zoom_preview_value">%1$d%% (%2$d px)</string>
     <string name="settings_code_font">Code font</string>
     <string name="settings_preview_font">Preview font</string>
-    <string name="settings_font_pending">Part of each theme: ⋮ → Display → Edit theme…</string>
+    <string name="settings_font_pending">Part of each theme: ⋮ → View → Edit theme…</string>
     <string name="settings_line_numbers">Line numbers</string>
     <string name="settings_saving">Saving</string>
     <string name="settings_write">Write to the file</string>

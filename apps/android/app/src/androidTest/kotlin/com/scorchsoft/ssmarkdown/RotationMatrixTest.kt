@@ -496,7 +496,7 @@ class RotationMatrixTest {
     }
 
     /**
-     * A sheet open (⋮ → Display). By the same rule 5 it is not dismissed
+     * A sheet open (⋮ → View). By the same rule 5 it is not dismissed
      * by a rotation or a recreated Activity: after each change it is still
      * the overlay and still drawn, and the text and selection under it
      * have not moved.
@@ -513,7 +513,7 @@ class RotationMatrixTest {
             rule.waitUntil(CHANGE_TIMEOUT) { showing(title) }
             throughRotationAndRecreation { name ->
                 rule.waitUntil(CHANGE_TIMEOUT) { showing(title) }
-                assertEquals("$name dismissed the sheet", EditorOverlay.Display, state().overlay)
+                assertEquals("$name dismissed the sheet", EditorOverlay.Display(), state().overlay)
                 assertEquals("$name lost characters", text, onMain { active().text.text.toString() })
                 assertEquals("$name moved the selection", selection, onMain { active().surface.selection })
             }

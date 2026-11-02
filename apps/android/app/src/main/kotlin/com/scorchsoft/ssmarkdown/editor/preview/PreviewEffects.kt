@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
 /**
  * The side effects of the Preview's actions: the link chip, the Mermaid
  * and table sheets, Export images, PDF, the renderer's Retry and the
- * Display sheet's Preview choices. The editor's own table stays in
+ * View sheet's Preview choices. The editor's own table stays in
  * `EditorEffects`; this is its Preview half.
  */
 internal object PreviewEffects {

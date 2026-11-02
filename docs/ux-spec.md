@@ -54,7 +54,9 @@ mockups agreed with Andrew win, and this file gets updated.
     message.
 - **⋮** opens: New · Open file · Open folder · Save as │ Find & replace ·
   Insert image… · Version history │ Export PDF · Export images… · Share · Copy as… │
-  Display · Settings. **Copy as…** opens the same Copy chooser (anchored to
+  View · Settings. **View** (hint "Wrap · A4 page · theme · size") opens
+  the View sheet; it was "Display", where Andrew could not find wrapping
+  or the A4 page. **Copy as…** opens the same Copy chooser (anchored to
   Copy). Above 1.5× font, when Copy itself moves into ⋮, its row opens the
   chooser and Copy as… is left out as a twin. In folder mode, while any file is unsaved, **Save
   all (N)** follows Save as (one tap after ⋮, rubric #9); it is absent
@@ -62,14 +64,16 @@ mockups agreed with Andrew win, and this file gets updated.
   preview has pictures it cannot show without the document's folder,
   **Show pictures beside this file…** follows Insert image… (see
   "Pictures").
-- The menu's **top row is Undo · Redo**, two 48 dp icons side by side
-  (as in Chrome's menu). Each is dimmed and read as unavailable when
-  there is nothing to undo or redo; a tap applies it and keeps the menu
-  open, so it can be tapped again. It works in Code, Split and Preview.
+- The menu's **top row is Undo · Redo · View**, three 48 dp icons side by
+  side (as in Chrome's menu). Undo and Redo are dimmed and read as
+  unavailable when there is nothing to undo or redo; a tap applies it and
+  keeps the menu open, so it can be tapped again. They work in Code, Split
+  and Preview. **View** is an "Aa" glyph (TalkBack: "View options"); a tap
+  closes the menu and opens the View sheet.
 - Opening ⋮ commits the keyboard's word and **hides the keyboard**, so
   the menu has the room; closing it does not bring the keyboard back
   (tapping the text does). The menu never runs off the screen: below
-  the pinned Undo · Redo row its rows scroll, with a fade at the edge
+  the pinned Undo · Redo · View row its rows scroll, with a fade at the edge
   that has more (checked at 360 × 640 dp, on its side and at 2× font).
 
 **Bottom bar (64 dp)**
@@ -78,6 +82,12 @@ mockups agreed with Andrew win, and this file gets updated.
   labels stay as TalkBack names. (Icons beside labels were dropped as
   busy chrome; UX-26.) Segments size to their labels and grow with the
   font, and fall back to a vertical radio list when a label cannot fit.
+- **Long-press a mode** (Code, Split or Preview; also the icon-only bar
+  at large fonts and the landscape switcher) opens the View sheet for it,
+  with a light haptic, and does not switch mode (a tap still does).
+  Code's or Preview's Lines row is briefly emphasised; Split emphasises
+  nothing. TalkBack offers it as "View options for Code". It is a
+  shortcut: ⋮'s View icon and View row are its visible twins.
 - A **zoom chip** ("120% ↺") floats in the **top-right corner of the
   pane it belongs to**, only when that pane's zoom differs from the
   default. In Split it is unambiguous which pane it resets. It is never
@@ -229,7 +239,7 @@ The Replace row opens with a "⇄ Replace" toggle at the end of row 1.
 
 ## Text size: one model
 
-- **Pinch** and the **Display sheet stepper** both set *this file's* size
+- **Pinch** and the **View sheet stepper** both set *this file's* size
   for the pane you're in.
 - **100% is defined by the preview theme's base size** (Clean: 15 px;
   a custom theme's "Base size" redefines it). Code's 100% is 12.5 sp.
@@ -612,12 +622,24 @@ app:
   system picker) for targets that aren't recent.
 - Prefix options are *none* (default) or *a date heading*.
 
-## Display sheet (⋮ → Display)
+## View sheet (⋮ → View, ⋮'s "Aa", or long-press a mode)
 
-Appearance (System / Light / Dark) · Preview theme (Clean, Reader,
-Compact, Contrast, + custom) · Text size steppers for Code and Preview,
-with a reset · Line wrapping: Code (Wrap / No wrap) and Preview (Fluid /
-A4 page / No wrap).
+One sheet with a **fixed layout**, the same from every entry point:
+
+1. **Lines**: a **Code** row (Wrap / No wrap) and a **Preview** row
+   (Fluid / A4 page / No wrap), each a label and a compact segmented
+   control.
+2. **Appearance** (System / Light / Dark).
+3. **Text size · this file**: Code − / + and Preview − / +, with the real
+   size beside each and "Reset to your default".
+4. **Preview theme** (Clean, Reader, Compact, Contrast, + custom, Edit
+   theme…).
+
+Context changes emphasis, never order: a long-press on Code tints the
+Code row for about a second (fading out) and moves focus to it; Preview
+does the same for the Preview row; Split, or opening from ⋮, tints
+nothing. The sheet fits a 412 × 915 dp phone at 1× font without
+scrolling; it scrolls only at large fonts.
 
 **A4 page mode.** On phones the A4 page renders at fit-width. Pinch in
 A4 zooms the page (it doesn't reflow), and the zoom chip resets to
@@ -971,14 +993,14 @@ Fonts family names, downloaded on first use and cached.
 
 Settings → Text has no font pickers of its own. Its "Code font" and
 "Preview font" rows say where the choice lives: "Part of each theme:
-⋮ → Display → Edit theme…". This replaces the earlier plan of a separate
+⋮ → View → Edit theme…". This replaces the earlier plan of a separate
 code-font setting.
 
 ## Settings
 
 - Opening: when a file opens, show Code / Preview / Last used. On launch,
   reopen the last file or start a new scratch doc.
-- Text: default zoom for each pane (− / + steppers, as on the Display
+- Text: default zoom for each pane (− / + steppers, as on the View
   sheet), and line numbers. The code font and preview font rows point to
   the theme, where both are set (see "Where each font lives" under Themes).
 - Saving: write to the file "When I tap Save" (default) or "Autosave"

@@ -25,7 +25,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
+import com.scorchsoft.ssmarkdown.core.ui.components.LongPress
 import com.scorchsoft.ssmarkdown.core.ui.components.SSSegmentedControl
+import com.scorchsoft.ssmarkdown.core.ui.components.choice
+import com.scorchsoft.ssmarkdown.editor.Pane
 import com.scorchsoft.ssmarkdown.editor.ViewMode
 import com.scorchsoft.ssmarkdown.ui.AppIcons
 
@@ -45,12 +48,13 @@ fun ModeBar(
     iconOnly: Boolean,
     modifier: Modifier = Modifier,
     modes: List<ViewMode> = ViewMode.entries,
+    onLongPress: ((ViewMode) -> Unit)? = null,
 ) {
     Column(modifier.background(SS.colors.chrome)) {
         HorizontalDivider(thickness = SS.dimens.hairline, color = SS.colors.border)
         // A floor, not a height: the segments grow with the font (UX-7, UX-8).
         Box(Modifier.fillMaxWidth().heightIn(min = SS.dimens.bottomBar), contentAlignment = Alignment.Center) {
-            ModeSwitcher(mode, onSelect, iconOnly, modes, withIcons = true)
+            ModeSwitcher(mode, onSelect, iconOnly, modes, withIcons = true, onLongPress = onLongPress)
         }
     }
 }
@@ -58,7 +62,9 @@ fun ModeBar(
 /**
  * The segmented switcher alone, for the landscape bar. [withIcons] puts a
  * glyph before each label (the bottom bar); the 48 dp landscape bar keeps
- * labels only, where the room is tight.
+ * labels only, where the room is tight. [onLongPress] is the shortcut to the
+ * View sheet for that mode (ux-spec "View sheet"): it never switches mode,
+ * and TalkBack offers it as "View options for Code".
  */
 @Composable
 fun ModeSwitcher(
@@ -67,14 +73,25 @@ fun ModeSwitcher(
     iconOnly: Boolean,
     modes: List<ViewMode> = ViewMode.entries,
     withIcons: Boolean = false,
+    onLongPress: ((ViewMode) -> Unit)? = null,
 ) {
     val labels = modes.map { modeLabel(it) }
+    val longLabels = labels.map { stringResource(R.string.view_options_for, it) }
+    val press =
+        LongPress(
+            onLongPress?.let { long ->
+                { index: Int -> long(modes[index]) }
+            },
+            { longLabels.getOrNull(it) },
+        )
     if (!iconOnly) {
         SSSegmentedControl(
             options = labels,
             selectedIndex = modes.indexOf(mode),
             onSelect = { onSelect(modes[it]) },
             icons = if (withIcons) modes.map(::modeIcon) else null,
+            onLongPress = press.action,
+            longPressLabel = press.label,
         )
         return
     }
@@ -91,7 +108,7 @@ fun ModeSwitcher(
                         .width(IconSegmentWidth)
                         .height(SS.dimens.segment)
                         .background(if (selected) SS.colors.segmentSelected else SS.colors.segmentTrack, SegmentShape)
-                        .selectable(selected = selected, role = Role.RadioButton, onClick = { onSelect(item) })
+                        .choice(selected, index, { onSelect(modes[it]) }, press)
                         .semantics { contentDescription = labels[index] },
             ) {
                 Icon(
@@ -103,6 +120,14 @@ fun ModeSwitcher(
         }
     }
 }
+
+/** The Lines row a long-press on this mode emphasises in the View sheet: none for Split (both rows matter). */
+fun ViewMode.viewHighlight(): Pane? =
+    when (this) {
+        ViewMode.Code -> Pane.Code
+        ViewMode.Split -> null
+        ViewMode.Preview -> Pane.Preview
+    }
 
 @Composable
 private fun modeLabel(mode: ViewMode): String =

@@ -62,8 +62,8 @@ fun EditorOverlays(
             LeaveSheet(name, onAction, historyOn = state.historyOn)
         }
 
-        EditorOverlay.Display -> {
-            DisplaySheet(state, display, onAction, themeControls)
+        is EditorOverlay.Display -> {
+            DisplaySheet(state, display, onAction, themeControls, highlight = overlay.highlight)
         }
 
         is EditorOverlay.SectionMenu -> {

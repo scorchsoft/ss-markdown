@@ -1,5 +1,8 @@
 package com.scorchsoft.ssmarkdown.editor.sheets
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,9 +12,15 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -24,6 +33,7 @@ import com.scorchsoft.ssmarkdown.editor.Pane
 import com.scorchsoft.ssmarkdown.settings.Appearance
 import com.scorchsoft.ssmarkdown.settings.PreviewWrap
 import com.scorchsoft.ssmarkdown.ui.StepperButtons
+import kotlinx.coroutines.delay
 import java.util.Locale
 
 /** Code's 100 % is 12.5 sp (ux-spec "Text size: one model"). */
@@ -43,10 +53,18 @@ data class DisplayFacts(
 )
 
 /**
- * ⋮ → Display (ux-spec "Display sheet"; mockup Display): Appearance, the
- * preview theme ([themeControls]), this file's text size for each pane
- * with the real size beside it and a reset to your default, and line
- * wrapping for Code (Wrap / No wrap) and Preview (Fluid / A4 page / No wrap).
+ * The View sheet (ux-spec "View sheet"): ⋮ → View, the ⋮ "Aa" icon, or a
+ * long-press on a mode. Its layout is the same every time, short enough to
+ * fit a 412 × 915 dp phone at 1× font without scrolling:
+ *
+ * 1. Lines: Code (Wrap / No wrap) and Preview (Fluid / A4 page / No wrap);
+ * 2. Appearance (System / Light / Dark);
+ * 3. this file's text size for each pane, with the real size and a reset;
+ * 4. the preview theme ([themeControls]).
+ *
+ * Where it was opened from only changes emphasis, never order: [highlight]
+ * tints that pane's Lines row for about a second and moves focus to it, so
+ * a long-press on Code lands on Code's wrapping.
  */
 @Composable
 fun DisplaySheet(
@@ -54,9 +72,33 @@ fun DisplaySheet(
     facts: DisplayFacts,
     onAction: (EditorAction) -> Unit,
     themeControls: @Composable () -> Unit,
+    highlight: Pane? = null,
 ) {
     SSSheet(onDismiss = { onAction(EditorAction.DismissOverlay) }) {
         SheetTitle(stringResource(R.string.display_title))
+        Label(R.string.display_lines)
+        LinesRow(stringResource(R.string.mode_code), highlight == Pane.Code) {
+            SSSegmentedControl(
+                options = listOf(stringResource(R.string.wrap_on), stringResource(R.string.wrap_off)),
+                selectedIndex = if (state.codeWrap) 0 else 1,
+                onSelect = { onAction(EditorAction.SetCodeWrap(it == 0)) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        LinesRow(stringResource(R.string.mode_preview), highlight == Pane.Preview) {
+            SSSegmentedControl(
+                options =
+                    listOf(
+                        stringResource(R.string.wrap_fluid),
+                        stringResource(R.string.wrap_a4),
+                        stringResource(R.string.wrap_off),
+                    ),
+                selectedIndex = facts.previewWrap.ordinal,
+                onSelect = { onAction(EditorAction.SetPreviewWrap(PreviewWrap.entries[it])) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        Divider()
         Label(R.string.display_appearance)
         SSSegmentedControl(
             options =
@@ -68,8 +110,6 @@ fun DisplaySheet(
             selectedIndex = facts.appearance.ordinal,
             onSelect = { onAction(EditorAction.SetAppearance(Appearance.entries[it])) },
         )
-        Divider()
-        themeControls()
         Divider()
         Label(R.string.display_text_size_file)
         val codeSize = sizeLabel(CODE_BASE_SP * state.codeZoom / PERCENT)
@@ -86,45 +126,59 @@ fun DisplaySheet(
             onAction(EditorAction.ResetZoom(Pane.Preview))
         }) { Text(stringResource(R.string.display_reset_default), style = SS.type.label, color = SS.colors.ink) }
         Divider()
-        Label(R.string.display_wrap)
-        WrapRow(stringResource(R.string.mode_code)) {
-            SSSegmentedControl(
-                options = listOf(stringResource(R.string.wrap_on), stringResource(R.string.wrap_off)),
-                selectedIndex = if (state.codeWrap) 0 else 1,
-                onSelect = { onAction(EditorAction.SetCodeWrap(it == 0)) },
-            )
-        }
-        WrapRow(stringResource(R.string.mode_preview)) {
-            SSSegmentedControl(
-                options =
-                    listOf(
-                        stringResource(R.string.wrap_fluid),
-                        stringResource(R.string.wrap_a4),
-                        stringResource(R.string.wrap_off),
-                    ),
-                selectedIndex = facts.previewWrap.ordinal,
-                onSelect = { onAction(EditorAction.SetPreviewWrap(PreviewWrap.entries[it])) },
-            )
-        }
+        themeControls()
     }
 }
+
+/** True on the Lines row a long-press asked for, while it is emphasised; for tests and TalkBack checks. */
+val Emphasised = SemanticsPropertyKey<Boolean>("Emphasised")
 
 private fun sizeLabel(value: Float): String = String.format(Locale.ROOT, "%.1f", value).removeSuffix(".0")
 
+/**
+ * One Lines row: the pane's name and its wrapping. [emphasised] tints the
+ * row and fades the tint out over about a second, and puts focus on the
+ * name, so TalkBack starts there.
+ */
 @Composable
-private fun WrapRow(
+private fun LinesRow(
     label: String,
+    emphasised: Boolean,
     control: @Composable () -> Unit,
 ) {
+    val tint = remember { Animatable(if (emphasised) 1f else 0f) }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(emphasised) {
+        if (!emphasised) return@LaunchedEffect
+        // The sheet slides up first; focus and the fade follow it.
+        delay(EMPHASIS_DELAY_MILLIS)
+        runCatching { focus.requestFocus() }
+        tint.animateTo(0f, tween(EMPHASIS_FADE_MILLIS))
+    }
+    val colour = SS.colors.segmentSelected
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .drawBehind { if (tint.value > 0f) drawRect(colour.copy(alpha = tint.value)) }
+                .semantics { this[Emphasised] = emphasised }
+                .padding(vertical = 4.dp),
     ) {
-        Text(label, style = SS.type.body, color = SS.colors.ink, modifier = Modifier.weight(1f))
-        Row(Modifier.weight(2f)) { control() }
+        Text(
+            label,
+            style = SS.type.body,
+            color = SS.colors.ink,
+            modifier = Modifier.weight(1f).focusRequester(focus).focusable(),
+        )
+        Row(Modifier.weight(LINES_CONTROL_WEIGHT)) { control() }
     }
 }
+
+private const val LINES_CONTROL_WEIGHT = 3f
+private const val EMPHASIS_DELAY_MILLIS = 250L
+private const val EMPHASIS_FADE_MILLIS = 1_000
 
 /** The default [DisplaySheet] theme slot, for tests that run without the theme library. */
 @Composable

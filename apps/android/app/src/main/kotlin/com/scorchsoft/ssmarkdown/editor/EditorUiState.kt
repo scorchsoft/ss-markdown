@@ -285,8 +285,14 @@ sealed interface EditorOverlay {
         val leave: PendingLeave,
     ) : EditorOverlay
 
-    /** ⋮ → Display. */
-    data object Display : EditorOverlay
+    /**
+     * The View sheet (⋮ → View, the ⋮ "Aa" icon, or long-press a mode). Its
+     * layout is fixed; [highlight] only briefly tints that pane's Lines row
+     * (long-press Code or Preview), and null tints nothing.
+     */
+    data class Display(
+        val highlight: Pane? = null,
+    ) : EditorOverlay
 
     /**
      * The section menu for a heading: Copy section as Markdown · as formatted

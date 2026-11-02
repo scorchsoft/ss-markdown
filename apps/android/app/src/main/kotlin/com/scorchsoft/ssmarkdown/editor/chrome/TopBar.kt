@@ -160,6 +160,7 @@ fun RowScope.TopBarActions(
                     canRedo = state.canRedo,
                     onUndo = { onAction(EditorAction.MenuHistory(redo = false)) },
                     onRedo = { onAction(EditorAction.MenuHistory(redo = true)) },
+                    onView = { onAction(EditorAction.OpenView(highlight = null)) },
                 ),
         )
         SaveMenu(state, onAction)

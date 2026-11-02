@@ -30,6 +30,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.R
@@ -72,13 +75,14 @@ private fun menuGroups(
     )
 
 /**
- * ⋮: an Undo · Redo icon row on top (as in Chrome's menu), then New · Open
- * file · Open folder · Save as · (Save all (N)) │ Find & replace · Insert
- * image… · (Show pictures beside this file…) · Version history │ Export
- * PDF · Export images… · Share · Copy as… │ Display · Settings. Above 1.5×
- * font scale, Copy moves in here too, under the icon row. Show pictures
- * appears only while [picturesNeedFolder]. Save all (N) shows only in
- * folder mode while
+ * ⋮: an Undo · Redo · View icon row on top (as in Chrome's menu), then New ·
+ * Open file · Open folder · Save as · (Save all (N)) │ Find & replace ·
+ * Insert image… · (Show pictures beside this file…) · Version history │
+ * Export PDF · Export images… · Share · Copy as… │ View · Settings. The
+ * "Aa" View icon opens the View sheet (wrapping, A4 page, theme, size) and
+ * closes the menu; the View row is its twin. Above 1.5× font scale, Copy
+ * moves in here too, under the icon row. Show pictures appears only while
+ * [picturesNeedFolder]. Save all (N) shows only in folder mode while
  * [unsavedCount] files are unsaved; the ≡ panel keeps its own row.
  * Keyboard shortcuts ("Ctrl F") show only with a hardware keyboard
  * attached, as the Navigator's Ctrl K does.
@@ -115,12 +119,13 @@ fun OverflowMenu(
     }
 }
 
-/** What the ⋮ menu's Undo · Redo row shows and does. */
+/** What the ⋮ menu's Undo · Redo · View row shows and does. */
 data class MenuHistoryState(
     val canUndo: Boolean = false,
     val canRedo: Boolean = false,
     val onUndo: () -> Unit = {},
     val onRedo: () -> Unit = {},
+    val onView: () -> Unit = {},
 )
 
 @Composable
@@ -128,6 +133,19 @@ private fun HistoryRow(history: MenuHistoryState) {
     Row(Modifier.padding(horizontal = 4.dp)) {
         HistoryButton(AppIcons.undo, stringResource(R.string.undo), history.canUndo, history.onUndo)
         HistoryButton(AppIcons.redo, stringResource(R.string.redo), history.canRedo, history.onRedo)
+        ViewButton(history.onView)
+    }
+}
+
+/** "Aa": the View sheet, one tap from ⋮ (Andrew could not find wrapping under "Display"). */
+@Composable
+private fun ViewButton(onClick: () -> Unit) {
+    val label = stringResource(R.string.view_options)
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier.size(SS.dimens.iconButton).semantics { contentDescription = label },
+    ) {
+        Text("Aa", style = SS.type.bodyStrong, color = SS.colors.ink, modifier = Modifier.clearAndSetSemantics { })
     }
 }
 

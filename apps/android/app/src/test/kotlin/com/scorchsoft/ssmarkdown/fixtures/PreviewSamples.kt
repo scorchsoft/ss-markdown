@@ -71,7 +71,7 @@ object PreviewSamples {
     val linkPromptEmpty =
         Samples.saved.copy(overlay = EditorOverlay.LinkPrompt(LinkFields("the docs", ""), TextSelection(0, 8)))
 
-    val display = Samples.zoomed.copy(overlay = EditorOverlay.Display)
+    val display = Samples.zoomed.copy(overlay = EditorOverlay.Display())
 
     val tableMenu = Samples.saved.copy(mode = ViewMode.Preview, overlay = EditorOverlay.TableMenu(8))
 

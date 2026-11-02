@@ -79,6 +79,15 @@ sealed interface EditorAction {
 
     data object OpenMenu : EditorAction
 
+    /**
+     * Opens the View sheet: the ⋮ "Aa" icon (null), or a long-press on a mode
+     * segment, which tints that pane's Lines row ([highlight]) and leaves the
+     * mode as it is.
+     */
+    data class OpenView(
+        val highlight: Pane?,
+    ) : EditorAction
+
     /** Undo or Redo from the top row of the ⋮ menu; the menu stays open for another tap. */
     data class MenuHistory(
         val redo: Boolean,

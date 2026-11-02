@@ -34,6 +34,10 @@ object EditorReducer {
                 state.copy(overlay = EditorOverlay.Menu)
             }
 
+            is EditorAction.OpenView -> {
+                state.copy(overlay = EditorOverlay.Display(action.highlight))
+            }
+
             EditorAction.DismissOverlay,
             EditorAction.KeepEditing,
             EditorAction.ConfirmNotKept,

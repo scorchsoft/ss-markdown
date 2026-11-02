@@ -34,6 +34,12 @@ release may change behaviour.
   embedded as images within the clipboard's limit, maths as readable text,
   and a plain-text version without Markdown symbols for apps that paste text.
   A document too long for the clipboard is shortened, and the message says so.
+- ⋮ "Display" is now **View** ("Wrap · A4 page · theme · size"), with an
+  "Aa" View icon beside Undo and Redo. The View sheet has one fixed layout:
+  Lines (Code: Wrap / No wrap; Preview: Fluid / A4 page / No wrap) first, then
+  Appearance, Text size and Preview theme. Long-press Code, Split or Preview
+  in the bottom bar to open it for that mode (its row is briefly emphasised);
+  a tap still switches mode.
 
 ### Fixed
 

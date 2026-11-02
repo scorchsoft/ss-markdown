@@ -151,4 +151,22 @@ describe("copy formatted text", () => {
             result.text?.endsWith("[Shortened to fit the clipboard. Copy a section, or share the file, for the rest.]"),
         ).toBe(true);
     });
+
+    it("still answers a copy whose sections a new load replaced before they rendered", async () => {
+        const page = await openPreview(h);
+        await loadMarkdown(page, "Short.");
+        await clearReceived(page);
+        const big = Array.from({ length: 3000 }, (_, i) => `## Part ${i}\n\nWords ${i}.`).join("\n\n");
+        // All in one task, so the page takes the second load before the worker renders the copy's sections.
+        await page.evaluate((big) => {
+            const port = (window as unknown as { __port: MessagePort }).__port;
+            port.postMessage(JSON.stringify({ type: "load", rev: 2, text: big }));
+            port.postMessage(
+                JSON.stringify({ type: "exportHtml", requestId: 7, fromLine: 8000, toLine: 9000, maxChars: 400_000 }),
+            );
+            port.postMessage(JSON.stringify({ type: "load", rev: 3, text: "Other." }));
+        }, big);
+        const answer = await waitForMessage(page, (m) => m.type === "htmlResult" && m.requestId === 7, 5_000);
+        expect(answer).toBeTruthy();
+    });
 });

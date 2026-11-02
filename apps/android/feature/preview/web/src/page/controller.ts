@@ -73,6 +73,9 @@ export class RenderController {
         this.sync.load(rev);
         for (const old of this.views) this.drop(old);
         this.views = [];
+        // A wait on the old sections would never end (they are never rendered now) and would keep them
+        // alive: end it, and the print or copy behind it finds its request abandoned.
+        for (const waiter of this.waiters.splice(0)) waiter.resolve();
         this.dirty.clear();
         this.refreshDefinitions(true);
         this.splice({ first: 0, end: 0, fresh: splitSections(this.doc.lines), delta: 0 });

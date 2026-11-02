@@ -57,7 +57,7 @@ test, never a wall-clock threshold. The tokenizer rows come from
 | PERF-I budget for a 12 MB stream of unknown size | Normal (admitted as 0 bytes); an `OutOfMemoryError` mid-decode crashed the app | Lean, from the bytes that arrived; an `OutOfMemoryError` declines the file | `DocumentLoaderTest` |
 | CC-F the three wall-clock tests | < 1 s, < 2 s, < 10 s | ≤ 16 char reads a char; ≤ 3 lines tokenised and ≤ 1 outline rebuild per edit | `LineTokenizerTest`, `OutlineTest` |
 
-## Emulator measurements (CI, 2026-11-01): emulator, not device
+## Emulator measurements (CI, 2026-11-01/02): emulator, not device
 
 **These are emulator numbers, not device numbers.** CI's `perf` job runs
 `:benchmark`'s Macrobenchmarks on an API 34 x86_64 emulator (6 GB,
@@ -68,32 +68,40 @@ neither faster nor slower than a phone in a predictable way, so the
 quality-bar budgets are **advisory** here; the job fails only on a >25%
 regression against `docs/perf/emulator-baseline.json`. The budgets are
 proved on a Pixel 6a-class phone (still to do). Medians of each run's
-iterations; frames pooled over iterations. Run 41361377483 (a1c059b),
-except TTFD (41358849555, ea23a79).
+iterations; frames pooled over iterations. Two complete runs, to show the
+noise: A = run 41361377483 (a1c059b; its TTFD from 41358849555), which is
+the committed baseline; B = run 41364011716 (6415bf2), the first all-green
+run of the job.
 
-| Measurement | Emulator | Budget (quality-bar §4) | How |
-|---|---|---|---|
-| Cold start, first frame (TTID) | 870 ms | — | `StartupTimingMetric`, 10 cold starts |
-| Cold start to an editable document (TTFD) | 878 ms | < 800 ms | `reportFullyDrawn` when a document is bound (`ReportDrawnWhen`) |
-| Open 1 MB | 254 ms | < 1 s | `SSM:open`, request to bound buffer, 5 cold opens through `content://` |
-| Open 20 MB | 662 ms | < 3 s | the same |
-| Keystroke to commit, 1 MB | 1.97 ms mean, 4.48 ms worst | < 16 ms | `SSM:commit` per key, 30 hardware keys × 3 |
-| Keystroke to commit, 20 MB | 2.38 ms mean, 8.69 ms worst | < 16 ms, flat with size | the same |
-| Typing frames (CPU), 1 MB / 20 MB | p50 5.4 / 5.1 ms, p99 9.0 / 10.8 ms | 60 fps | `FrameTimingMetric` |
-| Fling 20 MB, ~10 s | 4.9% janky (missed deadline), 0.23% over 32 ms; frame CPU p50 4.6, p90 7.0, p99 18.8 ms | 60 fps, no frame > 32 ms | `FrameTimingMetric`, 12 flings × 3 |
-| Preview refresh after typing, 50 KB (Split) | 17.7 ms mean, 19.8 ms worst | < 150 ms | `SSM:previewRefresh`, host edit to the page's `rendered` |
+| Measurement | Run A | Run B | Budget (quality-bar §4) | How |
+|---|---|---|---|---|
+| Cold start, first frame (TTID) | 870 ms | 521 ms | — | `StartupTimingMetric`, 10 cold starts |
+| Cold start to an editable document (TTFD) | 878 ms | 592 ms | < 800 ms | `reportFullyDrawn` when a document is bound (`ReportDrawnWhen`) |
+| Open 1 MB | 254 ms | 169 ms | < 1 s | `SSM:open`, request to bound buffer, 5 cold opens through `content://` |
+| Open 20 MB | 662 ms | 336 ms | < 3 s | the same |
+| Keystroke to commit, 1 MB (mean / worst) | 1.97 / 4.48 ms | 1.79 / 4.67 ms | < 16 ms | `SSM:commit` per key, 30 hardware keys × 3 |
+| Keystroke to commit, 20 MB (mean / worst) | 2.38 / 8.69 ms | 1.37 / 2.86 ms | < 16 ms, flat with size | the same |
+| Typing frames (CPU), 1 MB p50 / p99 | 5.4 / 9.0 ms | 4.0 / 8.0 ms | 60 fps | `FrameTimingMetric` |
+| Typing frames (CPU), 20 MB p50 / p99 | 5.1 / 10.8 ms | 4.1 / 9.2 ms | 60 fps | `FrameTimingMetric` |
+| Fling 20 MB, janky frames (missed deadline) | 4.9% | 3.6% | 60 fps | `FrameTimingMetric`, 12 flings × 3, ~10 s each |
+| Fling 20 MB, frames over 32 ms | 0.23% | 1.32% | none | the same |
+| Fling 20 MB, frame CPU p50 / p90 / p99 | 4.6 / 7.0 / 18.8 ms | 3.0 / 4.4 / 18.2 ms | — | the same |
+| Preview refresh after typing, 50 KB (mean / worst) | 17.7 / 19.8 ms | 16.9 / 18.1 ms | < 150 ms | `SSM:previewRefresh`, host edit to the page's `rendered`, Split |
 
 Read with care:
-- Keystroke cost does not grow with the file: 1.97 → 2.38 ms mean from
-  1 MB to 20 MB (20× the text), and typing frames are flat.
-- Cold start to editable is over the 800 ms budget on this emulator, and a
-  phone run has not yet said whether it is on a phone. Treat it as the one
-  amber number.
-- The 20 MB fling has 0.23% of frames over 32 ms (about 4 of 1,722) on the
-  emulator, where the budget allows none. A phone run decides.
-- The Preview refresh is the page's own render after the host's edit; the
-  debounce before it, if any, is in the number because the edit is sent
-  as the key lands.
+- The runner-to-runner noise is large: start-up and open moved 33–49%
+  between two runs of the same code. That is why the gate is a 25%
+  regression beyond a per-metric floor, not a budget, and why a phone run
+  is still the proof.
+- Keystroke cost does not grow with the file: 1.4–2.4 ms mean at 20 MB
+  against 1.8–2.0 ms at 1 MB, and the typing frames are flat.
+- Cold start to editable: 878 ms in A (over the 800 ms budget), 592 ms in
+  B. Amber until a phone says which.
+- The 20 MB fling has 0.2–1.3% of frames over 32 ms on the emulator,
+  where the budget allows none; the frame CPU p99 is 18 ms in both runs.
+  This is the number most worth a phone trace.
+- The Preview refresh is from the moment the host sends the edit (as the
+  key lands) to the page's report that it drew it.
 
 ## Libraries
 

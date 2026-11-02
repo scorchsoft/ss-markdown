@@ -217,7 +217,12 @@ private fun Outcome(
             }
 
             is SharePhase.Failed -> {
-                stringResource(R.string.share_failed, phase.name.ifEmpty { untitled })
+                // A named target that failed (missing, too large, the write failed) offers New note.
+                if (phase.name.isEmpty()) {
+                    stringResource(R.string.share_failed, untitled)
+                } else {
+                    stringResource(R.string.share_failed_target, phase.name)
+                }
             }
 
             is SharePhase.Unusable -> {
@@ -243,24 +248,34 @@ private fun Outcome(
             },
     ) {
         Text(text, style = SS.type.body, color = SS.colors.ink, modifier = Modifier.weight(1f))
-        when (phase) {
-            is SharePhase.Done -> {
-                TextButton(onClick = {
-                    onAction(ShareAction.OpenResult)
-                }) { Text(stringResource(R.string.share_open), color = SS.colors.ink) }
+        OutcomeAction(phase, onAction)
+    }
+}
+
+/** The outcome's one button: Open after a success, New note after a refused or failed target, else Cancel. */
+@Composable
+private fun OutcomeAction(
+    phase: SharePhase,
+    onAction: (ShareAction) -> Unit,
+) {
+    val (label, action) =
+        when {
+            phase is SharePhase.Done -> {
+                R.string.share_open to ShareAction.OpenResult
             }
 
-            is SharePhase.Blocked -> {
-                TextButton(onClick = {
-                    onAction(ShareAction.ChooseTarget(null))
-                }) { Text(stringResource(R.string.share_new_note), color = SS.colors.ink) }
+            phase is SharePhase.Blocked -> {
+                R.string.share_new_note to ShareAction.ChooseTarget(null)
+            }
+
+            phase is SharePhase.Failed && phase.name.isNotEmpty() -> {
+                R.string.share_new_note to
+                    ShareAction.ChooseTarget(null)
             }
 
             else -> {
-                TextButton(onClick = {
-                    onAction(ShareAction.Cancel)
-                }) { Text(stringResource(R.string.cancel), color = SS.colors.ink) }
+                R.string.cancel to ShareAction.Cancel
             }
         }
-    }
+    TextButton(onClick = { onAction(action) }) { Text(stringResource(label), color = SS.colors.ink) }
 }

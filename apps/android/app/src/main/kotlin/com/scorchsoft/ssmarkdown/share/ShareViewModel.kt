@@ -2,9 +2,11 @@ package com.scorchsoft.ssmarkdown.share
 
 import com.scorchsoft.ssmarkdown.document.VersionHistoryHook
 import com.scorchsoft.ssmarkdown.editor.EditorViewModel
+import com.scorchsoft.ssmarkdown.files.document.CheckReason
 import com.scorchsoft.ssmarkdown.files.document.DocumentStore
 import com.scorchsoft.ssmarkdown.files.document.OpenDocument
 import com.scorchsoft.ssmarkdown.files.document.OpenOutcome
+import com.scorchsoft.ssmarkdown.files.document.OutsideChange
 import com.scorchsoft.ssmarkdown.files.document.Recovery
 import com.scorchsoft.ssmarkdown.files.drafts.DraftStore
 import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
@@ -30,7 +32,7 @@ import kotlinx.coroutines.launch
  *
  * @param dateHeading "### <date time>" for the date prefix, from the caller's locale.
  */
-@Suppress("LongParameterList") // Constructor injection without a DI framework.
+@Suppress("LongParameterList", "TooManyFunctions") // Constructor injection; one append step per function.
 class ShareViewModel(
     private val store: DocumentStore,
     private val drafts: DraftStore,
@@ -107,7 +109,6 @@ class ShareViewModel(
         ui.update { it.copy(phase = if (saved) SharePhase.Done("", uri.value) else SharePhase.Failed("")) }
     }
 
-    @Suppress("ReturnCount") // Each refusal (not open, read-only, conflicted, failed) ends the flow its own way.
     private suspend fun append(
         target: String,
         state: ShareUiState,
@@ -115,28 +116,17 @@ class ShareViewModel(
         val uri = DocumentUri(target)
         val name = state.targets.firstOrNull { it.uri == target }?.name ?: target.substringAfterLast('/')
         val alreadyOpen = store[uri]
-        if (alreadyOpen != null && alreadyOpen.isDirty) {
-            insert(alreadyOpen, state)
-            return ui.update { it.copy(phase = SharePhase.Done(name, target)) }
-        }
-        val opened =
-            store.open(uri) as? OpenOutcome.Opened ?: return ui.update { it.copy(phase = SharePhase.Failed(name)) }
-        val doc = opened.document
-        if (recovered(opened, uri, name, target, state)) return
-        if (doc.readOnly != null || doc.conflict != null) {
-            if (alreadyOpen == null) store.close(uri)
-            return ui.update { it.copy(phase = SharePhase.Blocked(name, conflict = doc.conflict != null)) }
-        }
+        val doc =
+            if (alreadyOpen != null) {
+                readyOpen(alreadyOpen, uri, name, target, state)
+            } else {
+                readyClosed(uri, name, target, state)
+            } ?: return
         insert(doc, state)
+        // Recorded before the save, so "Appended from <source>" is the version History shows:
+        // the save's own record of the same text adds nothing after it.
+        history.record(uri, doc.document.snapshot(), VersionKind.Appended, state.source)
         val outcome = store.save(uri)
-        if (outcome is SaveOutcome.Saved) {
-            history.record(
-                uri,
-                doc.document.snapshot(),
-                VersionKind.Appended,
-                state.source,
-            )
-        }
         // A failed save leaves the appended text in memory, journalled: closing keeps a dirty buffer.
         if (alreadyOpen == null) store.close(uri)
         ui.update {
@@ -149,6 +139,69 @@ class ShareViewModel(
                     },
             )
         }
+    }
+
+    /**
+     * The target is open here. Read-only or in conflict: refused, with New
+     * note on offer. Unsaved: the text joins that buffer and stays unsaved,
+     * so it never races the editor. Clean: the disk is the truth, so a
+     * buffer another app changed is reloaded first and the append lands on
+     * that version, not on a stale copy. Null when this ended the flow.
+     */
+    private suspend fun readyOpen(
+        open: OpenDocument,
+        uri: DocumentUri,
+        name: String,
+        target: String,
+        state: ShareUiState,
+    ): OpenDocument? {
+        val phase =
+            when {
+                open.readOnly != null || open.conflict != null -> {
+                    SharePhase.Blocked(name, conflict = open.conflict != null)
+                }
+
+                open.isDirty -> {
+                    insert(open, state)
+                    SharePhase.Done(name, target)
+                }
+
+                store.checkOutside(uri, CheckReason.BeforeSave) == OutsideChange.Missing -> {
+                    SharePhase.Failed(name)
+                }
+
+                else -> {
+                    return open
+                }
+            }
+        ui.update { it.copy(phase = phase) }
+        return null
+    }
+
+    /**
+     * Opens a target that is not open here, and refuses one that is
+     * read-only or conflicted. Null when this ended the flow.
+     */
+    @Suppress("ReturnCount") // Each refusal (failed, recovered, read-only or conflicted) ends the flow its own way.
+    private suspend fun readyClosed(
+        uri: DocumentUri,
+        name: String,
+        target: String,
+        state: ShareUiState,
+    ): OpenDocument? {
+        val opened = store.open(uri) as? OpenOutcome.Opened
+        if (opened == null) {
+            ui.update { it.copy(phase = SharePhase.Failed(name)) }
+            return null
+        }
+        if (recovered(opened, uri, name, target, state)) return null
+        val doc = opened.document
+        if (doc.readOnly != null || doc.conflict != null) {
+            store.close(uri)
+            ui.update { it.copy(phase = SharePhase.Blocked(name, conflict = doc.conflict != null)) }
+            return null
+        }
+        return doc
     }
 
     /**

@@ -55,6 +55,8 @@ class EditorFixture(
     compute: CoroutineDispatcher = dispatcher,
     /** Folder mode's file system; none by default. */
     folders: FolderSource = NoFolders,
+    /** The phone's memory; a roomy one by default, a tight one to test admission. */
+    memory: MemorySource = RoomyMemory,
 ) {
     val files = File(root, "files").apply { mkdirs() }
     val scope = CoroutineScope(SupervisorJob() + dispatcher)
@@ -83,7 +85,7 @@ class EditorFixture(
             provider,
             journals,
             BaseCopyStore(File(root, "base")),
-            MemoryGovernor(RoomyMemory),
+            MemoryGovernor(memory),
             io,
             history,
         )
@@ -156,7 +158,7 @@ private class FaultyWrites(
 }
 
 /** A phone with plenty of memory and storage. */
-private object RoomyMemory : MemorySource {
+object RoomyMemory : MemorySource {
     private const val MB = 1024L * 1024
     override val isLowRamDevice = false
     override val memoryClassMegabytes = 512

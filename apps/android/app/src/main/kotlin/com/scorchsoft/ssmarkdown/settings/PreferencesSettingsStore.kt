@@ -138,12 +138,15 @@ internal object SettingsJson {
             .put("target", s.lastTarget)
             .put("position", s.position.name)
             .put("prefix", s.prefix.name)
+            .put("directShare", s.directShare)
 
     private fun decodeShare(o: JSONObject) =
         ShareDefaults(
             lastTarget = o.optString("target").takeIf { it.isNotEmpty() && !o.isNull("target") },
             position = enumOr(o.optString("position"), AppendPosition.Bottom),
             prefix = enumOr(o.optString("prefix"), AppendPrefix.None),
+            // Absent before the setting existed: those installs get the default, on.
+            directShare = o.optBoolean("directShare", true),
         )
 
     private fun encodeExport(e: ExportDefaults) =

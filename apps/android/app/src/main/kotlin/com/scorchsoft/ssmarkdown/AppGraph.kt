@@ -42,6 +42,8 @@ import com.scorchsoft.ssmarkdown.platform.OpenTokens
 import com.scorchsoft.ssmarkdown.settings.PersistedSettingsRepository
 import com.scorchsoft.ssmarkdown.settings.PreferencesSettingsStore
 import com.scorchsoft.ssmarkdown.settings.SettingsRepository
+import com.scorchsoft.ssmarkdown.share.CompatShortcutPublisher
+import com.scorchsoft.ssmarkdown.share.DirectShareTargets
 import com.scorchsoft.ssmarkdown.storage.StorageDependencies
 import com.scorchsoft.ssmarkdown.storage.StorageViewModel
 import com.scorchsoft.ssmarkdown.themes.ThemeEditorViewModel
@@ -246,6 +248,16 @@ class AppGraph(
 
     /** One-time tickets for the share sheet's "Open" (SEC-2: no URI travels in an extra). */
     val openTokens = OpenTokens(clock)
+
+    /**
+     * Recent files as Android Direct Share targets (ADR 0017), kept in step
+     * with Settings → Sharing and the recent list. Synced once now, on
+     * [io]; nothing here runs on the main thread or can throw.
+     */
+    val directShare =
+        DirectShareTargets(CompatShortcutPublisher(app), settings, permissions::held, ioScope, io).also {
+            it.start()
+        }
 
     /** Downloads, ZIPs, sharing and the clipboard for exported images and rich text. */
     val media = MediaActions(app, io)

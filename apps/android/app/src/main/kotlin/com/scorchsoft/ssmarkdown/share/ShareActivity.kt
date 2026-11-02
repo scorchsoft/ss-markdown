@@ -12,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.lifecycle.lifecycleScope
 import com.scorchsoft.ssmarkdown.AppGraph
 import com.scorchsoft.ssmarkdown.MainActivity
@@ -42,15 +43,37 @@ class ShareActivity : ComponentActivity() {
     private val graph: AppGraph get() = (application as SSMarkdownApplication).graph
 
     private val viewModel: ShareViewModel by lazy {
-        ShareViewModel(graph.store, graph.drafts, graph.historyHook, graph.settings, graph.editor, graph.mainScope) {
-            DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(graph.clock()))
-        }
+        ShareViewModel(
+            graph.store,
+            graph.drafts,
+            graph.historyHook,
+            graph.settings,
+            graph.editor,
+            graph.mainScope,
+            dateHeading = {
+                DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(graph.clock()))
+            },
+            onAppended = graph.directShare::reportUsed,
+        )
+    }
+
+    /**
+     * The recent file chosen in Android's share sheet, if this came from one
+     * of our Direct Share targets. Mapped back through our own recents and
+     * grants, never read as a URI (SEC-2); it only preselects (ADR 0017).
+     */
+    private val preselect: String? by lazy {
+        graph.directShare.resolve(intent.getStringExtra(ShortcutManagerCompat.EXTRA_SHORTCUT_ID))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        if (savedInstanceState == null) readShared(intent)
+        if (savedInstanceState == null) {
+            readShared(intent)
+            // A grant lost since the last sync takes its shortcut with it.
+            graph.directShare.refresh()
+        }
         setContent {
             val state by viewModel.state.collectAsState()
             val pick =
@@ -85,6 +108,7 @@ class ShareActivity : ComponentActivity() {
                 viewModel.begin(
                     request.text,
                     ShareReducer.sourceOf(request.text, request.title),
+                    preselect,
                 )
             }
 
@@ -101,7 +125,7 @@ class ShareActivity : ComponentActivity() {
     private fun readStream(uri: DocumentUri) {
         lifecycleScope.launch {
             when (val content = withContext(graph.io) { graph.sharedReader.read(uri) }) {
-                is SharedContent.Text -> viewModel.begin(content.text, content.name)
+                is SharedContent.Text -> viewModel.begin(content.text, content.name, preselect)
                 is SharedContent.TooLarge -> viewModel.unusable(content.sizeBytes)
                 else -> viewModel.unusable(null)
             }

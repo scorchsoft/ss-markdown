@@ -99,11 +99,14 @@ enum class AppendPrefix { None, DateHeading }
  * The share sheet's remembered choices.
  *
  * @property lastTarget the last file appended to, if any.
+ * @property directShare Settings → Sharing: recent files appear in Android's share sheet and the
+ *   launcher's long-press menu (ADR 0017). On by default.
  */
 data class ShareDefaults(
     val lastTarget: String? = null,
     val position: AppendPosition = AppendPosition.Bottom,
     val prefix: AppendPrefix = AppendPrefix.None,
+    val directShare: Boolean = true,
 )
 
 /** Export images → Diagrams as. */

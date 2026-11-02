@@ -43,6 +43,23 @@ class LaunchIntentsTest {
     }
 
     @Test
+    fun `a recent file's launcher shortcut opens only what its id resolves to`() {
+        val openRecent = IntentFields(LaunchIntents.ACTION_OPEN_RECENT, data = null, type = null)
+        assertEquals(
+            LaunchRequest("content://tree/doc", writable = true, source = null, fromAnotherApp = false),
+            LaunchIntents.request(openRecent, null, tokens::redeem, { "content://tree/doc" }) { "Gmail" },
+        )
+        assertNull(
+            "an unknown id: the launch default",
+            LaunchIntents.request(openRecent, null, tokens::redeem, { null }) { "Gmail" },
+        )
+        assertNull(
+            "the resolver is only asked for the shortcut's action",
+            LaunchIntents.request(main, null, tokens::redeem, { "content://x" }) { null },
+        )
+    }
+
+    @Test
     fun `a ticket is not taken from a VIEW intent's data either`() {
         val view = IntentFields(IncomingRequests.ACTION_VIEW, "content://a/1", "text/markdown")
         assertNull(request(view, "forged"))

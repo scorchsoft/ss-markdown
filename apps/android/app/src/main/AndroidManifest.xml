@@ -34,6 +34,12 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Direct Share targets for recent files (ADR 0017). Their launcher
+                 long-press twins come back here with a shortcut id, which is only
+                 ever mapped through our own recents (SEC-2). -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
             <!-- Open .md and .txt from Files, Drive and email in place (R2, J1).
                  content: only, and not BROWSABLE: a file: URI would be read with
                  this app's identity, and no browser sends either (SEC-2, SEC-3). -->

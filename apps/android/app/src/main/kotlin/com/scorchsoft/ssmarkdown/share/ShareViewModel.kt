@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
  * the text is added to that buffer instead and left unsaved, so it can
  * never race the editor.
  *
+ * @param onAppended told the URI of each file the text reached, so its Direct Share target ranks higher.
  * @param dateHeading "### <date time>" for the date prefix, from the caller's locale.
  */
 @Suppress("LongParameterList", "TooManyFunctions") // Constructor injection; one append step per function.
@@ -40,6 +41,7 @@ class ShareViewModel(
     private val settings: SettingsRepository,
     private val editor: EditorViewModel?,
     private val scope: CoroutineScope,
+    private val onAppended: (String) -> Unit = {},
     private val dateHeading: () -> String,
 ) {
     private val ui = MutableStateFlow(ShareUiState())
@@ -47,19 +49,29 @@ class ShareViewModel(
     /** The sheet's state. */
     val state: StateFlow<ShareUiState> = ui.asStateFlow()
 
-    /** Starts the sheet for [text], remembering the last target and options. */
+    /**
+     * Starts the sheet for [text], remembering the last target and options.
+     *
+     * @param preselect a recent file the user chose in Android's share sheet
+     *   (a Direct Share target, already resolved through our recents): it is
+     *   chosen and listed first, and Append still has to be tapped. Ignored
+     *   unless it is one of the recent files.
+     */
     fun begin(
         text: String,
         source: String?,
+        preselect: String? = null,
     ) {
         val s = settings.settings.value
-        val targets = s.recentFiles.sortedByDescending { it.uri == s.share.lastTarget || it.pinned }
+        val ranked = ShareTargets.ranked(s)
+        val chosen = preselect?.takeIf { p -> ranked.any { it.uri == p } }
+        val targets = if (chosen == null) ranked else ranked.sortedByDescending { it.uri == chosen }
         ui.value =
             ShareUiState(
                 text = text,
                 source = source,
                 targets = targets,
-                target = s.share.lastTarget?.takeIf { last -> targets.any { it.uri == last } },
+                target = chosen ?: s.share.lastTarget?.takeIf { last -> targets.any { it.uri == last } },
                 position = s.share.position,
                 prefix = s.share.prefix,
             )
@@ -133,7 +145,7 @@ class ShareViewModel(
             it.copy(
                 phase =
                     when (outcome) {
-                        is SaveOutcome.Saved -> SharePhase.Done(name, target)
+                        is SaveOutcome.Saved -> appended(name, target)
                         is SaveOutcome.Conflict -> SharePhase.Blocked(name, conflict = true)
                         else -> SharePhase.Failed(name)
                     },
@@ -163,7 +175,7 @@ class ShareViewModel(
 
                 open.isDirty -> {
                     insert(open, state)
-                    SharePhase.Done(name, target)
+                    appended(name, target)
                 }
 
                 store.checkOutside(uri, CheckReason.BeforeSave) == OutsideChange.Missing -> {
@@ -223,7 +235,7 @@ class ShareViewModel(
             is Recovery.Restored -> {
                 insert(opened.document, state)
                 store.close(uri) // Dirty, so it stays in memory: KeptUnsaved.
-                ui.update { it.copy(phase = SharePhase.Done(name, target)) }
+                ui.update { it.copy(phase = appended(name, target)) }
                 true
             }
 
@@ -237,6 +249,15 @@ class ShareViewModel(
                 false
             }
         }
+
+    /** The text reached [target]: Done, and [onAppended] is told. */
+    private fun appended(
+        name: String,
+        target: String,
+    ): SharePhase {
+        onAppended(target)
+        return SharePhase.Done(name, target)
+    }
 
     /** Inserts through the editor's surface when it shows this buffer, so its view sees the change. */
     private fun insert(

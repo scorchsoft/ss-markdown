@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Direct Share (ADR 0017): dynamic shortcuts in APPEND_TARGET are recent
+     files, offered in the system share sheet for text. Sharing to one starts
+     ShareActivity with the shortcut's id, which only preselects that file:
+     the user still taps Append. No static shortcuts. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <share-target android:targetClass="com.scorchsoft.ssmarkdown.share.ShareActivity">
+        <data android:mimeType="text/plain" />
+        <data android:mimeType="text/markdown" />
+        <data android:mimeType="text/x-markdown" />
+        <category android:name="com.scorchsoft.ssmarkdown.category.APPEND_TARGET" />
+    </share-target>
+</shortcuts>

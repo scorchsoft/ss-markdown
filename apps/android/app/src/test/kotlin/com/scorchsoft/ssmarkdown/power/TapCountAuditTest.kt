@@ -30,10 +30,14 @@ import com.scorchsoft.ssmarkdown.folder.FolderSource
 import com.scorchsoft.ssmarkdown.folder.FolderUiState
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.settings.RecentFile
+import com.scorchsoft.ssmarkdown.share.DirectShareIds
+import com.scorchsoft.ssmarkdown.share.DirectShareTargets
 import com.scorchsoft.ssmarkdown.share.ShareAction
 import com.scorchsoft.ssmarkdown.share.SharePhase
 import com.scorchsoft.ssmarkdown.share.ShareSheet
 import com.scorchsoft.ssmarkdown.share.ShareViewModel
+import com.scorchsoft.ssmarkdown.share.ShortcutPublisher
+import com.scorchsoft.ssmarkdown.share.ShortcutSpec
 import com.scorchsoft.ssmarkdown.text.EditOp
 import com.scorchsoft.ssmarkdown.theme.BuiltInThemes
 import com.scorchsoft.ssmarkdown.themes.ThemeControls
@@ -63,7 +67,8 @@ import org.robolectric.annotation.Config
  *   Navigator: tap the title, type 2–3 letters, tap the result;
  * - Save all is also one tap after ⋮ while a folder file is unsaved;
  * - a snippet shared in lands in any recent file from the sheet over the
- *   sending app: the chooser, the file (unless it was the last used), Append.
+ *   sending app: the chooser, the file (unless it was the last used), Append;
+ *   or, through a Direct Share target, the file in the chooser, then Append.
  *
  * Each test counts real clicks on the rendered UI and asserts where they
  * landed (the view model's state, the event the app acts on, the file).
@@ -281,17 +286,37 @@ class TapCountAuditTest {
 
     // Share in: the sheet over the sending app (ShareActivity), no full app.
 
-    private fun share(remembered: Boolean): Pair<EditorFixture, TapCounter> {
+    /**
+     * @param directShare the file was chosen in Android's share sheet itself
+     *   (a Direct Share target, ADR 0017), so it arrives preselected.
+     */
+    private fun share(
+        remembered: Boolean,
+        directShare: Boolean = false,
+    ): Pair<EditorFixture, TapCounter> {
         val f = EditorFixture(temp.root, dispatcher)
         val notes = f.file("notes.md", "# Notes\n")
+        val other = f.file("other.md", "# Other\n")
         f.settings.update {
             it.copy(
-                recentFiles = listOf(RecentFile(notes, "notes.md", "Documents", 0)),
-                share = it.share.copy(lastTarget = if (remembered) notes else null),
+                recentFiles =
+                    listOf(
+                        RecentFile(other, "other.md", "Documents", 1),
+                        RecentFile(notes, "notes.md", "Documents", 0),
+                    ),
+                share = it.share.copy(lastTarget = if (remembered) notes else other),
             )
         }
         val vm = ShareViewModel(f.store, f.drafts, f.history, f.settings, f.vm, f.scope) { "1 Nov 2026" }
-        vm.begin("A snippet from Chrome", "example.org")
+        val preselect =
+            if (directShare) {
+                val grants = mapOf(DocumentUri(notes) to true, DocumentUri(other) to true)
+                DirectShareTargets(NoShortcuts, f.settings, { grants }, f.scope, dispatcher)
+                    .resolve(DirectShareIds.of(notes))
+            } else {
+                null
+            }
+        vm.begin("A snippet from Chrome", "example.org", preselect)
         rule.setContent {
             Themed(dark = false) {
                 val state by vm.state.collectAsState()
@@ -299,10 +324,11 @@ class TapCountAuditTest {
             }
         }
         val taps = TapCounter(rule)
-        if (!remembered) taps.tap("notes.md")
+        if (!remembered && !directShare) taps.tap("notes.md")
         taps.tap("Append")
         rule.waitUntil(TIMEOUT) { vm.state.value.phase is SharePhase.Done }
         assertTrue(f.disk("notes.md").endsWith("A snippet from Chrome\n"))
+        assertEquals("# Other\n", f.disk("other.md"))
         return f to taps
     }
 
@@ -320,6 +346,28 @@ class TapCountAuditTest {
         val (_, taps) = share(remembered = false)
         assertEquals(2, taps.taps)
         assertEquals(3, CHOOSER_TAPS + taps.taps)
+    }
+
+    @Test
+    fun `sharing into any recent file through a Direct Share target is one tap in the sheet, two in all`() {
+        // The file is the target tapped in Android's own share sheet, so ours
+        // opens with it chosen; Append is still a tap of its own (ADR 0017).
+        val (_, taps) = share(remembered = false, directShare = true)
+        assertEquals(1, taps.taps)
+        assertEquals(2, CHOOSER_TAPS + taps.taps)
+    }
+
+    /** No shortcut store: the audit only resolves an id. */
+    private object NoShortcuts : ShortcutPublisher {
+        override val maxPerActivity = 4
+
+        override fun current() = emptyList<ShortcutSpec>()
+
+        override fun push(spec: ShortcutSpec) = Unit
+
+        override fun remove(ids: List<String>) = Unit
+
+        override fun reportUsed(id: String) = Unit
     }
 
     /** A folder whose listing is [rows]; nothing in it can be renamed or created. */

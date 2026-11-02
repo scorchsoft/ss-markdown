@@ -1,5 +1,7 @@
 package com.scorchsoft.ssmarkdown.settings
 
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import com.scorchsoft.ssmarkdown.editor.ViewMode
 import com.scorchsoft.ssmarkdown.history.versions.StorageLimit
 import org.json.JSONObject
@@ -25,6 +27,29 @@ class SettingsTest {
                 share = ShareDefaults("content://a", AppendPosition.Top, AppendPrefix.DateHeading),
             ).withRecent(RecentFile("content://a", "a.md", "Documents", 5, pinned = true))
         assertEquals(settings, SettingsJson.decode(JSONObject(SettingsJson.encode(settings).toString())))
+    }
+
+    @Test
+    fun `Direct Share is on by default, also for settings saved before it existed`() {
+        assertTrue(AppSettings().share.directShare)
+        val old = "{\"share\":{\"target\":\"content://a\",\"position\":\"Top\",\"prefix\":\"None\"}}"
+        val decoded = SettingsJson.decode(JSONObject(old)).share
+        assertTrue(decoded.directShare)
+        assertEquals("content://a", decoded.lastTarget)
+    }
+
+    @Test
+    fun `turning Direct Share off persists`() {
+        val prefs =
+            ApplicationProvider
+                .getApplicationContext<Context>()
+                .getSharedPreferences("settings-test", Context.MODE_PRIVATE)
+        val repository = PersistedSettingsRepository(PreferencesSettingsStore(prefs))
+        repository.update { SettingsReducer.reduce(it, SettingsAction.ToggleDirectShare) }
+        assertFalse(repository.settings.value.share.directShare)
+        assertFalse(PreferencesSettingsStore(prefs).read().share.directShare)
+        repository.update { SettingsReducer.reduce(it, SettingsAction.ToggleDirectShare) }
+        assertTrue(PreferencesSettingsStore(prefs).read().share.directShare)
     }
 
     @Test

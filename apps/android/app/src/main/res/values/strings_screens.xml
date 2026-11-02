@@ -38,6 +38,9 @@
     <string name="settings_tap_to_edit">Tap to edit in Preview</string>
     <string name="settings_tap_to_edit_hint">Off: Preview is read-only; links still ask before opening</string>
     <string name="settings_scroll_together">Scroll panes together</string>
+    <string name="settings_sharing">Sharing</string>
+    <string name="settings_direct_share">Show recent files in the share sheet</string>
+    <string name="settings_direct_share_hint">Their names appear in Android\'s share sheet and when you long-press the app icon</string>
     <string name="settings_themes">Themes</string>
     <string name="settings_custom_themes">Custom themes</string>
     <string name="settings_about">About</string>

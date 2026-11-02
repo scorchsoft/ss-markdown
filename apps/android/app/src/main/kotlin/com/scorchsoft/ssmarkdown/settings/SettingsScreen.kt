@@ -78,6 +78,13 @@ fun SettingsScreen(
         SwitchRow(stringResource(R.string.settings_scroll_together), settings.scrollPanesTogether, {
             onAction(SettingsAction.ToggleScrollTogether)
         })
+        SectionLabel(stringResource(R.string.settings_sharing))
+        SwitchRow(
+            stringResource(R.string.settings_direct_share),
+            settings.share.directShare,
+            { onAction(SettingsAction.ToggleDirectShare) },
+            stringResource(R.string.settings_direct_share_hint),
+        )
         SectionLabel(stringResource(R.string.settings_themes))
         SettingRow(stringResource(R.string.settings_custom_themes), stringResource(R.string.settings_font_pending))
         SettingRow(

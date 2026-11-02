@@ -30,6 +30,9 @@ sealed interface SettingsAction {
 
     data object ToggleScrollTogether : SettingsAction
 
+    /** Sharing → "Show recent files in the share sheet". */
+    data object ToggleDirectShare : SettingsAction
+
     data object OpenStorage : SettingsAction
 
     data object OpenAbout : SettingsAction
@@ -79,6 +82,10 @@ object SettingsReducer {
 
             SettingsAction.ToggleScrollTogether -> {
                 settings.copy(scrollPanesTogether = !settings.scrollPanesTogether)
+            }
+
+            SettingsAction.ToggleDirectShare -> {
+                settings.copy(share = settings.share.copy(directShare = !settings.share.directShare))
             }
 
             else -> {

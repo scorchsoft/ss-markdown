@@ -11,6 +11,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.core.content.pm.ShortcutManagerCompat
 import com.scorchsoft.ssmarkdown.about.Licences
 import com.scorchsoft.ssmarkdown.core.ui.SSMarkdownTheme
 import com.scorchsoft.ssmarkdown.editor.LaunchRequest
@@ -127,7 +128,12 @@ class MainActivity : ComponentActivity() {
                 fields,
                 intent.getStringExtra(LaunchIntents.EXTRA_OPEN_TOKEN),
                 graph.openTokens::redeem,
-                ::sourceAppName,
+                recentShortcut = {
+                    graph.directShare.resolve(
+                        intent.getStringExtra(ShortcutManagerCompat.EXTRA_SHORTCUT_ID),
+                    )
+                },
+                sourceApp = ::sourceAppName,
             )
         // Keep a persistable grant, so unsaved edits can still reach their file after a restart (R2-DS-2).
         LaunchIntents.grantToPersist(fields, request)?.let { keep ->

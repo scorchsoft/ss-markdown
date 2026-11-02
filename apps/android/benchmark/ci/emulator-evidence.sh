@@ -16,6 +16,12 @@ gradle_args=(--no-daemon --console=plain -p apps/android)
 pkg=com.scorchsoft.ssmarkdown
 
 adb shell settings put global package_verifier_enable 0 || true
+# A system process (System UI, launcher) that stops responding on the
+# shared CI emulator shows an ANR dialog over the app, and every benchmark
+# then fails with "System UI isn't responding" on screen. Those dialogs
+# concern the image, not this app; ours are still caught by the monkey's
+# logcat check below.
+adb shell settings put global hide_error_dialogs 1 || true
 # A Pixel 6a's per-app heap (dalvik.vm.heapgrowthlimit=256m on 6 GB Pixels),
 # the phone the budgets name. The API 34 AVD ships 192m, under which the
 # admission rules (robustness Part 2a) rightly decline a 20 MB file. The

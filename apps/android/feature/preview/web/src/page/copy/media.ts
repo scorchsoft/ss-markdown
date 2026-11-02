@@ -23,7 +23,7 @@ export interface Embedded {
 export async function embedImage(src: string, maxChars: number): Promise<Embedded | null> {
     const img = await load(src);
     if (!img || img.naturalWidth === 0 || img.naturalHeight === 0) return null;
-    return encode(img, img.naturalWidth, img.naturalHeight, maxChars, /\.png$|^data:image\/png/i.test(src), 1);
+    return encode(img, img.naturalWidth, img.naturalHeight, maxChars, /\.png(?:[?#]|$)|^data:image\/png/i.test(src), 1);
 }
 
 /** Rasterises a Mermaid SVG (sized by its viewBox) as a PNG of at most [maxChars]. */

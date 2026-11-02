@@ -12,7 +12,7 @@
  * not move, and the placeholder is `contenteditable="false"`: no caret can
  * enter it, and tap-to-edit's stray guard ignores it.
  */
-import { docKey, imageTarget } from "../core/imagePaths";
+import { docKey, docSrc, imageTarget } from "../core/imagePaths";
 import { HOST_STATUSES, noticeFor, spokenNotice, type ImageStatus } from "../core/imageStatus";
 import type { PageMessage } from "../protocol";
 
@@ -105,7 +105,7 @@ export class PageImages {
             img.hidden = false;
             img.classList.add(PENDING);
             const url = imageTarget(img.dataset.src ?? "");
-            if (url.kind === "doc") img.src = `${url.url}?r=${this.retry}`;
+            if (url.kind === "doc") img.src = docSrc(url.url, this.retry);
         }
     }
 

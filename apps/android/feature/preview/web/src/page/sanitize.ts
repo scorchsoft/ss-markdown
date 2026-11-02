@@ -5,6 +5,7 @@
  * (docs/edge-cases.md, "Malicious Markdown").
  */
 import DOMPurify from "dompurify";
+import { DOC_PREFIX, docSrc } from "../core/imagePaths";
 
 const FORBID_TAGS = [
     "style",
@@ -62,6 +63,8 @@ function installHooks(): void {
             if (keepRemoteSrc && /^(?:https?:)?\/\//i.test(src.trim()))
                 node.setAttribute("data-remote-src", src.trim());
             node.removeAttribute("src");
+        } else if (src?.startsWith(DOC_PREFIX)) {
+            node.setAttribute("src", docSrc(src));
         }
         node.removeAttribute("target");
         if (node.tagName === "INPUT" && node.getAttribute("type") !== "checkbox") node.remove();

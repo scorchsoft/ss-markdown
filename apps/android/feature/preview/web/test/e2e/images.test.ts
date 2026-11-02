@@ -233,4 +233,31 @@ describe("picture placeholders", () => {
         expect((await received(page)).some((m) => m.type === "editRefused")).toBe(false);
         expect(pageErrors(page)).toEqual([]);
     });
+
+    it("shows the next document's own picture for the same relative path, not the last one's", async () => {
+        const page = await openPreview(h);
+        // Each document's folder has its own img/a.png: 10 px wide beside A, 20 px beside B.
+        let width = 10;
+        await page.route("**/doc/**", async (route) => {
+            const body = await page.evaluate((w) => {
+                const c = document.createElement("canvas");
+                c.width = w;
+                c.height = 4;
+                return c.toDataURL("image/png").split(",")[1] ?? "";
+            }, width);
+            await route.fulfill({ contentType: "image/png", body: Buffer.from(body, "base64") });
+        });
+        const drawnWidth = async (): Promise<number> => {
+            await page.waitForFunction(() => {
+                const img = document.querySelector<HTMLImageElement>("img[data-src]");
+                return img !== null && img.complete && img.naturalWidth > 0;
+            });
+            return page.evaluate(() => document.querySelector<HTMLImageElement>("img[data-src]")?.naturalWidth ?? 0);
+        };
+        await loadMarkdown(page, "![A](img/a.png)\n\nIn A.");
+        expect(await drawnWidth()).toBe(10);
+        width = 20;
+        await loadMarkdown(page, "![B](img/a.png)\n\nIn B.", 2);
+        expect(await drawnWidth()).toBe(20);
+    });
 });

@@ -2,6 +2,7 @@
  * The page: wires the bridge, the render controller, Mermaid, editing and
  * gestures together and answers Kotlin's messages.
  */
+import { nextLoad } from "../core/imagePaths";
 import { readingFraction } from "../core/readingFraction";
 import type { HostMessage, PageMessage, PreviewSettings } from "../protocol";
 import { Bridge } from "./bridge";
@@ -114,8 +115,10 @@ export class PreviewApp {
                 // A print being prepared was for the page as it was: abandon it (it never answers).
                 this.printRequest++;
                 this.editor.end();
-                // Relative pictures belong to the document: another one's statuses do not apply.
+                // Relative pictures belong to the document: another one's statuses do not apply,
+                // and another one's picture of the same path is not this one's.
                 this.images.reset();
+                nextLoad();
                 this.renderStarted = performance.now();
                 this.anchorLine = m.anchorLine ?? null;
                 this.find.clear();

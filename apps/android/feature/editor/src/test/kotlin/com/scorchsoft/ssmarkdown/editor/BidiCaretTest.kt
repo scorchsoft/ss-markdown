@@ -58,13 +58,14 @@ class BidiCaretTest {
     }
 
     @Test
-    fun `the view moves visually only when asked to`() {
+    fun `the view moves visually unless turned off`() {
         val view = MarkdownCodeView(ApplicationProvider.getApplicationContext())
         view.document = TextDocument(PieceTree.of("$hebrew\nnext"))
         view.setCaret(0)
+        view.bidiCaretMovement = false
         val left = KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_LEFT)
         view.onKeyDown(left.keyCode, left)
-        assertEquals("logical by default: already at the start", 0, view.session.caret)
+        assertEquals("logical when off: already at the start", 0, view.session.caret)
 
         view.bidiCaretMovement = true
         view.onKeyDown(left.keyCode, left)

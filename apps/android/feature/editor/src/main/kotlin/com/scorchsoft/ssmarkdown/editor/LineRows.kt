@@ -53,4 +53,11 @@ interface LineRows {
 
     /** The widest row, in px; drives horizontal scrolling in No-wrap mode. */
     val width: Float
+
+    /**
+     * The visual order of this line's rows when it holds right-to-left
+     * text; null for every other line, which keeps the left-to-right path
+     * (logical x, one draw call per style run) untouched.
+     */
+    val bidi: BidiText? get() = null
 }

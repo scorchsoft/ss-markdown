@@ -161,11 +161,10 @@ class MarkdownCodeView
 
         /**
          * Left and Right follow visual order on lines with right-to-left text
-         * ([BidiCaret]). Off until the renderer reorders bidi runs too: runs
-         * are drawn in logical order today, and the caret must move the way
-         * the text is drawn.
+         * ([BidiCaret]), the order the renderer draws them in ([BidiText]).
+         * On by default; off moves logically, char by char in memory order.
          */
-        var bidiCaretMovement: Boolean = false
+        var bidiCaretMovement: Boolean = true
 
         /** Text size in px. Prefer [zoomPercent]; this exists for benchmarks and tests. */
         var textSizePx: Float

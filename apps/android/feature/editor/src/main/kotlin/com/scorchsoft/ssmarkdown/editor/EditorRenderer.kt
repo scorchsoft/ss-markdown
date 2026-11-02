@@ -45,6 +45,10 @@ internal class EditorRenderer(
     /** Lines whose text was recorded into a display list; tests and the benchmark read it. */
     val recordedLines: Int get() = nodes.recordings
 
+    /** Rows drawn in visual (bidi) order; stays 0 while every line is left to right. Tests read it. */
+    var bidiRowsDrawn: Int = 0
+        private set
+
     /** Forgets every cached drawing: the font, theme or wrap width changed. */
     fun invalidateDrawings() {
         epoch++
@@ -241,6 +245,11 @@ internal class EditorRenderer(
         frame: FrameMetrics,
     ) {
         val layout = row.layout
+        val bidi = layout.bidi
+        if (bidi != null && row.index < bidi.rowCount) {
+            drawBidiRowText(tokens, frame)
+            return
+        }
         var from = layout.rowStart(row.index)
         var to = layout.rowEnd(row.index)
         if (!geometry.wrap) {
@@ -285,13 +294,69 @@ internal class EditorRenderer(
         // A run cut at the screen edge may start on the second half of a pair.
         if (index in 1 until endIndex && chars[index].isLowSurrogate()) index++
         if (endIndex <= index) return
+        applyStyle(style)
+        val count = endIndex - index
+        row.canvas?.drawTextRun(chars, index, count, index, count, x, row.baseline, false, textPaint)
+    }
+
+    private fun applyStyle(style: RunStyle) {
         textPaint.color = style.color
         textPaint.isFakeBoldText = style.bold
         textPaint.textSkewX = if (style.italic) ITALIC_SKEW else 0f
         textPaint.isStrikeThruText = style.strikethrough
-        val count = endIndex - index
-        row.canvas?.drawTextRun(chars, index, count, index, count, x, row.baseline, false, textPaint)
     }
+
+    /**
+     * A row with right-to-left text ([LineRows.bidi]): every style run is
+     * cut where the direction changes and each piece is drawn at its visual
+     * x, right-to-left pieces with `isRtl` and their whole direction run as
+     * shaping context, so Arabic joins across a bold boundary. The row is
+     * drawn whole: it is never wider than the laid-out window.
+     */
+    private fun drawBidiRowText(
+        tokens: LongArray,
+        frame: FrameMetrics,
+    ) {
+        val layout = row.layout
+        val from = maxOf(layout.rowStart(row.index), layout.charsStart)
+        val to = minOf(layout.rowEnd(row.index), layout.charsStart + layout.chars.size)
+        if (to <= from) return
+        row.chars = layout.chars
+        row.charsStart = layout.charsStart
+        row.baseline = row.top + frame.baseline
+        bidiRowsDrawn++
+        RunPlanner.plan(tokens, from, to, row.chars, row.charsStart, bidiRunSink)
+    }
+
+    private val bidiRunSink =
+        RunSink { start, end, kind, flags ->
+            val bidi = checkNotNull(row.layout.bidi)
+            val style = styles.styleFor(kind, flags)
+            val line = row.index
+            bidi.forEachPiece(line, start, end) { k, pieceStart, pieceEnd, left, right ->
+                val x = row.left + left
+                if (style.background != 0) {
+                    fill.color = style.background
+                    val inset = (row.bottom - row.top) * CHIP_INSET
+                    row.canvas?.drawRect(x, row.top + inset, row.left + right, row.bottom - inset, fill)
+                }
+                applyStyle(style)
+                val runStart = bidi.runStart(line, k)
+                val runEnd = bidi.runEnd(line, k)
+                val contextStart = runStart - row.charsStart
+                row.canvas?.drawTextRun(
+                    row.chars,
+                    pieceStart - row.charsStart,
+                    pieceEnd - pieceStart,
+                    contextStart,
+                    runEnd - runStart,
+                    x,
+                    row.baseline,
+                    bidi.isRtl(line, k),
+                    textPaint,
+                )
+            }
+        }
 
     private fun fetch(
         lineStart: Int,
@@ -320,6 +385,16 @@ internal class EditorRenderer(
         if (!spanOnRow(start, end)) return
         val top = if (thickness > 0f) row.bottom - thickness else row.top
         val extra = if (tail && spanRunsOn && thickness == 0f) halfCell else 0f
+        val bidi = bidiRow()
+        if (bidi != null) {
+            // A logical range is one rectangle per direction run it crosses.
+            bidi.forEachPiece(row.index, spanFrom, spanTo) { _, _, _, left, right ->
+                row.canvas?.drawRect(row.left + left, top, row.left + right, row.bottom, fill)
+            }
+            val edge = row.left + bidi.rowRight(row.index)
+            if (extra > 0f) row.canvas?.drawRect(edge, top, edge + extra, row.bottom, fill)
+            return
+        }
         row.canvas?.drawRect(spanLeft, top, spanRight + extra, row.bottom, fill)
     }
 
@@ -333,14 +408,32 @@ internal class EditorRenderer(
         outline.color = styles.theme.findCurrentOutline
         outline.strokeWidth = width
         val half = width / 2
+        val bidi = bidiRow()
+        if (bidi != null) {
+            bidi.forEachPiece(row.index, spanFrom, spanTo) { _, _, _, left, right ->
+                row.canvas?.drawRect(
+                    row.left + left + half,
+                    row.top + half,
+                    row.left + right - half,
+                    row.bottom - half,
+                    outline,
+                )
+            }
+            return
+        }
         row.canvas?.drawRect(spanLeft + half, row.top + half, spanRight - half, row.bottom - half, outline)
     }
+
+    /** The current row's visual order, or null on the left-to-right fast path. */
+    private fun bidiRow(): BidiText? = row.layout.bidi?.takeIf { row.index < it.rowCount }
 
     /** Half the baseline: how far a selection's line-break tail reaches past the line end. */
     private var halfCell = 0f
     private var spanLeft = 0f
     private var spanRight = 0f
     private var spanRunsOn = false
+    private var spanFrom = 0
+    private var spanTo = 0
 
     /** Sets [spanLeft] and [spanRight] for `[start, end)` on the current row; false when it is not on the row. */
     private fun spanOnRow(
@@ -355,6 +448,8 @@ internal class EditorRenderer(
         if (misses || (end == rowStart && row.index > 0)) return false
         val from = maxOf(start, rowStart) - row.lineStart
         val to = minOf(end, rowEnd) - row.lineStart
+        spanFrom = from
+        spanTo = to
         spanLeft = row.left + layout.xInRow(row.index, from)
         spanRight = row.left + layout.xInRow(row.index, to)
         spanRunsOn = end > rowEnd && row.index == layout.rowCount - 1

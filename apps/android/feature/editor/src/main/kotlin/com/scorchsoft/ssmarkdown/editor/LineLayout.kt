@@ -28,6 +28,8 @@ class LineLayout(
     private val positions: FloatArray,
     /** The estimate used outside the window: one monospace cell. */
     private val charWidth: Float,
+    /** The window's visual order when it holds right-to-left text ([BidiText]); null otherwise. */
+    override val bidi: BidiText? = null,
 ) : LineRows {
     /** Chars in the window. */
     val count: Int get() = chars.size
@@ -39,7 +41,7 @@ class LineLayout(
     val isComplete: Boolean get() = windowStart == 0 && count == lineLength
 
     /** The line's width in px: measured when complete, else the window plus estimates either side. */
-    override val width: Float get() = xOf(lineLength)
+    override val width: Float get() = positions[count] + (lineLength - windowEnd) * charWidth
 
     override val rowCount: Int get() = 1
 
@@ -68,9 +70,21 @@ class LineLayout(
     /** The x of the boundary before [column] (0..[lineLength]). */
     override fun xOf(column: Int): Float =
         when {
-            column <= windowStart -> column * charWidth
-            column >= windowEnd -> positions[count] + (column - windowEnd) * charWidth
-            else -> positions[column - windowStart]
+            bidi != null && column in windowStart..windowEnd && (column < windowEnd || windowEnd == lineLength) -> {
+                bidi.caretX(0, column)
+            }
+
+            column <= windowStart -> {
+                column * charWidth
+            }
+
+            column >= windowEnd -> {
+                positions[count] + (column - windowEnd) * charWidth
+            }
+
+            else -> {
+                positions[column - windowStart]
+            }
         }
 
     /**
@@ -82,8 +96,15 @@ class LineLayout(
         val left = positions[0]
         val right = positions[count]
         return when {
+            // On a bidi line the end of the text is not its right edge: the nearest caret wins.
+            bidi != null && isComplete -> bidi.columnAt(0, x, lineLength)
+
+            bidi != null && x in left..right -> bidi.columnAt(0, x, windowEnd)
+
             x <= left -> estimateColumn(x).coerceIn(0, windowStart)
+
             x >= right -> (windowEnd + estimateColumn(x - right)).coerceIn(windowEnd, lineLength)
+
             else -> snapToCharBoundary(windowStart + nearestBoundary(x))
         }
     }

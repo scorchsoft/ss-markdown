@@ -2,6 +2,7 @@ package com.scorchsoft.ssmarkdown.editor
 
 import android.graphics.Paint
 import com.scorchsoft.ssmarkdown.text.PieceTree
+import java.text.Bidi
 
 /**
  * Turns a window of one line into a [LineLayout] with a single
@@ -41,7 +42,10 @@ internal class LineMeasurer(
         if (start in 1 until length && text[lineStart + start].isLowSurrogate()) start--
         if (end in 1 until length && text[lineStart + end].isLowSurrogate()) end++
         val chars = text.getText(lineStart + start, lineStart + end).toCharArray()
-        return LineLayout(length, start, chars, positionsOf(chars, start), charWidth)
+        val paragraph = BidiText.paragraph(chars)
+        val positions = positionsOf(chars, start, paragraph)
+        val bidi = paragraph?.let { BidiText.layOut(it, chars, positions, SINGLE_ROW, start, positions[0]) }
+        return LineLayout(length, start, chars, positions, charWidth, bidi)
     }
 
     /**
@@ -59,20 +63,38 @@ internal class LineMeasurer(
         var end = minOf(length, WrapLayout.WRAP_WINDOW)
         if (end in 1 until length && text[lineStart + end].isLowSurrogate()) end++
         val chars = text.getText(lineStart, lineStart + end).toCharArray()
-        val positions = positionsOf(chars, 0)
+        val paragraph = BidiText.paragraph(chars)
+        val positions = positionsOf(chars, 0, paragraph)
         val width = maxWidth.coerceAtLeast(charWidth)
         val rows = WrapLayout.breakRows(chars, positions, width)
-        return WrapLayout(length, chars, positions, rows, charWidth, width)
+        // Rows are broken on logical widths, then each is reordered on its own (UAX #9, L1-L2).
+        val bidi = paragraph?.let { BidiText.layOut(it, chars, positions, rows, 0, 0f) }
+        return WrapLayout(length, chars, positions, rows, charWidth, width, bidi)
     }
 
-    /** Prefix sums of the advances, starting at the window's estimated x. Tabs are [TAB_CELLS] cells wide. */
+    /**
+     * Prefix sums of the advances, starting at the window's estimated x.
+     * Tabs are [TAB_CELLS] cells wide. A line with right-to-left text
+     * ([paragraph] not null) is measured one direction run at a time, so
+     * Arabic is shaped (and joined) as it will be drawn.
+     */
     private fun positionsOf(
         chars: CharArray,
         windowStart: Int,
+        paragraph: Bidi?,
     ): FloatArray {
         val count = chars.size
         val advances = FloatArray(count)
-        if (count > 0) paint.getTextRunAdvances(chars, 0, count, 0, count, false, advances, 0)
+        if (paragraph == null) {
+            if (count > 0) paint.getTextRunAdvances(chars, 0, count, 0, count, false, advances, 0)
+        } else {
+            for (run in 0 until paragraph.runCount) {
+                val start = paragraph.getRunStart(run)
+                val runLength = paragraph.getRunLimit(run) - start
+                val rtl = paragraph.getRunLevel(run) % 2 == 1
+                paint.getTextRunAdvances(chars, start, runLength, start, runLength, rtl, advances, start)
+            }
+        }
         val positions = FloatArray(count + 1)
         positions[0] = windowStart * charWidth
         for (i in 0 until count) {
@@ -87,5 +109,6 @@ internal class LineMeasurer(
         const val TAB_CELLS: Int = 4
 
         private const val CELL = "M"
+        private val SINGLE_ROW = intArrayOf(0)
     }
 }

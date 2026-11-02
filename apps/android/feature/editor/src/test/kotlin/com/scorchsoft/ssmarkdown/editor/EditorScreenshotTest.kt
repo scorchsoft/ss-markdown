@@ -34,9 +34,15 @@ class EditorScreenshotTest(
     @Test
     fun wrap() = capture("code-wrap", wrap = true)
 
+    /** Hebrew and Arabic lines, mixed with Latin, numbers and Markdown (M1): drawn in visual order. */
+    @Test
+    fun rightToLeft() = capture("code-rtl", wrap = true, sample = BIDI_SAMPLE, selection = "עולם")
+
     private fun capture(
         name: String,
         wrap: Boolean,
+        sample: String = SAMPLE,
+        selection: String = "calm",
     ) {
         val base = ApplicationProvider.getApplicationContext<android.content.Context>()
         val configuration =
@@ -54,8 +60,8 @@ class EditorScreenshotTest(
             View.MeasureSpec.makeMeasureSpec(metrics.heightPixels / 2, View.MeasureSpec.EXACTLY),
         )
         view.layout(0, 0, view.measuredWidth, view.measuredHeight)
-        view.setDocument(TextDocument(PieceTree.of(SAMPLE)))
-        view.session.setSelection(SAMPLE.indexOf("calm"), SAMPLE.indexOf("calm") + 4)
+        view.setDocument(TextDocument(PieceTree.of(sample)))
+        view.session.setSelection(sample.indexOf(selection), sample.indexOf(selection) + selection.length)
         val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
         view.draw(Canvas(bitmap))
         val dir = File("build/screenshots", if (dark) "dark" else "light").apply { mkdirs() }
@@ -97,6 +103,25 @@ class EditorScreenshotTest(
             <!-- an html comment -->
             ***
             [^1]: The footnote.
+            """.trimIndent()
+
+        private val BIDI_SAMPLE =
+            """
+            # כותרת בעברית
+            
+            שלום עולם, this is **mixed** text with 123 numbers.
+            
+            - פריט ראשון
+            - English item with עברית inside
+            
+            ## عنوان عربي
+            
+            مرحبا بالعالم! هذا نص **عريض** و`كود` أيضاً.
+            Version 2.5 من التطبيق: 42 ملفاً.
+            
+            > ציטוט קצר: "hello" אמר.
+            
+            A long paragraph that mixes English with שורה ארוכה בעברית and then العربية أيضاً so that wrap mode has to reorder every row of it on its own.
             """.trimIndent()
 
         @JvmStatic

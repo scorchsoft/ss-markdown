@@ -12,6 +12,7 @@ package com.scorchsoft.ssmarkdown.editor
  *
  * Immutable once built; built by [LineMeasurer.measureWrapped].
  */
+@Suppress("LongParameterList") // One immutable value built in one place; a holder would only rename the fields.
 class WrapLayout internal constructor(
     override val lineLength: Int,
     override val chars: CharArray,
@@ -22,6 +23,8 @@ class WrapLayout internal constructor(
     private val charWidth: Float,
     /** The width rows were broken to, in px. */
     override val width: Float,
+    /** The measured rows' visual order when the line holds right-to-left text ([BidiText]); null otherwise. */
+    override val bidi: BidiText? = null,
 ) : LineRows {
     /** Columns per estimated row past the measured window: whole monospace cells that fit the width. */
     val estimatedColumns: Int = (width / charWidth.coerceAtLeast(MIN_CELL)).toInt().coerceAtLeast(1)
@@ -59,7 +62,11 @@ class WrapLayout internal constructor(
         column: Int,
     ): Float {
         val start = rowStart(row)
-        return if (row < measuredRows) positions[column] - positions[start] else (column - start) * charWidth
+        return when {
+            row >= measuredRows -> (column - start) * charWidth
+            bidi != null -> bidi.caretX(row, column)
+            else -> positions[column] - positions[start]
+        }
     }
 
     override fun columnAt(
@@ -70,6 +77,7 @@ class WrapLayout internal constructor(
         val end = rowEnd(row)
         // Past the end of a wrapped row the caret stays on that row, before the char the row broke at.
         val last = if (row == rowCount - 1) end else (end - 1).coerceAtLeast(start)
+        if (bidi != null && row < measuredRows) return bidi.columnAt(row, x, last)
         val column =
             if (row < measuredRows) {
                 nearest(start, end, positions[start] + x)

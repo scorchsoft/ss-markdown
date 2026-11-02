@@ -65,13 +65,13 @@ test, never a wall-clock threshold. The tokenizer rows come from
 benchmark build (release code, R8, not debuggable, the generated Baseline
 Profile installed). An emulator on a shared runner is noisy, and is
 neither faster nor slower than a phone in a predictable way, so the
-quality-bar budgets are **advisory** here; the job fails only on a >25%
-regression against `docs/perf/emulator-baseline.json`. The budgets are
+quality-bar budgets are **advisory** here; the job fails only when a
+central metric passes 2x `docs/perf/emulator-baseline.json` (below). The budgets are
 proved on a Pixel 6a-class phone (still to do). Medians of each run's
 iterations; frames pooled over iterations. Two complete runs, to show the
-noise: A = run 41361377483 (a1c059b; its TTFD from 41358849555), which is
-the committed baseline; B = run 41364011716 (6415bf2), the first all-green
-run of the job.
+noise: A = run 41361377483 (a1c059b; its TTFD from 41358849555) and
+B = run 41364011716 (6415bf2), the first all-green run of the job. The
+committed baseline is the median of A, B and a third run, C (below).
 
 | Measurement | Run A | Run B | Budget (quality-bar §4) | How |
 |---|---|---|---|---|
@@ -89,10 +89,26 @@ run of the job.
 | Preview refresh after typing, 50 KB (mean / worst) | 17.7 / 19.8 ms | 16.9 / 18.1 ms | < 150 ms | `SSM:previewRefresh`, host edit to the page's `rendered`, Split |
 
 Read with care:
-- The runner-to-runner noise is large: start-up and open moved 33–49%
-  between two runs of the same code. That is why the gate is a 25%
-  regression beyond a per-metric floor, not a budget, and why a phone run
-  is still the proof.
+- The runner-to-runner noise is large. A third run, C = run 41364018233,
+  on the same commit as B, failed the old 25% gate (typing frame p99 at
+  20 MB, 15.4 ms against B's 9.2) while B passed. Across A, B and C,
+  central metrics moved up to 1.8x (open 20 MB: 336 ms in B, 598 ms in C)
+  and tails up to 2.6x (worst keystroke at 20 MB: 2.86 vs 7.42 ms). No
+  single-run gate tighter than that spread can be stable, so:
+  - **Gated**: start-up, open, mean keystroke, frame p50 and mean Preview
+    refresh (each already the median of the benchmark's iterations, or of
+    all frames), failing only past **2x** the baseline and the metric's
+    noise floor. The baseline is the median of A, B and C, so no one
+    runner sets it. This still fails the regressions worth catching on an
+    emulator: an algorithmic one costs well over 2x.
+  - **Reported, never gated**: worst keystroke, frame p90/p99, janky
+    frames, frames over 32 ms and worst refresh. They are in the job
+    summary with their change against the baseline, for a human to read.
+  - `benchmark/ci/test_perf_report.py` (in the `checks` job) replays A, B
+    and C against the committed baseline and against each other (all must
+    pass) and checks that a 2.5x open or a keystroke cost that grows with
+    the file still fails.
+  - Smaller regressions, and every budget, are proved on a phone.
 - Keystroke cost does not grow with the file: 1.4–2.4 ms mean at 20 MB
   against 1.8–2.0 ms at 1 MB, and the typing frames are flat.
 - Cold start to editable: 878 ms in A (over the 800 ms budget), 592 ms in

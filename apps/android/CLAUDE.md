@@ -111,8 +111,11 @@ CI's `perf` job (`.github/workflows/android.yml`) runs
 `benchmark/ci/emulator-evidence.sh` on an API 34 emulator: the Baseline
 Profile, the Macrobenchmarks, then a seeded 2,000-event monkey on the
 debuggable build. `benchmark/ci/perf_report.py` writes the numbers to the
-job summary and fails only on a **>25% regression** against
-`docs/perf/emulator-baseline.json` (beyond each metric's noise floor);
+job summary and fails only when a *central* metric (start-up, open, mean
+keystroke, frame p50, mean refresh) passes **2x**
+`docs/perf/emulator-baseline.json` and its noise floor; tail metrics
+(worst, p99, janky) are reported, never gated, because one commit moved
+them 2.6x between runners. `test_perf_report.py` replays the observed runs;
 the quality-bar budgets are advisory on an emulator. To rebaseline after a
 deliberate change, run the script with `--write-baseline` on the job's
 `perf-results.json` and commit it with the reason.

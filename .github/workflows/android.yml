@@ -38,6 +38,11 @@ jobs:
       - name: Check and assemble debug APK
         run: gradle --no-daemon -p apps/android check :app:assembleDebug
 
+      # The perf gate's own tests: every observed run of unchanged code
+      # passes, and a regression an emulator can see still fails.
+      - name: Perf gate tests
+        run: python3 -m unittest discover -s apps/android/benchmark/ci -p 'test_*.py' -v
+
       # Rubric #1: `check` runs 100 seeded kills; this is the thousand (about 5 min).
       - name: Kill test (1000 seeded kills, host)
         run: >-
@@ -252,8 +257,8 @@ jobs:
   # Rubric #4 and #11 evidence on an emulator (docs/performance-techniques.md,
   # "Emulator measurements"). Its own job, so it never slows or shares a
   # failure with the instrumented tests. An emulator is not a phone: the
-  # absolute budgets are advisory here and the gate is a >25% regression
-  # against docs/perf/emulator-baseline.json.
+  # absolute budgets are advisory here and the gate is a >2x regression of a
+  # central metric against docs/perf/emulator-baseline.json.
   perf:
     name: Emulator perf, Baseline Profile, monkey + StrictMode (API 34)
     runs-on: ubuntu-latest
@@ -297,7 +302,9 @@ jobs:
           ram-size: 6144M
           script: bash apps/android/benchmark/ci/emulator-evidence.sh
 
-      - name: Performance report (advisory budgets, 25% regression gate)
+      # Gates central metrics at 2x baseline (outside the runner spread seen
+      # on one commit); tail metrics are reported only. perf_report.py says why.
+      - name: Performance report (advisory budgets, 2x regression gate)
         if: always()
         run: >-
           python3 apps/android/benchmark/ci/perf_report.py

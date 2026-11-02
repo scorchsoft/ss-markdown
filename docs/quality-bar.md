@@ -144,9 +144,19 @@ editable document, open 1 MB / 20 MB, keystroke to commit and typing frames
 on 1 MB / 20 MB, a 10 s fling on 20 MB, Preview refresh at 50 KB). Those
 numbers are **advisory against these budgets**: an emulator on a shared
 runner is noisy and is neither faster nor slower than a phone in a
-predictable way. What the job enforces is the trend: it fails on a
-regression of more than 25% against `docs/perf/emulator-baseline.json`,
-beyond each metric's noise floor. The latest figures are in
+predictable way. What the job enforces is the trend, and only as far as
+a shared runner can honestly show one. A 25% gate was tried and flaked:
+the same commit passed on one runner and failed on another (runs
+41364011716 and 41364018233), because start-up and open move up to 1.8x
+with the runner, and tail metrics (worst keystroke, p99 frames, janky
+frames) up to 2.6x. So the job now fails only when a **central** metric
+(start-up, open, mean keystroke, frame p50, mean Preview refresh) passes
+**2x** `docs/perf/emulator-baseline.json` (the median of three runs) and
+its noise floor. That catches the regressions an emulator can see, the
+algorithmic ones (work that grows with the file, a lost cache, a
+main-thread read); a 20–50% slip it cannot tell from a noisy neighbour.
+Tail metrics are **reported** in the job summary with their change and
+never gated. Smaller regressions and every tail are a phone's job. The latest figures are in
 `performance-techniques.md` ("Emulator measurements").
 
 **The APK size budget is a guideline.** Andrew set this policy on

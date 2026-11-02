@@ -10,12 +10,27 @@ connected_android_test_additional_output), derives one number per metric
 --summary (the job summary), writes the flat numbers to --out, and compares
 them with BASELINE_JSON (docs/perf/emulator-baseline.json).
 
-The gate is deliberately loose, because an emulator on a shared CI runner
-is noisy: it fails only on a REGRESSION of more than 25% against the
-committed baseline, and only when the change is also bigger than the
-metric's noise floor. The quality-bar budgets are printed as ADVISORY: an
-emulator is neither a Pixel 6a nor slower in a predictable way, so a
-budget is proved on a phone, not here (docs/quality-bar.md §4).
+The gate is built from what three runs of near-identical code showed on
+shared runners (docs/performance-techniques.md, "Emulator measurements"):
+
+- Central metrics (start-up and open medians, per-keystroke commit means,
+  frame CPU p50, Preview refresh mean) move with the runner's speed, by up
+  to 1.8x between two runs of the same commit (open 20 MB: 336 vs 598 ms).
+  They are GATED, but only on a regression past GATE_RATIO (2x) of the
+  committed baseline AND past the metric's noise floor. That is outside
+  every spread seen so far, so it does not flake, and it still catches the
+  regressions an emulator can see: an algorithmic one (work that grows with
+  the file, a lost cache, a main-thread read), which costs 2x and more.
+- Tail metrics (worst keystroke, frame p99, frames over 32 ms, janky
+  frames, worst refresh) moved by up to 2.6x between two runs of one
+  commit (worst keystroke at 20 MB: 2.86 vs 7.42 ms).
+  They are REPORTED with the change, never gated: a single emulator run
+  cannot tell a real tail regression from a noisy neighbour. A phone trace
+  is the proof for those (docs/quality-bar.md §4).
+
+The quality-bar budgets are printed as ADVISORY: an emulator is neither a
+Pixel 6a nor slower in a predictable way, so a budget is proved on a
+phone, not here.
 
 It also fails when a measurement is missing, because that means the
 benchmark no longer measures what it says (no keystroke reached the
@@ -29,29 +44,34 @@ import os
 import statistics
 import sys
 
-REGRESSION = 0.25
+# A gated metric fails only past this multiple of its baseline. The widest
+# runner-to-runner spread seen on one commit is 1.78x (open 20 MB).
+GATE_RATIO = 2.0
 
-# name -> (unit, advisory budget or None, noise floor in the metric's unit, description)
+GATED = "gated"
+REPORTED = "reported"
+
+# name -> (unit, advisory budget or None, noise floor in the metric's unit, kind, description)
 METRICS = {
-    "coldStart.timeToInitialDisplayMs": ("ms", None, 50, "Cold start, first frame"),
-    "coldStart.timeToFullDisplayMs": ("ms", 800, 50, "Cold start to an editable document"),
-    "open1Mb.openMs": ("ms", 1000, 50, "Open 1 MB"),
-    "open20Mb.openMs": ("ms", 3000, 200, "Open 20 MB"),
-    "typing1Mb.commitMeanMs": ("ms", 16, 1, "Keystroke to commit, mean, 1 MB"),
-    "typing1Mb.commitMaxMs": ("ms", 16, 4, "Keystroke to commit, worst, 1 MB"),
-    "typing1Mb.frameCpuP50Ms": ("ms", None, 2, "Typing frames, CPU p50, 1 MB"),
-    "typing1Mb.frameCpuP99Ms": ("ms", 16, 4, "Typing frames, CPU p99, 1 MB"),
-    "typing20Mb.commitMeanMs": ("ms", 16, 1, "Keystroke to commit, mean, 20 MB"),
-    "typing20Mb.commitMaxMs": ("ms", 16, 4, "Keystroke to commit, worst, 20 MB"),
-    "typing20Mb.frameCpuP50Ms": ("ms", None, 2, "Typing frames, CPU p50, 20 MB"),
-    "typing20Mb.frameCpuP99Ms": ("ms", 16, 4, "Typing frames, CPU p99, 20 MB"),
-    "fling20Mb.jankyPercent": ("%", 5, 3, "Fling 20 MB, janky frames"),
-    "fling20Mb.frameCpuP50Ms": ("ms", None, 2, "Fling 20 MB, frame CPU p50"),
-    "fling20Mb.frameCpuP90Ms": ("ms", None, 2, "Fling 20 MB, frame CPU p90"),
-    "fling20Mb.frameCpuP99Ms": ("ms", 16, 4, "Fling 20 MB, frame CPU p99"),
-    "fling20Mb.framesOver32MsPercent": ("%", 0, 2, "Fling 20 MB, frames over 32 ms"),
-    "previewRefresh50Kb.meanMs": ("ms", 150, 20, "Preview refresh after typing, mean, 50 KB"),
-    "previewRefresh50Kb.maxMs": ("ms", 150, 30, "Preview refresh after typing, worst, 50 KB"),
+    "coldStart.timeToInitialDisplayMs": ("ms", None, 50, GATED, "Cold start, first frame"),
+    "coldStart.timeToFullDisplayMs": ("ms", 800, 50, GATED, "Cold start to an editable document"),
+    "open1Mb.openMs": ("ms", 1000, 50, GATED, "Open 1 MB"),
+    "open20Mb.openMs": ("ms", 3000, 200, GATED, "Open 20 MB"),
+    "typing1Mb.commitMeanMs": ("ms", 16, 1, GATED, "Keystroke to commit, mean, 1 MB"),
+    "typing1Mb.commitMaxMs": ("ms", 16, 4, REPORTED, "Keystroke to commit, worst, 1 MB"),
+    "typing1Mb.frameCpuP50Ms": ("ms", None, 2, GATED, "Typing frames, CPU p50, 1 MB"),
+    "typing1Mb.frameCpuP99Ms": ("ms", 16, 4, REPORTED, "Typing frames, CPU p99, 1 MB"),
+    "typing20Mb.commitMeanMs": ("ms", 16, 1, GATED, "Keystroke to commit, mean, 20 MB"),
+    "typing20Mb.commitMaxMs": ("ms", 16, 4, REPORTED, "Keystroke to commit, worst, 20 MB"),
+    "typing20Mb.frameCpuP50Ms": ("ms", None, 2, GATED, "Typing frames, CPU p50, 20 MB"),
+    "typing20Mb.frameCpuP99Ms": ("ms", 16, 4, REPORTED, "Typing frames, CPU p99, 20 MB"),
+    "fling20Mb.jankyPercent": ("%", 5, 3, REPORTED, "Fling 20 MB, janky frames"),
+    "fling20Mb.frameCpuP50Ms": ("ms", None, 2, GATED, "Fling 20 MB, frame CPU p50"),
+    "fling20Mb.frameCpuP90Ms": ("ms", None, 2, REPORTED, "Fling 20 MB, frame CPU p90"),
+    "fling20Mb.frameCpuP99Ms": ("ms", 16, 4, REPORTED, "Fling 20 MB, frame CPU p99"),
+    "fling20Mb.framesOver32MsPercent": ("%", 0, 2, REPORTED, "Fling 20 MB, frames over 32 ms"),
+    "previewRefresh50Kb.meanMs": ("ms", 150, 20, GATED, "Preview refresh after typing, mean, 50 KB"),
+    "previewRefresh50Kb.maxMs": ("ms", 150, 30, REPORTED, "Preview refresh after typing, worst, 50 KB"),
 }
 
 # Counts that must be non-zero, or the benchmark measured nothing.
@@ -151,6 +171,54 @@ def derive(benchmarks):
     return out
 
 
+def regressed(value, base, floor):
+    """True when [value] is a gated regression: past GATE_RATIO x [base] and past the noise floor."""
+    return base is not None and value - base > floor and value > base * GATE_RATIO
+
+
+def compare(numbers, baseline):
+    """The summary's lines and the gate's failures for [numbers] against [baseline]."""
+    failures = []
+    lines = [
+        "### Emulator performance (API 34, not a device)",
+        "",
+        f"Budgets are **advisory** on an emulator. The gate fails a *gated* metric only past {GATE_RATIO:g}x",
+        "its baseline (`docs/perf/emulator-baseline.json`) and its noise floor, which is outside the",
+        "runner-to-runner spread seen on one commit. *Reported* (tail) metrics are never gated.",
+        "",
+        "| Metric | Emulator | Baseline | Change | Gate | Budget (advisory) |",
+        "|---|---|---|---|---|---|",
+    ]
+    for key, (unit, budget, floor, kind, label) in METRICS.items():
+        value = numbers.get(key)
+        if value is None:
+            failures.append(f"{key}: not measured")
+            lines.append(f"| {label} | **missing** | | | {kind} | |")
+            continue
+        base = baseline.get(key)
+        change = ""
+        if base is not None:
+            delta = value - base
+            change = f"{delta:+.1f} {unit}" + (f" ({delta / base:+.0%})" if base else "")
+            if kind == GATED and regressed(value, base, floor):
+                failures.append(f"{key}: {value} {unit} vs baseline {base} {unit} (over {GATE_RATIO:g}x)")
+                change = "**" + change + " regression**"
+        advisory = ""
+        if budget is not None:
+            advisory = f"{'within' if value <= budget else 'OVER'} {budget} {unit}"
+        shown_base = "" if base is None else f"{base} {unit}"
+        lines.append(f"| {label} | {value} {unit} | {shown_base} | {change} | {kind} | {advisory} |")
+    for key in REQUIRED_COUNTS:
+        if not numbers.get(key):
+            failures.append(f"{key}: zero, so the benchmark measured nothing")
+    lines.append("")
+    lines.append(
+        "Counts: "
+        + ", ".join(f"{k} = {numbers.get(k, 0):g}" for k in REQUIRED_COUNTS + ["fling20Mb.frameCount"])
+    )
+    return failures, lines
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("results_dir")
@@ -167,43 +235,7 @@ def main():
         with open(args.baseline, encoding="utf-8") as f:
             baseline = json.load(f).get("metrics", {})
 
-    failures = []
-    lines = [
-        "### Emulator performance (API 34, not a device)",
-        "",
-        "Absolute budgets are **advisory** on an emulator; the gate is a >25% regression",
-        "against `docs/perf/emulator-baseline.json` (beyond each metric's noise floor).",
-        "",
-        "| Metric | Emulator | Baseline | Change | Budget (advisory) |",
-        "|---|---|---|---|---|",
-    ]
-    for key, (unit, budget, floor, label) in METRICS.items():
-        value = numbers.get(key)
-        if value is None:
-            failures.append(f"{key}: not measured")
-            lines.append(f"| {label} | **missing** | | | |")
-            continue
-        base = baseline.get(key)
-        change = ""
-        if base is not None:
-            delta = value - base
-            change = f"{delta:+.1f} {unit}" + (f" ({delta / base:+.0%})" if base else "")
-            if delta > floor and (base == 0 or delta / base > REGRESSION):
-                failures.append(f"{key}: {value} {unit} vs baseline {base} {unit}")
-                change = "**" + change + " regression**"
-        advisory = ""
-        if budget is not None:
-            advisory = f"{'within' if value <= budget else 'OVER'} {budget} {unit}"
-        shown_base = "" if base is None else f"{base} {unit}"
-        lines.append(f"| {label} | {value} {unit} | {shown_base} | {change} | {advisory} |")
-    for key in REQUIRED_COUNTS:
-        if not numbers.get(key):
-            failures.append(f"{key}: zero, so the benchmark measured nothing")
-    lines.append("")
-    lines.append(
-        "Counts: "
-        + ", ".join(f"{k} = {numbers.get(k, 0):g}" for k in REQUIRED_COUNTS + ["fling20Mb.frameCount"])
-    )
+    failures, lines = compare(numbers, baseline)
     report = "\n".join(lines) + "\n"
     print(report)
     if args.summary:

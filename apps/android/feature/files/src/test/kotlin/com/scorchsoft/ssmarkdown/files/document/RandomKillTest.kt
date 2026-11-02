@@ -23,7 +23,10 @@ import kotlin.random.Random
  *   edits of the last group commit behind (≤ [LOSS_BOUND_MILLIS] of typing);
  * - every file on disk holds whole contents, old or new, never a mixture;
  * - no outside edit is ever overwritten without the user choosing to;
- * - every version History kept still reads back verified.
+ * - every version History kept still reads back verified;
+ * - Undo and Redo survive the kill (ADR 0016): the recovered undo steps
+ *   are the ones the live document had in the recovered state, and Undo
+ *   walks back through, then Redo forward through, exactly their texts.
  *
  * Seeded and reproducible. `check` runs [RUNS] seeds (about 30 s); the
  * full thousand runs in CI's kill-test step, or locally with
@@ -51,6 +54,8 @@ class RandomKillTest {
                     it.tornFile
                 }} killed mid-write, ${results.count { it.tornJournal }} with a torn journal, " +
                 "${results.count { it.outsideAfterKill }} with an outside edit before relaunch; " +
+                "${results.count { it.undoStepsWalked > 0 }} walked Undo back and Redo forward through " +
+                "${results.sumOf { it.undoStepsWalked }} recovered steps; " +
                 "${results.sumOf { it.actions }} actions, ${results.sumOf { it.events }} kill points.",
         )
         assertEquals(

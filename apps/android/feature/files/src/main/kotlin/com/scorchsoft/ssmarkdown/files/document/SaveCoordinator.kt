@@ -77,7 +77,12 @@ internal class SaveCoordinator(
     ) {
         val old = entry.journal
         val fresh = context.journalFor(target)
-        if (entry.isDirty) fresh.resume(saved, entry.document.snapshot(), replacing = null)
+        entry.journal = fresh // Before it starts, so its run carries this document's undo history.
+        when {
+            entry.isDirty -> fresh.resume(saved, entry.document.snapshot(), replacing = null)
+            entry.hasHistory -> fresh.resumeClean(saved, replacing = null)
+            else -> Unit
+        }
         old.endClean()
         context.entries.remove(from)
         // Checked before the write: clean, no window, nothing held. It reloads from disk if opened again.
@@ -85,7 +90,6 @@ internal class SaveCoordinator(
         entry.uri = target
         // A draft's own name is its file id: never show it once the text has a real home.
         entry.displayName = targetName
-        entry.journal = fresh
         entry.readOnly = null
         entry.conflict = null
         context.entries[target] = entry
@@ -131,8 +135,10 @@ internal class SaveCoordinator(
     }
 
     /**
-     * A verified save: the saved version is clean, and the journal either
-     * ends or starts again from what was typed during the write.
+     * A verified save: the saved version is clean, and the journal starts
+     * again from what was typed during the write, or becomes a clean
+     * journal holding only the undo history (ADR 0016: undo survives a
+     * save and a later death), or ends when there is no history to keep.
      *
      * Not a suspend function, on purpose. It runs in one step on the owner
      * thread, right after the write returns, so the version check and the
@@ -152,10 +158,10 @@ internal class SaveCoordinator(
         entry.markClean(saved.fingerprint, version)
         context.history.onSaved(target, snapshot, saved.fingerprint)
         if (target != entry.uri) return // Save as: moveTo hands the journal over.
-        if (typedDuringSave) {
-            entry.journal.resume(saved.fingerprint, entry.document.snapshot())
-        } else {
-            entry.journal.endClean()
+        when {
+            typedDuringSave -> entry.journal.resume(saved.fingerprint, entry.document.snapshot())
+            entry.hasHistory -> entry.journal.resumeClean(saved.fingerprint)
+            else -> entry.journal.endClean()
         }
         settleAfterJournal(target, saved.fingerprint)
     }

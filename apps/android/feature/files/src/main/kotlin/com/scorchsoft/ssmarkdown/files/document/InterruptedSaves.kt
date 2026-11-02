@@ -5,6 +5,7 @@ import com.scorchsoft.ssmarkdown.files.provider.valueOrNull
 import com.scorchsoft.ssmarkdown.files.save.PendingSaves
 import com.scorchsoft.ssmarkdown.files.save.WriteAttempt
 import com.scorchsoft.ssmarkdown.history.journal.BaseFingerprint
+import com.scorchsoft.ssmarkdown.history.journal.JournalHistory
 import com.scorchsoft.ssmarkdown.history.journal.ReplayResult
 import com.scorchsoft.ssmarkdown.text.DecodeResult
 import com.scorchsoft.ssmarkdown.text.Utf8Decoder
@@ -22,8 +23,10 @@ import java.io.InputStream
  * - **the new bytes**: the write completed, but the process died before
  *   the journal moved to them. The journal's edits are replayed onto the
  *   old bytes (still the base copy) and the journal is restarted on the
- *   saved version, or ended if the save holds every edit. Without this,
- *   the next open would see a "change made outside" that was our own save.
+ *   saved version with its undo history: a snapshot if typing went on
+ *   past the save, else a clean journal (ADR 0016), or nothing at all if
+ *   there was no history either. Without this, the next open would see a
+ *   "change made outside" that was our own save.
  * - **made only of old and new bytes**, position by position: our write
  *   was torn. The old bytes are written back and verified.
  * - **anything else**: another app changed the file after the crash. It
@@ -71,12 +74,12 @@ internal class InterruptedSaves(
             val mine =
                 old?.let {
                     when (val replay = context.journals.replay(key, it, record.oldFingerprint)) {
-                        is ReplayResult.Ok -> replay.text
-                        is ReplayResult.Corrupt -> replay.recoveredText
+                        is ReplayResult.Ok -> replay.text to replay.history
+                        is ReplayResult.Corrupt -> replay.recoveredText to replay.history
                         else -> null // Already on another base, or unreadable: the open path decides.
                     }
                 }
-            if (mine != null) rebase(record, mine)
+            if (mine != null) rebase(record, mine.first, mine.second)
         }
         saves.finish(record.uri, record.new)
         return Settled.Completed
@@ -85,20 +88,23 @@ internal class InterruptedSaves(
     private fun rebase(
         record: PendingSaves.Record,
         mine: String,
+        history: JournalHistory,
     ) {
         val key = record.uri.value
         val saved = record.openNew().use(::decodedText)
-        if (saved == mine) {
+        if (saved == mine && history.isEmpty) {
             context.journals.markClean(key, record.oldFingerprint)
-        } else {
-            val lastModified =
-                context.provider
-                    .metadata(record.uri)
-                    .valueOrNull()
-                    ?.lastModified ?: 0L
-            val base = BaseFingerprint(record.new.size, lastModified, record.new.sha256)
-            context.journals.resume(key, base, mine, replacing = record.oldFingerprint)
+            return
         }
+        val lastModified =
+            context.provider
+                .metadata(record.uri)
+                .valueOrNull()
+                ?.lastModified ?: 0L
+        val base = BaseFingerprint(record.new.size, lastModified, record.new.sha256)
+        // The save holds every edit: a clean journal keeps the undo history (ADR 0016).
+        val text = if (saved == mine) null else mine
+        context.journals.resume(key, base, text, record.oldFingerprint, history)
     }
 
     /**

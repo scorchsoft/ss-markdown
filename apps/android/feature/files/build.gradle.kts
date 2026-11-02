@@ -22,6 +22,11 @@ android {
             // RandomKillTest: `check` runs 100 seeds; -Pssmarkdown.killRuns=1000 is the rubric's thousand.
             providers.gradleProperty("ssmarkdown.killRuns").orNull?.let { test.systemProperty("ssm.kill.runs", it) }
             providers.gradleProperty("ssmarkdown.killSeed").orNull?.let { test.systemProperty("ssm.kill.seed", it) }
+            // UndoReplayBenchmarkTest: the 20 MB measurement is opt-in.
+            test.systemProperty(
+                "ssmarkdown.heavyTests",
+                providers.gradleProperty("ssmarkdown.heavyTests").getOrElse("false"),
+            )
         }
     }
 }

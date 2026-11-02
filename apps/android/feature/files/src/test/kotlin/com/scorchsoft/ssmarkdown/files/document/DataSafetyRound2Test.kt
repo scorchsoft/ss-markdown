@@ -42,11 +42,20 @@ class DataSafetyRound2Test {
         suspend fun opened(target: DocumentUri = uri): OpenDocument =
             (store.open(target) as OpenOutcome.Opened).document
 
-        /** A new, empty draft the app would have created for a copy. */
-        fun draft(id: String = "copy"): DocumentUri = provider.put("${DocumentUri.DRAFT_SCHEME}:$id", "")
+        private val drafts = mutableListOf<DocumentUri>()
 
-        /** Journal files waiting to be recovered (quarantine excluded). */
-        val journals: Int get() = File(root, "journal").listFiles { f -> f.isFile }?.size ?: 0
+        /** A new, empty draft the app would have created for a copy. */
+        fun draft(id: String = "copy"): DocumentUri =
+            provider.put("${DocumentUri.DRAFT_SCHEME}:$id", "").also { drafts += it }
+
+        /**
+         * Journal files waiting to be recovered (quarantine excluded). A clean
+         * journal (undo history only, ADR 0016) holds no edits and is not counted.
+         */
+        val journals: Int get() {
+            val files = File(root, "journal").listFiles { f -> f.isFile }?.size ?: 0
+            return files - (drafts + uri).count { fixture.journals.holdsHistoryOnly(it.value) }
+        }
         val quarantined: Int get() = File(File(root, "journal"), "quarantine").list()?.size ?: 0
 
         /** The process dies after an `onPause` flush; a new store over the same folders. */

@@ -8,6 +8,7 @@ import com.scorchsoft.ssmarkdown.text.EditGroup
 import com.scorchsoft.ssmarkdown.text.EditObserver
 import com.scorchsoft.ssmarkdown.text.EditOp
 import com.scorchsoft.ssmarkdown.text.TextDocument
+import com.scorchsoft.ssmarkdown.text.UndoHistory
 import kotlinx.coroutines.sync.Mutex
 
 /**
@@ -31,9 +32,16 @@ class OpenDocument internal constructor(
     displayName: String?,
     /** The memory budget admission chose. */
     val budget: Budget,
-    internal var journal: JournalLink,
+    journal: JournalLink,
     private val notify: (DocumentEvent) -> Unit,
 ) {
+    /** This document's journal; replaced only by Save as. It reads the undo history from here. */
+    internal var journal: JournalLink = journal
+        set(value) {
+            field = value
+            value.historySource = ::undoTail
+        }
+
     /** The provider's display name, if it gave one. Changes only on Save as, with [uri]. */
     var displayName: String? = displayName
         internal set
@@ -53,6 +61,19 @@ class OpenDocument internal constructor(
             override fun afterEdit(op: EditOp) {
                 val owner = this@OpenDocument
                 owner.journal.afterEdit(owner.document.text.length) { owner.document.snapshot() }
+            }
+
+            // The undo stack's own decisions, so the journal can rebuild its steps (ADR 0016).
+            override fun onStepSealed() = this@OpenDocument.journal.stepSealed()
+
+            override fun onUndo(opCount: Int) {
+                val owner = this@OpenDocument
+                owner.journal.undoStep(opCount, owner.base, owner.isDirty) { owner.document.snapshot() }
+            }
+
+            override fun onRedo(opCount: Int) {
+                val owner = this@OpenDocument
+                owner.journal.redoStep(opCount, owner.base, owner.isDirty) { owner.document.snapshot() }
             }
         }
 
@@ -97,9 +118,15 @@ class OpenDocument internal constructor(
     private var cleanVersion = document.version
     private var forcedDirty = false
 
+    /** True when there is undo or redo history worth keeping in a clean journal after a save. */
+    internal val hasHistory: Boolean get() = document.canUndo || document.canRedo
+
     init {
         document.addEditObserver(journalObserver)
+        journal.historySource = ::undoTail
     }
+
+    private fun undoTail(): UndoHistory = document.exportHistory()
 
     /** Replaces `[offset, offset + length)` with [text]; null if the document is read-only. */
     fun replace(

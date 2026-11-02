@@ -47,6 +47,13 @@ internal class StoreContext(
     /** Edit times from the last launch scan, for the recovery banner. */
     val journalTimes = HashMap<DocumentUri, Long>()
 
+    /**
+     * Clean journals the launch scan found (undo history of a document
+     * that was open, on the base it names) that no open has claimed yet.
+     * [DocumentStore.releaseUnclaimedHistory] deletes what is left.
+     */
+    val unclaimedHistory = HashMap<DocumentUri, BaseFingerprint>()
+
     fun notify(event: DocumentEvent) = listeners.forEach { it(event) }
 
     /** A journal link for [uri]; its health changes reach listeners on the owner thread. */

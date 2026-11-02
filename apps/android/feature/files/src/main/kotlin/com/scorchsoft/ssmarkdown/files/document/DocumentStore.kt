@@ -104,9 +104,30 @@ class DocumentStore(
             val scan = context.journals.scan()
             val offers = scan.unclean.map { RecoveryOffer(DocumentUri(it.documentKey), it.createdAtMillis, it.base) }
             offers.forEach { context.journalTimes[it.uri] = it.editedAtMillis }
+            scan.historyOnly.forEach { context.unclaimedHistory[DocumentUri(it.documentKey)] = it.base }
             context.baseCopies.retainOnly(offers.map { it.uri } + context.entries.keys)
             RecoveryScan(offers, scan.unsupported.size, scan.quarantined.size, scan.failures.size, repaired)
         }
+
+    /**
+     * Deletes the clean journals the launch scan found whose documents
+     * were not opened since: undo history is kept while a document is
+     * open (ADR 0016), and one the launch did not reopen is closed. Call
+     * once the launch's opens have been asked for; it waits behind any
+     * open in progress, so a document being reopened keeps its history.
+     */
+    suspend fun releaseUnclaimedHistory() {
+        val stale =
+            openLock.withLock {
+                context.unclaimedHistory.filterKeys { it !in context.entries }.also { context.unclaimedHistory.clear() }
+            }
+        if (stale.isEmpty()) return
+        context.journalThread.call {
+            stale.forEach { (uri, base) ->
+                if (context.journals.holdsHistoryOnly(uri.value)) context.journals.markClean(uri.value, base)
+            }
+        }
+    }
 
     /** Opens [uri], or joins the entry already open for it (a second window gets the same buffer). */
     suspend fun open(uri: DocumentUri): OpenOutcome =
@@ -331,7 +352,10 @@ class DocumentStore(
                 it.windows == 0 && !it.isDirty && it.conflict == null && it.lock.tryLock()
             }
         try {
-            idle.forEach { context.entries.remove(it.uri) }
+            idle.forEach {
+                context.entries.remove(it.uri)
+                it.journal.endClean() // Its undo history goes with it: it reloads from disk, history and all gone.
+            }
             withContext(context.io) { idle.forEach { context.baseCopies.delete(it.uri) } }
         } finally {
             idle.forEach { it.lock.unlock() }

@@ -46,7 +46,7 @@ class DocumentStoreTest {
         }
 
     @Test
-    fun `an edit is dirty and journalled, and a save makes it clean and ends the journal`() =
+    fun `an edit is dirty and journalled, and a save makes it clean and leaves only its undo history`() =
         runTest {
             val fixture = fixture()
             val doc = fixture.store.opened()
@@ -60,7 +60,14 @@ class DocumentStoreTest {
             assertTrue(outcome is SaveOutcome.Saved)
             assertFalse(doc.isDirty)
             assertEquals("# Note\n\nfirst line\nsecond line\n", provider.text(uri))
-            assertFalse(fixture.journals.fileFor(uri.value).exists())
+            // No edits left to recover; the undo history stays while the document is open (ADR 0016).
+            assertTrue(fixture.journals.holdsHistoryOnly(uri.value))
+            assertTrue(
+                fixture.journals
+                    .scan()
+                    .unclean
+                    .isEmpty(),
+            )
             assertEquals(
                 listOf("opened:# Note\n\nfirst line\n", "saved:# Note\n\nfirst line\nsecond line\n"),
                 fixture.history.entries,

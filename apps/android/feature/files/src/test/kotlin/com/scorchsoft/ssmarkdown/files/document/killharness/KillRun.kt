@@ -37,6 +37,47 @@ import java.nio.file.Files
 import java.nio.file.attribute.BasicFileAttributes
 import kotlin.random.Random
 
+/**
+ * Undo and redo steps as plain data, for comparing a recovered document's
+ * history with the live one's: each op is offset, deleted, inserted.
+ */
+internal data class Steps(
+    val undo: List<List<Triple<Int, String, String>>>,
+    val redo: List<List<Triple<Int, String, String>>>,
+) {
+    /** The texts Undo reaches from [text] back to the oldest step, then Redo forward to the last. */
+    fun walk(text: String): List<String> {
+        val texts = mutableListOf(text)
+        var now = text
+        for (step in undo.asReversed()) {
+            for ((offset, deleted, inserted) in step.asReversed()) {
+                now = now.substring(0, offset) + deleted + now.substring(offset + inserted.length)
+            }
+            texts += now
+        }
+        // Fully undone, Redo replays the undo steps oldest first, then the redo steps, next first.
+        for (step in undo + redo.asReversed()) {
+            for ((offset, deleted, inserted) in step) {
+                now = now.substring(0, offset) + inserted + now.substring(offset + deleted.length)
+            }
+            texts += now
+        }
+        return texts
+    }
+
+    companion object {
+        val NONE = Steps(emptyList(), emptyList())
+
+        fun of(doc: OpenDocument): Steps {
+            val history = doc.document.exportHistory()
+
+            fun plain(steps: List<List<com.scorchsoft.ssmarkdown.text.EditOp>>) =
+                steps.map { step -> step.map { Triple(it.offset, it.deleted.toString(), it.inserted.toString()) } }
+            return Steps(plain(history.undo), plain(history.redo))
+        }
+    }
+}
+
 /** What one run came to; [failure] is null when every invariant held. */
 internal data class RunResult(
     val seed: Long,
@@ -48,6 +89,8 @@ internal data class RunResult(
     val tornFile: Boolean,
     val tornJournal: Boolean,
     val outsideAfterKill: Boolean,
+    /** Undo steps walked back and forward after recovery (ADR 0016); 0 when there were none. */
+    val undoStepsWalked: Int,
     val failure: String?,
 )
 
@@ -83,6 +126,17 @@ internal class KillRun(
 
     /** Every text the document has had, with the model time it appeared. */
     private val states = ArrayList<Pair<Long, String>>()
+
+    /**
+     * The undo steps the live document held at each of [states] (ADR 0016),
+     * as plain strings: after recovery, Undo and Redo must walk exactly as
+     * they would have from the state recovered.
+     */
+    private val histories = ArrayList<Steps>()
+
+    /** The document reopened at the current URI after the kill, for the undo check. */
+    private var reopened: OpenOutcome.Opened? = null
+    private var undoStepsWalked = 0
 
     /** The independent model of typed edits: checked against the buffer after each one. */
     private var model = StringBuilder()
@@ -168,7 +222,16 @@ internal class KillRun(
         uris += current
         allowed[current] = mutableSetOf(hex(bytes))
         model = StringBuilder(text)
+        addState(text, Steps.NONE)
+    }
+
+    /** A new state; its undo steps are [steps], or none when the store swapped the buffer for a fresh one. */
+    private fun addState(
+        text: String,
+        steps: Steps,
+    ) {
         states += clock.now to text
+        histories += steps
     }
 
     private fun wireHooks() {
@@ -260,7 +323,7 @@ internal class KillRun(
         unacknowledged[current] = theirs
         allowed[current] = mutableSetOf(hex(theirs))
         // A clean document reopens as their text; that is a state, not a loss.
-        states += clock.now to requireNotNull(decode(theirs))
+        addState(requireNotNull(decode(theirs)), Steps.NONE)
         trail += "outside edit after the kill"
     }
 
@@ -395,14 +458,15 @@ internal class KillRun(
         val live = doc.document.text.toString()
         model = StringBuilder(live)
         format = doc.document.format
-        if (states.last().second != live) states += clock.now to live
+        val steps = Steps.of(doc)
+        if (states.last().second != live || histories.last() != steps) addState(live, steps)
     }
 
     private fun recordEdit(doc: OpenDocument) {
         val live = doc.document.text.toString()
         check(live == model.toString()) { "buffer and model diverged (seed $seed): ${trail.takeLast(TRAIL)}" }
         format = doc.document.format
-        states += clock.now to live
+        addState(live, Steps.of(doc))
     }
 
     @Suppress("CyclomaticComplexMethod") // A weighted menu of actions.
@@ -534,7 +598,7 @@ internal class KillRun(
         unacknowledged[current] = theirs
         allowed.getValue(current) += hex(theirs)
         // If the document is clean, their text is what it holds from now on, reloaded or not yet.
-        if (doc()?.isDirty == false) states += clock.now to decode(theirs)!!
+        if (doc()?.isDirty == false) addState(decode(theirs)!!, Steps.NONE)
         act("outside edit, then the periodic check") {
             when (session.store.checkOutside(current, CheckReason.Periodic)) {
                 OutsideChange.Reloaded -> {
@@ -576,7 +640,8 @@ internal class KillRun(
             val disk = provider.bytes(current)
             val text = decode(disk) ?: return
             model = StringBuilder(text)
-            if (states.last().second != text) states += clock.now to text
+            // Closed: the history went with it, even when the text did not change.
+            if (states.last().second != text || histories.last() != Steps.NONE) addState(text, Steps.NONE)
         }
     }
 
@@ -594,7 +659,7 @@ internal class KillRun(
         wireHooks()
         val (recovered, reopenFailure) = relaunch()
         session.thread.drain(0)
-        var failure = reopenFailure ?: violation ?: checkDisk() ?: checkHistory()
+        var failure = reopenFailure ?: violation ?: checkDisk() ?: checkHistory() ?: checkUndo()
         val best = recovered.maxOfOrNull { text -> states.indexOfLast { it.second == text } } ?: -1
         if (failure == null && best < 0) failure = "recovered text matches no state the document ever had"
         val lost = if (best < 0) 0 else states.size - 1 - best
@@ -619,6 +684,7 @@ internal class KillRun(
                     continue
                 }
                 if (outcome.recovery is Recovery.Kept) failure = "recovery kept $uri aside: ${outcome.recovery}"
+                if (uri == current) reopened = outcome
                 recovered +=
                     outcome.document.document.text
                         .toString()
@@ -627,6 +693,44 @@ internal class KillRun(
         }
         while (!finished) check(session.main.runOne() || session.thread.runOne()) { "recovery stuck" }
         return recovered to failure
+    }
+
+    /**
+     * Undo survives the kill (ADR 0016): the recovered document's undo and
+     * redo steps are the ones the live document had in a state with the
+     * recovered text, and walking Undo all the way back, then Redo all the
+     * way forward, passes through exactly the texts those steps lead to. A
+     * recovery that had to treat the edits as a conflict starts with no
+     * history, by design (robustness §2a), as do the old URI of an
+     * interrupted Save as and an interrupted "Don't save".
+     */
+    @Suppress("ReturnCount") // Not reopened, read-only, no such state, no such history, and a bad walk.
+    private fun checkUndo(): String? {
+        val opened = reopened ?: return null
+        val doc = opened.document
+        if (doc.readOnly != null) return null
+        val text = doc.document.text.toString()
+        val candidates =
+            states.indices
+                .filter { states[it].second == text }
+                .map { histories[it] }
+                .toSet()
+        if (candidates.isEmpty()) return null // The text check reports this one.
+        val actual = Steps.of(doc)
+        // A conflict starts with no history (robustness §2a); so does the old URI of a Save as the
+        // kill interrupted (the history may have moved to the new file), and a "Don't save" the kill
+        // interrupted (it may already have deleted the journal, history and all).
+        val noHistoryExpected =
+            opened.recovery is Recovery.Conflicted || trail.lastOrNull() in setOf("save as", "don't save")
+        if (actual !in candidates && !(noHistoryExpected && actual == Steps.NONE)) {
+            return "recovered undo steps $actual match no state with that text: ${candidates.take(2)}"
+        }
+        val expected = actual.walk(text)
+        val walked = mutableListOf(text)
+        while (doc.undo() != null) walked += doc.document.text.toString()
+        while (doc.redo() != null) walked += doc.document.text.toString()
+        undoStepsWalked = actual.undo.size + actual.redo.size
+        return if (walked == expected) null else "undo walked $walked, expected $expected"
     }
 
     private fun checkDisk(): String? {
@@ -674,6 +778,7 @@ internal class KillRun(
         tornFile = tornFile,
         tornJournal = tornJournal,
         outsideAfterKill = trail.lastOrNull() == "outside edit after the kill",
+        undoStepsWalked = undoStepsWalked,
         failure = failure?.let { "$it\n  trail: ${trail.takeLast(TRAIL)}" },
     )
 

@@ -114,17 +114,14 @@ class InterleavingTest {
         }
 
     @Test
-    fun `DS-1 typing right after a quiet save starts a fresh journal on the new base`() =
+    fun `DS-1 typing right after a quiet save carries on the journal on the new base`() =
         runTest {
             val world = World()
             val doc = world.opened()
             doc.type("one")
             assertTrue(world.store.save(world.uri) is SaveOutcome.Saved)
-            assertFalse(
-                world.fixture.journals
-                    .fileFor(world.uri.value)
-                    .exists(),
-            )
+            // A clean journal on the saved version: the undo history, no edits (ADR 0016).
+            assertTrue(world.fixture.journals.holdsHistoryOnly(world.uri.value))
 
             doc.type(" two")
             assertTrue(
@@ -351,8 +348,14 @@ class InterleavingTest {
                 world.fixture.journals
                     .fileFor(world.uri.value)
                     .length()
-            // 2.5 MB of ops without compaction; with it, at most one snapshot plus under 1 MiB of ops.
-            assertTrue("journal bytes: $journal", journal < doc.document.text.length + (1L shl 20))
+            // 2.5 MB of ops without compaction; with it, at most one snapshot, the undo tail it carries
+            // (ADR 0016) and under 1 MiB of ops.
+            val tail =
+                doc.document
+                    .exportHistory()
+                    .undo
+                    .sumOf { step -> step.sumOf { it.tailBytes } }
+            assertTrue("journal bytes: $journal", journal < doc.document.text.length + tail + (1L shl 20))
             world.assertRecoversTo(doc.live())
         }
 

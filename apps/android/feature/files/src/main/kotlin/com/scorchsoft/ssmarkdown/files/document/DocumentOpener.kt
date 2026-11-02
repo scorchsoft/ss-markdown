@@ -3,20 +3,29 @@ package com.scorchsoft.ssmarkdown.files.document
 import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.files.save.BaseCopyStore.StagedCopy
 import com.scorchsoft.ssmarkdown.history.journal.BaseFingerprint
+import com.scorchsoft.ssmarkdown.history.journal.JournalHistory
 import com.scorchsoft.ssmarkdown.history.journal.ReplayResult
 import com.scorchsoft.ssmarkdown.history.journal.Salvage
+import com.scorchsoft.ssmarkdown.text.EditOp
+import com.scorchsoft.ssmarkdown.text.TextDocument
+import com.scorchsoft.ssmarkdown.text.UndoHistory
 import kotlinx.coroutines.withContext
 
 /**
  * Opening a document, including the recovery of an earlier session's
- * journal (robustness §1 and §2a). Never discards a journal: every path
- * either applies it, resumes it, or leaves it exactly where it is.
+ * journal (robustness §1 and §2a). Never discards a journal with edits in
+ * it: every path either applies it, resumes it, or leaves it exactly
+ * where it is. A clean journal (undo history only, ADR 0016) restores the
+ * history when the file is exactly its base, and is deleted when it is
+ * not: an outside change ends the history.
  */
 internal class DocumentOpener(
     private val context: StoreContext,
 ) {
-    @Suppress("ReturnCount") // Load failure and "no journal" end early; the rest is the replay dispatch.
+    // Load failure and "no journal" end early; the rest is the replay dispatch.
+    @Suppress("ReturnCount", "CyclomaticComplexMethod")
     suspend fun open(uri: DocumentUri): OpenOutcome {
+        context.unclaimedHistory.remove(uri)
         // Journal files are only ever touched on the journal thread, so this waits for any queued
         // work on this document (a close that is still ending its journal) before looking.
         val hasJournal = context.journalThread.call { context.journals.fileFor(uri.value).exists() }
@@ -39,15 +48,25 @@ internal class DocumentOpener(
             }
         return when (replay) {
             is ReplayResult.Ok -> {
-                restored(uri, loaded, replay.text, damaged = false, staged)
+                if (replay.editsReplayed) {
+                    restored(uri, loaded, replay.text, replay.history, damaged = false, staged)
+                } else {
+                    reopenedClean(uri, loaded, replay.history, staged)
+                }
             }
 
             is ReplayResult.Corrupt -> {
-                restored(uri, loaded, replay.recoveredText, damaged = true, staged)
+                restored(uri, loaded, replay.recoveredText, replay.history, damaged = true, staged)
             }
 
             is ReplayResult.BaseMismatch -> {
-                conflicted(uri, loaded, replay, staged)
+                if (context.journalThread.call { context.journals.holdsHistoryOnly(uri.value) }) {
+                    // Undo history for bytes the file no longer holds: an outside change ends it.
+                    context.journalThread.call { context.journals.markClean(uri.value, replay.journalBase) }
+                    plain(uri, loaded, staged)
+                } else {
+                    conflicted(uri, loaded, replay, staged)
+                }
             }
 
             ReplayResult.Missing -> {
@@ -74,16 +93,30 @@ internal class DocumentOpener(
         }
     }
 
-    /** The disk is the journal's base: apply the edits and carry on journalling. */
+    /**
+     * The disk is the journal's base: apply the edits and carry on
+     * journalling, with the undo history the journal kept (ADR 0016).
+     *
+     * The text goes in as one replace and the history is restored as data,
+     * rather than replaying every op into the piece tree: the replayed
+     * text is already exact, the steps are just the ops that lead to it,
+     * and one replace keeps a 20 MB recovery inside the open budget
+     * (PERF-22). Restoring replaces the stacks, so that one replace is not
+     * an undo step: Undo walks back through the steps the user made, never
+     * "all the recovered edits at once".
+     */
+    @Suppress("LongParameterList") // The replay's three results plus the load it applies to.
     private suspend fun restored(
         uri: DocumentUri,
         loaded: LoadResult.Loaded,
         text: String,
+        history: JournalHistory,
         damaged: Boolean,
         staged: StagedCopy,
     ): OpenOutcome {
         withContext(context.io) { staged.commit() }
         loaded.document.replaceAllWith(text)
+        loaded.document.restoreOrForget(history)
         val entry = register(uri, loaded, dirty = true)
         entry.journal.adopt()
         entry.journal.resume(loaded.fingerprint, entry.document.snapshot(), replacing = loaded.fingerprint)
@@ -126,6 +159,7 @@ internal class DocumentOpener(
                 else -> return kept(uri, loaded, null, "journal could not be replayed onto its base", readOnly = false)
             }
         baseDocument.replaceAllWith(mine)
+        baseDocument.restoreOrForget(JournalHistory.EMPTY) // A conflict starts with no history (robustness §2a).
         val entry =
             register(
                 uri,
@@ -157,6 +191,7 @@ internal class DocumentOpener(
         val theirs = withContext(context.io) { loaded.document.text.toString() }
         val document = loaded.document
         document.replaceAllWith(mine)
+        document.restoreOrForget(JournalHistory.EMPTY)
         val entry =
             register(
                 uri,
@@ -167,6 +202,30 @@ internal class DocumentOpener(
         entry.journal.adopt()
         entry.journal.resume(journalBase, entry.document.snapshot(), replacing = journalBase)
         return OpenOutcome.Opened(entry, Recovery.Conflicted(context.journalTimes[uri] ?: 0))
+    }
+
+    /**
+     * A clean journal on exactly the file's bytes: the document opens
+     * clean, as from disk, with the undo steps the journal kept, and the
+     * journal carries on as this session's. With no history to restore (or
+     * steps that do not fit the text), the journal is ended instead.
+     */
+    private suspend fun reopenedClean(
+        uri: DocumentUri,
+        loaded: LoadResult.Loaded,
+        history: JournalHistory,
+        staged: StagedCopy,
+    ): OpenOutcome {
+        val restoredHistory = !history.isEmpty && loaded.document.restoreHistory(history.toUndoHistory())
+        if (!restoredHistory) {
+            context.journalThread.call { context.journals.markClean(uri.value, loaded.fingerprint) }
+            return plain(uri, loaded, staged)
+        }
+        val outcome = plain(uri, loaded, staged)
+        val entry = (outcome as OpenOutcome.Opened).document
+        entry.journal.adopt()
+        entry.journal.resumeClean(loaded.fingerprint, replacing = loaded.fingerprint)
+        return outcome
     }
 
     private suspend fun plain(
@@ -232,3 +291,14 @@ internal class DocumentOpener(
             is LoadResult.Loaded -> error("not a failure")
         }
 }
+
+/** Restores [history] into this document, or forgets every step if it does not fit the text. */
+private fun TextDocument.restoreOrForget(history: JournalHistory) {
+    if (!restoreHistory(history.toUndoHistory())) restoreHistory(UndoHistory.EMPTY)
+}
+
+private fun JournalHistory.toUndoHistory(): UndoHistory =
+    UndoHistory(
+        undo.map { step -> step.map { EditOp(it.offset, it.deleted, it.inserted) } },
+        redo.map { step -> step.map { EditOp(it.offset, it.deleted, it.inserted) } },
+    )

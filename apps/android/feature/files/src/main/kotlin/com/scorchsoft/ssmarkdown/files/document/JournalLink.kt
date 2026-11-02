@@ -3,16 +3,28 @@ package com.scorchsoft.ssmarkdown.files.document
 import com.scorchsoft.ssmarkdown.history.TextEdit
 import com.scorchsoft.ssmarkdown.history.journal.BaseFingerprint
 import com.scorchsoft.ssmarkdown.history.journal.CleanResult
+import com.scorchsoft.ssmarkdown.history.journal.JournalHistory
 import com.scorchsoft.ssmarkdown.history.journal.JournalStore
 import com.scorchsoft.ssmarkdown.history.journal.JournalWriteResult
 import com.scorchsoft.ssmarkdown.history.journal.JournalWriter
 import com.scorchsoft.ssmarkdown.history.journal.OpenResult
 import com.scorchsoft.ssmarkdown.text.EditOp
 import com.scorchsoft.ssmarkdown.text.Snapshot
+import com.scorchsoft.ssmarkdown.text.UndoHistory
 
 /**
  * One document's connection to the recovery journal (robustness §1): a
- * journal exists exactly while the document has unsaved edits.
+ * journal exists while the document has unsaved edits, and, after a save,
+ * while it has undo history worth keeping (a *clean* journal, ADR 0016).
+ *
+ * ### Undo history
+ * Every run starts with the document's undo steps ([historySource]),
+ * written after its header or snapshot, and the undo stack's decisions
+ * (a step sealed, an undo or redo of n ops) are queued in order with the
+ * ops ([stepSealed], [undoStep], [redoStep]). So the journal can rebuild
+ * the stacks after a process death exactly as the user left them. While
+ * an undo or redo is applying its ops, the run is never restarted
+ * (no compaction, no resync): its ops must follow its marker.
  *
  * ### Two halves, one order
  * Every public method is called on the document's owner thread (the main
@@ -56,6 +68,25 @@ internal class JournalLink(
 
     /** Chars recorded since the run's last snapshot (or header): what replay must work through. */
     private var journalledChars = 0L
+
+    /** Ops of the undo or redo in progress still to come; the run must not restart until they have. */
+    private var stepOpsLeft = 0
+
+    /**
+     * The running journal is clean (history only) and nothing has changed
+     * the text since. Its first change is synced at once: until then the
+     * file says "no unsaved edits", and a death right after an edit must
+     * find the journal saying otherwise, as a freshly started journal's
+     * header always did.
+     */
+    private var cleanRun = false
+
+    /**
+     * The document's undo steps, newest first up to the tail cap, read on
+     * the owner thread whenever a run starts. Set by the [OpenDocument]
+     * that owns this link.
+     */
+    var historySource: () -> UndoHistory = { UndoHistory.EMPTY }
 
     // ---- Journal-thread state. ----
 
@@ -107,14 +138,15 @@ internal class JournalLink(
         before: () -> Snapshot,
     ) {
         if (op.isNoOp) return
-        when {
-            !isRunning -> begin(base, if (dirty) before() else null, replacing = null)
-            broken && clock() - lastRetryAt >= retryMillis -> resync(before())
-            else -> Unit
+        if (stepOpsLeft > 0) {
+            stepOpsLeft-- // Part of an undo or redo: its marker already started or checked the run.
+        } else {
+            startOrRetry(base, dirty, before)
         }
-        val edit = PendingEdit(op.offset, frozen(op.deleted), frozen(op.inserted))
+        val edit = PendingEdit.of(op)
         journalledChars += op.deleted.length + op.inserted.length
         executor.execute { guarded { append(edit) } }
+        syncIfFirstChange()
     }
 
     /**
@@ -130,9 +162,41 @@ internal class JournalLink(
         after: () -> Snapshot,
     ) {
         val base = journalBase ?: return
-        if (broken || journalledChars < COMPACT_MIN_CHARS || journalledChars < COMPACT_RATIO * textLength) return
+        if (stepOpsLeft > 0 || broken) return
+        if (journalledChars < COMPACT_MIN_CHARS || journalledChars < COMPACT_RATIO * textLength) return
         begin(base, after(), replacing = base)
     }
+
+    /**
+     * The undo stack sealed its newest step; the op that follows starts a
+     * new one. Queued in order with the ops. With no run, there is nothing
+     * to tell: a run that starts later writes the stack as it is then.
+     */
+    fun stepSealed() {
+        if (!isRunning) return
+        executor.execute { guarded { record { it.endStep() } } }
+    }
+
+    /**
+     * Undo is about to apply the inverse of a step of [opCount] ops: they
+     * are queued after this marker. A run is started (or retried) here,
+     * before the step moves, so its history still holds the step; see
+     * [beforeEdit] for [base], [dirty] and [before].
+     */
+    fun undoStep(
+        opCount: Int,
+        base: BaseFingerprint,
+        dirty: Boolean,
+        before: () -> Snapshot,
+    ) = step(opCount, base, dirty, before) { it.undoStep(opCount) }
+
+    /** Redo is about to re-apply a step of [opCount] ops; as [undoStep]. */
+    fun redoStep(
+        opCount: Int,
+        base: BaseFingerprint,
+        dirty: Boolean,
+        before: () -> Snapshot,
+    ) = step(opCount, base, dirty, before) { it.redoStep(opCount) }
 
     /**
      * Starts the run afresh from [text] on [base], in one atomic replace
@@ -146,6 +210,18 @@ internal class JournalLink(
         text: Snapshot,
         replacing: BaseFingerprint? = journalBase,
     ) = begin(base, text, replacing)
+
+    /**
+     * Starts the run afresh as a *clean* journal on [base]: the text is
+     * exactly [base]'s, so the journal holds only the undo history. What a
+     * verified save does when the document has undo steps, instead of
+     * ending the journal (ADR 0016), and what a clean open that restored
+     * history does to keep it. In one atomic replace, like [resume].
+     */
+    fun resumeClean(
+        base: BaseFingerprint,
+        replacing: BaseFingerprint? = journalBase,
+    ) = begin(base, null, replacing, clean = true)
 
     /**
      * Makes everything durable now: on pause and before any risky step.
@@ -190,18 +266,52 @@ internal class JournalLink(
 
     // ---- Owner-side helpers. ----
 
+    private fun startOrRetry(
+        base: BaseFingerprint,
+        dirty: Boolean,
+        before: () -> Snapshot,
+    ) {
+        when {
+            !isRunning -> begin(base, if (dirty) before() else null, replacing = null)
+            broken && clock() - lastRetryAt >= retryMillis -> resync(before())
+            else -> Unit
+        }
+    }
+
+    private fun step(
+        opCount: Int,
+        base: BaseFingerprint,
+        dirty: Boolean,
+        before: () -> Snapshot,
+        write: (JournalWriter) -> JournalWriteResult,
+    ) {
+        startOrRetry(base, dirty, before)
+        stepOpsLeft = opCount
+        executor.execute { guarded { record(write) } }
+        syncIfFirstChange()
+    }
+
+    private fun syncIfFirstChange() {
+        if (!cleanRun) return
+        cleanRun = false
+        executor.execute { guarded { flushNow() } }
+    }
+
     private fun begin(
         base: BaseFingerprint,
         text: Snapshot?,
         replacing: BaseFingerprint?,
+        clean: Boolean = false,
     ) {
         val setAside = held
         held = false
         journalBase = base
         broken = false
         journalledChars = 0
+        cleanRun = clean
         lastRetryAt = clock()
-        executor.execute { guarded { start(base, text, replacing, setAside) } }
+        val history = PendingHistory.of(historySource())
+        executor.execute { guarded { start(base, text, replacing, setAside, history, clean) } }
     }
 
     private fun resync(before: Snapshot) {
@@ -211,20 +321,24 @@ internal class JournalLink(
 
     // ---- Journal-thread work. ----
 
+    @Suppress("LongParameterList") // One queued step: everything begin() decided on the owner thread.
     private fun start(
         base: BaseFingerprint,
         text: Snapshot?,
         replacing: BaseFingerprint?,
         setAside: Boolean,
+        pending: PendingHistory,
+        clean: Boolean,
     ) {
         writer?.close()
         writer = null
         if (setAside || (!ownsFile && store.fileFor(key).exists())) store.setAside(key)
+        val history = pending.toJournalHistory()
         val result =
-            if (text == null) {
-                store.start(key, base)
+            if (text == null && !clean) {
+                store.start(key, base, history)
             } else {
-                store.resume(key, base, text.toString(), replacing.takeIf { ownsFile })
+                store.resume(key, base, text?.toString(), replacing.takeIf { ownsFile }, history)
             }
         if (result is OpenResult.Opened) {
             writer = result.writer
@@ -236,13 +350,16 @@ internal class JournalLink(
         }
     }
 
-    private fun append(edit: PendingEdit) {
+    private fun append(edit: PendingEdit) = record { it.append(edit.toTextEdit()) }
+
+    /** Writes one record through [write]; any trouble is handled as an append's would be. */
+    private fun record(write: (JournalWriter) -> JournalWriteResult) {
         val running = writer
         if (running == null) {
             breakRun()
             return
         }
-        when (running.append(edit.toTextEdit())) {
+        when (write(running)) {
             is JournalWriteResult.Written -> Unit
 
             // Still held in memory; the next flush retries it. The journal is behind, not wrong.
@@ -310,6 +427,37 @@ internal class JournalLink(
         val inserted: CharSequence,
     ) {
         fun toTextEdit() = TextEdit(offset, deleted.toString(), inserted.toString())
+
+        companion object {
+            fun of(op: EditOp) = PendingEdit(op.offset, frozen(op.deleted), frozen(op.inserted))
+        }
+    }
+
+    /**
+     * The undo steps as the owner saw them when a run began. Captured on
+     * the owner thread (the stack moves on), turned into strings on the
+     * journal thread, like [PendingEdit].
+     */
+    private class PendingHistory(
+        val undo: List<List<PendingEdit>>,
+        val redo: List<List<PendingEdit>>,
+        val newestOpen: Boolean,
+    ) {
+        fun toJournalHistory() =
+            JournalHistory(
+                undo.map { step -> step.map(PendingEdit::toTextEdit) },
+                redo.map { step -> step.map(PendingEdit::toTextEdit) },
+                newestOpen,
+            )
+
+        companion object {
+            fun of(history: UndoHistory) =
+                PendingHistory(
+                    history.undo.map { step -> step.map(PendingEdit::of) },
+                    history.redo.map { step -> step.map(PendingEdit::of) },
+                    history.newestOpen,
+                )
+        }
     }
 
     private companion object {

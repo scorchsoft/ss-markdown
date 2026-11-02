@@ -35,6 +35,8 @@ export class Editor implements SessionHost {
     private selectionTimer: ReturnType<typeof setTimeout> | null = null;
     /** Whether the table being edited was padded when its first cell was tapped. */
     private paddedTable = false;
+    /** A handoff skipped the re-pad: the session that takes over still owes it. */
+    private carryPadding = false;
     /** Holds the keyboard while a block is re-rendered under the caret. */
     private readonly keeper = new KeyboardKeeper();
     /** What Kotlin was last told by `editingChanged`. */
@@ -87,8 +89,9 @@ export class Editor implements SessionHost {
      * the [KeyboardKeeper] so the keyboard stays up, and Kotlin is not told
      * editing stopped. Without it, editing really ends and the keyboard may go.
      */
-    end(handoff = false): void {
+    end(handoff = false, repad = true): void {
         const session = this.session;
+        if (!handoff) this.carryPadding = false;
         if (!session) {
             if (!handoff) this.stopHolding();
             return;
@@ -100,7 +103,9 @@ export class Editor implements SessionHost {
         const addr = session.inTable ? cellAddress(session.block) : null;
         this.controller.pinned = null;
         this.toolbar.hide();
-        if (addr && this.paddedTable) {
+        if (addr && this.paddedTable && !repad) {
+            this.carryPadding = true;
+        } else if (addr && this.paddedTable) {
             const edits = repadEdits(this.controller.doc, addr);
             if (edits.length > 0) this.commit(edits);
         }
@@ -168,7 +173,8 @@ export class Editor implements SessionHost {
         const typed = this.keeper.release();
         session.start();
         const addr = session.inTable ? cellAddress(block) : null;
-        this.paddedTable = addr ? isPadded(this.controller.doc, addr) : false;
+        this.paddedTable = addr ? this.carryPadding || isPadded(this.controller.doc, addr) : false;
+        this.carryPadding = false;
         this.announce(true);
         if (typed.length > 0) this.insertKept(session, typed);
     }
@@ -220,12 +226,13 @@ export class Editor implements SessionHost {
         const block = this.session?.block;
         const addr = at ?? (block ? cellAddress(block) : null);
         if (!addr) return;
-        this.session?.flush();
-        const result = tableOpEdits(this.controller.doc, addr, op);
-        if (!result) return;
+        // Ending first writes back the typing and re-pads the table, so the op is worked out on the
+        // text as it is now: worked out before, its offsets missed the re-pad and broke the table.
         this.end(true);
-        this.commit(result.edits);
-        this.pendingCaret = result.caretAfter(this.controller.doc);
+        const doc = this.controller.doc;
+        const result = tableOpEdits(doc, addr, op);
+        if (result) this.commit(result.edits);
+        this.pendingCaret = result ? result.caretAfter(this.controller.doc) : cellOffset(doc, addr, addr.row, addr.col);
         this.flushPendingCaret();
     }
 
@@ -249,7 +256,8 @@ export class Editor implements SessionHost {
     }
 
     commitAndRerender(edits: readonly SourceEdit[], caret: number): void {
-        this.end(true);
+        // No re-pad now: it would move [edits]' offsets. The session that takes over re-pads on leaving.
+        this.end(true, false);
         this.commit(edits);
         this.pendingCaret = caret;
         this.flushPendingCaret();

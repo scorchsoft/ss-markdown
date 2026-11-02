@@ -186,6 +186,39 @@ describe("no keystroke is ever silently discarded", () => {
         expect(await kotlinText(source)).toBe(`Go :rocket:${MARK} now`);
     });
 
+    it("writes typing in a run once when the same pause also has text beside an emoji", async () => {
+        const source = "Go :rocket: now";
+        await loadMarkdown(page, source);
+        await clearReceived(page);
+        await page.locator("span", { hasText: "now" }).first().click();
+        await page.keyboard.press("End");
+        await page.keyboard.type("X");
+        await page.evaluate((mark) => {
+            const emoji = document.querySelector(".emoji");
+            const text = document.createTextNode(mark);
+            emoji?.after(text);
+            text.parentElement?.dispatchEvent(new InputEvent("input", { bubbles: true }));
+        }, MARK);
+        await page.waitForTimeout(400);
+        expect(await kotlinText(source)).toBe(`Go :rocket:${MARK} nowX`);
+    });
+
+    it("writes typing in a run once when the same pause also deleted unmapped text", async () => {
+        const source = "Go :rocket: now";
+        await loadMarkdown(page, source);
+        await clearReceived(page);
+        await page.locator("span", { hasText: "now" }).first().click();
+        await page.keyboard.press("End");
+        await page.keyboard.type("X");
+        await page.evaluate(() => {
+            const emoji = document.querySelector(".emoji");
+            emoji?.parentElement?.removeChild(emoji);
+            document.querySelector(".editing")?.dispatchEvent(new InputEvent("input", { bubbles: true }));
+        });
+        await page.waitForTimeout(400);
+        expect(await kotlinText(source)).toBe(`${source}X`);
+    });
+
     it("undoes and reports a deletion inside unmapped text", async () => {
         const source = "Go :rocket: now";
         await loadMarkdown(page, source);

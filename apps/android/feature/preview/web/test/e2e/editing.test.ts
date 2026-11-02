@@ -178,6 +178,45 @@ describe("tables", () => {
         expect(lines.slice(6)).toEqual(source.split("\n").slice(6));
     });
 
+    it("adds a row after typing widened a padded table, without writing over the re-pad", async () => {
+        const page = await openPreview(h);
+        const source = "| Name | Value |\n| ---- | ----- |\n| one  | 1     |\n| two  | 2     |\n\nAfter";
+        await loadMarkdown(page, source);
+        await clearReceived(page);
+        await page.locator("td", { hasText: "one" }).first().click();
+        await page.keyboard.press("End");
+        await page.keyboard.type("-plus");
+        await page.waitForTimeout(300);
+        await send(page, { type: "tableOp", op: { kind: "addRow" } });
+        await page.waitForTimeout(400);
+        expect(await applySent(page, source)).toBe(
+            "| Name     | Value |\n| -------- | ----- |\n| one-plus | 1     |\n|          |       |\n| two      | 2     |\n\nAfter",
+        );
+    });
+
+    it("pastes into a cell of a padded table that typing widened, then re-pads on leaving", async () => {
+        const page = await openPreview(h);
+        const source = "| Name | Value |\n| ---- | ----- |\n| one  | 1     |\n| two  | 2     |\n\nAfter";
+        await loadMarkdown(page, source);
+        await clearReceived(page);
+        await page.locator("td", { hasText: "one" }).first().click();
+        await page.keyboard.press("End");
+        await page.keyboard.type("-plus");
+        await page.waitForTimeout(300);
+        await page.evaluate(() => {
+            const data = new DataTransfer();
+            data.setData("text/plain", "Z");
+            const init = { inputType: "insertFromPaste", dataTransfer: data, bubbles: true, cancelable: true };
+            document.querySelector(".editing")?.dispatchEvent(new InputEvent("beforeinput", init));
+        });
+        await page.waitForTimeout(400);
+        await send(page, { type: "endEditing" });
+        await page.waitForTimeout(300);
+        expect(await applySent(page, source)).toBe(
+            "| Name      | Value |\n| --------- | ----- |\n| one-plusZ | 1     |\n| two       | 2     |\n\nAfter",
+        );
+    });
+
     it("moves to the next cell and adds a row from the last one", async () => {
         const page = await openPreview(h);
         const source = "|a|b|\n|-|-|\n|1|2|\n";

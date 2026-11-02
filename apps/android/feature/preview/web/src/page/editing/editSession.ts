@@ -122,6 +122,9 @@ export class EditSession {
         inserts: readonly { at: number; text: string }[],
         refused: boolean,
     ): void {
+        // These run edits are written here, and the block is re-rendered next: the flush that ending
+        // the session runs must not find them again and write them twice.
+        this.runs = new Map();
         const all: SourceEdit[] = [...runEdits];
         for (const ins of inserts) {
             const clash = all.some((e) => e.from <= ins.at && ins.at <= e.to);

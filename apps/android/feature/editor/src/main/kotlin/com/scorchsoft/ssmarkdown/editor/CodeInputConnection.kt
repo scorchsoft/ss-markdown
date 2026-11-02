@@ -62,7 +62,21 @@ class CodeInputConnection internal constructor(
     override fun commitText(
         text: CharSequence?,
         newCursorPosition: Int,
-    ): Boolean = edit { session.commitText(text ?: "", newCursorPosition) }
+    ): Boolean =
+        edit {
+            // A keyboard's line break is Enter, so lists continue as they do for the key (ux-spec "Enter in a list").
+            if (isEnter(text, newCursorPosition)) {
+                onKey(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+            } else {
+                session.commitText(text ?: "", newCursorPosition)
+            }
+        }
+
+    /** A lone line break committed with the caret after it and no word composing: the keyboard's Enter. */
+    private fun isEnter(
+        text: CharSequence?,
+        newCursorPosition: Int,
+    ): Boolean = text != null && text.length == 1 && text[0] == '\n' && newCursorPosition == 1 && !session.isComposing
 
     override fun setComposingText(
         text: CharSequence?,

@@ -48,7 +48,7 @@ internal class CommandRunner(
             EditorCommand.SELECT_ALL -> applied { session.selectAll() }
             EditorCommand.BACKSPACE -> applied { session.pressBackspace() }
             EditorCommand.FORWARD_DELETE -> applied { session.pressForwardDelete() }
-            EditorCommand.ENTER -> applied { session.pressEnter() }
+            EditorCommand.ENTER -> applied { if (view.listener?.onEnter() != true) session.pressEnter() }
             else -> null
         }
     }

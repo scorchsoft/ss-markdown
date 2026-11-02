@@ -11,6 +11,7 @@ import com.scorchsoft.ssmarkdown.editor.trimTokenCache
 import com.scorchsoft.ssmarkdown.files.document.OpenDocument
 import com.scorchsoft.ssmarkdown.files.memory.ShedStep
 import com.scorchsoft.ssmarkdown.markdown.edit.DocumentStyle
+import com.scorchsoft.ssmarkdown.markdown.edit.EditCommand
 import com.scorchsoft.ssmarkdown.text.EditObserver
 import com.scorchsoft.ssmarkdown.text.EditOp
 import com.scorchsoft.ssmarkdown.text.Snapshot
@@ -250,6 +251,25 @@ class ActiveDocument(
         shift: Boolean,
     ): Boolean = listener.onShortcut(keyCode, ctrl, shift)
 
+    /**
+     * Enter in the Code view: Code's own `Newline`, the command Preview runs
+     * for `listExit`, so a list continues and an empty item ends it in both
+     * views alike (ux-spec "Enter in a list"; edge-cases "No way out of a list").
+     */
+    override fun onEnter(): Boolean {
+        val codeView = view?.takeIf { it.session.document === text } ?: return false
+        val surface = CodeViewSurface(codeView)
+        val selection = surface.selection
+        // The command reads the caret's whole line; a minified one-line file just gets its line break.
+        val line = text.text.positionAt(selection.start).line
+        if (text.text.lineLength(line) > MAX_ENTER_LINE) return false
+        val snapshot = text.snapshot()
+        if (selection.end > snapshot.length) return false
+        val result = EditCommand.Newline.apply(snapshot, selection, style, surface.fences)
+        surface.apply(result.ops, result.selection)
+        return true
+    }
+
     private fun afterBufferEdit(
         before: Snapshot,
         ops: List<EditOp>,
@@ -274,6 +294,9 @@ class ActiveDocument(
         changes?.onTextChanged(start, ops)
     }
 }
+
+/** The longest line Enter continues as a list; past it, a plain line break (the command reads the whole line). */
+private const val MAX_ENTER_LINE = 64 * 1024
 
 /** Find matches as the Code view draws them: parallel offsets, and the current index or -1. */
 private class FindHighlights(

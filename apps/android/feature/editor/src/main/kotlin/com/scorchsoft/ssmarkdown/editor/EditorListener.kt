@@ -76,4 +76,12 @@ interface EditorListener {
      * 2a, "Admission control"; performance review PERF-G).
      */
     fun admitPaste(chars: Int): Boolean = true
+
+    /**
+     * Enter, from a key or a keyboard's committed line break, with no word
+     * being composed. Return true when the host made the edit itself (list
+     * and quote continuation, docs/ux-spec.md "Enter in a list"); false
+     * types a plain line break.
+     */
+    fun onEnter(): Boolean = false
 }

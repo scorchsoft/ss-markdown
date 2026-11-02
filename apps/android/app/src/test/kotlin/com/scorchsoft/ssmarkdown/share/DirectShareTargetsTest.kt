@@ -32,14 +32,16 @@ import org.robolectric.RobolectricTestRunner
 class DirectShareTargetsTest {
     /** The platform, as a list of calls. */
     private class FakePublisher(
-        override val maxPerActivity: Int = 15,
+        private val max: Int = 15,
     ) : ShortcutPublisher {
         val published = linkedMapOf<String, ShortcutSpec>()
         val calls = mutableListOf<String>()
         var failNextPush = false
         var declineNextPush = false
 
-        override fun current(): List<ShortcutSpec> = published.values.toList()
+        override val maxPerActivity: Int get() = max.also { calls += "max" }
+
+        override fun current(): List<ShortcutSpec> = published.values.toList().also { calls += "read back" }
 
         override fun push(spec: ShortcutSpec): Boolean {
             calls += "push ${spec.id}"
@@ -78,8 +80,31 @@ class DirectShareTargetsTest {
 
     private fun writable(vararg files: RecentFile) = files.forEach { grants[DocumentUri(it.uri)] = true }
 
-    private fun targets(settings: InMemorySettingsRepository) =
-        DirectShareTargets(publisher, settings, { grants.toMap() }, CoroutineScope(dispatcher), dispatcher)
+    /** The app-private record of what was published: it outlives a process, like the platform's store. */
+    private class MemoryRecord : PublishedRecord {
+        var specs: List<ShortcutSpec>? = null
+
+        override fun read() = specs
+
+        override fun write(specs: List<ShortcutSpec>?) {
+            this.specs = specs
+        }
+    }
+
+    private val record = MemoryRecord()
+
+    private fun targets(
+        settings: InMemorySettingsRepository,
+        startDelayMillis: Long = 0,
+    ) = DirectShareTargets(
+        publisher,
+        settings,
+        { grants.toMap() },
+        CoroutineScope(dispatcher),
+        dispatcher,
+        record,
+        startDelayMillis,
+    )
 
     private fun ids() = publisher.published.keys.toList()
 
@@ -138,7 +163,7 @@ class DirectShareTargetsTest {
 
     @Test
     fun `the platform's own cap wins when it is lower`() {
-        val small = FakePublisher(maxPerActivity = 2)
+        val small = FakePublisher(max = 2)
         val recents = (1..5).map { recent("f$it.md") }
         writable(*recents.toTypedArray())
         val settings = InMemorySettingsRepository(AppSettings(recentFiles = recents))
@@ -211,14 +236,16 @@ class DirectShareTargetsTest {
         val settings = InMemorySettingsRepository(AppSettings(recentFiles = listOf(a)))
         val targets = targets(settings)
         targets.start()
-        assertEquals(1, publisher.calls.size)
+        // The very first start knows nothing yet, so it reads the platform back once.
+        val first = listOf("read back", "push ${DirectShareIds.of(a.uri)}")
+        assertEquals(first, publisher.calls)
 
         // Settings that do not touch the shortcuts, a refresh, and a second process start.
         settings.update { it.copy(lineNumbers = false) }
         targets.refresh()
         targets(settings).start()
 
-        assertEquals(listOf("push ${DirectShareIds.of(a.uri)}"), publisher.calls)
+        assertEquals(first, publisher.calls)
     }
 
     @Test
@@ -234,6 +261,85 @@ class DirectShareTargetsTest {
         targets.refresh()
 
         assertEquals(listOf(DirectShareIds.of(a.uri)), ids())
+    }
+
+    @Test
+    fun `a cold start with nothing changed makes no shortcut call at all`() {
+        val a = recent("a.md")
+        val b = recent("b.md")
+        writable(a, b)
+        val settings = InMemorySettingsRepository(AppSettings(recentFiles = listOf(a, b)))
+        targets(settings).start()
+        assertEquals(2, ids().size)
+        publisher.calls.clear()
+
+        // The next process: the platform and the record kept what the last one published.
+        targets(settings).start()
+
+        assertEquals(emptyList<String>(), publisher.calls)
+    }
+
+    @Test
+    fun `a changed set pushes only the difference`() {
+        val a = recent("a.md")
+        val b = recent("b.md")
+        val c = recent("c.md")
+        writable(a, b, c)
+        val settings = InMemorySettingsRepository(AppSettings(recentFiles = listOf(a, b)))
+        targets(settings).sync() // The last process: synced once, and gone.
+        publisher.calls.clear()
+
+        val next = targets(settings)
+        next.start()
+        settings.update { it.copy(recentFiles = listOf(a, b, c)) }
+
+        assertEquals(listOf("max", "push ${DirectShareIds.of(c.uri)}"), publisher.calls)
+    }
+
+    @Test
+    fun `with no record, the platform is read back once, then trusted`() {
+        val a = recent("a.md")
+        writable(a)
+        val settings = InMemorySettingsRepository(AppSettings(recentFiles = listOf(a)))
+        targets(settings).start()
+        record.specs = null // The first run after an update: nothing recorded yet.
+        publisher.calls.clear()
+
+        targets(settings).start()
+        targets(settings).start()
+
+        assertEquals(listOf("read back"), publisher.calls)
+    }
+
+    @Test
+    fun `the first sync waits until the launch is over`() {
+        val a = recent("a.md")
+        writable(a)
+        val settings = InMemorySettingsRepository(AppSettings(recentFiles = listOf(a)))
+
+        targets(settings, startDelayMillis = 5_000).start()
+        assertTrue(publisher.calls.isEmpty())
+        dispatcher.scheduler.advanceTimeBy(5_001)
+
+        assertEquals(listOf(DirectShareIds.of(a.uri)), ids())
+    }
+
+    @Test
+    fun `the preferences record round-trips what was published, and forgets on a failure`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val prefs = context.getSharedPreferences("direct_share_test", android.content.Context.MODE_PRIVATE)
+        val stored = PreferencesPublishedRecord { prefs }
+        val specs = listOf(ShortcutSpec("recent:1", "a.md", "a.md · Notes", 0), ShortcutSpec("recent:2", "b", "b", 1))
+
+        assertNull(stored.read())
+        stored.write(specs)
+        assertEquals(specs, PreferencesPublishedRecord { prefs }.read())
+        stored.write(emptyList())
+        assertEquals(emptyList<ShortcutSpec>(), stored.read())
+        stored.write(null)
+        assertNull(stored.read())
+        stored.write(listOf(ShortcutSpec("recent:3", "odd\u001Ename", "x", 0)))
+        assertNull("a label it cannot encode is not recorded", stored.read())
     }
 
     @Test

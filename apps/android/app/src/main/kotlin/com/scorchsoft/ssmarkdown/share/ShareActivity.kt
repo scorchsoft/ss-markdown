@@ -68,13 +68,18 @@ class ShareActivity : ComponentActivity() {
         return withContext(graph.io) { graph.directShare.resolve(id) }
     }
 
+    override fun onDestroy() {
+        // A grant lost since the last sync takes its shortcut with it. Checked as the sheet goes, never
+        // while it starts: shortcut calls stay off every launch path (DirectShareTargets).
+        if (isFinishing) graph.directShare.refresh()
+        super.onDestroy()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) {
             readShared(intent)
-            // A grant lost since the last sync takes its shortcut with it.
-            graph.directShare.refresh()
         }
         setContent {
             val state by viewModel.state.collectAsState()

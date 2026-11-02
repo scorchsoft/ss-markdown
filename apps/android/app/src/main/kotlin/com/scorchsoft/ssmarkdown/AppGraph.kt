@@ -44,6 +44,7 @@ import com.scorchsoft.ssmarkdown.settings.PreferencesSettingsStore
 import com.scorchsoft.ssmarkdown.settings.SettingsRepository
 import com.scorchsoft.ssmarkdown.share.CompatShortcutPublisher
 import com.scorchsoft.ssmarkdown.share.DirectShareTargets
+import com.scorchsoft.ssmarkdown.share.PreferencesPublishedRecord
 import com.scorchsoft.ssmarkdown.storage.StorageDependencies
 import com.scorchsoft.ssmarkdown.storage.StorageViewModel
 import com.scorchsoft.ssmarkdown.themes.ThemeEditorViewModel
@@ -251,13 +252,27 @@ class AppGraph(
 
     /**
      * Recent files as Android Direct Share targets (ADR 0017), kept in step
-     * with Settings → Sharing and the recent list. Synced once now, on
-     * [io]; nothing here runs on the main thread or can throw.
+     * with Settings → Sharing and the recent list. The first sync runs a few
+     * seconds after launch, on [io], and makes no shortcut call when nothing
+     * changed since the last process; nothing here runs on the main thread
+     * or can throw.
      */
     val directShare =
-        DirectShareTargets(CompatShortcutPublisher(app), settings, permissions::held, ioScope, io).also {
-            it.start()
-        }
+        DirectShareTargets(
+            CompatShortcutPublisher(app),
+            settings,
+            permissions::held,
+            ioScope,
+            io,
+            record =
+                PreferencesPublishedRecord {
+                    app.getSharedPreferences(
+                        DIRECT_SHARE_PREFERENCES,
+                        Context.MODE_PRIVATE,
+                    )
+                },
+            startDelayMillis = DIRECT_SHARE_START_DELAY_MILLIS,
+        ).also { it.start() }
 
     /** Downloads, ZIPs, sharing and the clipboard for exported images and rich text. */
     val media = MediaActions(app, io)
@@ -283,3 +298,9 @@ private fun singleThread(name: String): Executor =
 
 /** The settings file; the Application starts loading it before the graph is built (PERF-21). */
 internal const val SETTINGS_PREFERENCES = "settings"
+
+/** Where Direct Share remembers the shortcut set it last published (app-private). */
+private const val DIRECT_SHARE_PREFERENCES = "direct_share"
+
+/** Direct Share's first sync waits this long after launch, so no shortcut call is on the launch path. */
+private const val DIRECT_SHARE_START_DELAY_MILLIS = 5_000L

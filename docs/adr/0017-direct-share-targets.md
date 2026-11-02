@@ -45,6 +45,14 @@ recent files in the share sheet").
   the editor or preselect it in our sheet. It learns nothing back and can
   write nothing without the user's tap, so a per-install salt was judged
   not worth its state (review r3 L9, left as this decision).
+- **No shortcut call at launch.** The set last published is kept in
+  app-private preferences (`PreferencesPublishedRecord`), and the first
+  sync runs 5 s after launch, so a start with nothing changed makes no
+  `ShortcutManager` call at all; the platform is read back only when that
+  record is missing or a call failed. The share sheet refreshes as it
+  closes, not as it opens. The emulator's cold-start benchmark launches
+  the app dozens of times in a row, and shortcut calls on each launch
+  were the suspect in its system_server stalls.
 - **A declined push is a failure.** On API 29 the compat library returns
   false while the platform rate-limits shortcut updates; the sync treats
   that like a thrown refusal and reads the published set back next time,

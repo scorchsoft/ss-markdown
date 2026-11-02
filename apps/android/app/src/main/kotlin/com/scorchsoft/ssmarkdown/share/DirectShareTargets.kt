@@ -6,6 +6,7 @@ import com.scorchsoft.ssmarkdown.settings.RecentFile
 import com.scorchsoft.ssmarkdown.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -29,14 +30,29 @@ import java.security.MessageDigest
  * wanted set differs from the published one, since the platform
  * rate-limits shortcut updates.
  *
+ * ### Nothing at cold start
+ * The set last published is kept in [record] (app-private), so a start
+ * whose recents, grants and setting are unchanged makes no shortcut call
+ * at all: no read-back, no push. The platform is read back only when that
+ * record is missing (the first run after an update) or a call failed. The
+ * first sync waits [startDelayMillis] after [start], off the launch path:
+ * the cold-start benchmark launches the app dozens of times in a row, and
+ * shortcut binder calls during each start stalled the emulator's
+ * system_server (perf job, runs since Direct Share landed).
+ *
  * @param grants every persisted URI grant, true where writable (`PersistedPermissions.held`).
+ * @param record where the published set is remembered between processes.
+ * @param startDelayMillis how long [start] waits before its first sync.
  */
+@Suppress("LongParameterList") // The platform seams, the settings, and when to run.
 class DirectShareTargets(
     private val publisher: ShortcutPublisher,
     private val settings: SettingsRepository,
     private val grants: () -> Map<DocumentUri, Boolean>,
     private val scope: CoroutineScope,
     private val io: CoroutineDispatcher,
+    private val record: PublishedRecord = PublishedRecord.NONE,
+    private val startDelayMillis: Long = 0,
 ) {
     private val lock = Any()
 
@@ -45,10 +61,11 @@ class DirectShareTargets(
 
     /**
      * Keeps the shortcuts in step with the setting and the recent files,
-     * starting with a sync now (the graph's start).
+     * starting with a sync [startDelayMillis] from now (the graph's start).
      */
     fun start() {
         scope.launch(io) {
+            if (startDelayMillis > 0) delay(startDelayMillis)
             settings.settings
                 .map { SyncKey(it.share.directShare, it.share.lastTarget, it.recentFiles) }
                 .distinctUntilChanged()
@@ -92,14 +109,19 @@ class DirectShareTargets(
     internal fun sync() {
         synchronized(lock) {
             val s = settings.settings.value
-            val wanted =
-                if (s.share.directShare) {
-                    val limit = minOf(MAX_TARGETS, publisher.call { maxPerActivity } ?: MAX_TARGETS)
-                    ShareTargets.directShare(s, grants(), limit).associateBy { it.id }
-                } else {
-                    emptyMap()
-                }
-            val current = published ?: publisher.call { current() }?.associateBy { it.id } ?: emptyMap()
+            var wanted = wanted(s, MAX_TARGETS)
+            // What this process published, else what an earlier one recorded: no platform call either way.
+            val known = published ?: record.read()?.associateBy { it.id }
+            if (known == wanted) {
+                published = wanted
+                return
+            }
+            // Only now, with something to change, is the platform's own limit worth a call.
+            if (wanted.size > 1) {
+                val limit = publisher.call { maxPerActivity } ?: MAX_TARGETS
+                if (limit < MAX_TARGETS) wanted = wanted(s, limit)
+            }
+            val current = known ?: publisher.call { current() }?.associateBy { it.id } ?: emptyMap()
             val stale = current.keys - wanted.keys
             var ok = true
             if (stale.isNotEmpty()) ok = publisher.call { remove(stale.toList()) } != null
@@ -110,8 +132,15 @@ class DirectShareTargets(
             }
             // After a failure the next sync reads the truth back rather than trusting this.
             published = if (ok) wanted else null
+            record.write(if (ok) wanted.values.toList() else null)
         }
     }
+
+    private fun wanted(
+        s: AppSettings,
+        limit: Int,
+    ): Map<String, ShortcutSpec> =
+        if (s.share.directShare) ShareTargets.directShare(s, grants(), limit).associateBy { it.id } else emptyMap()
 
     private data class SyncKey(
         val on: Boolean,
@@ -140,6 +169,30 @@ data class ShortcutSpec(
     val longLabel: String,
     val rank: Int,
 )
+
+/**
+ * The shortcut set last published, remembered between processes so a cold
+ * start with nothing changed never asks the platform. Null means "not
+ * known": read the platform back.
+ */
+interface PublishedRecord {
+    /** The set last published, or null when unknown. */
+    fun read(): List<ShortcutSpec>?
+
+    /** Remembers [specs] as published, or forgets (null) after a failed call. */
+    fun write(specs: List<ShortcutSpec>?)
+
+    /** The record that remembers nothing: every process reads the platform back once. */
+    companion object {
+        /** Remembers nothing. */
+        val NONE: PublishedRecord =
+            object : PublishedRecord {
+                override fun read(): List<ShortcutSpec>? = null
+
+                override fun write(specs: List<ShortcutSpec>?) = Unit
+            }
+    }
+}
 
 /** The platform's shortcut store, behind a seam so the sync logic is tested without it. */
 interface ShortcutPublisher {

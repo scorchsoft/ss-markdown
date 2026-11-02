@@ -72,4 +72,33 @@ class SelectionAcrossViewsTest {
         assertTrue("the new view never attached", doc.surface is CodeViewSurface)
         assertEquals("the new view started elsewhere", TextSelection(10, 20), doc.surface.selection)
     }
+
+    /**
+     * edge-cases "A switched-away document held the Code view" (found by
+     * LeakCanary in the rotation matrix's unsaved-prompt cell): the same
+     * view moves on to the next document without a detach, and the Preview
+     * keeps the previous binding a while for late page edits (DS-13), so
+     * the old document kept the view, and with it a destroyed Activity.
+     * Releasing a document lets go of its view.
+     */
+    @Test
+    fun `a document switched away from lets go of the Code view`() {
+        val f = EditorFixture(temp.root, UnconfinedTestDispatcher())
+        f.vm.openDocument(f.file("first.md", "# First\n"))
+        val first = f.vm.active ?: error("nothing open")
+        rule.setContent {
+            Themed(dark = false) {
+                val active by f.vm.activeDocument.collectAsState()
+                CodePaneHost(active, wrap = true, zoomPercent = 100, f.vm::attach, f.vm::detach, { it.run() })
+            }
+        }
+        rule.waitForIdle()
+        assertTrue("the Code view never attached", first.surface is CodeViewSurface)
+
+        f.vm.openDocument(f.file("second.md", "# Second\n"))
+        rule.waitForIdle()
+        val second = f.vm.active ?: error("nothing open")
+        assertTrue("the view did not move to the new document", second.surface is CodeViewSurface)
+        assertFalse("the old document still holds the view", first.surface is CodeViewSurface)
+    }
 }

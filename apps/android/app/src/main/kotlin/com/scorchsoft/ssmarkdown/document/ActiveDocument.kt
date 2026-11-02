@@ -193,8 +193,16 @@ class ActiveDocument(
         view = null
     }
 
-    /** This session is no longer on screen: it stops listening to the buffer. */
+    /**
+     * This session is no longer on screen: it stops listening to the buffer
+     * and lets go of the Code view, which moves on to the next document
+     * without a detach. The Preview may keep this session a while for late
+     * page edits (DS-13); holding the view too would hold its Activity.
+     */
     fun release() {
+        view?.let { keepSelectionOf(it) }
+        view = null
+        matches = null
         text.removeEditObserver(opTap)
         outline.close()
         changes = null

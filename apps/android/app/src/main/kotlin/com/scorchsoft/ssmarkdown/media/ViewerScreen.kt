@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -44,6 +45,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
@@ -99,10 +101,13 @@ private fun ZoomableImage(
 ) {
     var scale by remember(key) { mutableFloatStateOf(MIN_SCALE) }
     var offset by remember(key) { mutableStateOf(Offset.Zero) }
+    var size by remember(key) { mutableStateOf(IntSize.Zero) }
     val transform =
-        rememberTransformableState { zoom, pan, _ ->
-            scale = (scale * zoom).coerceIn(MIN_SCALE, MAX_SCALE)
-            offset = if (scale == MIN_SCALE) Offset.Zero else offset + pan
+        rememberTransformableState { centroid, zoom, pan, _ ->
+            val centre = Offset(size.width / 2f, size.height / 2f)
+            val next = PinchZoom(scale, offset).zoomed(zoom, pan, centroid, centre, MAX_SCALE)
+            scale = next.scale
+            offset = next.offset
         }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         when (image) {
@@ -116,6 +121,7 @@ private fun ZoomableImage(
                             Modifier
                                 .fillMaxSize()
                                 .padding(16.dp)
+                                .onSizeChanged { size = it }
                                 .pointerInput(key) {
                                     detectTapGestures(onDoubleTap = {
                                         scale = if (scale > MIN_SCALE) MIN_SCALE else DOUBLE_TAP_SCALE
@@ -259,3 +265,32 @@ private fun Filmstrip(
 @Composable
 private fun decoded(bytes: ByteArray): ImageBitmap? =
     remember(bytes) { BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap() }
+
+/**
+ * The viewer's zoom: a [scale] about the picture's centre and an [offset].
+ * Pure, so the pinch maths is a host test.
+ */
+internal data class PinchZoom(
+    val scale: Float,
+    val offset: Offset,
+) {
+    /**
+     * After a pinch step of [zoom] and [pan] with the fingers at [centroid]
+     * (layout coordinates; the layer scales about [centre]): the content
+     * under the fingers stays under them, as in every photo viewer. Back
+     * at 1× the picture recentres.
+     */
+    fun zoomed(
+        zoom: Float,
+        pan: Offset,
+        centroid: Offset,
+        centre: Offset,
+        maxScale: Float,
+    ): PinchZoom {
+        val next = (scale * zoom).coerceIn(1f, maxScale)
+        if (next == 1f) return PinchZoom(1f, Offset.Zero)
+        val applied = next / scale
+        val fromCentre = centroid - centre
+        return PinchZoom(next, fromCentre - (fromCentre - offset) * applied + pan)
+    }
+}

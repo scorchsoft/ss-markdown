@@ -28,7 +28,7 @@ private val LandscapeBarHeight = 48.dp
 
 /**
  * Phone landscape: the header and the mode switch merge into one 48 dp
- * bar (title · Code/Split/Preview · Copy · Save · ⋮), with no bottom bar,
+ * bar (title · Code/Split/Preview · Save · Copy · ⋮), with no bottom bar,
  * so ~250 dp of text remains even with a 3-button nav bar (ux-spec
  * "System bars and insets"). Above [LANDSCAPE_COMPACT_FONT_SCALE] the
  * title folds to one line and the bar may grow, so the name, the dot and

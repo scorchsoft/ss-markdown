@@ -149,7 +149,7 @@ class ChromeCountTest {
     @Test
     fun `unsaved changes the Save control, never adds one`() {
         show(Samples.unsaved)
-        assertRest(listOf(TITLE, COPY, "Save", MORE, CODE, SPLIT, PREVIEW))
+        assertRest(listOf(TITLE, "Save", COPY, MORE, CODE, SPLIT, PREVIEW))
     }
 
     // Typing: the strip replaces the mode bar; still two bars.
@@ -161,7 +161,7 @@ class ChromeCountTest {
         raiseKeyboard()
         val controls = controls()
         val labels = controls.map { it.label }
-        assertEquals(listOf(TITLE, COPY, "Save", MORE), labels.take(4))
+        assertEquals(listOf(TITLE, "Save", COPY, MORE), labels.take(4))
         assertTrue("Bold" in labels && "Undo" in labels)
         assertFalse("the mode bar stays with the keyboard up", SPLIT in labels || PREVIEW in labels)
         assertEquals("bars while typing", 2, bars(controls))
@@ -182,13 +182,13 @@ class ChromeCountTest {
     @Test
     fun `folder mode adds only the folder button`() {
         show(Samples.saved.copy(folder = folder(dirty = false)))
-        assertRest(listOf(OPEN_FOLDER, TITLE, COPY, ALL_SAVED, MORE, CODE, SPLIT, PREVIEW))
+        assertRest(listOf(OPEN_FOLDER, TITLE, ALL_SAVED, COPY, MORE, CODE, SPLIT, PREVIEW))
     }
 
     @Test
     fun `folder mode with unsaved files adds no Save all to the bars`() {
         show(Samples.unsaved.copy(folder = folder(dirty = true)))
-        assertRest(listOf(OPEN_FOLDER, TITLE, COPY, "Save", MORE, CODE, SPLIT, PREVIEW))
+        assertRest(listOf(OPEN_FOLDER, TITLE, "Save", COPY, MORE, CODE, SPLIT, PREVIEW))
     }
 
     @Test
@@ -245,13 +245,13 @@ class ChromeCountTest {
     @Test
     fun `read-only shows the same seven controls, Save as in Save's place`() {
         show(Samples.readOnlyClean)
-        assertRest(listOf(TITLE, COPY, SAVE_AS, MORE, CODE, SPLIT, PREVIEW))
+        assertRest(listOf(TITLE, SAVE_AS, COPY, MORE, CODE, SPLIT, PREVIEW))
     }
 
     @Test
     fun `read-only with edits is still seven controls`() {
         show(Samples.readOnly)
-        assertRest(listOf(TITLE, COPY, SAVE_AS, MORE, CODE, SPLIT, PREVIEW))
+        assertRest(listOf(TITLE, SAVE_AS, COPY, MORE, CODE, SPLIT, PREVIEW))
     }
 
     // The folder header at 360 dp and 2× font: the title keeps priority.
@@ -283,6 +283,6 @@ class ChromeCountTest {
         const val SAVE_ALL = "Save all"
         const val SAVE_AS = "Save as…"
         const val RESET_ZOOM = "Reset zoom"
-        val REST = listOf(TITLE, COPY, ALL_SAVED, MORE, CODE, SPLIT, PREVIEW)
+        val REST = listOf(TITLE, ALL_SAVED, COPY, MORE, CODE, SPLIT, PREVIEW)
     }
 }

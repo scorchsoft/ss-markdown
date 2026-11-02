@@ -101,7 +101,7 @@ navigation-bar inset (3-button or gesture) and the keyboard inset. The
 mockups leave system bars out, as the canvas convention, but every
 layout budget assumes them:
 - **Phone landscape:** the header and mode switch merge into **one 48 dp
-  bar** (title · Code/Split/Preview · zoom chip · Copy · Save · ⋮). There
+  bar** (title · Code/Split/Preview · zoom chip · Save · Copy · ⋮). There
   is no bottom bar, so ~250 dp of text remains even with a 3-button nav
   bar.
 - **Landscape with the keyboard:** the header steps aside; the strip
@@ -198,6 +198,10 @@ Never put a one-sided coloured border on anything.
 - **Copy doesn't jump:** the Save slot is a fixed 96 dp in every state,
   sized for the widest label ("Save as…"). The pill is right-aligned in
   it, and the clean tick is right-aligned inside it, so Copy never moves.
+  The order is **title · Save · Copy · ⋮** (changed 2026-11-02 from Copy ·
+  Save · ⋮): the slot's slack then falls on the title side, so the clean
+  tick sits beside Copy at the same 24 dp as any icon pair, instead of
+  alone with a 60 dp hole between it and Copy.
 - **Clean tick:** muted ink (`#636369`). It *is* the Save button in its
   clean state, so it's present in autosave too.
 - **Share-in button label** follows the choice: "Append" or "Create

@@ -2,6 +2,7 @@ package com.scorchsoft.ssmarkdown.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -65,6 +66,16 @@ class EditorScreenRenderTest(
         rule.onNodeWithText("Untitled").assertIsDisplayed()
         rule.onNodeWithText("Draft · kept on this phone").assertIsDisplayed()
         rule.onNodeWithContentDescription("Save as…").assertIsDisplayed()
+    }
+
+    @Test
+    fun `Save sits before Copy and the clean tick sits right beside it, with no hole`() {
+        render(Samples.saved)
+        val save = rule.onNodeWithContentDescription("All saved").getUnclippedBoundsInRoot()
+        val copy = rule.onNodeWithContentDescription("Copy all").getUnclippedBoundsInRoot()
+        // Save's slot ends where Copy's 48 dp target begins: Copy never moves,
+        // and the right-aligned tick is one ordinary icon gap from it.
+        assertEquals(save.right.value, copy.left.value, 0.5f)
     }
 
     @Test

@@ -44,7 +44,7 @@ const val PORTRAIT_COMPACT_FONT_SCALE = 1.5f
 const val LANDSCAPE_COMPACT_FONT_SCALE = 1.3f
 
 /**
- * The 56 dp header (docs/ux-spec.md, "Top bar"): [≡] title · Copy · Save
+ * The 56 dp header (docs/ux-spec.md, "Top bar"): [≡] title · Save · Copy
  * · ⋮, with the reading-position line as its bottom hairline. The title
  * keeps 120 dp and truncates before it can push Copy or Save.
  *
@@ -116,22 +116,27 @@ fun FolderButtonView(
     }
 }
 
-/** Copy, Save and ⋮: shared by the portrait header and the landscape bar. */
+/** Save, Copy and ⋮: shared by the portrait header and the landscape bar. */
 @Composable
 fun RowScope.TopBarActions(
     state: EditorUiState,
     onAction: (EditorAction) -> Unit,
     copyInMenu: Boolean,
 ) {
-    if (!copyInMenu) CopyButton(onAction)
+    // Save sits before Copy. The slot keeps a fixed width so neither moves
+    // between states, and its content is right-aligned against Copy, so the
+    // slack falls on the title side, where it reads as title space. With
+    // Copy first, the clean tick sat alone with a 60 dp hole beside it.
     SaveSlot(
         button = state.save.button,
         onTap = { onAction(EditorAction.SaveTapped) },
         onLongPress = { onAction(EditorAction.SaveLongPressed) },
-        // The Row measures Save before ⋮ and the weighted title, so Save's room
-        // still includes both: leave ⋮ its 48 dp and the title its minimum.
-        reserve = TitleMinWidth + SS.dimens.iconButton,
+        // The Row measures Save before Copy, ⋮ and the weighted title, so
+        // Save's room still includes them: leave them their 48 dp each and the
+        // title its minimum.
+        reserve = TitleMinWidth + SS.dimens.iconButton * (if (copyInMenu) 1 else 2),
     )
+    if (!copyInMenu) CopyButton(onAction)
     Box {
         IconButton(onClick = { onAction(EditorAction.OpenMenu) }) {
             Icon(AppIcons.more, stringResource(R.string.more), tint = SS.colors.ink)

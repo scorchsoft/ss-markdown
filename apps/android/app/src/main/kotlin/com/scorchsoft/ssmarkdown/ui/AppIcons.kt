@@ -14,8 +14,13 @@ import androidx.compose.ui.unit.dp
  * icons). No icon library: a dozen paths are cheaper than a dependency.
  */
 object AppIcons {
+    /**
+     * Two equal sheets, the back one showing as an L: same 2-unit corners,
+     * 4 units apart on both axes, and the L stops 4 units short of the front
+     * sheet's far edge each way, so it reads as one sheet behind another.
+     */
     val copy by lazy {
-        icon("M9 9h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V10a1 1 0 0 1 1-1z", "M5 15V6a2 2 0 0 1 2-2h9")
+        icon("M10 8h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z", "M4 16V6a2 2 0 0 1 2-2h10")
     }
     val more by lazy { icon(dot(12f, 5f), dot(12f, 12f), dot(12f, 19f)) }
     val check by lazy { icon("M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z", "M8 12.5l3 3 5-6") }

@@ -204,6 +204,10 @@ internal object EditorEffects {
                 }
             }
 
+            EditorAction.CopyPictureIn -> {
+                (before.overlay as? EditorOverlay.CopyPicture)?.let { vm.pictures.copyIn(it.picked) }
+            }
+
             EditorAction.LinkRemove -> {
                 (before.overlay as? EditorOverlay.LinkPrompt)?.let {
                     vm.strip.links.onRemove(it)
@@ -272,6 +276,8 @@ internal object EditorEffects {
             MenuItem.Display -> vm.update { it.copy(overlay = EditorOverlay.Display) }
             MenuItem.Settings -> vm.emit(EditorEvent.Open(AppScreen.Settings))
             MenuItem.Copy -> vm.copies.openChooser()
+            MenuItem.InsertImage -> vm.pictures.insertHere()
+            MenuItem.ShowPictures -> vm.pictures.askForFolder()
         }
     }
 }

@@ -66,6 +66,19 @@ sealed interface PreviewEvent {
         val selection: TextSelection,
     ) : PreviewEvent
 
+    /** The Insert image key in Preview: the picture goes at the page's [selection], in host offsets. */
+    data class InsertImage(
+        val selection: TextSelection,
+    ) : PreviewEvent
+
+    /** A picture placeholder's "Allow access". */
+    data object AllowFolder : PreviewEvent
+
+    /** The page was told why some pictures cannot be shown; [needFolder] when any lacks folder access. */
+    data class PictureStatuses(
+        val needFolder: Boolean,
+    ) : PreviewEvent
+
     /** A change Preview could not write back was undone on screen. */
     data class EditRefused(
         val line: Int,

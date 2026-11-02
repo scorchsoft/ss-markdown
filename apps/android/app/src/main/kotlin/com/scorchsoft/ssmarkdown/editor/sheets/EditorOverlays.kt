@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -116,10 +117,39 @@ private fun EditingOverlays(
             ExportImagesSheet(overlay.state, onAction)
         }
 
+        is EditorOverlay.CopyPicture -> {
+            CopyPictureDialog(onAction)
+        }
+
         else -> {
             Unit
         }
     }
+}
+
+/**
+ * Insert image picked a picture outside the document's folder: copy it into
+ * `images/` beside the file, or Cancel (docs/ux-spec.md, "Pictures"). A
+ * raw `content://` link is never offered: it would stop working.
+ */
+@Composable
+private fun CopyPictureDialog(onAction: (EditorAction) -> Unit) {
+    AlertDialog(
+        onDismissRequest = { onAction(EditorAction.DismissOverlay) },
+        containerColor = SS.colors.chrome,
+        title = { Text(stringResource(R.string.copy_picture_title), style = SS.type.title, color = SS.colors.ink) },
+        text = { Text(stringResource(R.string.copy_picture_body), style = SS.type.body, color = SS.colors.ink) },
+        confirmButton = {
+            TextButton(onClick = { onAction(EditorAction.CopyPictureIn) }) {
+                Text(stringResource(R.string.copy_picture_confirm), style = SS.type.label, color = SS.colors.ink)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { onAction(EditorAction.DismissOverlay) }) {
+                Text(stringResource(R.string.cancel), style = SS.type.label, color = SS.colors.ink)
+            }
+        },
+    )
 }
 
 /**
@@ -228,6 +258,12 @@ private fun messageText(message: UserMessage): String =
         MessageKind.NothingToExport -> stringResource(R.string.msg_nothing_to_export)
         MessageKind.PdfFailed -> stringResource(R.string.msg_pdf_failed)
         MessageKind.ExportStopped -> stringResource(R.string.msg_export_stopped)
+        MessageKind.PictureFolderGranted -> stringResource(R.string.msg_picture_folder_granted, message.argument)
+        MessageKind.PictureFolderUnrelated -> stringResource(R.string.msg_picture_folder_unrelated)
+        MessageKind.PictureTooLarge -> stringResource(R.string.msg_picture_too_large)
+        MessageKind.PictureNotImage -> stringResource(R.string.msg_picture_not_image)
+        MessageKind.PictureFailed -> stringResource(R.string.msg_picture_failed)
+        MessageKind.PicturesStayedWithDraft -> stringResource(R.string.msg_pictures_stayed)
     }
 
 /** "This 180 MB file needs about 400 MB, and this phone allows 256 MB" in place of the editor. */

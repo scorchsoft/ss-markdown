@@ -36,6 +36,12 @@ enum class MenuItem {
     Display,
     Settings,
 
+    /** Insert image…: a picture from the picker, linked by a relative path (ux-spec "Pictures"). */
+    InsertImage,
+
+    /** Only while the page has pictures it cannot show without the document's folder. */
+    ShowPictures,
+
     /** Only above 1.5× font scale, when Copy moves into ⋮: opens the Copy chooser, like the button. */
     Copy,
 }
@@ -188,6 +194,9 @@ sealed interface EditorAction {
 
     /** The Link prompt's Remove link: the link becomes its text. */
     data object LinkRemove : EditorAction
+
+    /** The copy prompt's "Copy into this file's folder", for a picture picked outside it. */
+    data object CopyPictureIn : EditorAction
 
     /** A type from the ¶ menu: every block in the selection becomes [choice]. */
     data class BlockChosen(

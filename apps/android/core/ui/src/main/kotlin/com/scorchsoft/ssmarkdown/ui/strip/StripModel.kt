@@ -31,6 +31,9 @@ enum class StripKey(
     Link(R.string.strip_link),
     Indent(R.string.strip_indent),
     Table(R.string.strip_table),
+
+    /** Opens the picture picker; the picture is linked by a relative path (ux-spec "Pictures"). */
+    Image(R.string.strip_image),
     Quote(R.string.strip_quote, toggles = true),
     Redo(R.string.strip_redo),
     Outdent(R.string.strip_outdent),
@@ -177,6 +180,7 @@ object StripLayout {
             StripKey.Link,
             StripKey.Indent,
             StripKey.Table,
+            StripKey.Image,
             StripKey.Quote,
             StripKey.Redo,
             StripKey.Outdent,
@@ -192,6 +196,7 @@ object StripLayout {
             StripKey.Link,
             StripKey.BulletList,
             StripKey.Table,
+            StripKey.Image,
         )
 
     /** The symbols page, in the spec's order. The cursor keys follow them. */

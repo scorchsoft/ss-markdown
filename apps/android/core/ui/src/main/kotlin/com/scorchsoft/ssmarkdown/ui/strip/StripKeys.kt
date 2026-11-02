@@ -174,6 +174,7 @@ private val keyIcons: Map<StripKey, () -> ImageVector> =
         StripKey.Indent to { StripIcons.indent },
         StripKey.Outdent to { StripIcons.outdent },
         StripKey.Table to { StripIcons.table },
+        StripKey.Image to { StripIcons.image },
         StripKey.Quote to { StripIcons.quote },
         StripKey.Undo to { StripIcons.undo },
         StripKey.Redo to { StripIcons.redo },

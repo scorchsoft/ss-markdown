@@ -90,6 +90,18 @@ class EditorPreviewHost(
                 onHistory(event.redo)
             }
 
+            is PreviewEvent.InsertImage -> {
+                vm.pictures.insert(event.selection)
+            }
+
+            PreviewEvent.AllowFolder -> {
+                vm.pictures.askForFolder()
+            }
+
+            is PreviewEvent.PictureStatuses -> {
+                vm.pictures.onStatuses(event.needFolder)
+            }
+
             PreviewEvent.EditedWhilePaused -> {
                 vm.persistNow()
             }

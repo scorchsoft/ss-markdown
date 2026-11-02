@@ -153,6 +153,7 @@ fun RowScope.TopBarActions(
             onChoose = { onAction(EditorAction.ChooseMenuItem(it)) },
             onDismiss = { onAction(EditorAction.DismissOverlay) },
             unsavedCount = state.folder?.unsavedCount ?: 0,
+            picturesNeedFolder = state.preview.picturesNeedFolder,
             history =
                 MenuHistoryState(
                     canUndo = state.canUndo,

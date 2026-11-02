@@ -34,6 +34,12 @@ import com.scorchsoft.ssmarkdown.history.HistoryViewModel
 import com.scorchsoft.ssmarkdown.history.journal.JournalStore
 import com.scorchsoft.ssmarkdown.history.versions.VersionStore
 import com.scorchsoft.ssmarkdown.media.DocumentPictures
+import com.scorchsoft.ssmarkdown.media.PictureAccess
+import com.scorchsoft.ssmarkdown.media.PictureFolders
+import com.scorchsoft.ssmarkdown.media.PreferencesFolderLinks
+import com.scorchsoft.ssmarkdown.media.SafDocumentTree
+import com.scorchsoft.ssmarkdown.media.SafPictureAccess
+import com.scorchsoft.ssmarkdown.media.TreeListings
 import com.scorchsoft.ssmarkdown.nav.ScreenStack
 import com.scorchsoft.ssmarkdown.platform.AppDirs
 import com.scorchsoft.ssmarkdown.platform.ExitReasons
@@ -215,6 +221,7 @@ class AppGraph(
                 io = io,
                 viewStates = JsonViewStateStore(File(dirs.files, "view-state.json"), ioScope),
                 pictures = pictures,
+                pictureAccess = pictureAccess,
                 memory = governor,
             ),
         ).also {
@@ -234,6 +241,22 @@ class AppGraph(
         governor.register(ShedStep.InactiveCleanBuffers) { mainScope.launch { store.evictInactiveClean() } }
     }
 
+    /** Folder listings for pictures, cached a few seconds (one listing per folder, not one walk per picture). */
+    private val pictureListings = TreeListings(SafDocumentTree(resolver))
+
+    /**
+     * Which granted folder holds a document, for its pictures: folder mode,
+     * the folder granted for this file (remembered, ADR 0018), or any folder
+     * grant that holds it.
+     */
+    private val pictureFolders =
+        PictureFolders(
+            pictureListings,
+            PreferencesFolderLinks({ app.getSharedPreferences(PICTURE_FOLDERS_PREFERENCES, Context.MODE_PRIVATE) }),
+            folderTree = { editor.state.folder?.treeUri },
+            heldTrees = { permissions.held().keys.map { it.value } },
+        )
+
     /** Pictures next to the open document, inside the folder the user granted; also the preview's `/doc/` resolver. */
     val pictures =
         DocumentPictures(
@@ -244,8 +267,28 @@ class AppGraph(
                     ?.uri
                     ?.value
             },
-            treeUri = { editor.state.folder?.treeUri },
+            folders = pictureFolders,
+            listings = pictureListings,
+            draftFile = { drafts.resolve(DocumentUri(it)) },
         )
+
+    /** Insert image and "Allow access": placing, copying and granting folders for pictures. */
+    private val pictureAccess: PictureAccess by lazy {
+        SafPictureAccess(
+            resolver,
+            pictureFolders,
+            pictureListings,
+            draftFile = { drafts.resolve(DocumentUri(it)) },
+            takeGrant = { tree ->
+                permissions.take(DocumentUri(tree), write = true) ||
+                    permissions.take(DocumentUri(tree), write = false)
+            },
+            releaseGrant = { tree ->
+                // A grant folder mode also uses stays.
+                if (editor.state.folder?.treeUri != tree) permissions.release(DocumentUri(tree))
+            },
+        )
+    }
 
     /** One-time tickets for the share sheet's "Open" (SEC-2: no URI travels in an extra). */
     val openTokens = OpenTokens(clock)
@@ -298,6 +341,9 @@ private fun singleThread(name: String): Executor =
 
 /** The settings file; the Application starts loading it before the graph is built (PERF-21). */
 internal const val SETTINGS_PREFERENCES = "settings"
+
+/** Which folder the user granted for each document's pictures (app-private; ADR 0018). */
+private const val PICTURE_FOLDERS_PREFERENCES = "picture_folders"
 
 /** Where Direct Share remembers the shortcut set it last published (app-private). */
 private const val DIRECT_SHARE_PREFERENCES = "direct_share"

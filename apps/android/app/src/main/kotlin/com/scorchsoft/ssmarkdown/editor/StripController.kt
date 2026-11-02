@@ -44,6 +44,9 @@ class StripController(
             // Where the link goes is part of the tap: ask first (LinkController).
             StripKey.Link -> links.open(surface.selection)
 
+            // The picker opens first; the picture goes where the selection was (PictureController).
+            StripKey.Image -> host.pictures.insert(surface.selection)
+
             else -> commandFor(key)?.let(::run)
         }
         host.refresh()

@@ -65,6 +65,9 @@ object PreviewStripKeys {
 
             StripKey.Link -> FormatAction.LINK
 
+            // The page answers with its selection; the host opens the picker (PictureController).
+            StripKey.Image -> FormatAction.IMAGE
+
             StripKey.BulletList -> FormatAction.BULLET
 
             StripKey.Task -> FormatAction.TASK

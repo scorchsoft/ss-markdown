@@ -5,6 +5,7 @@ import com.scorchsoft.ssmarkdown.document.TextChangeListener
 import com.scorchsoft.ssmarkdown.preview.DocumentSnapshot
 import com.scorchsoft.ssmarkdown.preview.DocumentSource
 import com.scorchsoft.ssmarkdown.preview.FormattedCopy
+import com.scorchsoft.ssmarkdown.preview.ImageStatus
 import com.scorchsoft.ssmarkdown.preview.PreviewListener
 import com.scorchsoft.ssmarkdown.preview.PreviewView
 import com.scorchsoft.ssmarkdown.preview.PrintOutcome
@@ -333,6 +334,11 @@ class PreviewSession(
 
     override fun onFormatRequest(request: PreviewFormatRequest) {
         if (request.epoch != PageMessage.UNSTAMPED && request.epoch != editor?.epoch) return
+        if (request.action == FormatAction.IMAGE) {
+            // Insert image opens the picker first; the picture goes at the page's selection.
+            editor?.selectionOf(request)?.let { host.onPreviewEvent(PreviewEvent.InsertImage(it)) }
+            return
+        }
         if (request.action == FormatAction.LINK) {
             // The Link key asks where the link goes first: the prompt opens on the page's selection.
             editor?.selectionOf(request)?.let { host.onPreviewEvent(PreviewEvent.LinkPrompt(it)) }
@@ -382,6 +388,11 @@ class PreviewSession(
         index: Int,
         line: Int,
     ) = host.onPreviewEvent(PreviewEvent.MediaLongPress(kind, line))
+
+    override fun onImageStatuses(statuses: Map<String, ImageStatus>) =
+        host.onPreviewEvent(PreviewEvent.PictureStatuses(statuses.values.any { it == ImageStatus.NO_ACCESS }))
+
+    override fun onAllowFolder() = host.onPreviewEvent(PreviewEvent.AllowFolder)
 
     override fun onExportResult(
         requestId: Int,

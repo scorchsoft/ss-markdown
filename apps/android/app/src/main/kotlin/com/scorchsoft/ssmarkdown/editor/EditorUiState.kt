@@ -82,12 +82,15 @@ data class EditorUiState(
  * @property renderer running, restarted after a crash, or paused after repeated ones.
  * @property editing the page has a caret and the keyboard (tap to edit).
  * @property inHeading the page's caret is in a heading: the strip's H key turns it back into a paragraph.
+ * @property picturesNeedFolder the page has pictures it cannot show without the document's folder:
+ *   ⋮ offers "Show pictures beside this file…".
  */
 @Immutable
 data class PreviewPaneState(
     val renderer: RendererState = RendererState.RUNNING,
     val editing: Boolean = false,
     val inHeading: Boolean = false,
+    val picturesNeedFolder: Boolean = false,
 )
 
 /** A non-modal banner under the header. One at a time; the newest wins. */
@@ -338,6 +341,14 @@ sealed interface EditorOverlay {
         val selection: TextSelection,
     ) : EditorOverlay
 
+    /**
+     * Insert image picked [picked], which is outside the document's folder:
+     * "Copy into this file's folder" or Cancel (docs/ux-spec.md, "Pictures").
+     */
+    data class CopyPicture(
+        val picked: String,
+    ) : EditorOverlay
+
     /** Details of a failed save. */
     data class SaveFailureDetails(
         val problem: SaveProblem,
@@ -435,4 +446,10 @@ enum class MessageKind {
     NothingToExport,
     PdfFailed,
     ExportStopped,
+    PictureFolderGranted,
+    PictureFolderUnrelated,
+    PictureTooLarge,
+    PictureNotImage,
+    PictureFailed,
+    PicturesStayedWithDraft,
 }

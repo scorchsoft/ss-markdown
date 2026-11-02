@@ -41,6 +41,7 @@ import com.scorchsoft.ssmarkdown.ui.AppIcons
 private fun menuGroups(
     copyInMenu: Boolean,
     saveAll: Boolean,
+    showPictures: Boolean,
 ): List<List<MenuItem>> =
     listOfNotNull(
         // Copy is a header action that moved in here at a large font: it comes first, not last (UX-29).
@@ -53,7 +54,13 @@ private fun menuGroups(
             MenuItem.SaveAs,
             MenuItem.SaveAll.takeIf { saveAll },
         ),
-        listOf(MenuItem.FindReplace, MenuItem.VersionHistory),
+        // Show pictures appears only while the page has pictures it needs the folder for.
+        listOfNotNull(
+            MenuItem.FindReplace,
+            MenuItem.InsertImage,
+            MenuItem.ShowPictures.takeIf { showPictures },
+            MenuItem.VersionHistory,
+        ),
         // With Copy in here already (it opens the same chooser), Copy as… would be a twin row.
         listOfNotNull(
             MenuItem.ExportPdf,
@@ -66,10 +73,12 @@ private fun menuGroups(
 
 /**
  * ⋮: an Undo · Redo icon row on top (as in Chrome's menu), then New · Open
- * file · Open folder · Save as · (Save all (N)) │ Find & replace · Version
- * history │ Export PDF · Export images… · Share · Copy as… │
- * Display · Settings. Above 1.5× font scale, Copy moves in here too, under
- * the icon row. Save all (N) shows only in folder mode while
+ * file · Open folder · Save as · (Save all (N)) │ Find & replace · Insert
+ * image… · (Show pictures beside this file…) · Version history │ Export
+ * PDF · Export images… · Share · Copy as… │ Display · Settings. Above 1.5×
+ * font scale, Copy moves in here too, under the icon row. Show pictures
+ * appears only while [picturesNeedFolder]. Save all (N) shows only in
+ * folder mode while
  * [unsavedCount] files are unsaved; the ≡ panel keeps its own row.
  * Keyboard shortcuts ("Ctrl F") show only with a hardware keyboard
  * attached, as the Navigator's Ctrl K does.
@@ -88,13 +97,17 @@ fun OverflowMenu(
     onDismiss: () -> Unit,
     unsavedCount: Int = 0,
     history: MenuHistoryState = MenuHistoryState(),
+    picturesNeedFolder: Boolean = false,
 ) {
     val hardwareKeyboard = LocalConfiguration.current.keyboard == Configuration.KEYBOARD_QWERTY
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, containerColor = SS.colors.chrome) {
         HistoryRow(history)
         HorizontalDivider(thickness = SS.dimens.hairline, color = SS.colors.border)
         ScrollingRows(maxHeight = menuRowsMaxHeight()) {
-            menuGroups(copyInMenu, saveAll = unsavedCount > 0).forEachIndexed { index, group ->
+            menuGroups(copyInMenu, saveAll = unsavedCount > 0, showPictures = picturesNeedFolder).forEachIndexed {
+                index,
+                group,
+                ->
                 if (index > 0) HorizontalDivider(thickness = SS.dimens.hairline, color = SS.colors.border)
                 group.forEach { item -> MenuRow(item, unsavedCount, hardwareKeyboard, onChoose) }
             }
@@ -233,6 +246,8 @@ private fun labelOf(item: MenuItem): Int =
         MenuItem.Display -> R.string.menu_display
         MenuItem.Settings -> R.string.menu_settings
         MenuItem.Copy -> R.string.menu_copy
+        MenuItem.InsertImage -> R.string.menu_insert_image
+        MenuItem.ShowPictures -> R.string.menu_show_pictures
     }
 
 private fun hintOf(

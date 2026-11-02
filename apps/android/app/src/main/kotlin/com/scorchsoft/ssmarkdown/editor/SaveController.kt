@@ -4,6 +4,8 @@ import com.scorchsoft.ssmarkdown.files.document.CloseOutcome
 import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.files.saf.SuggestedFileName
 import com.scorchsoft.ssmarkdown.files.save.SaveOutcome
+import com.scorchsoft.ssmarkdown.media.MediaScanner
+import com.scorchsoft.ssmarkdown.media.MediaType
 import kotlinx.coroutines.launch
 
 /**
@@ -91,6 +93,13 @@ class SaveController(
                 deps.autosave.resume(open.uri)
                 host.updateMeta(target) { it.copy(readOnlySource = null) }
                 host.refresh()
+                // Pictures inserted into a draft live in the drafts folder; they do not move with the
+                // text (ux-spec "Pictures": Save as of a draft warns rather than copying silently).
+                if (from.isDraft &&
+                    hasRelativePictures(host.active?.text?.snapshot())
+                ) {
+                    host.message(MessageKind.PicturesStayedWithDraft)
+                }
             }
         }
     }
@@ -255,6 +264,14 @@ class SaveController(
         host.active?.open?.displayName ?: SuggestedFileName.forText(host.active?.text?.snapshot() ?: "")
 
     internal companion object {
+        /** True when [text] links a picture beside it (a relative path, not a web address). */
+        fun hasRelativePictures(text: CharSequence?): Boolean =
+            text != null &&
+                MediaScanner.scan(text).any { item ->
+                    val source = item.source ?: return@any false
+                    item.type == MediaType.Picture && !source.contains(':') && !source.startsWith("/")
+                }
+
         /** About 1 MB of UTF-16 through Binder; larger copies go as a file (robustness §5). */
         const val CLIPBOARD_LIMIT_CHARS = 400_000
     }

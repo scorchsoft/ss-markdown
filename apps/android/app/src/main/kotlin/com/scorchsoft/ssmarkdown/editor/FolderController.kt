@@ -36,6 +36,8 @@ class FolderController(
             )
         }
         load()
+        // A new folder grant may hold the open file: its pictures are looked up afresh.
+        host.pictures.onFolderRefreshed()
     }
 
     /** A folder action; the reducer has already applied its pure part. */
@@ -50,7 +52,8 @@ class FolderController(
             FolderAction.NewFileHere -> newFile()
             FolderAction.OpenAnotherFolder -> host.emit(EditorEvent.PickFolder)
             FolderAction.CloseFolder -> close()
-            FolderAction.ToggleShowAllFiles, FolderAction.Refresh -> load()
+            FolderAction.ToggleShowAllFiles -> load()
+            FolderAction.Refresh -> load().also { host.pictures.onFolderRefreshed() }
             else -> Unit
         }
     }

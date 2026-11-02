@@ -82,6 +82,7 @@ class EditorViewModel(
     val views = ViewMemory(this)
     val previewHost = EditorPreviewHost(this)
     override val preview = PreviewSession(previewHost)
+    override val pictures = PictureController(this)
     val media = MediaController(this)
     val imageExports = ImageExports(this, media)
     val viewer = ViewerViewModel(media, deps.scope, ::emit)
@@ -449,6 +450,8 @@ class EditorViewModel(
                 codeWrap = settings.codeWrap,
                 find = null,
                 navigator = null,
+                // The page asks afresh about this document's pictures.
+                preview = it.preview.copy(picturesNeedFolder = false),
             )
         }
         if (switching) {

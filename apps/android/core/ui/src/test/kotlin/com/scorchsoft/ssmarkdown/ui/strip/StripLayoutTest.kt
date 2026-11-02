@@ -9,7 +9,7 @@ class StripLayoutTest {
     @Test
     fun codeKeysFollowTheSpecOrder() =
         assertEquals(
-            "BlockStyle Bold Italic BulletList Task Code Link Indent Table Quote Redo Outdent",
+            "BlockStyle Bold Italic BulletList Task Code Link Indent Table Image Quote Redo Outdent",
             StripLayout.codeKeys.joinToString(" "),
         )
 

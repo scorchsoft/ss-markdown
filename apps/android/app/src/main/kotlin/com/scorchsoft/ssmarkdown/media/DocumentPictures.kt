@@ -2,9 +2,11 @@ package com.scorchsoft.ssmarkdown.media
 
 import android.content.ContentResolver
 import android.net.Uri
+import android.webkit.MimeTypeMap
 import androidx.core.net.toUri
 import com.scorchsoft.ssmarkdown.platform.BoundedRead
 import com.scorchsoft.ssmarkdown.preview.DocumentResourceResolver
+import com.scorchsoft.ssmarkdown.preview.ImageStatus
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.InputStream
@@ -12,68 +14,98 @@ import java.net.URLDecoder
 
 /**
  * Opens pictures that sit next to a document (`![](img/diagram.png)`,
- * `../shared/logo.svg`) for the preview, the viewer and Export images.
- * The app is offline, so remote pictures are never fetched.
+ * `../shared/logo.svg`) for the preview, the viewer and Export images, and
+ * says why one cannot be shown ([status]). The app is offline, so remote
+ * pictures are never fetched.
  *
- * Paths resolve against the document's own folder, and never climb out
- * of the folder the user granted (ux-spec "Small requirements": relative
- * paths resolve within the opened folder):
+ * Paths resolve against the document's own folder, and never climb out of
+ * the folder the user granted (docs/ux-spec.md, "Pictures"; SEC-9):
  *
- * - documents inside a granted tree are found through the Storage Access
- *   Framework ([DocumentTree]): the provider says where the document sits
- *   in the tree, and each path segment is looked up among its folder's
- *   children by name. This works for every provider, including those with
- *   opaque document ids (Drive, OneDrive), not only on-device storage;
+ * - a document inside a granted tree ([PictureFolders.treeFor]: folder
+ *   mode, the folder granted for this file, or any folder grant that holds
+ *   it) is found through the Storage Access Framework: the provider says
+ *   where the document sits, and each path segment is looked up in its
+ *   folder's listing by name ([TreeListings], one listing per folder). This
+ *   works for providers with opaque ids (Drive, OneDrive) too;
  * - a provider that cannot say where a document sits falls back to id
  *   arithmetic for path-like ids (`root:folder/file`), kept strictly inside
- *   the tree (SEC-9);
- * - `file:` documents (drafts) resolve on the file system, never above
+ *   the tree;
+ * - a document with no tree is [ImageStatus.NO_ACCESS]: the user can grant
+ *   its folder from the placeholder or ⋮;
+ * - drafts and `file:` documents resolve on the file system, never above
  *   their own folder.
  */
 class DocumentPictures(
     private val resolver: ContentResolver,
     private val documentUri: () -> String?,
-    private val treeUri: () -> String?,
-    private val tree: DocumentTree = SafDocumentTree(resolver),
+    private val folders: PictureFolders,
+    private val listings: TreeListings,
+    /** The file behind a draft URI, or null for anything else. */
+    private val draftFile: (String) -> File? = { null },
 ) : DocumentResourceResolver,
     PictureSource {
-    override fun open(relativePath: String): InputStream? = resolve(relativePath)?.let(::openStream)
+    /** Where a path led: a picture to open, or why not. */
+    private class Found(
+        val uri: Uri?,
+        val status: ImageStatus,
+    )
+
+    override fun open(relativePath: String): InputStream? =
+        resolve(relativePath).takeIf { it.status == ImageStatus.OK }?.uri?.let(::openStream)
+
+    override fun status(relativePath: String): ImageStatus = resolve(relativePath).status
 
     /** The picture's bytes, or null when it is missing, unreachable or larger than [MAX_PICTURE_BYTES] (SEC-8). */
     override fun bytes(source: String): ByteArray? = open(source)?.use { BoundedRead.bytes(it, MAX_PICTURE_BYTES) }
 
-    private fun resolve(relative: String): Uri? {
+    private fun resolve(relative: String): Found {
         val doc = documentUri()
         val path = PicturePaths.normalise(relative)
-        return when {
-            doc == null || path == null -> null
-            doc.startsWith("file:") -> fileSibling(doc, path)
-            else -> treeUri()?.let { tree -> treeSibling(tree, doc, path) }
-        }
+        if (doc == null || path == null) return MISSING
+        val local = draftFile(doc) ?: doc.takeIf { it.startsWith("file:") }?.let { File(it.toUri().path ?: "") }
+        if (local != null) return fileSibling(local, path)
+        val tree = folders.treeFor(doc) ?: return Found(null, ImageStatus.NO_ACCESS)
+        return treeSibling(tree, doc, path)
     }
 
-    /** A sibling of a `file:` document; `..` may not leave the document's own folder. */
+    /** A sibling of a file on disk; `..` may not leave the document's own folder. */
     private fun fileSibling(
-        doc: String,
+        doc: File,
         path: List<String>,
-    ): Uri? {
-        val dir = File(doc.toUri().path ?: return null).parentFile ?: return null
-        return PicturePaths.climb(emptyList(), path)?.let { Uri.fromFile(File(dir, it.joinToString("/"))) }
+    ): Found {
+        val dir = doc.parentFile ?: return MISSING
+        val file = PicturePaths.climb(emptyList(), path)?.let { File(dir, it.joinToString("/")) } ?: return MISSING
+        if (!file.isFile) return MISSING
+        return Found(Uri.fromFile(file), judge(mimeOf(file.name), file.length()))
     }
 
     private fun treeSibling(
         tree: String,
         doc: String,
         path: List<String>,
-    ): Uri? {
-        val ids = this.tree.pathTo(tree, doc)
-        val id =
+    ): Found {
+        val ids = listings.pathTo(tree, doc)
+        val entry =
             if (ids != null) {
-                PicturePaths.walk(ids, path) { folder, name -> this.tree.child(tree, folder, name) }
+                walk(tree, ids, path)
             } else {
                 arithmeticSibling(tree, doc, path)
             }
-        return id?.let { this.tree.uri(tree, it).toUri() }
+        return entry?.let { Found(listings.tree.uri(tree, it.id).toUri(), judge(it.mime, it.size, it.name)) } ?: MISSING
+    }
+
+    /** Walks [path] from the document's folder through cached listings: one listing per folder. */
+    private fun walk(
+        tree: String,
+        ids: List<String>,
+        path: List<String>,
+    ): TreeEntry? {
+        var last: TreeEntry? = null
+        val id =
+            PicturePaths.walk(ids, path) { folder, name ->
+                listings.child(tree, folder, name)?.also { last = it }?.id
+            }
+        return last?.takeIf { it.id == id }
     }
 
     /** Path arithmetic on `root:folder/file` ids, for providers that cannot report a document's path. */
@@ -81,10 +113,26 @@ class DocumentPictures(
         tree: String,
         doc: String,
         path: List<String>,
-    ): String? {
-        val docId = this.tree.documentId(doc) ?: return null
-        val treeId = this.tree.treeId(tree) ?: return null
-        return PicturePaths.arithmetic(docId, treeId, path)
+    ): TreeEntry? {
+        val docId = listings.tree.documentId(doc) ?: return null
+        val treeId = listings.tree.treeId(tree) ?: return null
+        val id = PicturePaths.arithmetic(docId, treeId, path) ?: return null
+        val parent = id.substringBeforeLast('/', "").ifEmpty { treeId }
+        // The listing gives its type and size when the provider lists by id; otherwise judge by name.
+        return listings.byId(tree, parent, id) ?: TreeEntry(id, id.substringAfterLast('/'), null, null)
+    }
+
+    private fun judge(
+        mime: String?,
+        size: Long?,
+        name: String = "",
+    ): ImageStatus {
+        val type = mime?.takeUnless { it == "application/octet-stream" } ?: mimeOf(name)
+        return when {
+            type == null || !type.startsWith("image/") -> ImageStatus.NOT_IMAGE
+            size != null && size > MAX_PICTURE_BYTES -> ImageStatus.TOO_LARGE
+            else -> ImageStatus.OK
+        }
     }
 
     private fun openStream(uri: Uri): InputStream? =
@@ -99,8 +147,14 @@ class DocumentPictures(
         }
 
     companion object {
-        /** The largest picture read whole into memory for the viewer or an export (SEC-8). */
+        /** The largest picture read whole into memory for the viewer or an export, or shown in Preview (SEC-8). */
         const val MAX_PICTURE_BYTES: Int = 32 * 1024 * 1024
+
+        private val MISSING = Found(null, ImageStatus.NOT_FOUND)
+
+        /** The MIME type a file name implies, or null. */
+        fun mimeOf(name: String): String? =
+            MimeTypeMap.getSingleton().getMimeTypeFromExtension(name.substringAfterLast('.', "").lowercase())
     }
 }
 

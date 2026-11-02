@@ -303,4 +303,16 @@
     <string name="file_delete_title">Delete %1$s?</string>
     <string name="file_delete_body">The file is deleted from the folder. Its version history stays in SS Markdown.</string>
     <string name="file_name">Name</string>
+    <!-- Pictures beside the document (ux-spec "Pictures"). -->
+    <string name="menu_insert_image">Insert image…</string>
+    <string name="menu_show_pictures">Show pictures beside this file…</string>
+    <string name="copy_picture_title">Copy this picture next to the file?</string>
+    <string name="copy_picture_body">It is outside this file\'s folder, so a link to it would not work elsewhere. SS Markdown copies it into an images folder beside the file and links to the copy.</string>
+    <string name="copy_picture_confirm">Copy into this file\'s folder</string>
+    <string name="msg_picture_folder_granted">Showing pictures from %1$s</string>
+    <string name="msg_picture_folder_unrelated">That folder doesn\'t hold this file. Choose the folder it\'s in.</string>
+    <string name="msg_picture_too_large">That picture is too large (over 32 MB)</string>
+    <string name="msg_picture_not_image">That file isn\'t a picture</string>
+    <string name="msg_picture_failed">Couldn\'t add the picture</string>
+    <string name="msg_pictures_stayed">Saved. Its pictures stayed with the draft: insert them again here</string>
 </resources>

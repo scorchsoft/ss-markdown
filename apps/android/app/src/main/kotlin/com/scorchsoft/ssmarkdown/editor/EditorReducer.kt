@@ -39,6 +39,7 @@ object EditorReducer {
             EditorAction.ConfirmNotKept,
             is EditorAction.LinkDone,
             EditorAction.LinkRemove,
+            EditorAction.CopyPictureIn,
             -> {
                 state.copy(overlay = null)
             }

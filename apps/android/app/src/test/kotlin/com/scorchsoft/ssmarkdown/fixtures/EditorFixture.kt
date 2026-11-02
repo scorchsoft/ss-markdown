@@ -26,6 +26,8 @@ import com.scorchsoft.ssmarkdown.history.journal.Cancellable
 import com.scorchsoft.ssmarkdown.history.journal.FlushScheduler
 import com.scorchsoft.ssmarkdown.history.journal.JournalStore
 import com.scorchsoft.ssmarkdown.history.versions.VersionStore
+import com.scorchsoft.ssmarkdown.media.NoPictureAccess
+import com.scorchsoft.ssmarkdown.media.PictureAccess
 import com.scorchsoft.ssmarkdown.settings.AppSettings
 import com.scorchsoft.ssmarkdown.settings.InMemorySettingsRepository
 import com.scorchsoft.ssmarkdown.viewstate.InMemoryViewStates
@@ -57,6 +59,8 @@ class EditorFixture(
     folders: FolderSource = NoFolders,
     /** The phone's memory; a roomy one by default, a tight one to test admission. */
     memory: MemorySource = RoomyMemory,
+    /** Insert image's storage; none by default. */
+    pictureAccess: PictureAccess = NoPictureAccess,
 ) {
     val files = File(root, "files").apply { mkdirs() }
     val scope = CoroutineScope(SupervisorJob() + dispatcher)
@@ -113,6 +117,7 @@ class EditorFixture(
                 io = io,
                 compute = compute,
                 viewStates = viewStates,
+                pictureAccess = pictureAccess,
             ),
         ).also { vm ->
             autosave.start()

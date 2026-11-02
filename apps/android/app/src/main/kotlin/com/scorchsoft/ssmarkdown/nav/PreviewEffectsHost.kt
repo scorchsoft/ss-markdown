@@ -104,3 +104,25 @@ internal class ZipWithStartFolder : ActivityResultContract<ZipWithStartFolder.Re
         intent: Intent?,
     ): Uri? = intent?.data
 }
+
+/**
+ * Insert image's picker: one picture (any image type), opened in the document's
+ * folder when [String] names one (`EXTRA_INITIAL_URI`), so the user starts
+ * next to the file. The answer is a one-off read grant; the app copies or
+ * links the picture, never the URI (docs/ux-spec.md, "Pictures").
+ */
+internal class OpenImage : ActivityResultContract<String?, Uri?>() {
+    override fun createIntent(
+        context: Context,
+        input: String?,
+    ): Intent =
+        Intent(Intent.ACTION_OPEN_DOCUMENT)
+            .addCategory(Intent.CATEGORY_OPENABLE)
+            .setType("image/*")
+            .apply { input?.let { putExtra(DocumentsContract.EXTRA_INITIAL_URI, it.toUri()) } }
+
+    override fun parseResult(
+        resultCode: Int,
+        intent: Intent?,
+    ): Uri? = intent?.data
+}

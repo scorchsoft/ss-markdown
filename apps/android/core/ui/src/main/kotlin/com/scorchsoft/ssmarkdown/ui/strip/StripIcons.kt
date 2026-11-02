@@ -35,6 +35,13 @@ internal object StripIcons {
     val table by lazy {
         icon("M6 5h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z", "M4 10h16", "M10 5v14")
     }
+    val image by lazy {
+        icon(
+            "M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z",
+            "M4 16l5-5 4 4 3-3 4 4",
+            dot(15.5f, 8.5f),
+        )
+    }
     val quote by lazy { icon("M6 7h4v4H6z", "M10 11c0 3-1.5 5-4 6", "M14 7h4v4h-4z", "M18 11c0 3-1.5 5-4 6") }
     val undo by lazy { icon("M9 14L4 9l5-5", "M4 9h10a6 6 0 0 1 0 12h-3") }
     val redo by lazy { icon("M15 14l5-5-5-5", "M20 9H10a6 6 0 0 0 0 12h3") }

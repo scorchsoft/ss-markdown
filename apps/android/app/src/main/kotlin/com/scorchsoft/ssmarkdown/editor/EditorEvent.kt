@@ -83,6 +83,16 @@ sealed interface EditorEvent {
         val files: List<ExportFile>,
     ) : EditorEvent
 
+    /** Insert image: the system picker for one picture, starting in [initialFolder] (the document's folder). */
+    data class PickImage(
+        val initialFolder: String?,
+    ) : EditorEvent
+
+    /** "Allow access": the system folder picker, starting in [initialFolder] (the document's folder). */
+    data class PickPictureFolder(
+        val initialFolder: String?,
+    ) : EditorEvent
+
     /** Export images as one ZIP, through the system picker, starting in [initialFolder] when remembered. */
     class SaveZip(
         val docName: String,

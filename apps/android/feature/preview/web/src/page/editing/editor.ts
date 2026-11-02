@@ -8,7 +8,9 @@ import { mapOffset } from "../../core/ot";
 import type { FormatAction, PageMessage, TableOp } from "../../protocol";
 import type { RenderController } from "../controller";
 import type { SectionView } from "../sectionView";
+import { escapeTyped } from "../../core/minimalEdit";
 import { EditSession, type SessionHost } from "./editSession";
+import { KeyboardKeeper } from "./keyboardKeeper";
 import { emptyRun, placeCaret, placeholderRun, sectionOf, setCaretInRun } from "./runs";
 import {
     cellAddress,
@@ -33,6 +35,10 @@ export class Editor implements SessionHost {
     private selectionTimer: ReturnType<typeof setTimeout> | null = null;
     /** Whether the table being edited was padded when its first cell was tapped. */
     private paddedTable = false;
+    /** Holds the keyboard while a block is re-rendered under the caret. */
+    private readonly keeper = new KeyboardKeeper();
+    /** What Kotlin was last told by `editingChanged`. */
+    private announced = false;
 
     constructor(
         private readonly controller: RenderController,
@@ -71,14 +77,25 @@ export class Editor implements SessionHost {
         }
         this.ensureCellRun(block);
         this.updateToolbar();
-        this.post({ type: "editingChanged", editing: true });
+        this.announce(true);
     }
 
-    /** Ends the session: flushes, re-pads a padded table, and re-renders if the text changed. */
-    end(): void {
+    /**
+     * Ends the session: flushes, re-pads a padded table, and re-renders if the
+     * text changed. With [handoff] the session is only being swapped for the
+     * re-rendered block (a strip command, Enter, a table move): focus waits in
+     * the [KeyboardKeeper] so the keyboard stays up, and Kotlin is not told
+     * editing stopped. Without it, editing really ends and the keyboard may go.
+     */
+    end(handoff = false): void {
         const session = this.session;
-        if (!session) return;
+        if (!session) {
+            if (!handoff) this.stopHolding();
+            return;
+        }
         this.session = null;
+        // Focus moves to the keeper before the block stops being editable, never after.
+        const held = handoff && this.keeper.hold(() => this.announce(false));
         session.stop();
         const addr = session.inTable ? cellAddress(session.block) : null;
         this.controller.pinned = null;
@@ -88,7 +105,21 @@ export class Editor implements SessionHost {
             if (edits.length > 0) this.commit(edits);
         }
         if (session.view.key !== session.startKey || addr) this.controller.refresh(session.view);
-        this.post({ type: "editingChanged", editing: false });
+        if (!held) {
+            this.stopHolding();
+            this.announce(false);
+        }
+    }
+
+    /** Lets the keyboard go if the keeper still has it. */
+    private stopHolding(): void {
+        this.keeper.drop();
+    }
+
+    private announce(editing: boolean): void {
+        if (this.announced === editing) return;
+        this.announced = editing;
+        this.post({ type: "editingChanged", editing });
     }
 
     /** Called when sections get new HTML: restores a pending caret. */
@@ -132,10 +163,22 @@ export class Editor implements SessionHost {
 
     private startSession(block: HTMLElement, view: SectionView): void {
         this.controller.pinned = view;
-        this.session = new EditSession(block, view, this);
-        this.session.start();
-        const addr = this.session.inTable ? cellAddress(block) : null;
+        const session = new EditSession(block, view, this);
+        this.session = session;
+        const typed = this.keeper.release();
+        session.start();
+        const addr = session.inTable ? cellAddress(block) : null;
         this.paddedTable = addr ? isPadded(this.controller.doc, addr) : false;
+        this.announce(true);
+        if (typed.length > 0) this.insertKept(session, typed);
+    }
+
+    /** Text typed while the keeper held the keyboard: written at the restored caret, never dropped. */
+    private insertKept(session: EditSession, typed: string): void {
+        const range = session.selectionRange();
+        if (!range) return;
+        const insert = escapeTyped(typed, { inTable: session.inTable, atLineStart: this.isLineStart(range.from) });
+        this.commitAndRerender([{ from: range.from, to: range.to, insert }], range.from + insert.length);
     }
 
     /** Kotlin's Prev / Next cell keys. "Next" on the last cell adds a row. */
@@ -159,7 +202,7 @@ export class Editor implements SessionHost {
             this.tableOp({ kind: "addRow" }, { ...addr, col: 0 });
             return;
         }
-        this.end();
+        this.end(true);
         this.pendingCaret = cellOffset(this.controller.doc, addr, row, col);
         this.flushPendingCaret();
     }
@@ -180,7 +223,7 @@ export class Editor implements SessionHost {
         this.session?.flush();
         const result = tableOpEdits(this.controller.doc, addr, op);
         if (!result) return;
-        this.end();
+        this.end(true);
         this.commit(result.edits);
         this.pendingCaret = result.caretAfter(this.controller.doc);
         this.flushPendingCaret();
@@ -206,7 +249,7 @@ export class Editor implements SessionHost {
     }
 
     commitAndRerender(edits: readonly SourceEdit[], caret: number): void {
-        this.end();
+        this.end(true);
         this.commit(edits);
         this.pendingCaret = caret;
         this.flushPendingCaret();
@@ -254,7 +297,7 @@ export class Editor implements SessionHost {
         const line = Number(session.block.closest<HTMLElement>("[data-line]")?.dataset.line ?? session.view.startLine);
         const caret = session.selectionRange()?.from ?? null;
         const view = session.view;
-        this.end();
+        this.end(true);
         this.controller.refresh(view);
         view.el.classList.add("edit-refused");
         setTimeout(() => view.el.classList.remove("edit-refused"), 600);
@@ -269,7 +312,8 @@ export class Editor implements SessionHost {
         if (!this.session) return null;
         this.session.flush();
         const range = this.session?.selectionRange() ?? null;
-        this.end();
+        // The edit re-renders the block under the caret: hand over, keep the keyboard (Bold, ¶).
+        this.end(true);
         return range;
     }
 

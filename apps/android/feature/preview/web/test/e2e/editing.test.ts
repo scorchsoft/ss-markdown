@@ -304,6 +304,47 @@ describe("formatting from the strip", () => {
         expect(await page.locator(".editing").count()).toBe(1);
     });
 
+    it("keeps an editable element focused through Kotlin's edit, so the keyboard never drops (Bold, ¶)", async () => {
+        // Andrew, 0.2.1: every strip command took contenteditable off the focused block while it
+        // re-rendered; Android's WebView hid the keyboard and showed it again, and the ¶ menu went with it.
+        const page = await openPreview(h);
+        await loadMarkdown(page, "Make this a heading.\n\nNext.");
+        await tapText(page, "Make this", 0.3);
+        await waitForMessage(page, (m) => m.type === "editingChanged");
+        await page.evaluate(() => {
+            const w = window as unknown as { __lostFocus: string[] };
+            w.__lostFocus = [];
+            const check = (why: string): void => {
+                const active = document.activeElement as HTMLElement | null;
+                if (!active?.isContentEditable) w.__lostFocus.push(`${why}: ${active?.tagName ?? "none"}`);
+            };
+            new MutationObserver(() => check("mutation")).observe(document.body, {
+                subtree: true,
+                childList: true,
+                attributes: true,
+                attributeFilter: ["contenteditable"],
+            });
+            document.addEventListener("focusout", () => queueMicrotask(() => check("focusout")), true);
+        });
+        await clearReceived(page);
+        await send(page, { type: "format", action: "heading1" });
+        await waitForMessage(page, (m) => m.type === "formatRequest");
+        await send(page, {
+            type: "edit",
+            rev: 2,
+            changes: [{ fromLine: 0, toLine: 1, lines: ["# Make this a heading."] }],
+            ops: [{ from: 0, to: 0, insert: "# " }],
+        });
+        await send(page, { type: "select", rev: 2, from: 7, to: 7 });
+        await page.waitForSelector("h1.editing");
+        await page.keyboard.type("X");
+        await waitForMessage(page, (m) => m.type === "sourceEdit");
+        expect(await page.evaluate(() => (window as unknown as { __lostFocus: string[] }).__lostFocus)).toEqual([]);
+        // Kotlin is never told editing stopped, so Split's strip does not flip to Code for a moment.
+        expect((await received(page)).filter((m) => m.type === "editingChanged")).toEqual([]);
+        expect(await page.locator("h1").textContent()).toBe("Make Xthis a heading.");
+    });
+
     it("Enter continues a list, and Enter on the new empty item asks Kotlin to end the list", async () => {
         const page = await openPreview(h);
         const source = "- one";

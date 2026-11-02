@@ -98,7 +98,7 @@ describe("formatted copy HTML", () => {
             "![Cat](pictures/cat.png)\n\n![Logo](https://example.com/logo.png)\n\n```mermaid\nflowchart LR\n  A --> B\n```\n",
         );
         expect(f.media.map((m) => [m.kind, m.source, m.el.getAttribute("alt")])).toEqual([
-            ["image", "/doc/pictures/cat.png", "Cat"],
+            ["image", "/doc/0/pictures/cat.png", "Cat"],
             ["diagram", "flowchart LR\n  A --> B\n", "Diagram: flowchart"],
         ]);
         expect(f.root.innerHTML).toContain(

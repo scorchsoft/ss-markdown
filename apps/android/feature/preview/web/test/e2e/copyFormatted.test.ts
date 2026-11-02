@@ -59,10 +59,10 @@ async function png(page: Page, size: number, noisy: boolean): Promise<Buffer> {
     return Buffer.from(b64, "base64");
 }
 
-/** Serves [files] at `/doc/<name>`, as the app's document path handler does. */
+/** Serves [files] at `/doc/0/<name>` (no climbs), as the app's document path handler does. */
 async function serveDoc(page: Page, files: Record<string, Buffer>): Promise<void> {
     await page.route("**/doc/**", async (route) => {
-        const name = decodeURIComponent(new URL(route.request().url()).pathname.replace(/^\/doc\//, ""));
+        const name = decodeURIComponent(new URL(route.request().url()).pathname.replace(/^\/doc\/0\//, ""));
         const body = files[name];
         await (body ? route.fulfill({ status: 200, contentType: "image/png", body }) : route.fulfill({ status: 404 }));
     });

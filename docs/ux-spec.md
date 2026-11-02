@@ -592,6 +592,20 @@ characters and emoji count as 2 columns; graphemes, not chars).
 Alignment markers are kept. Only the table's own lines change, and only
 the rows that need it.
 
+Every table operation leaves a valid GFM table: header, delimiter and
+body rows, no blank line inside it, columns counted the way the renderer
+counts them (a pipe inside a code span still splits a cell; only `\|`
+does not). **Delete row** removes the row's whole line, terminator
+included; it never touches the header or the delimiter row, so deleting
+the only body row leaves a header-only table. **Add row above** from
+the header adds the first body row. **Delete table** removes the table's
+lines and keeps the blank lines around it. A table written without outer
+pipes gets a pipe at the start (or end) of a row whose first (or last)
+cell is empty, because GFM drops an outer pipe and the cells would shift.
+Cells past the header's count are hidden by the renderer but kept when
+the row is rewritten. Every entry of the strip's table menu works in
+Preview.
+
 ## Viewer (diagrams and images)
 
 Tapping a diagram or image in Preview, or "View full screen" from its

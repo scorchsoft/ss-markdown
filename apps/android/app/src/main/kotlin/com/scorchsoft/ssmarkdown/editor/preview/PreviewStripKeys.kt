@@ -11,21 +11,20 @@ import com.scorchsoft.ssmarkdown.ui.strip.TableAction
  * rendered selection's source range in the document's own style.
  */
 object PreviewStripKeys {
-    /**
-     * The table sheet's op for the strip's table menu, or null for what the
-     * page cannot do yet (insert above or to the left, delete the table).
-     */
-    fun tableOp(action: TableAction): TableOp? =
+    /** The page's table op for each entry of the strip's table menu: every entry does something. */
+    fun tableOp(action: TableAction): TableOp =
         when (action) {
             TableAction.AddRowBelow -> TableOp.AddRow
+            TableAction.AddRowAbove -> TableOp.AddRowAbove
             TableAction.AddColumnRight -> TableOp.AddColumn
+            TableAction.AddColumnLeft -> TableOp.AddColumnLeft
             TableAction.MoveRowUp -> TableOp.MoveRow(-1)
             TableAction.MoveRowDown -> TableOp.MoveRow(1)
             TableAction.MoveColumnLeft -> TableOp.MoveColumn(-1)
             TableAction.MoveColumnRight -> TableOp.MoveColumn(1)
             TableAction.DeleteRow -> TableOp.DeleteRow
             TableAction.DeleteColumn -> TableOp.DeleteColumn
-            TableAction.AddRowAbove, TableAction.AddColumnLeft, TableAction.DeleteTable -> null
+            TableAction.DeleteTable -> TableOp.DeleteTable
         }
 
     /** The format action behind [key], or null for keys Preview handles otherwise (undo, Done) or not at all. */

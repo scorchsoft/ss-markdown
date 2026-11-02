@@ -212,7 +212,7 @@ private fun Footer(
                 onCursor = { onAction(EditorAction.CursorStepped(it)) },
                 onSave = { onAction(EditorAction.SaveTapped) },
                 onTableAction = { action ->
-                    PreviewStripKeys.tableOp(action)?.let { onAction(EditorAction.Table(it)) }
+                    onAction(EditorAction.Table(PreviewStripKeys.tableOp(action)))
                 },
                 modifier = Modifier.imePadding(),
             )

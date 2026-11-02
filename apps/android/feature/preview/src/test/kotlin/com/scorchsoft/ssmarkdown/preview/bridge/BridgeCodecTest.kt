@@ -71,6 +71,21 @@ class BridgeCodecTest {
         assertEquals("align", op.getString("kind"))
         assertEquals("right", op.getString("align"))
         assertEquals(1, encoded(HostMessage.Table(TableOp.MoveRow(5))).getJSONObject("op").getInt("by"))
+        // The kinds the page's tableOpEdits handles (web/src/protocol.ts, TableOp).
+        val kinds =
+            listOf(
+                TableOp.AddRow,
+                TableOp.AddRowAbove,
+                TableOp.AddColumn,
+                TableOp.AddColumnLeft,
+                TableOp.DeleteRow,
+                TableOp.DeleteColumn,
+                TableOp.DeleteTable,
+            ).map { encoded(HostMessage.Table(it)).getJSONObject("op").getString("kind") }
+        assertEquals(
+            listOf("addRow", "addRowAbove", "addColumn", "addColumnLeft", "deleteRow", "deleteColumn", "deleteTable"),
+            kinds,
+        )
         val export = encoded(HostMessage.ExportImage(requestId = 2, line = 7, png = true, scale = 9))
         assertEquals("png", export.getString("format"))
         assertEquals(3, export.getInt("scale"))

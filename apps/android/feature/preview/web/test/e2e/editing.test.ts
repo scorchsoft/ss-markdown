@@ -192,6 +192,26 @@ describe("tables", () => {
         expect(await applySent(page, source)).toBe("|a|b|\n|-|-|\n|1|2|\n|3||\n");
     });
 
+    it("adds a row, taps into it and deletes it, leaving the table as it was (0.2.0 phone report)", async () => {
+        const page = await openPreview(h);
+        const source = "Intro\n\n| Lens | Data |\n| --- | --- |\n| one | 1 |\n| two | 2 |\n\nAfter";
+        await loadMarkdown(page, source);
+        await clearReceived(page);
+        await page.locator("th", { hasText: "Lens" }).click();
+        await send(page, { type: "tableOp", op: { kind: "addRow" } });
+        await waitForMessage(page, (m) => m.type === "sourceEdit");
+        await page.waitForTimeout(300);
+        expect(await page.locator("tbody tr").count()).toBe(3);
+        await send(page, { type: "endEditing" });
+        await page.locator("tbody tr").first().locator("td").first().click();
+        await page.waitForTimeout(200);
+        await send(page, { type: "tableOp", op: { kind: "deleteRow" } });
+        await page.waitForTimeout(400);
+        expect(await applySent(page, source)).toBe(source);
+        expect(await page.locator("tbody tr").count()).toBe(2);
+        expect(await page.locator("p", { hasText: "|" }).count()).toBe(0);
+    });
+
     it("aligns a column from the toolbar, changing only the delimiter row", async () => {
         const page = await openPreview(h);
         const source = "| a | b |\n| --- | --- |\n| 1 | 2 |";

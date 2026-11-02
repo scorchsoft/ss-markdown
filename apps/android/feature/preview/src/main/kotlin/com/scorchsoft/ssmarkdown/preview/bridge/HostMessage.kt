@@ -67,16 +67,32 @@ sealed interface TableOp {
         override fun toJson(): JSONObject = kind("addRow")
     }
 
+    /** A row above the current one; from the header row, the first body row. */
+    data object AddRowAbove : TableOp {
+        override fun toJson(): JSONObject = kind("addRowAbove")
+    }
+
     data object AddColumn : TableOp {
         override fun toJson(): JSONObject = kind("addColumn")
     }
 
+    /** A column to the left of the current one. */
+    data object AddColumnLeft : TableOp {
+        override fun toJson(): JSONObject = kind("addColumnLeft")
+    }
+
+    /** Deletes the current body row; the header row and the delimiter row stay. */
     data object DeleteRow : TableOp {
         override fun toJson(): JSONObject = kind("deleteRow")
     }
 
     data object DeleteColumn : TableOp {
         override fun toJson(): JSONObject = kind("deleteColumn")
+    }
+
+    /** Deletes the table's own lines; the blank lines around it stay. */
+    data object DeleteTable : TableOp {
+        override fun toJson(): JSONObject = kind("deleteTable")
     }
 
     data class Align(

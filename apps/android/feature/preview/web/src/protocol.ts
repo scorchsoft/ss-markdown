@@ -156,10 +156,13 @@ export type FormatAction =
 
 export type TableOp =
     | { readonly kind: "addRow" }
+    | { readonly kind: "addRowAbove" }
     | { readonly kind: "addColumn" }
+    | { readonly kind: "addColumnLeft" }
     | { readonly kind: "align"; readonly align: Align }
     | { readonly kind: "deleteRow" }
     | { readonly kind: "deleteColumn" }
+    | { readonly kind: "deleteTable" }
     | { readonly kind: "moveRow"; readonly by: -1 | 1 }
     | { readonly kind: "moveColumn"; readonly by: -1 | 1 };
 

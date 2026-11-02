@@ -71,7 +71,11 @@ object ScreenSamples {
 
     val split600: EditorUiState = Samples.section.copy(mode = ViewMode.Split)
 
-    val docked: EditorUiState = Samples.section.copy(folder = folder)
+    /** handbook.md is the file on screen, so it is the row the panel marks current, as in the header. */
+    val docked: EditorUiState =
+        Samples.section.copy(
+            folder = folder.copy(rows = rows.map { if (it.current) it.copy(name = Samples.section.title) else it }),
+        )
 
     val wideSplit: EditorUiState = docked.copy(mode = ViewMode.Split)
 

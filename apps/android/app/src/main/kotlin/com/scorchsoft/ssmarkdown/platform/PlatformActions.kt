@@ -146,10 +146,10 @@ class PlatformActions(
             target.takeIf { copied }
         }
 
-    /** Opens scorchsoft.com in the browser; the app itself has no network access. */
-    fun openSite() = start(Intent(Intent.ACTION_VIEW, SITE.toUri()))
-
-    /** Opens the app's source code on GitHub in the browser. */
+    /**
+     * Opens the app's source code on GitHub in the browser, the one outside
+     * link in the app (About); the app itself has no network access.
+     */
     fun openSource() = start(Intent(Intent.ACTION_VIEW, SOURCE.toUri()))
 
     /** A light tick (mode switch, save success) or the error pattern. */
@@ -177,7 +177,6 @@ class PlatformActions(
     }
 
     companion object {
-        private const val SITE = "https://www.scorchsoft.com"
         private const val SOURCE = "https://github.com/scorchsoft/ss-markdown"
         private const val SHARED_DIR = "shared"
         private const val IMPORT_PREFIX = "import-"

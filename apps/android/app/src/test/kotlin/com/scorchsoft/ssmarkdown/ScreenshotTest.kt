@@ -204,7 +204,7 @@ open class ScreenshotTest(
 
     @Test fun storage() = shot("storage") { StorageScreen(StorageUiState(), {}) }
 
-    @Test fun about() = shot("about") { AboutScreen("0.1.0", {}, {}, {}, {}) }
+    @Test fun about() = shot("about") { AboutScreen("0.1.0", {}, {}, {}) }
 
     private fun editor(
         name: String,

@@ -116,7 +116,8 @@ build cache take 1–2 minutes.
 Issues and pull requests are welcome. Please read
 [CONTRIBUTING.md](CONTRIBUTING.md) and
 [docs/engineering.md](docs/engineering.md) first: the code is held to a
-high bar, and every bug fix starts with a failing test. Report security
+high bar, and every bug fix starts with a failing test. Questions and bug
+reports go to GitHub issues: see [SUPPORT.md](SUPPORT.md). Report security
 issues privately, as described in [SECURITY.md](SECURITY.md). Everyone
 taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md). Changes
 are listed in the [changelog](CHANGELOG.md).

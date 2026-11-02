@@ -268,8 +268,10 @@ people that history exists.
   - History uses storage, not running memory. The app's memory use comes
     from open documents.
 - **About** (Settings → About) shows the version, "Made by Scorchsoft"
-  (scorchsoft.com), the Apache 2.0 licence, "Source code on GitHub"
-  (github.com/scorchsoft/ss-markdown, opened in the browser) and a plain-language
+  (a plain credit, not a link), the Apache 2.0 licence, "Source code on
+  GitHub" (github.com/scorchsoft/ss-markdown, opened in the browser: the
+  app's only outside link, so questions and bugs go to the repository, not
+  to Scorchsoft) and a plain-language
   disclaimer: "Provided as is, without warranty of any kind. Keep your
   own backups of anything important."
 - **Every clear asks first.** A confirmation dialog appears before any

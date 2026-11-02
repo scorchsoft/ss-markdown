@@ -149,7 +149,6 @@
     <string name="about_title">About</string>
     <string name="about_version">Version %1$s</string>
     <string name="about_made_by">Made by Scorchsoft</string>
-    <string name="about_site">scorchsoft.com</string>
     <string name="about_licence">Licensed under the Apache License 2.0</string>
     <string name="about_source">Source code on GitHub</string>
     <string name="about_source_link" translatable="false">github.com/scorchsoft/ss-markdown</string>

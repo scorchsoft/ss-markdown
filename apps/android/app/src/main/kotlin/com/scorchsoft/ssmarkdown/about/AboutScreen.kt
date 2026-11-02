@@ -20,14 +20,14 @@ import com.scorchsoft.ssmarkdown.ui.SettingRow
 
 /**
  * Settings → About (ux-spec "Storage" → About): the version, "Made by
- * Scorchsoft" (scorchsoft.com), the Apache 2.0 licence with a link to the
+ * Scorchsoft" as a plain credit, the Apache 2.0 licence with a link to the
  * source code on GitHub, the as-is disclaimer and the Open-source
- * licences list.
+ * licences list. GitHub is the only link: the app is free and community
+ * supported, so it never points people at Scorchsoft for support.
  */
 @Composable
 fun AboutScreen(
     versionName: String,
-    onOpenSite: () -> Unit,
     onOpenSource: () -> Unit,
     onOpenLicences: () -> Unit,
     onBack: () -> Unit,
@@ -38,12 +38,7 @@ fun AboutScreen(
             Text(stringResource(R.string.app_name), style = SS.type.display, color = SS.colors.ink)
             Text(stringResource(R.string.about_version, versionName), style = SS.type.meta, color = SS.colors.inkMuted)
         }
-        SettingRow(
-            stringResource(R.string.about_made_by),
-            stringResource(R.string.about_site),
-            value = "",
-            onClick = onOpenSite,
-        )
+        SettingRow(stringResource(R.string.about_made_by))
         SettingRow(stringResource(R.string.about_licence))
         SettingRow(
             stringResource(R.string.about_source),

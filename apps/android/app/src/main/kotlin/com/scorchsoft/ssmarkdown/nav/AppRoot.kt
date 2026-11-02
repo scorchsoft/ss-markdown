@@ -102,7 +102,7 @@ private fun ScreenOver(
         }
 
         AppScreen.About -> {
-            AboutScreen(versionName, platform::openSite, platform::openSource, {
+            AboutScreen(versionName, platform::openSource, {
                 graph.screens.push(AppScreen.Licences)
             }, { graph.screens.pop() })
         }

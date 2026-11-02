@@ -95,7 +95,7 @@ class OtherScreensRenderTest(
     @Test
     fun about() {
         var openedSource = 0
-        rule.setContent { Themed(dark) { AboutScreen("0.1.0", {}, { openedSource++ }, {}, {}) } }
+        rule.setContent { Themed(dark) { AboutScreen("0.1.0", { openedSource++ }, {}, {}) } }
         rule.onNodeWithText("Made by Scorchsoft").assertIsDisplayed()
         rule.onNodeWithText("github.com/scorchsoft/ss-markdown").assertIsDisplayed()
         rule.onNodeWithText("Source code on GitHub").performClick()

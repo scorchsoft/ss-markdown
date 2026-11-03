@@ -459,4 +459,6 @@ enum class MessageKind {
     PictureNotImage,
     PictureFailed,
     PicturesStayedWithDraft,
+    PictureInsertStopped,
+    PictureCopiedNotLinked,
 }

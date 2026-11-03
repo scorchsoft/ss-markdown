@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.editor
 
 import com.scorchsoft.ssmarkdown.fixtures.EditorFixture
+import com.scorchsoft.ssmarkdown.fixtures.QueuedDispatcher
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.media.PictureAccess
 import com.scorchsoft.ssmarkdown.media.Placement
@@ -51,7 +52,10 @@ class InsertImageTest {
         override fun grantFolder(
             document: String,
             tree: String,
-        ): Boolean = grantAnswer.also { calls += "grant $tree" }
+        ): Boolean = grantAnswer.also { calls += "grant $tree" }.also { grantedFor += document }
+
+        /** The document each grant was asked for. */
+        val grantedFor = ArrayList<String>()
     }
 
     private val access = ScriptedAccess()
@@ -188,5 +192,120 @@ class InsertImageTest {
         f.vm.pictures.onImagePicked("content://x/document/d")
         assertEquals("Read the ![d](d.png) today\n", f.text())
         assertTrue(page.last() is HostMessage.Edit || page.any { it is HostMessage.Edit })
+    }
+
+    // Insert image across a file switch (edge-cases): every step belongs to the document it began in.
+
+    private val io = QueuedDispatcher()
+
+    /** p.md on screen and q.md beside it, with disk work queued for the test to run. */
+    private fun switching(): EditorFixture {
+        val f = EditorFixture(temp.root, UnconfinedTestDispatcher(), io = io, pictureAccess = access)
+        f.file("q.md", "other\n")
+        f.vm.openDocument(f.file("p.md", "x\n"))
+        io.drain()
+        return f
+    }
+
+    private fun EditorFixture.show(name: String) {
+        vm.openDocument(EditorFixture.SCHEME + name)
+        io.drain()
+        assertEquals(
+            EditorFixture.SCHEME + name,
+            vm.active
+                ?.open
+                ?.uri
+                ?.value,
+        )
+    }
+
+    private fun EditorFixture.messageKind() =
+        vm.uiState.value.message
+            ?.kind
+
+    /** p.md showing "Copy into this file's folder" for a picture outside it. */
+    private fun EditorFixture.offeredACopy() {
+        vm.onAction(EditorAction.StripKeyTapped(StripKey.Image))
+        access.placed = Placement.Outside
+        vm.pictures.onImagePicked("content://media/1")
+        io.drain()
+        assertEquals(EditorOverlay.CopyPicture("content://media/1"), vm.uiState.value.overlay)
+    }
+
+    @Test
+    fun `a copy that finishes after another file opened links nothing and says where the picture went`() {
+        val f = switching()
+        f.offeredACopy()
+        access.copies += Placement.Ready("images/1.png", "1")
+        f.vm.onAction(EditorAction.CopyPictureIn)
+        val copy = io.take() // Still writing the picture...
+        f.show("q.md") // ...when the user opens another file.
+        copy.run()
+        io.drain()
+        assertEquals("other\n", f.text())
+        assertEquals("x\n", f.disk("p.md"))
+        assertEquals(MessageKind.PictureCopiedNotLinked, f.messageKind())
+        assertEquals(
+            "images/1.png",
+            f.vm.uiState.value.message
+                ?.argument,
+        )
+    }
+
+    @Test
+    fun `a copy that finishes after leaving and coming back links nothing either`() {
+        val f = switching()
+        f.offeredACopy()
+        access.copies += Placement.Ready("images/1.png", "1")
+        f.vm.onAction(EditorAction.CopyPictureIn)
+        val copy = io.take()
+        f.show("q.md")
+        f.show("p.md")
+        copy.run()
+        io.drain()
+        assertEquals("x\n", f.text())
+        assertEquals(MessageKind.PictureCopiedNotLinked, f.messageKind())
+    }
+
+    @Test
+    fun `a picture looked up while another file opened never offers a copy on that file`() {
+        val f = switching()
+        f.vm.onAction(EditorAction.StripKeyTapped(StripKey.Image))
+        access.placed = Placement.Outside
+        f.vm.pictures.onImagePicked("content://media/1")
+        val lookup = io.take()
+        f.show("q.md")
+        lookup.run()
+        io.drain()
+        assertNull(f.vm.uiState.value.overlay)
+        assertEquals(MessageKind.PictureInsertStopped, f.messageKind())
+        assertEquals("other\n", f.text())
+    }
+
+    @Test
+    fun `the copy prompt goes away, with a word, when another file opens`() {
+        val f = switching()
+        f.offeredACopy()
+        f.show("q.md")
+        assertNull("no prompt that would do nothing on q.md", f.vm.uiState.value.overlay)
+        assertEquals(MessageKind.PictureInsertStopped, f.messageKind())
+        assertFalse(access.calls.any { it.startsWith("copy") })
+    }
+
+    @Test
+    fun `a folder granted after another file opened is for the first file, and nothing is copied`() {
+        val f = switching()
+        f.offeredACopy()
+        access.copies += Placement.NeedsFolder
+        f.vm.onAction(EditorAction.CopyPictureIn)
+        io.drain()
+        assertEquals(EditorEvent.PickPictureFolder("start:test:p.md"), f.events.last())
+        f.show("q.md")
+        f.vm.pictures.onFolderPicked("content://tree/notes")
+        io.drain()
+        assertEquals(listOf("test:p.md"), access.grantedFor)
+        assertEquals(1, access.calls.count { it.startsWith("copy") })
+        assertEquals("other\n", f.text())
+        assertEquals(MessageKind.PictureInsertStopped, f.messageKind())
     }
 }

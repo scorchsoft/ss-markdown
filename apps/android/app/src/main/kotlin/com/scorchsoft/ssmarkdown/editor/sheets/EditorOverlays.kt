@@ -265,6 +265,8 @@ private fun messageText(message: UserMessage): String =
         MessageKind.PictureNotImage -> stringResource(R.string.msg_picture_not_image)
         MessageKind.PictureFailed -> stringResource(R.string.msg_picture_failed)
         MessageKind.PicturesStayedWithDraft -> stringResource(R.string.msg_pictures_stayed)
+        MessageKind.PictureInsertStopped -> stringResource(R.string.msg_picture_insert_stopped)
+        MessageKind.PictureCopiedNotLinked -> stringResource(R.string.msg_picture_copied_not_linked, message.argument)
     }
 
 /** "This 180 MB file needs about 400 MB, and this phone allows 256 MB" in place of the editor. */

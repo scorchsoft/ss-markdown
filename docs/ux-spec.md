@@ -863,6 +863,13 @@ asks nothing), the pictures load at once and "Showing pictures from
 4. A draft copies into the drafts folder's own `images/`. **Save as** of
    a draft with pictures does not move them: "Saved. Its pictures stayed
    with the draft: insert them again here."
+5. Every step belongs to the document Insert image began in. If another
+   file opens (or the same one is opened afresh) before the picture is
+   linked, nothing is written into either: the copy prompt is taken away
+   and "Insert image stopped: another file opened" says so. A copy that
+   had already been made is named: "…The picture was copied to
+   images/cat.png beside the file you left." A folder chosen in the Allow
+   access picker is kept for the file it was asked for.
 
 ## Mermaid
 

@@ -29,16 +29,33 @@ class PictureController(
 ) {
     private val access get() = host.deps.pictureAccess
 
+    /**
+     * Which document a step belongs to: its URI and the binding it was
+     * shown in. Every switch is a new binding, so a flow begun in a file the
+     * user left (even one they have since come back to) never reaches the
+     * one on screen (edge-cases "Insert image across a file switch").
+     */
+    private data class Origin(
+        val document: String,
+        val binding: Int,
+    )
+
     /** Where the picture goes, in which document, while the picker is open. */
     private class Pending(
-        val document: String,
+        val origin: Origin,
         val selection: TextSelection?,
     )
 
     private var pending: Pending? = null
 
+    /** Counts the documents shown; see [Origin]. */
+    private var binding = 0
+
     /** A copy waiting for the folder grant it needs. */
-    private var copyAfterGrant: String? = null
+    private var copyAfterGrant: Pair<Origin, String>? = null
+
+    /** The document the folder picker was opened for. */
+    private var folderFor: Origin? = null
 
     /** ⋮ → Insert image…: at the page's selection while Preview has the caret, else the editor's. */
     fun insertHere() {
@@ -53,63 +70,105 @@ class PictureController(
     fun insert(selection: TextSelection?) {
         val doc = host.active ?: return
         doc.surface.flushComposing()
-        val uri = doc.open.uri.value
-        pending = Pending(uri, selection)
-        host.emit(EditorEvent.PickImage(access.initialFolder(uri)))
+        val origin = origin() ?: return
+        copyAfterGrant = null
+        pending = Pending(origin, selection)
+        host.emit(EditorEvent.PickImage(access.initialFolder(origin.document)))
+    }
+
+    /**
+     * Another document is now on screen (or the same one shown afresh).
+     * Anything Insert image was doing belongs to the one before: a prompt
+     * still showing is taken away with a word, and every later step finds
+     * its [Origin] out of date and stops.
+     */
+    fun onDocumentSwitched() {
+        binding++
+        if (host.state.overlay is EditorOverlay.CopyPicture) {
+            pending = null
+            host.update { it.copy(overlay = null) }
+            host.message(MessageKind.PictureInsertStopped)
+        }
     }
 
     /** The picker answered; null when cancelled. */
     fun onImagePicked(picked: String?) {
-        val wanted = pending
-        if (picked == null || wanted == null || wanted.document != documentUri()) {
-            if (picked == null) pending = null
+        val wanted = pending ?: return
+        if (picked == null) {
+            pending = null
             return
         }
+        if (!isCurrent(wanted.origin)) return stopped()
         host.deps.scope.launch {
-            val placement = withContext(host.deps.io) { access.place(wanted.document, picked) }
-            onPlacement(placement, picked)
+            val placement = withContext(host.deps.io) { access.place(wanted.origin.document, picked) }
+            // Linking an existing picture writes nothing, so a switch while it was looked up just stops.
+            if (!isCurrent(wanted.origin)) return@launch stopped()
+            onPlacement(wanted.origin, placement, picked)
         }
     }
 
     /** "Copy into this file's folder" on the prompt. */
     fun copyIn(picked: String) {
-        val document = pending?.document ?: return
-        if (document != documentUri()) return
+        val origin = pending?.origin ?: return
+        if (!isCurrent(origin)) return stopped()
         host.deps.scope.launch {
-            val placement = withContext(host.deps.io) { access.copyIn(document, picked) }
-            onPlacement(placement, picked)
+            val placement = withContext(host.deps.io) { access.copyIn(origin.document, picked) }
+            if (isCurrent(origin)) {
+                onPlacement(origin, placement, picked)
+            } else if (placement is Placement.Ready) {
+                // The copy is on disk but its link has nowhere to go: say where the picture went.
+                pending = null
+                host.message(MessageKind.PictureCopiedNotLinked, placement.path)
+            } else {
+                stopped()
+            }
         }
     }
 
     /** "Allow access" on a placeholder, or ⋮ → Show pictures: the folder picker, in the document's folder. */
     fun askForFolder() {
-        val uri = documentUri() ?: return
-        host.emit(EditorEvent.PickPictureFolder(access.initialFolder(uri)))
+        val origin = origin() ?: return
+        copyAfterGrant = null
+        requestFolder(origin)
+    }
+
+    private fun requestFolder(origin: Origin) {
+        folderFor = origin
+        host.emit(EditorEvent.PickPictureFolder(access.initialFolder(origin.document)))
     }
 
     /**
      * The folder picker answered (null when cancelled). The folder is used
-     * only if it holds the document; an unrelated one is explained and its
-     * grant given back.
+     * only if it holds the document it was asked for; an unrelated one is
+     * explained and its grant given back. A copy waiting for it goes ahead
+     * only if that document is still the one on screen.
      */
     fun onFolderPicked(tree: String?) {
-        val document = documentUri()
+        // No request on record (the process was recreated while the picker was up): it is for the file on screen.
+        val asked = folderFor ?: origin()
         val waiting = copyAfterGrant
+        folderFor = null
         copyAfterGrant = null
-        if (tree == null || document == null) return
+        if (tree == null || asked == null) {
+            if (waiting != null) pending = null
+            return
+        }
         host.deps.scope.launch {
-            val granted = withContext(host.deps.io) { access.grantFolder(document, tree) }
-            if (document != documentUri()) return@launch
+            // The grant is for the folder of the document it was asked for, wherever the user is now.
+            val granted = withContext(host.deps.io) { access.grantFolder(asked.document, tree) }
+            if (!isCurrent(asked)) {
+                if (waiting != null) stopped()
+                return@launch
+            }
             if (!granted) {
+                if (waiting != null) pending = null
                 host.message(MessageKind.PictureFolderUnrelated)
                 return@launch
             }
             host.update { it.copy(preview = it.preview.copy(picturesNeedFolder = false)) }
             host.preview.view?.refreshImages()
-            if (waiting !=
-                null
-            ) {
-                copyIn(waiting)
+            if (waiting != null && waiting.first == asked) {
+                copyIn(waiting.second)
             } else {
                 host.message(MessageKind.PictureFolderGranted, FolderNames.nameOf(tree))
             }
@@ -132,6 +191,7 @@ class PictureController(
     }
 
     private fun onPlacement(
+        origin: Origin,
         placement: Placement,
         picked: String,
     ) {
@@ -146,8 +206,8 @@ class PictureController(
             }
 
             Placement.NeedsFolder -> {
-                copyAfterGrant = picked
-                askForFolder()
+                copyAfterGrant = origin to picked
+                requestFolder(origin)
             }
 
             Placement.TooLarge -> {
@@ -164,6 +224,9 @@ class PictureController(
         }
     }
 
+    /** Insert image gave up because another file opened; nothing is written into either document. */
+    private fun stopped() = done(MessageKind.PictureInsertStopped)
+
     private fun done(kind: MessageKind) {
         pending = null
         host.message(kind)
@@ -173,7 +236,7 @@ class PictureController(
     private fun insertMarkup(placement: Placement.Ready) {
         val doc = host.active ?: return
         val wanted = pending ?: return
-        if (doc.open.uri.value != wanted.document) return
+        if (!isCurrent(wanted.origin)) return
         val surface = doc.surface
         surface.flushComposing()
         val text = doc.text.snapshot()
@@ -187,9 +250,12 @@ class PictureController(
         host.refresh()
     }
 
-    private fun documentUri(): String? =
+    private fun origin(): Origin? =
         host.active
             ?.open
             ?.uri
             ?.value
+            ?.let { Origin(it, binding) }
+
+    private fun isCurrent(origin: Origin): Boolean = origin == origin()
 }

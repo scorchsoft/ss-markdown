@@ -452,6 +452,8 @@ class EditorViewModel(
             deps.scope.launch { deps.store.close(uri) }
         }
         previous?.release()
+        // Insert image's steps belong to the document they began in (edge-cases "Insert image across a file switch").
+        if (switching) pictures.onDocumentSwitched()
         val document = ActiveDocument(open, this, DocumentThreads(deps.outlineWork, deps.scope))
         activeFlow.value = document
         val uri = open.uri.value

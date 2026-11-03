@@ -44,7 +44,7 @@ internal class KeyRouter(
 
     /** A typed char; a closer is offered to the host first (it may take an indent unit off a code line). */
     private fun type(text: String) {
-        if (text in CLOSERS && listener()?.onCloser(text) == true) return
+        if (text in CLOSERS && listener()?.onEditKey(EditKey.Closer(text)) == true) return
         session.typeKey(text)
     }
 
@@ -60,7 +60,7 @@ internal class KeyRouter(
     }
 }
 
-/** The chars offered to [EditorListener.onCloser]. */
+/** The chars offered to [EditKey.Closer]. */
 internal val CLOSERS = setOf("}", "]", ")")
 
 /**

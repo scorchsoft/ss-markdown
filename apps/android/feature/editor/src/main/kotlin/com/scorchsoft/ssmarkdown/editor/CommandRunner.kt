@@ -70,7 +70,7 @@ internal class CommandRunner(
             EditorCommand.BACKSPACE -> {
                 applied {
                     if (session.hasSelection ||
-                        view.listener?.onBackspace() != true
+                        view.listener?.onEditKey(EditKey.Backspace) != true
                     ) {
                         session.pressBackspace()
                     }
@@ -82,7 +82,7 @@ internal class CommandRunner(
             }
 
             EditorCommand.ENTER -> {
-                applied { if (view.listener?.onEnter() != true) session.pressEnter() }
+                applied { if (view.listener?.onEditKey(EditKey.Enter) != true) session.pressEnter() }
             }
 
             else -> {

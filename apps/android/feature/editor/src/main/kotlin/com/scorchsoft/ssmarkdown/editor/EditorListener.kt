@@ -78,25 +78,29 @@ interface EditorListener {
     fun admitPaste(chars: Int): Boolean = true
 
     /**
-     * Enter, from a key or a keyboard's committed line break, with no word
-     * being composed. Return true when the host made the edit itself (list
-     * and quote continuation, docs/ux-spec.md "Enter in a list"); false
-     * types a plain line break.
-     */
-    fun onEnter(): Boolean = false
-
-    /**
-     * Backspace with a caret, from a key or a keyboard's one-char delete,
+     * A key whose effect depends on the Markdown around the caret ([EditKey]),
      * with no word being composed. Return true when the host made the edit
-     * itself (a list item's marker comes off, docs/ux-spec.md "Enter in a
-     * list"); false deletes as usual.
+     * itself; false lets the view type a line break, delete or type as usual.
      */
-    fun onBackspace(): Boolean = false
+    fun onEditKey(key: EditKey): Boolean = false
+}
+
+/** The keys offered to [EditorListener.onEditKey]. */
+sealed interface EditKey {
+    /**
+     * Enter, from a key or a keyboard's committed line break: list and quote
+     * continuation (docs/ux-spec.md "Enter in a list").
+     */
+    data object Enter : EditKey
 
     /**
-     * A `}`, `]` or `)` typed with no word being composed. Return true when
-     * the host typed it itself (first on a code line it takes one indent
-     * unit off); false types it as usual.
+     * Backspace, from a key or a keyboard's one-char delete: at the start of
+     * a list item's text the marker comes off (docs/ux-spec.md "Enter in a list").
      */
-    fun onCloser(text: String): Boolean = false
+    data object Backspace : EditKey
+
+    /** A `}`, `]` or `)` typed: first on a code line it takes one indent unit off. */
+    data class Closer(
+        val text: String,
+    ) : EditKey
 }

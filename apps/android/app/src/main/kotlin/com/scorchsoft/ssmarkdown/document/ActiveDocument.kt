@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.document
 
 import android.view.KeyEvent
+import com.scorchsoft.ssmarkdown.editor.EditKey
 import com.scorchsoft.ssmarkdown.editor.EditorListener
 import com.scorchsoft.ssmarkdown.editor.LineChange
 import com.scorchsoft.ssmarkdown.editor.MarkdownCodeView
@@ -276,10 +277,10 @@ class ActiveDocument(
 
     /**
      * Enter in the Code view: Code's own `Newline`, the command Preview runs
-     * for `listExit`, so a list continues and an empty item ends it in both
+     * for `enter`, so a list continues and an empty item ends it in both
      * views alike (ux-spec "Enter in a list"; edge-cases "No way out of a list").
      */
-    override fun onEnter(): Boolean {
+    private fun enter(): Boolean {
         val codeView = view?.takeIf { it.session.document === text } ?: return false
         val surface = CodeViewSurface(codeView)
         val selection = surface.selection
@@ -294,15 +295,18 @@ class ActiveDocument(
     }
 
     /**
-     * Backspace in the Code view: at the very start of a list item's text the
+     * Enter ([enter]). Backspace in the Code view: at the very start of a list item's text the
      * marker comes off (Code's `BackspaceAtItemStart`, the command Preview
-     * runs for `backspace`); anywhere else the view deletes as usual.
+     * runs for `backspace`). A closer typed first on a code line takes one
+     * indent unit off it (`EditCommand.Type`). Anywhere else the view
+     * deletes or types as usual.
      */
-    override fun onBackspace(): Boolean = runIfChanged(EditCommand.BackspaceAtItemStart)
-
-    /** A closer typed first on a code line takes one indent unit off it (`EditCommand.Type`). */
-    override fun onCloser(text: String): Boolean =
-        runIfChanged(EditCommand.Type(text), onlyWhenChangedDifferently = text)
+    override fun onEditKey(key: EditKey): Boolean =
+        when (key) {
+            EditKey.Enter -> enter()
+            EditKey.Backspace -> runIfChanged(EditCommand.BackspaceAtItemStart)
+            is EditKey.Closer -> runIfChanged(EditCommand.Type(key.text), onlyWhenChangedDifferently = key.text)
+        }
 
     /**
      * Runs [command] at the caret and applies it unless it changed nothing,
@@ -312,23 +316,17 @@ class ActiveDocument(
         command: EditCommand,
         onlyWhenChangedDifferently: String? = null,
     ): Boolean {
-        val codeView = codeView() ?: return false
-        val surface = CodeViewSurface(codeView)
+        val surface = codeView()?.let(::CodeViewSurface) ?: return false
         val selection = surface.selection
-        if (!selection.isCaret) return false
-        val line = text.text.positionAt(selection.start).line
-        if (text.text.lineLength(line) > MAX_ENTER_LINE) return false
         val snapshot = text.snapshot()
-        if (selection.end > snapshot.length) return false
-        val result = command.apply(snapshot, selection, style, surface.fences)
-        val plain =
-            onlyWhenChangedDifferently != null &&
-                result.ops.singleOrNull()?.let {
-                    it.deleted.isEmpty() &&
-                        it.inserted.toString() == onlyWhenChangedDifferently
-                } ==
-                true
-        if (result.isNoOp || plain) return false
+        // A caret on a line the command can read whole (a minified one-line file just gets the key).
+        val usable =
+            selection.isCaret && selection.end <= snapshot.length &&
+                text.text.lineLength(text.text.positionAt(selection.start).line) <= MAX_ENTER_LINE
+        val result = if (usable) command.apply(snapshot, selection, style, surface.fences) else null
+        val op = result?.ops?.singleOrNull()
+        val plain = op != null && op.deleted.isEmpty() && op.inserted.toString() == onlyWhenChangedDifferently
+        if (result == null || result.isNoOp || plain) return false
         surface.apply(result.ops, result.selection)
         return true
     }

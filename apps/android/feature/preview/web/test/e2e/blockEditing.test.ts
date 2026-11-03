@@ -81,7 +81,7 @@ const KEYS: Readonly<Record<string, string>> = {
 
 let h: Harness;
 let page: Page;
-let fresh: Page;
+let fresh: Page | undefined;
 let rev = 0;
 beforeAll(async () => {
     h = await startHarness();
@@ -90,11 +90,11 @@ afterAll(async () => h.close());
 // Pages per row: one page loaded a hundred times over crashed Chromium.
 beforeEach(async () => {
     page = await openPreview(h);
-    fresh = await openPreview(h);
 }, 60_000);
 afterEach(async () => {
     await page.close();
-    await fresh.close();
+    await fresh?.close();
+    fresh = undefined;
 });
 
 /** Polls [read] until it gives [want] or [ms] pass, and returns the last value (a busy machine renders late). */
@@ -123,6 +123,9 @@ async function run(row: Row): Promise<{ source: string; problems: string[] }> {
     const problems: string[] = [];
     rev += 10;
     await loadMarkdown(page, before.text, rev);
+    // The page being edited has focus: a page opened after it (the fresh one, below) is only opened once
+    // this row's keys are done, so no key or focus ever goes to the wrong page.
+    await page.bringToFront();
     await page.evaluate(() => ((window as unknown as { __autoAck: boolean }).__autoAck = false));
     await send(page, { type: "select", rev, from: before.from, to: before.to });
     await page.waitForFunction(() => document.querySelector(".editing") !== null, undefined, { timeout: 10_000 });
@@ -178,9 +181,13 @@ describe("block-editing matrix in Preview", () => {
             expect(source).toBe(after.text);
             // The screen is what a fresh load of the result shows.
             rev++;
-            await loadMarkdown(fresh, after.text, rev);
+            const reference = await openPreview(h);
+            fresh = reference;
+            await loadMarkdown(reference, after.text, rev);
+            await page.bringToFront();
             // A fresh page can show nothing for a moment after its first render on a busy machine.
-            const want = (await screenText(fresh)) || (await settle(() => screenText(fresh), "(nothing yet)", 1500));
+            const want =
+                (await screenText(reference)) || (await settle(() => screenText(reference), "(nothing yet)", 1500));
             expect(await settle(() => screenText(page), want)).toBe(want);
             // The caret is where the row puts it: typing lands there.
             if (after.from === after.to) {

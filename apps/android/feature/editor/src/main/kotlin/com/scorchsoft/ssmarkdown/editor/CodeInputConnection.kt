@@ -79,7 +79,7 @@ class CodeInputConnection internal constructor(
                     onKey(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
                 }
 
-                isCloser(text, newCursorPosition) && listener()?.onCloser(text.toString()) == true -> {
+                isCloser(text, newCursorPosition) && listener()?.onEditKey(EditKey.Closer(text.toString())) == true -> {
                     Unit
                 }
 
@@ -127,7 +127,7 @@ class CodeInputConnection internal constructor(
             // A keyboard's Backspace: at the start of a list item's text the host takes the marker off.
             val backspace = beforeLength == 1 && afterLength == 0 && !session.hasSelection && !session.isComposing
             if (!backspace ||
-                listener()?.onBackspace() != true
+                listener()?.onEditKey(EditKey.Backspace) != true
             ) {
                 session.deleteSurroundingText(beforeLength, afterLength)
             }

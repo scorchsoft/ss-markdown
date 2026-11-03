@@ -57,29 +57,25 @@ object PreviewStripKeys {
             // Heading toggles: a heading becomes a paragraph, anything else a second-level heading.
             StripKey.Heading, StripKey.BlockStyle -> if (inHeading) FormatAction.PARAGRAPH else FormatAction.HEADING_2
 
-            StripKey.Bold -> FormatAction.BOLD
-
-            StripKey.Italic -> FormatAction.ITALIC
-
-            StripKey.Code -> FormatAction.CODE
-
-            StripKey.Link -> FormatAction.LINK
-
-            // The page answers with its selection; the host opens the picker (PictureController).
-            StripKey.Image -> FormatAction.IMAGE
-
-            StripKey.BulletList -> FormatAction.BULLET
-
-            StripKey.NumberedList -> FormatAction.NUMBERED
-
-            StripKey.Indent -> FormatAction.INDENT
-
-            StripKey.Outdent -> FormatAction.OUTDENT
-
-            StripKey.Task -> FormatAction.TASK
-
-            StripKey.Quote -> FormatAction.QUOTE
-
-            else -> null
+            else -> keyActions[key]
         }
+
+    /**
+     * The keys that always send one action. Image's page answers with its
+     * selection, and the host opens the picker (PictureController).
+     */
+    private val keyActions: Map<StripKey, FormatAction> =
+        mapOf(
+            StripKey.Bold to FormatAction.BOLD,
+            StripKey.Italic to FormatAction.ITALIC,
+            StripKey.Code to FormatAction.CODE,
+            StripKey.Link to FormatAction.LINK,
+            StripKey.Image to FormatAction.IMAGE,
+            StripKey.BulletList to FormatAction.BULLET,
+            StripKey.NumberedList to FormatAction.NUMBERED,
+            StripKey.Indent to FormatAction.INDENT,
+            StripKey.Outdent to FormatAction.OUTDENT,
+            StripKey.Task to FormatAction.TASK,
+            StripKey.Quote to FormatAction.QUOTE,
+        )
 }

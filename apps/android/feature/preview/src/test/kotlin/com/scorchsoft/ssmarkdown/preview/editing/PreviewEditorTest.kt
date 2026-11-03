@@ -75,7 +75,8 @@ class PreviewEditorTest {
         val cases =
             listOf(
                 Triple("- one\n- ", 8, "- one\n\n"),
-                Triple("1. one\n2. [ ] \n3. two", 14, "1. one\n\n\n1. two"),
+                // The rest of a numbered list counts on after a blank line (a list from 2 cannot follow a paragraph line).
+                Triple("1. one\n2. [ ] \n3. two", 14, "1. one\n\n\n\n2. two"),
                 Triple("- one\n  - ", 10, "- one\n- "),
                 Triple("> - one\n> - ", 12, "> - one\n>\n> "),
             )

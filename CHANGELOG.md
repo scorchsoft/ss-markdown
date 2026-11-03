@@ -28,6 +28,10 @@ release may change behaviour.
   open file at once, and the line you are typing on stays where it is on
   screen. Split's Code pane keeps its numbers.
 
+### Changed
+
+- New app icon.
+
 ### Fixed
 
 - In the Code view, the line number of a row partly scrolled off the top

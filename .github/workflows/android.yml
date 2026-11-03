@@ -228,7 +228,7 @@ jobs:
           arch: x86_64
           target: default
           disable-animations: true
-          script: gradle --no-daemon -p apps/android :app:connectedDebugAndroidTest
+          script: gradle --no-daemon -p apps/android :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.scorchsoft.ssmarkdown.SplitKeyboardTest
 
       # Rubric #1's kill test on a real Android: 50 SIGKILLs of the app
       # while typing through its InputConnection, each relaunch checked

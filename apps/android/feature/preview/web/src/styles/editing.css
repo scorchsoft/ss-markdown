@@ -5,6 +5,14 @@
     border-radius: 4px;
     caret-color: var(--text);
 }
+/* Code is an inline element inside its block: a tint on it would paint a box behind each line
+   fragment. The block takes the tint instead, so a code block keeps one background. */
+pre.code-block > code.editing {
+    background: none;
+}
+pre.code-block:has(> code.editing) {
+    background: color-mix(in srgb, var(--text) 5%, var(--code-bg));
+}
 .placeholder {
     min-height: 1.6em;
 }

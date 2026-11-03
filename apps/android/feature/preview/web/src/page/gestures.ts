@@ -137,7 +137,7 @@ export class Gestures {
             editor.end();
             return false;
         }
-        const block = editor.editableBlock(target);
+        const block = editor.blockAt(target, e.clientX, e.clientY);
         if (block) {
             editor.begin(block, e.clientX, e.clientY);
             return false;

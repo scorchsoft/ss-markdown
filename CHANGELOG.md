@@ -33,6 +33,15 @@ release may change behaviour.
 - In the Code view, the line number of a row partly scrolled off the top
   could be drawn over the top bar, across the file's title. The numbers
   are now clipped to the Code view, like the text.
+- Preview: a tap in the space right of a line now puts the caret at the
+  end of that line, in a code block too, instead of on the line above or
+  nowhere. A tap left of a line, below a block's last line or between two
+  blocks goes to the nearest place you can type, and a wrapped line keeps
+  the caret at its wrap point.
+- Preview: a code block you are editing has one background again, not a
+  darker box behind each line.
+- Code: a tap below the last line puts the caret at the end of the
+  document.
 - An edit made while a large paste was finishing (Find's Replace) could
   land a few characters off when you had typed during the paste; it now
   lands where it was aimed, and an edit whose text has moved is refused

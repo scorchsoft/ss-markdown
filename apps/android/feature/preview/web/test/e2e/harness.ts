@@ -65,8 +65,12 @@ export async function startHarness(): Promise<Harness> {
  * page sends with the next revision; set `window.__autoAck = false` to hold
  * acks back and play Kotlin by hand.
  */
-export async function openPreview(h: Harness, viewport = { width: 412, height: 860 }): Promise<Page> {
-    const page = await h.browser.newPage({ viewport });
+export async function openPreview(
+    h: Harness,
+    viewport = { width: 412, height: 860 },
+    device: { deviceScaleFactor?: number; hasTouch?: boolean } = {},
+): Promise<Page> {
+    const page = await h.browser.newPage({ viewport, ...device });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     (page as Page & { errors?: string[] }).errors = errors;

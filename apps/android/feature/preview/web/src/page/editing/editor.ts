@@ -22,6 +22,7 @@ import {
     type CellAddress,
 } from "./tableEditor";
 import { TableToolbar } from "./tableToolbar";
+import { blockNear, caretAt } from "./tapPoint";
 
 /** Blocks that take a caret. Anything inside a read-only block never does. */
 export const EDITABLE_BLOCK = "p, h1, h2, h3, h4, h5, h6, li, td, th, dt, dd, pre.code-block > code[data-s]";
@@ -66,17 +67,22 @@ export class Editor implements SessionHost {
         return hasRun || block.matches("td, th") ? block : null;
     }
 
+    /** The block a tap on [target] at ([x], [y]) edits, including one beside it (tapPoint.ts). */
+    blockAt(target: Element, x: number, y: number): HTMLElement | null {
+        return blockNear(target, x, y, (el) => this.editableBlock(el));
+    }
+
     /** Starts editing [block] with the caret at the tap point. */
     begin(block: HTMLElement, x: number, y: number): void {
-        if (this.session?.block === block) return;
+        if (this.session?.block === block) {
+            caretAt(block, x, y); // a tap in the padding of the block being edited
+            return;
+        }
         this.end();
         const view = this.viewOf(block);
         if (!view) return;
         this.startSession(block, view);
-        const caret = document.caretRangeFromPoint?.(x, y);
-        if (caret && block.contains(caret.startContainer)) {
-            window.getSelection()?.collapse(caret.startContainer, caret.startOffset);
-        }
+        caretAt(block, x, y);
         this.ensureCellRun(block);
         this.updateToolbar();
         this.announce(true);

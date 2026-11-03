@@ -465,11 +465,11 @@ The rules every row inherits, so they are not repeated in each one:
 
 | ID | Situation | Action | Code | Preview | Source | P | Status |
 |---|---|---|---|---|---|---|---|
-| EB-CARET-01 | Short line | Tap to the right of its end | Caret at the line's end | Caret at the end of that block's line | known case | P1 | untested |
-| EB-CARET-02 | Wrapped line | Tap to the right of a visual row that is not the last | Caret at the end of that visual row (before the wrap), not at the start of the next | n/a | brainstorm, [AND-SEL] | P1 | untested |
-| EB-CARET-03 | Empty line between two paragraphs | Tap it | Caret on the empty line | Taps on the gap between blocks place the caret at the end of the nearer block above, or create a paragraph there (decision D12) | brainstorm | P1 | untested |
+| EB-CARET-01 | Short line | Tap to the right of its end | Caret at the line's end | Caret at the end of that block's line | known case | P1 | `tapCaret.test.ts`, `TapCaretTest` |
+| EB-CARET-02 | Wrapped line | Tap to the right of a visual row that is not the last | Caret at the end of that visual row (before the wrap), not at the start of the next | n/a | brainstorm, [AND-SEL] | P1 | `tapCaret.test.ts`, `TapCaretTest` |
+| EB-CARET-03 | Empty line between two paragraphs | Tap it | Caret on the empty line | Taps on the gap between blocks place the caret at the end of the nearer block above, or create a paragraph there (decision D12) | brainstorm | P1 | `tapCaret.test.ts` (gap cells), `TapCaretTest` |
 | EB-CARET-04 | Below the last line | Tap | Caret at the document's end | Caret at the end of the last editable block; a tap below a final table, code block or diagram creates a paragraph there | [TT] (exitOnArrowDown), brainstorm | P1 | untested |
-| EB-CARET-05 | Left of a list item's text (on the marker) | Tap | Caret before or after the marker by the nearest edge | Caret at the item text's start | brainstorm | P2 | untested |
+| EB-CARET-05 | Left of a list item's text (on the marker) | Tap | Caret before or after the marker by the nearest edge | Caret at the item text's start | brainstorm | P2 | `tapCaret.test.ts` (left of the start), `TapCaretTest` |
 | EB-CARET-06 | Caret at a wrap point | Type | Typed letter appears where the caret was drawn | same | brainstorm | P2 | untested |
 | EB-CARET-07 | Arrow up/down across lines of different length | Arrow keys | Keeps the goal column (x) across short lines | same | [AND-KB] | P2 | untested |
 | EB-CARET-08 | Typing at the bottom of the screen | Type | The caret stays above the keyboard and the strip | same | [SSM] R8 | P1 | untested |

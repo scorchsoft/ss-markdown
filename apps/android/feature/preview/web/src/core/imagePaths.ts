@@ -15,20 +15,26 @@ export const DOC_PREFIX = "/doc/";
 
 /** Counts the page's loads; a picture's URL carries it ([docSrc]). */
 let loads = 0;
+/** The binding (epoch) of the document loaded last; a picture's URL carries it too. */
+let epoch = 0;
 
-/** Another document (or the same one afresh) is loading: its pictures are fetched anew. */
-export function nextLoad(): void {
+/** Another document (or the same one afresh, [loadEpoch] its binding) is loading: its pictures are fetched anew. */
+export function nextLoad(loadEpoch = 0): void {
     loads++;
+    epoch = loadEpoch;
 }
 
 /**
  * [url] (a `/doc/` URL) as the page loads it: tagged with the current load,
  * because the page keeps every picture it drew by URL and two documents in
  * different folders can both say `img/a.png`; untagged, the next one showed
- * the last one's picture. The host ignores the query.
+ * the last one's picture. It also names the document's binding (`e`): the
+ * host serves a picture only for the document it gave the page last, so a
+ * request still in flight across a switch is never answered from the next
+ * document's folder.
  */
 export function docSrc(url: string, retry = 0): string {
-    return `${url.replace(/[?#][\s\S]*$/, "")}?d=${loads}${retry > 0 ? `&r=${retry}` : ""}`;
+    return `${url.replace(/[?#][\s\S]*$/, "")}?d=${loads}&e=${epoch}${retry > 0 ? `&r=${retry}` : ""}`;
 }
 
 export type ImageTarget =

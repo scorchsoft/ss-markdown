@@ -85,6 +85,9 @@ class PreviewView
         private var backgroundColour = Color.WHITE
         private var settings = PreviewSettings()
         private var topLine = 0
+
+        /** The binding of the document the page was given last: only its pictures are served. */
+        @Volatile private var pageEpoch = 0
         private val printing: PrintSession =
             PrintSession(
                 sendToPage = ::send,
@@ -110,7 +113,10 @@ class PreviewView
         fun send(message: HostMessage) {
             // The page is about to hold a document (another one, or the same one afresh): anything
             // asked of the page it holds now must not be answered from the next one.
-            if (message is HostMessage.Load) abandonPageRequests()
+            if (message is HostMessage.Load) {
+                abandonPageRequests()
+                pageEpoch = message.epoch
+            }
             ensureWebView()
             refreshTrace.onSent(message)
             channel.send(message)
@@ -264,6 +270,7 @@ class PreviewView
                     onRendererGone = { didCrash ->
                         recover(recovery.onRendererGone(SystemClock.elapsedRealtime(), didCrash))
                     },
+                    pageEpoch = { pageEpoch },
                 )
             val view = PreviewWebViews.create(context, backgroundColour, client)
             addView(view, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -293,7 +300,10 @@ class PreviewView
         private fun rebuild() {
             release()
             ensureWebView()
-            documentSource?.snapshot()?.let { channel.send(HostMessage.Load(it.rev, it.text, topLine, it.epoch)) }
+            documentSource?.snapshot()?.let {
+                pageEpoch = it.epoch
+                channel.send(HostMessage.Load(it.rev, it.text, topLine, it.epoch))
+            }
         }
 
         private companion object {

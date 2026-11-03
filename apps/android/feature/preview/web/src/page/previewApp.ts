@@ -118,7 +118,7 @@ export class PreviewApp {
                 // Relative pictures belong to the document: another one's statuses do not apply,
                 // and another one's picture of the same path is not this one's.
                 this.images.reset();
-                nextLoad();
+                nextLoad(m.epoch ?? 0);
                 this.renderStarted = performance.now();
                 this.anchorLine = m.anchorLine ?? null;
                 this.find.clear();

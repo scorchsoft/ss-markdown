@@ -1,5 +1,7 @@
 package com.scorchsoft.ssmarkdown.preview
 
+import android.net.Uri
+import androidx.test.core.app.ApplicationProvider
 import com.scorchsoft.ssmarkdown.preview.bridge.BridgeCodec
 import com.scorchsoft.ssmarkdown.preview.bridge.PageMessage
 import org.junit.Assert.assertEquals
@@ -51,6 +53,30 @@ class DocumentPathHandlerTest {
         assertEquals(listOf("../shared/a%20b.png"), asked)
         assertNull(handler.handle("0/notes.txt"))
         assertNull(handler.handle("../a.png"))
+        assertEquals(1, asked.size)
+    }
+
+    @Test
+    fun `a picture asked for by a page that held another document is not served from this one`() {
+        val asked = ArrayList<String>()
+        val resolver =
+            DocumentResourceResolver { path ->
+                asked += path
+                ByteArrayInputStream(byteArrayOf(1))
+            }
+        var epoch = 2
+        val loader =
+            PreviewWebViews.assetLoader(ApplicationProvider.getApplicationContext(), { resolver }, { null })
+        val client = PreviewWebViewClient(loader, onPageFinished = {}, onRendererGone = {}, pageEpoch = { epoch })
+        val url = "${PreviewWebViewClient.ORIGIN}/doc/0/img/a.png?d=1&e=2"
+
+        assertEquals("image/png", client.intercept(Uri.parse(url)).mimeType)
+        assertEquals(listOf("img/a.png"), asked)
+
+        // The page is given document 3; a request A's page made just before is refused, not resolved against 3.
+        epoch = 3
+        assertEquals(404, client.intercept(Uri.parse(url)).statusCode)
+        assertEquals(404, client.intercept(Uri.parse("${PreviewWebViewClient.ORIGIN}/doc/0/img/a.png")).statusCode)
         assertEquals(1, asked.size)
     }
 

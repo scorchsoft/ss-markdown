@@ -56,6 +56,15 @@ only. The reasons for the big structural choices are in `docs/adr/`.
 - Build artefacts never go in git; hand-over APKs go to Drive, each with
   the `mapping.txt` of its build (the hand-over is obfuscated). The
   command and what it guarantees are in `apps/android/CLAUDE.md`.
+- **CI costs real money while the repository is private.** GitHub Actions
+  minutes are billed, and on 1–3 November 2026 careless CI (every commit
+  run twice, a stuck 90-minute emulator job on every push, several agents
+  pushing all day) cost about $150. So, until the repository is public:
+  prove every change locally first (`apps/android/tools/local-ci.sh`);
+  mark ordinary commits `[skip ci]`; ask Andrew before starting any CI run
+  he has not asked for, and say what it will run; one full run per
+  hand-over build. Never run the perf job or CI experiments without his
+  go-ahead. The CI levels are in `apps/android/CLAUDE.md`.
 - **Commits and pull requests carry no Claude or AI credit.** Commit
   messages end with the message itself: no `Co-Authored-By` line and no
   session link. PR titles and descriptions describe the change only: no

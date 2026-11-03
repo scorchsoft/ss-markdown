@@ -34,7 +34,8 @@ internal class CommandRunner(
     ): Boolean {
         if (command !in VERTICAL) goalX = Float.NaN
         // The toolbar and accessibility are not held by the paste's gate, as keys are: finish the paste first.
-        if (command in EDITS) view.completePaste()
+        // Undo and Redo do it themselves, holding the typing the paste held until after they act.
+        if (command in EDITS && command != EditorCommand.UNDO && command != EditorCommand.REDO) view.completePaste()
         return edit(command) ?: move(command, extend)
     }
 
@@ -42,8 +43,8 @@ internal class CommandRunner(
     private fun edit(command: EditorCommand): Boolean? {
         val session = view.session
         return when (command) {
-            EditorCommand.UNDO -> session.undo()
-            EditorCommand.REDO -> session.redo()
+            EditorCommand.UNDO -> view.undo()
+            EditorCommand.REDO -> view.redo()
             EditorCommand.CUT -> copy(cut = true)
             EditorCommand.COPY -> copy(cut = false)
             EditorCommand.PASTE -> paste()

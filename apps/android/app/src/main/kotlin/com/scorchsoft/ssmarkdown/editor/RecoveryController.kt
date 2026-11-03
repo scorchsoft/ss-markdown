@@ -208,6 +208,8 @@ class RecoveryController(
         discarded = null
         // Only into the document it came from: the message can outlive a switch to another file.
         val doc = host.active?.takeIf { it.open.uri.value == uri } ?: return
+        // A large paste still going in would split the whole-text op, and it would be refused: finish it first.
+        doc.surface.flushComposing()
         val current = doc.text.snapshot()
         doc.surface.apply(listOf(EditOp(0, current, text)), TextSelection.caret(0))
         host.refresh()

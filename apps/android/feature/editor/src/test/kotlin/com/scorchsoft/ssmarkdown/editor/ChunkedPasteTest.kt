@@ -227,4 +227,70 @@ class ChunkedPasteTest {
         assertFalse(view.isPasting)
         assertTrue("the end was reported", progress.last().done)
     }
+
+    /**
+     * edge-cases "Typing held during a paste": a host edit that did not
+     * finish the paste first (Find's Replace) finished it itself, and the
+     * typing the paste held went in with it; the op followed the paste but
+     * not that typing, so it landed as many chars early as were typed.
+     */
+    @Test
+    fun `a host edit mid-paste follows the typing the paste held`() {
+        view.document = TextDocument(PieceTree.of("head\ntail"))
+        view.setCaret(5)
+        val ic = view.onCreateInputConnection(EditorInfo())
+        val pasted = "p".repeat(ChunkedPaste.CHUNK_CHARS * 3)
+        view.pasteText(pasted)
+        frames.removeFirst().run()
+        ic.commitText("abc", 1)
+        val at = text.indexOf("tail")
+        view.applyEdits(listOf(EditOp(at, "tail", "TAIL")), at + 4, at + 4)
+        assertEquals("head\n" + pasted + "abcTAIL", text)
+    }
+
+    @Test
+    fun `an op whose deleted text is no longer at its offset is refused`() {
+        view.document = TextDocument(PieceTree.of("head\ntail"))
+        view.applyEdits(listOf(EditOp(0, "nope", "X")), 0, 0)
+        assertEquals("head\ntail", text)
+        view.applyEdits(listOf(EditOp(5, "tail", "T"), EditOp(0, "head", "H")), 0, 0)
+        assertEquals("H\nT", text)
+    }
+
+    /** edge-cases "Undo during a paste with typing held": Undo removed the typing, and the paste stayed. */
+    @Test
+    fun `undo mid-paste undoes the paste, not the typing it held`() {
+        view.document = TextDocument(PieceTree.of("head\ntail"))
+        view.setCaret(5)
+        val ic = view.onCreateInputConnection(EditorInfo())
+        view.pasteText("q".repeat(ChunkedPaste.CHUNK_CHARS * 3))
+        frames.removeFirst().run()
+        ic.commitText("abc", 1)
+
+        assertTrue(view.commands.run(EditorCommand.UNDO))
+        assertEquals("head\nabctail", text)
+        pumpFrames()
+        assertEquals("head\nabctail", text)
+    }
+
+    /**
+     * edge-cases "An edit while a paste's clip becomes text": the selection
+     * to paste over was kept as offsets, and a host edit before the first
+     * slice moved the text under them, so the paste deleted the wrong chars.
+     */
+    @Test
+    fun `a host edit before the first slice moves the range the paste replaces`() {
+        val prepare = ArrayDeque<Runnable>()
+        view.paste.background = Executor { prepare.addLast(it) }
+        view.document = TextDocument(PieceTree.of("keep REPLACE keep"))
+        view.session.setSelection(5, 12)
+        val pasted = "n".repeat(ChunkedPaste.CHUNK_CHARS * 2)
+        view.pasteText(pasted)
+        assertTrue(view.isPasting)
+
+        view.applyEdits(listOf(EditOp(0, "", "XX")), 0, 0)
+        prepare.removeFirst().run()
+        pumpFrames()
+        assertEquals("XXkeep $pasted keep", text)
+    }
 }

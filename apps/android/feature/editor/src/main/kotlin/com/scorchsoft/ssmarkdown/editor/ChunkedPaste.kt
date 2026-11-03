@@ -1,5 +1,7 @@
 package com.scorchsoft.ssmarkdown.editor
 
+import com.scorchsoft.ssmarkdown.text.EditObserver
+import com.scorchsoft.ssmarkdown.text.EditOp
 import com.scorchsoft.ssmarkdown.text.TextDocument
 import java.util.concurrent.Executor
 
@@ -25,9 +27,11 @@ data class PasteProgress(
 internal class InputGate {
     private val held = ArrayList<() -> Unit>()
 
+    /** Open [hold]s: a paste and a host edit finishing it can both hold, and the last [release] replays. */
+    private var holds = 0
+
     /** True while edits are being held. */
-    var isHolding: Boolean = false
-        private set
+    val isHolding: Boolean get() = holds > 0
 
     /** Runs [edit] now, or holds it until [release]. */
     fun run(edit: () -> Unit) {
@@ -35,12 +39,14 @@ internal class InputGate {
     }
 
     fun hold() {
-        isHolding = true
+        holds++
     }
 
-    /** Stops holding and replays what was held. */
+    /** Ends one [hold]; the last replays what was held. */
     fun release() {
-        isHolding = false
+        if (holds == 0) return
+        holds--
+        if (holds > 0) return
         val replay = held.toList()
         held.clear()
         replay.forEach { it() }
@@ -97,9 +103,28 @@ internal class ChunkedPaste(
         gate.hold()
         val document = session.document
         session.finishComposingText()
+        // Host edits (a Preview edit, Undo, a restore) can land while the clip becomes text: the range to
+        // paste over follows them, or begin() deleted whatever text had moved into the old offsets.
+        val range = PendingRange(minOf(start, end), maxOf(start, end))
+        document.addEditObserver(range)
         background.execute {
             val text = normalise(source())
-            main.execute { begin(document, start, end, text) }
+            main.execute {
+                document.removeEditObserver(range)
+                begin(document, range.start, range.end, text)
+            }
+        }
+    }
+
+    /** The selection a paste will replace, moved by every edit made before its first slice. */
+    private class PendingRange(
+        var start: Int,
+        var end: Int,
+    ) : EditObserver {
+        override fun afterEdit(op: EditOp) {
+            // Text inserted at either edge stays outside: the paste never deletes what it did not select.
+            start = follow(op, start, afterInsert = true)
+            end = maxOf(start, follow(op, end, afterInsert = false))
         }
     }
 
@@ -122,17 +147,47 @@ internal class ChunkedPaste(
             running.at += added
             running.inserted = running.text.length
         }
-        finish(running)
-        return RestOfPaste(at, added)
+        // finish() replays the typing the gate held: offsets taken before must follow that too, or a
+        // host edit landed as many chars early as were typed (edge-cases "Typing held during a paste").
+        val replayed = ArrayList<EditOp>()
+        val heard =
+            object : EditObserver {
+                override fun afterEdit(op: EditOp) {
+                    replayed += op
+                }
+            }
+        running.document.addEditObserver(heard)
+        try {
+            finish(running)
+        } finally {
+            running.document.removeEditObserver(heard)
+        }
+        return RestOfPaste(at, added, replayed)
     }
 
-    /** What [completeNow] inserted: [added] chars at [at]. */
+    /**
+     * Runs [block] with the rest of a running paste in ([completeNow]) and
+     * the typing it held not yet replayed; the typing goes in after [block].
+     * For Undo and Redo, which must act on the paste, not on that typing.
+     */
+    fun <T> completeThen(block: (RestOfPaste?) -> T): T {
+        gate.hold()
+        try {
+            return block(completeNow())
+        } finally {
+            gate.release()
+        }
+    }
+
+    /** What [completeNow] inserted, [added] chars at [at], then the held typing it [replayed]. */
     class RestOfPaste(
         val at: Int,
         val added: Int,
+        private val replayed: List<EditOp> = emptyList(),
     ) {
-        /** Where [offset], taken before the insertion, is now: the text from [at] on moved past the paste. */
-        fun follow(offset: Int): Int = if (offset >= at) offset + added else offset
+        /** Where [offset], taken before the insertion, is now: past the paste and the typing replayed after it. */
+        fun follow(offset: Int): Int =
+            replayed.fold(if (offset >= at) offset + added else offset) { o, op -> follow(op, o, afterInsert = true) }
 
         /** True when `[start, end)` had [at] strictly inside it, so the paste now splits it. */
         fun splits(
@@ -198,6 +253,24 @@ internal class ChunkedPaste(
     }
 
     companion object {
+        /**
+         * Where [offset] is after [op]: moved by its length change when at or past its end, at the end of
+         * its insertion when inside what it deleted. Text inserted exactly at [offset] lands before it
+         * when [afterInsert], after it otherwise.
+         */
+        internal fun follow(
+            op: EditOp,
+            offset: Int,
+            afterInsert: Boolean,
+        ): Int {
+            val end = op.offset + op.deleted.length
+            return when {
+                offset < op.offset || (offset == op.offset && op.deleted.isEmpty() && !afterInsert) -> offset
+                offset >= end -> offset + op.inserted.length - op.deleted.length
+                else -> op.offset + op.inserted.length
+            }
+        }
+
         /** The paste for [view]: prepared on its injected executor, sliced per frame, progress to its listener. */
         fun forView(
             view: MarkdownCodeView,

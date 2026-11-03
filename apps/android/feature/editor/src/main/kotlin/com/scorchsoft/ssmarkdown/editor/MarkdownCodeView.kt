@@ -254,6 +254,16 @@ class MarkdownCodeView
         }
 
         /**
+         * Undoes one step. A running paste goes in first and is what is
+         * undone; typing held during it goes in after, at the caret Undo
+         * leaves (edge-cases "Undo during a paste with typing held").
+         */
+        fun undo(): Boolean = paste.completeThen { session.undo() }
+
+        /** Redoes one step, finishing a running paste as [undo] does. */
+        fun redo(): Boolean = paste.completeThen { session.redo() }
+
+        /**
          * An edit from outside the keyboard (toolbar, Preview round-trip):
          * flushes composition, replaces `[start, end)` with [text] as one undo
          * step, then selects `[selectStart, selectEnd)` (default: a caret after it).
@@ -462,6 +472,8 @@ class MarkdownCodeView
                 return
             }
             val document = session.document
+            // Ops built on text that has since moved would delete the wrong chars: refuse them whole.
+            if (!fits(document.text, ops)) return
             session.beginBatchEdit()
             document.beginEditGroup()
             compoundDepth++
@@ -544,6 +556,34 @@ class MarkdownCodeView
 
         private companion object {
             const val PREFETCH_LINES_PER_FRAME = 4
+
+            /** Chars compared at each end of an op's deleted text by [fits]; a whole-text replace stays cheap. */
+            const val FIT_CHARS = 256
+
+            /**
+             * True when each op still finds its deleted text at its offset. Ops in one snapshot (highest
+             * offset first, none overlapping) are all checked against the text as it is; any other list
+             * has only its first op checked, the one that sees the text unchanged.
+             */
+            fun fits(
+                text: PieceTree,
+                ops: List<EditOp>,
+            ): Boolean {
+                val descending = ops.zipWithNext().all { (a, b) -> a.offset >= b.offset + b.deleted.length }
+                return (if (descending) ops else ops.take(1)).all { holds(text, it) }
+            }
+
+            private fun holds(
+                text: PieceTree,
+                op: EditOp,
+            ): Boolean {
+                val deleted = op.deleted
+                val end = op.offset + deleted.length
+                if (end > text.length) return false
+                val n = minOf(deleted.length, FIT_CHARS)
+                return text.getText(op.offset, op.offset + n).contentEquals(deleted.subSequence(0, n)) &&
+                    text.getText(end - n, end).contentEquals(deleted.subSequence(deleted.length - n, deleted.length))
+            }
 
             /** Rows of context [revealRange] keeps above and below what it shows. */
             const val REVEAL_ROWS = 2

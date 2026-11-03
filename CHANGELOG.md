@@ -7,6 +7,19 @@ release may change behaviour.
 
 ## [Unreleased]
 
+### Fixed
+
+- An edit made while a large paste was finishing (Find's Replace) could
+  land a few characters off when you had typed during the paste; it now
+  lands where it was aimed, and an edit whose text has moved is refused
+  rather than written in the wrong place.
+- Undo during a large paste now undoes the paste; what you typed while it
+  went in stays.
+- Undo of Discard and Restore from History during a large paste now
+  restore the text instead of quietly doing nothing.
+- A paste over a selection no longer deletes the wrong text when the
+  document changes while the clip is being prepared.
+
 ## [0.2.2] - 2026-11-03
 
 Features from the 0.2.1 phone test, then a robustness pass over the

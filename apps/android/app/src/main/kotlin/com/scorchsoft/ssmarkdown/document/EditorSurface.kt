@@ -2,8 +2,6 @@ package com.scorchsoft.ssmarkdown.document
 
 import com.scorchsoft.ssmarkdown.editor.MarkdownCodeView
 import com.scorchsoft.ssmarkdown.editor.fenceStates
-import com.scorchsoft.ssmarkdown.editor.redo
-import com.scorchsoft.ssmarkdown.editor.undo
 import com.scorchsoft.ssmarkdown.files.document.OpenDocument
 import com.scorchsoft.ssmarkdown.markdown.edit.FenceStates
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
@@ -93,15 +91,9 @@ class CodeViewSurface(
         view.applyEdits(ops, after.start, after.end)
     }
 
-    override fun undo(): Boolean {
-        view.completePaste()
-        return view.session.undo()
-    }
+    override fun undo(): Boolean = view.undo()
 
-    override fun redo(): Boolean {
-        view.completePaste()
-        return view.session.redo()
-    }
+    override fun redo(): Boolean = view.redo()
 
     override fun select(
         start: Int,

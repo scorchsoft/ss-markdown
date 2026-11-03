@@ -333,6 +333,9 @@ class HistoryViewModel(
                 ui.update { it.copy(versionDamaged = true) }
                 return@launch
             }
+            // A large paste still going in would split the whole-text op, and it would be refused: finish it
+            // first, so "Before restore" holds all of it.
+            doc.surface.flushComposing()
             val current = doc.text.snapshot()
             deps.history.record(doc.open.uri, current, VersionKind.BeforeRestore)
             doc.surface.apply(listOf(EditOp(0, current, text)), TextSelection.caret(0))

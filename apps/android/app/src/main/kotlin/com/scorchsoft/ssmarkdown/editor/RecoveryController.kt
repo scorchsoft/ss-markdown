@@ -136,7 +136,8 @@ class RecoveryController(
         sourceName: String?,
         make: suspend (DocumentUri) -> CopyOutcome,
     ): Boolean {
-        val draft = deps.drafts.create() ?: return false
+        // Creating and deleting draft files is disk work: off the main thread (StrictMode).
+        val draft = withContext(deps.io) { deps.drafts.create() } ?: return false
         return when (val copy = make(draft)) {
             is CopyOutcome.Copied -> {
                 (host as? EditorViewModel)?.show(
@@ -147,7 +148,7 @@ class RecoveryController(
             }
 
             is CopyOutcome.Unavailable -> {
-                deps.drafts.delete(draft) // Still empty: nothing was written to it.
+                withContext(deps.io) { deps.drafts.delete(draft) } // Still empty: nothing was written to it.
                 false
             }
         }

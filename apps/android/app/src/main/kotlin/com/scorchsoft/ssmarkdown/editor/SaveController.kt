@@ -7,6 +7,7 @@ import com.scorchsoft.ssmarkdown.files.save.SaveOutcome
 import com.scorchsoft.ssmarkdown.media.MediaScanner
 import com.scorchsoft.ssmarkdown.media.MediaType
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Saving, Save as, Copy and Share, and leaving with unsaved edits: every
@@ -89,7 +90,8 @@ class SaveController(
         deps.scope.launch {
             val outcome = deps.store.saveAs(from, DocumentUri(target))
             if (outcome is SaveOutcome.Saved) {
-                if (from.isDraft) deps.drafts.delete(from)
+                // Only after the verified save, and off the main thread (StrictMode); the UI waits for it.
+                if (from.isDraft) withContext(deps.io) { deps.drafts.delete(from) }
                 deps.autosave.resume(open.uri)
                 host.updateMeta(target) { it.copy(readOnlySource = null) }
                 host.refresh()

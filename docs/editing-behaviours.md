@@ -591,6 +591,15 @@ are tested.
 | D14 | Enter in a paragraph | Code is plain text, Enter is a newline (every source editor); WYSIWYG Enter is a new paragraph and Shift+Enter a line break (Docs, Typora, Notion) | Keep each surface's convention: Code = newline; Preview = new paragraph, Shift+Enter = hard break in the file's style. The same keystroke gives different text in the two surfaces, which is the one deliberate exception to rule 5 | EB-BREAK-01, -02, EB-LIST-47 |
 | D15 | Auto-pairing `(` `[` `` ` `` `*` `"` | On (Obsidian setting, code editors); off (Docs, Typora defaults) | Off. Soft keyboards already insert, delete and correct around the caret; auto-inserted closers fight composing text and leave stray characters | EB-INLINE-35 |
 
+**Decided (Andrew, 2026-11-03).** The decisions below take precedence over the recommendations in the table where the two differ.
+
+- **D2.** The first Backspace removes the marker and leaves a plain paragraph in place. The second Backspace joins it to the line above. The indented-continuation step is not used.
+- **D3.** On a paragraph, the strip's Indent key is shown but disabled, and TalkBack says why.
+- **D4.** You leave a code block in Preview by pressing Enter on a second empty line at the end of the block (the empty lines are removed), or with ¶ → Paragraph on its last line. There is no extra control.
+- **D8.** Ctrl+K inserts a link. Ctrl+P opens the Navigator.
+- **D10.** Use the recommendation in the table. A Markdown list on the clipboard becomes list items; any other text joins the item, and its remaining lines become continuation lines.
+- **All other rows:** the recommendation in the table stands.
+
 ## Sources
 
 Each row cites one or more of these keys. Behaviours were read from

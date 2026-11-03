@@ -22,8 +22,10 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
     paths: ["apps/android/**", ".github/workflows/android.yml"]
-  schedule:
-    - cron: "17 2 * * *"
+  # Nightly perf run: off while the repository is private (paid minutes).
+  # Turn it back on when it is public:
+  # schedule:
+  #   - cron: "17 2 * * *"
   workflow_dispatch:
     inputs:
       perf:

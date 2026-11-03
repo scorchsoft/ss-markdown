@@ -144,10 +144,10 @@ older run. A full run takes about 22 minutes: Checks takes 19, Instrumented
   a full run.
 - **Before any hand-over build**, the head commit must have a full green
   run.
-- **The perf job** (emulator perf and Baseline Profile) runs nightly, on
+- **The perf job** (emulator perf and Baseline Profile) runs only on
   `workflow_dispatch` with `perf: true`, or on a pull request labelled
   `perf`. A branch with no pull request (e.g. `ccr-perf-experiment`) runs
-  CI only through `workflow_dispatch`.
+  CI only through `workflow_dispatch`. The nightly schedule is off while the repository is private (paid minutes); turn it back on when it goes public.
 
 ## Emulator evidence (rubric #4, #11)
 

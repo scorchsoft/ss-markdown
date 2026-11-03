@@ -72,6 +72,7 @@ class EditorViewModel(
     val anchorLine: StateFlow<Int> = anchorFlow.asStateFlow()
 
     val saves = SaveController(this)
+    val copies = CopyController(this)
     val conflicts = ConflictController(this)
     val recovery = RecoveryController(this)
     val strip = StripController(this)
@@ -81,6 +82,7 @@ class EditorViewModel(
     val views = ViewMemory(this)
     val previewHost = EditorPreviewHost(this)
     override val preview = PreviewSession(previewHost)
+    override val pictures = PictureController(this)
     val media = MediaController(this)
     val imageExports = ImageExports(this, media)
     val viewer = ViewerViewModel(media, deps.scope, ::emit)
@@ -96,8 +98,13 @@ class EditorViewModel(
     /**
      * The launch sequence, once per process: recover unsaved edits first,
      * then open what was asked for, else the last file, else a draft.
+     * [restoring] is an Activity Android rebuilt from saved state: it
+     * reopens the last file even when launches start a new draft.
      */
-    fun start(request: LaunchRequest? = null) {
+    fun start(
+        request: LaunchRequest? = null,
+        restoring: Boolean = false,
+    ) {
         if (request != null) explicitOpen = true
         if (started) {
             if (request != null) {
@@ -121,7 +128,9 @@ class EditorViewModel(
                     Unit
                 }
 
-                settings.onLaunch == OnLaunch.ReopenLast && reopenable(settings.lastFile) -> {
+                // A restored Activity (the process died in the background) comes back where the user was,
+                // whatever a fresh launch would open: Android promises that a process death goes unnoticed.
+                (restoring || settings.onLaunch == OnLaunch.ReopenLast) && reopenable(settings.lastFile) -> {
                     openDocument(settings.lastFile.orEmpty())
                 }
 
@@ -154,7 +163,10 @@ class EditorViewModel(
         val before = ui.value
         ui.update { EditorReducer.reduce(it, action) }
         // Back or a mode change closed the find bar: its highlights go with it.
-        if (before.find != null && ui.value.find == null) active?.clearHighlights()
+        if (before.find != null && ui.value.find == null) {
+            active?.clearHighlights()
+            preview.clearFind()
+        }
         EditorEffects.run(this, action, before)
     }
 
@@ -205,9 +217,50 @@ class EditorViewModel(
     fun attach(view: MarkdownCodeView) {
         val doc = active ?: return
         doc.attach(view)
+        view.setOnFocusChangeListener { _, focused -> onCodeFocusChanged(focused) }
         // A file's remembered position wins once; after that the Code pane lands on the shared anchor.
         if (!views.applyPendingTo(doc)) doc.surface.scrollToLine(anchorFlow.value)
     }
+
+    /**
+     * The Code view took focus: in Split the caret is now in Code, so the page
+     * stops editing and the strip drives Code again. Without this, Bold went
+     * to the page's old selection: a WebView losing focus never says so.
+     */
+    fun onCodeFocused() {
+        if (state.preview.editing) {
+            preview.endEditing()
+            update { it.copy(preview = it.preview.copy(editing = false)) }
+        }
+        typingIn(Pane.Code)
+    }
+
+    /** Whether the Code view has focus: with the keyboard up in Split, it is the pane being typed in. */
+    private var codeFocused = false
+
+    private fun onCodeFocusChanged(focused: Boolean) {
+        codeFocused = focused
+        if (focused) onCodeFocused()
+    }
+
+    /**
+     * The keyboard came up: in Split, the pane that has the caret is the one
+     * being typed in (ux-spec "Split while typing"). Code has it while its
+     * view has focus; the page while it is editing. Neither (the find bar's
+     * field, a sheet) starts nothing.
+     */
+    fun onKeyboardShown() {
+        typingIn(
+            when {
+                codeFocused -> Pane.Code
+                state.preview.editing -> Pane.Preview
+                else -> null
+            },
+        )
+    }
+
+    /** With the keyboard up in Split, [pane] is being edited (EditorReducer.typingIn). */
+    fun typingIn(pane: Pane?) = update { EditorReducer.typingIn(it, pane) }
 
     /** The Code view left the composition. */
     fun detach(view: MarkdownCodeView) = active?.detach(view)
@@ -408,7 +461,9 @@ class EditorViewModel(
                 bigFile = open.budget == Budget.Lean,
                 isMarkdown = open.displayName?.endsWith(".txt", ignoreCase = true) != true,
                 canUndo = doc.text.canUndo,
+                canRedo = doc.text.canRedo,
                 historyOn = settings.history.recording,
+                copyFormat = settings.copyFormat,
             )
         }
         updateBreadcrumb()
@@ -426,9 +481,10 @@ class EditorViewModel(
             deps.scope.launch { deps.store.close(uri) }
         }
         previous?.release()
+        // Insert image's steps belong to the document they began in (edge-cases "Insert image across a file switch").
+        if (switching) pictures.onDocumentSwitched()
         val document = ActiveDocument(open, this, DocumentThreads(deps.outlineWork, deps.scope))
         activeFlow.value = document
-        preview.bind(document)
         val uri = open.uri.value
         val meta = meta(uri)
         val settings = deps.settings.settings.value
@@ -443,9 +499,23 @@ class EditorViewModel(
                 codeWrap = settings.codeWrap,
                 find = null,
                 navigator = null,
+                // The Link prompt holds offsets into the text it was opened on; Done must never write them
+                // into another file or into reloaded content (edge-cases "Link prompt across a file switch").
+                overlay = it.overlay.takeUnless { overlay -> overlay is EditorOverlay.LinkPrompt },
+                // The page asks afresh about this document's pictures.
+                preview = it.preview.copy(picturesNeedFolder = false),
+                // Another document ends Split's typing state: both panes come back.
+                typingPane = null,
             )
         }
-        if (switching) anchorFlow.value = saved?.anchorLine ?: 0
+        if (switching) {
+            anchorFlow.value = saved?.anchorLine ?: 0
+            // The panes report the new document's position as they draw it.
+            paneFractions.fill(0f)
+        }
+        // After the anchor: the page opens at this document's place, not the last one's (and its
+        // first top-line report would otherwise carry the old line over as this one's anchor).
+        preview.bind(document)
         rememberRecent(open)
         refresh()
     }
@@ -536,6 +606,28 @@ class EditorViewModel(
 
     override fun onAnchorLineChanged(line: Int) = onPaneTopLine(Pane.Code, line)
 
+    override fun onScrollFractionChanged(fraction: Float) = onPaneScrollFraction(Pane.Code, fraction)
+
+    /** Each pane's last reported scroll position over its scrollable range, by [Pane] ordinal. */
+    private val paneFractions = FloatArray(Pane.entries.size)
+
+    /**
+     * [pane] reports its scroll position over its scrollable range. The
+     * reading line shows the leading pane's (the one on screen, or in Split
+     * the one last touched), so it reads 1 at the very bottom, where the
+     * top line, which it used to follow, never reaches the end.
+     */
+    fun onPaneScrollFraction(
+        pane: Pane,
+        fraction: Float,
+    ) {
+        paneFractions[pane.ordinal] = fraction.coerceIn(0f, 1f)
+        if (pane == scrollLink.leader(ui.value.mode)) updateBreadcrumb()
+    }
+
+    /** The mode changed: the reading line now follows another pane. */
+    fun onReadingPaneChanged() = updateBreadcrumb()
+
     /**
      * [pane] scrolled so [line] is at its top. Only the leading pane moves
      * the anchor and the breadcrumb; in Split, with "Scroll panes together"
@@ -613,8 +705,7 @@ class EditorViewModel(
         val line = anchorFlow.value
         // The breadcrumb appears only once the first heading has scrolled past the top (ux-spec "Where am I?").
         val crumbs = if (line == 0) emptyList() else doc.outline.breadcrumbAt(line)
-        val total = doc.outline.lineCount.coerceAtLeast(1)
-        val fraction = ((line.toLong() * READING_STEPS / total).toFloat() / READING_STEPS).coerceIn(0f, 1f)
+        val fraction = readingStep(paneFractions[scrollLink.leader(ui.value.mode).ordinal])
         val current = ui.value
         if (crumbs == shownCrumbs && fraction == current.readingFraction && current.breadcrumb === shownTexts) return
         if (crumbs != shownCrumbs) {
@@ -623,6 +714,9 @@ class EditorViewModel(
         }
         ui.update { it.copy(breadcrumb = shownTexts, readingFraction = fraction) }
     }
+
+    /** [fraction] in steps of 1/[READING_STEPS]; 1 stays exactly 1. */
+    private fun readingStep(fraction: Float): Float = (fraction * READING_STEPS).toLong().toFloat() / READING_STEPS
 
     private fun initialState(): EditorUiState {
         val settings = deps.settings.settings.value

@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.preview.editing
 
+import com.scorchsoft.ssmarkdown.markdown.edit.BlockType
 import com.scorchsoft.ssmarkdown.markdown.edit.DocumentStyle
 import com.scorchsoft.ssmarkdown.markdown.edit.EditCommand
 import com.scorchsoft.ssmarkdown.markdown.edit.InlineFormat
@@ -36,13 +37,53 @@ enum class FormatAction(
     HEADING_5("heading5", EditCommand.SetHeading(level = 5), block = true),
     HEADING_6("heading6", EditCommand.SetHeading(level = 6), block = true),
 
+    /**
+     * Enter in a list item, on an empty quote line or in fenced code in
+     * Preview: Code's own Enter (a new item, the list renumbered, an empty
+     * item ending the list, a code line keeping its indentation), so both
+     * views give the same text. Paragraphs and headings the page splits
+     * itself, since Enter there means a new paragraph in Preview.
+     */
+    ENTER("enter", EditCommand.Newline, block = true),
+
+    /** Backspace at the very start of a list item's text: the marker comes off (Code's own command). */
+    BACKSPACE("backspace", EditCommand.BackspaceAtItemStart, block = true),
+
+    /** The strip's Indent key or Tab: list items nest, code lines get one indent unit. */
+    INDENT("indent", EditCommand.Indent, block = true),
+
+    /** The strip's Outdent key or Shift+Tab: one level out; a top-level item becomes a paragraph. */
+    OUTDENT("outdent", EditCommand.Outdent, block = true),
+
+    // A closer typed first on a code line takes one indent unit off it (EditCommand.Type).
+    TYPE_BRACE("type}", EditCommand.Type("}"), block = true),
+    TYPE_BRACKET("type]", EditCommand.Type("]"), block = true),
+    TYPE_PAREN("type)", EditCommand.Type(")"), block = true),
+
+    // The ¶ menu: each converts the selected blocks, replacing their old syntax (EditCommand.SetBlockType).
+    BLOCK_PARAGRAPH("blockParagraph", EditCommand.SetBlockType(BlockType.Paragraph), block = true),
+    BLOCK_HEADING_1("blockHeading1", EditCommand.SetBlockType(BlockType.Heading1), block = true),
+    BLOCK_HEADING_2("blockHeading2", EditCommand.SetBlockType(BlockType.Heading2), block = true),
+    BLOCK_HEADING_3("blockHeading3", EditCommand.SetBlockType(BlockType.Heading3), block = true),
+    BLOCK_BULLET("blockBullet", EditCommand.SetBlockType(BlockType.Bullet), block = true),
+    BLOCK_NUMBERED("blockNumbered", EditCommand.SetBlockType(BlockType.Numbered), block = true),
+    BLOCK_TASK("blockTask", EditCommand.SetBlockType(BlockType.Task), block = true),
+    BLOCK_QUOTE("blockQuote", EditCommand.SetBlockType(BlockType.Quote), block = true),
+    BLOCK_CODE("blockCode", EditCommand.SetBlockType(BlockType.CodeBlock), block = true),
+
     /** Keyboard undo / redo inside Preview: the host's history, not a format. */
     UNDO("undo", command = null),
     REDO("redo", command = null),
+
+    /**
+     * The Insert image key in Preview: the page sends its selection and the
+     * host opens the picture picker, then inserts there. Not a format.
+     */
+    IMAGE("image", command = null),
     ;
 
     /** True for the history keys, which [PreviewFormatter] does not handle. */
-    val isHistory: Boolean get() = command == null
+    val isHistory: Boolean get() = this == UNDO || this == REDO
 
     /** Lookup by wire name. */
     companion object {

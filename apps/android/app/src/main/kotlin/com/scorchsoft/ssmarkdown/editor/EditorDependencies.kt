@@ -10,6 +10,8 @@ import com.scorchsoft.ssmarkdown.files.drafts.DraftStore
 import com.scorchsoft.ssmarkdown.files.memory.MemoryGovernor
 import com.scorchsoft.ssmarkdown.folder.FolderSource
 import com.scorchsoft.ssmarkdown.history.versions.VersionStore
+import com.scorchsoft.ssmarkdown.media.NoPictureAccess
+import com.scorchsoft.ssmarkdown.media.PictureAccess
 import com.scorchsoft.ssmarkdown.media.PictureSource
 import com.scorchsoft.ssmarkdown.settings.SettingsRepository
 import com.scorchsoft.ssmarkdown.viewstate.InMemoryViewStates
@@ -32,6 +34,8 @@ import kotlinx.coroutines.Dispatchers
  * @property outlineWork where the outline tokenizes its background snapshot (PERF-D); the test dispatcher in tests.
  * @property viewStates each file's mode, zoom, selection and scroll, kept across restarts (R7).
  * @property pictures pictures next to the document, for the viewer and Export images.
+ * @property pictureAccess Insert image and "Allow access": placing, copying and granting
+ *   folders (blocking; run on [io]).
  */
 data class EditorDependencies(
     val store: DocumentStore,
@@ -52,6 +56,7 @@ data class EditorDependencies(
     val memory: MemoryGovernor? = null,
     val viewStates: ViewStateStore = InMemoryViewStates(),
     val pictures: PictureSource = PictureSource { null },
+    val pictureAccess: PictureAccess = NoPictureAccess,
 )
 
 /**
@@ -92,6 +97,9 @@ interface EditorHost {
 
     /** The Preview's session: the strip and find drive the page through it. */
     val preview: PreviewSession
+
+    /** Insert image and the pictures' folder access. */
+    val pictures: PictureController
 
     /** Changes the screen state. */
     fun update(change: (EditorUiState) -> EditorUiState)

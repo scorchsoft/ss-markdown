@@ -127,6 +127,36 @@ object Samples {
                     "```",
                 )
         ).joinToString("\n")
+
+    /** Fenced code in five languages, for the Code view's highlighting shot. */
+    val highlightedCode: String =
+        listOf(
+            "# Code samples",
+            "```python",
+            "@dataclass",
+            "class Point:",
+            "    def length(self) -> float:",
+            "        # Pythagoras",
+            "        return (self.x ** 2 + self.y ** 2) ** 0.5",
+            "```",
+            "```ts",
+            "interface User { name: string; age?: number }",
+            "const greet = (u: User) => `Hi \${u.name}`; // ok",
+            "```",
+            "```php",
+            "<?php",
+            "function total(\$items) { return count(\$items) * 1.2; }",
+            "```",
+            "```c",
+            "#include <stdio.h>",
+            "/* entry point */",
+            "int main(void) { printf(\"%d\\n\", 42); return 0; }",
+            "```",
+            "```java",
+            "@Override",
+            "public List<String> names() { return List.of(\"a\"); }",
+            "```",
+        ).joinToString("\n")
 }
 
 /** A stand-in for the Code pane: line numbers and text, so screens render without the view. */

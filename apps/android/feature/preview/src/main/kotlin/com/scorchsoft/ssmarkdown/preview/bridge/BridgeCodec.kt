@@ -65,11 +65,31 @@ object BridgeCodec {
             null // An export whose base64 does not decode: dropped here, never thrown on the main thread.
         }
 
+    /**
+     * A 0..1 field, clamped: the reading fraction, or how much of the page
+     * shows. Null when the page did not send one or sent junk.
+     */
+    private fun unit(
+        j: JSONObject,
+        key: String,
+    ): Float? {
+        if (!j.has(key)) return null
+        val value = j.optDouble(key, Double.NaN)
+        return if (value.isNaN()) null else value.toFloat().coerceIn(0f, 1f)
+    }
+
     private val decoders: Map<String, (JSONObject) -> PageMessage> =
         mapOf(
             "ready" to { j -> PageMessage.Ready(j.getInt("version")) },
             "rendered" to { j -> PageMessage.Rendered(j.getInt("rev"), j.getInt("sections"), j.getInt("millis")) },
-            "topLine" to { j -> PageMessage.TopLine(j.getInt("line"), crumbs(j.getJSONArray("crumbs"))) },
+            "topLine" to { j ->
+                PageMessage.TopLine(
+                    j.getInt("line"),
+                    crumbs(j.getJSONArray("crumbs")),
+                    unit(j, "fraction"),
+                    unit(j, "visible"),
+                )
+            },
             "sourceEdit" to
                 { j -> PageMessage.SourceEdit(j.getInt("baseRev"), edits(j.getJSONArray("edits")), epoch(j)) },
             "selection" to { j ->
@@ -98,10 +118,22 @@ object BridgeCodec {
             "tableMenu" to { j -> PageMessage.TableMenu(j.getInt("line"), j.getInt("row"), j.getInt("column")) },
             "exportResult" to
                 { j -> PageMessage.ExportResult.of(j.getInt("requestId"), j.getString("mime"), j.getString("data")) },
-            "printReady" to { _ -> PageMessage.PrintReady },
+            "printReady" to { j -> PageMessage.PrintReady(j.getInt("requestId")) },
             "htmlResult" to { j ->
-                PageMessage.HtmlResult(j.getInt("requestId"), if (j.isNull("html")) null else j.getString("html"))
+                PageMessage.HtmlResult(
+                    j.getInt("requestId"),
+                    if (j.isNull("html")) null else j.getString("html"),
+                    if (j.isNull("text")) null else j.optString("text"),
+                    j.optBoolean("truncated", false),
+                )
             },
+            "imageQuery" to { j ->
+                // At most [MAX_IMAGE_PATHS] short keys: a hostile page cannot make the host resolve thousands.
+                val paths = j.getJSONArray("paths")
+                val keys = List(minOf(paths.length(), MAX_IMAGE_PATHS)) { paths.getString(it) }
+                PageMessage.ImageQuery(j.getInt("id"), keys.filter { it.length <= MAX_IMAGE_PATH_CHARS })
+            },
+            "allowFolder" to { _ -> PageMessage.AllowFolder },
             "error" to { j -> PageMessage.Error(j.getString("message")) },
         )
 
@@ -134,6 +166,9 @@ object BridgeCodec {
             val e = array.getJSONObject(i)
             TextEdit(e.getInt("from"), e.getInt("to"), e.getString("insert"))
         }
+
+    private const val MAX_IMAGE_PATHS = 200
+    private const val MAX_IMAGE_PATH_CHARS = 1024
 
     private fun strings(array: JSONArray): Set<String> = List(array.length()) { array.getString(it) }.toSet()
 

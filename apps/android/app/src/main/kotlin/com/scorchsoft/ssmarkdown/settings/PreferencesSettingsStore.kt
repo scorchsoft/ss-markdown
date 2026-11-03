@@ -57,6 +57,9 @@ internal object SettingsJson {
             .put("previewTheme", s.previewThemeId)
             .put("previewWrap", s.previewWrap.name)
             .put("export", encodeExport(s.export))
+            .put("copyFormat", s.copyFormat.name)
+            .put("formattingBar", s.formattingBar.name)
+            .put("splitTyping", s.splitTyping.name)
 
     fun decode(o: JSONObject): AppSettings {
         val d = AppSettings()
@@ -65,6 +68,7 @@ internal object SettingsJson {
             onLaunch = enumOr(o.optString("onLaunch"), d.onLaunch),
             defaultZoomCode = o.optInt("zoomCode", d.defaultZoomCode),
             defaultZoomPreview = o.optInt("zoomPreview", d.defaultZoomPreview),
+            // Absent in settings saved before it was wired: those installs keep their numbers.
             lineNumbers = o.optBoolean("lineNumbers", d.lineNumbers),
             codeWrap = o.optBoolean("codeWrap", d.codeWrap),
             saveMode = enumOr(o.optString("saveMode"), d.saveMode),
@@ -84,6 +88,11 @@ internal object SettingsJson {
                     if (o.optBoolean("pageMode", false)) PreviewWrap.Page else d.previewWrap,
                 ),
             export = o.optJSONObject("export")?.let(::decodeExport) ?: d.export,
+            copyFormat = enumOr(o.optString("copyFormat"), d.copyFormat),
+            // Absent before the setting existed: those installs stay on one row.
+            formattingBar = enumOr(o.optString("formattingBar"), d.formattingBar),
+            // Absent before the setting existed: those installs get the default, the edited pane only.
+            splitTyping = enumOr(o.optString("splitTyping"), d.splitTyping),
         )
     }
 

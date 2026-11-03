@@ -14,6 +14,7 @@
 import type { PageMessage, PreviewSettings } from "../protocol";
 import type { RenderController } from "./controller";
 import type { Editor } from "./editing/editor";
+import { ALLOW_BUTTON, PLACEHOLDER } from "./images";
 import { toggleDiagramSource, type MermaidRunner } from "./mermaidRunner";
 import { scrollToLine } from "./scrollSync";
 
@@ -77,6 +78,14 @@ export class Gestures {
     private onClick(e: MouseEvent): void {
         const target = e.target instanceof Element ? e.target : null;
         if (!target || target.closest(".table-toolbar")) return;
+        // A picture's placeholder is page chrome: its button works even in the block being
+        // edited, and a tap on the rest of it neither opens the viewer nor starts editing.
+        if (target.closest(`.${PLACEHOLDER}`)) {
+            if (target.closest(`.${ALLOW_BUTTON}`)) this.deps.post({ type: "allowFolder" });
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
         const editingBlock = target.closest(".editing");
         if (editingBlock) return; // moving the caret inside the block being edited
         if (this.now() - this.lastScrollAt < FLING_GUARD_MS) {
@@ -128,7 +137,7 @@ export class Gestures {
             editor.end();
             return false;
         }
-        const block = editor.editableBlock(target);
+        const block = editor.blockAt(target, e.clientX, e.clientY);
         if (block) {
             editor.begin(block, e.clientX, e.clientY);
             return false;
@@ -154,7 +163,8 @@ export class Gestures {
         const line = lineOf(box);
         const text = controller.doc.lines[line] ?? "";
         const m = TASK_LINE.exec(text);
-        if (!m?.[1]) {
+        // A file that refuses edits keeps its boxes as they are.
+        if (!m?.[1] || this.deps.settings().readOnly) {
             box.checked = !box.checked;
             return;
         }

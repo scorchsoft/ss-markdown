@@ -14,9 +14,10 @@ Quotes are verbatim, including the original spelling.
 
 **What we may claim.** Every claim below is something the app does today
 (README, CHANGELOG, `how-it-works.md`, `performance-techniques.md`).
-Two things are **upcoming, not shipped**: undo that survives the app
-being killed, and Direct Share targets. They are kept out of the listing
-and the video until they ship.
+Undo that survives the app being killed and Direct Share targets shipped
+in 0.2.0 and may be claimed. Copy as formatted text, Find next/previous
+in every view, and pictures beside a file (with Insert image) ship in
+0.2.2; claim them once that release is out.
 
 ---
 
@@ -176,6 +177,6 @@ Notes for the editor:
 - Hold each caption for at least 1.5 s per 4 words; muted viewers read slower than VO.
 - Keep "Free · No ads" on the end card and **out of the feature graphic**,
   which is a listing asset under the no-pricing-text rule.
-- Undo across a kill and Direct Share are upcoming. Keep them out until shipped.
+- Undo across a kill and Direct Share shipped in 0.2.0; the v006 film shows both.
 - The hook dramatises a real, common pain (P1). It doesn't name or show any
   competitor.

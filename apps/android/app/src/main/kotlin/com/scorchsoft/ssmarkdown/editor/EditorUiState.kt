@@ -5,11 +5,13 @@ import com.scorchsoft.ssmarkdown.files.document.CheckpointResult
 import com.scorchsoft.ssmarkdown.files.provider.ProviderResult
 import com.scorchsoft.ssmarkdown.find.FindUiState
 import com.scorchsoft.ssmarkdown.folder.FolderUiState
+import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.media.ExportImagesState
 import com.scorchsoft.ssmarkdown.navigator.NavigatorUiState
 import com.scorchsoft.ssmarkdown.preview.RendererState
 import com.scorchsoft.ssmarkdown.preview.bridge.LinkTarget
 import com.scorchsoft.ssmarkdown.preview.bridge.MediaKind
+import com.scorchsoft.ssmarkdown.settings.CopyFormat
 import com.scorchsoft.ssmarkdown.ui.strip.FormattingStripState
 
 /**
@@ -21,12 +23,16 @@ import com.scorchsoft.ssmarkdown.ui.strip.FormattingStripState
  * @property title the file name, or "Untitled" for a draft.
  * @property save the Save slot and the status line.
  * @property breadcrumb the current section's heading path once scrolled past the first heading.
- * @property readingFraction how far through the document the top of the pane is, 0–1.
+ * @property readingFraction the leading pane's scroll position over its scrollable range, 0–1 (1 at the very bottom).
  * @property pinchPercent the live zoom while a pinch is in progress, else null.
  * @property banner at most one non-modal banner under the header.
  * @property overlay at most one menu, sheet or dialog.
  * @property message a short confirmation ("Saved to Documents"), or null.
  * @property preview the Preview pane's own state: its renderer, and whether it is being edited.
+ * @property keyboardUp the soft keyboard is on screen.
+ * @property typingPane in Split, the pane the keyboard was opened for, until the keyboard closes, the
+ *   mode changes or another document opens (ux-spec "Split while typing"); null otherwise. Whether the
+ *   other pane hides is the layout's call: the setting, and never side by side.
  */
 @Immutable
 data class EditorUiState(
@@ -54,8 +60,13 @@ data class EditorUiState(
     val loading: Boolean = false,
     val isMarkdown: Boolean = true,
     val canUndo: Boolean = false,
+    val canRedo: Boolean = false,
     val preview: PreviewPaneState = PreviewPaneState(),
     val historyOn: Boolean = true,
+    /** What Copy put on the clipboard last: long-press Copy repeats it, the chooser lists it first. */
+    val copyFormat: CopyFormat = CopyFormat.Markdown,
+    val keyboardUp: Boolean = false,
+    val typingPane: Pane? = null,
 ) {
     /** The strip drives the Preview: in Preview, or in Split while the page has the caret. */
     val previewTyping: Boolean
@@ -77,12 +88,15 @@ data class EditorUiState(
  * @property renderer running, restarted after a crash, or paused after repeated ones.
  * @property editing the page has a caret and the keyboard (tap to edit).
  * @property inHeading the page's caret is in a heading: the strip's H key turns it back into a paragraph.
+ * @property picturesNeedFolder the page has pictures it cannot show without the document's folder:
+ *   ⋮ offers "Show pictures beside this file…".
  */
 @Immutable
 data class PreviewPaneState(
     val renderer: RendererState = RendererState.RUNNING,
     val editing: Boolean = false,
     val inHeading: Boolean = false,
+    val picturesNeedFolder: Boolean = false,
 )
 
 /** A non-modal banner under the header. One at a time; the newest wins. */
@@ -259,8 +273,10 @@ sealed interface EditorOverlay {
         val autosaveThisFile: Boolean,
     ) : EditorOverlay
 
-    /** Long-press Copy: Copy as rich text. */
-    data object CopyMenu : EditorOverlay
+    /** The Copy chooser: Copy Markdown · Copy formatted text, [first] (the last used) on top. */
+    data class CopyChooser(
+        val first: CopyFormat,
+    ) : EditorOverlay
 
     /** The conflict sheet (ux-spec "File changed outside the app"). */
     data class Conflict(
@@ -275,15 +291,25 @@ sealed interface EditorOverlay {
         val leave: PendingLeave,
     ) : EditorOverlay
 
-    /** ⋮ → Display. */
-    data object Display : EditorOverlay
+    /**
+     * The View sheet (⋮ → View, the ⋮ "Aa" icon, or long-press a mode). Its
+     * layout is fixed; [highlight] only briefly tints that pane's Lines row
+     * (long-press Code or Preview), and null tints nothing.
+     */
+    data class Display(
+        val highlight: Pane? = null,
+    ) : EditorOverlay
 
-    /** The section menu for a heading: Copy section · rich text · Select · Export. */
+    /**
+     * The section menu for a heading: Copy section as Markdown · as formatted
+     * text ([copyFirst], the last used, on top) · Select · Export.
+     */
     data class SectionMenu(
         val headingLine: Int,
         val heading: String,
         val lineCount: Int,
         val nextHeading: String?,
+        val copyFirst: CopyFormat = CopyFormat.Markdown,
     ) : EditorOverlay
 
     /**
@@ -317,6 +343,23 @@ sealed interface EditorOverlay {
 
     /** What Big-file mode pauses and why. */
     data object BigFileInfo : EditorOverlay
+
+    /**
+     * The strip's Link prompt, for [selection] (host offsets, taken when
+     * Link was tapped, in Code or from the page's selection in Preview).
+     */
+    data class LinkPrompt(
+        val fields: LinkFields,
+        val selection: TextSelection,
+    ) : EditorOverlay
+
+    /**
+     * Insert image picked [picked], which is outside the document's folder:
+     * "Copy into this file's folder" or Cancel (docs/ux-spec.md, "Pictures").
+     */
+    data class CopyPicture(
+        val picked: String,
+    ) : EditorOverlay
 
     /** Details of a failed save. */
     data class SaveFailureDetails(
@@ -384,7 +427,9 @@ enum class MessageKind {
     SavedTo,
     AllSaved,
     Copied,
-    CopiedRichText,
+    CopiedFormatted,
+    CopiedFormattedShortened,
+    FormattedFailed,
     CopyTooLarge,
     PasteTooLarge,
     EditsDiscarded,
@@ -392,9 +437,11 @@ enum class MessageKind {
     EditsDiscardedNotKept,
     DraftDeleted,
     SectionCopied,
+    SectionCopiedFormatted,
     ReplacedAll,
     Restored,
     Renamed,
+    SaveBeforeRename,
     Deleted,
     Duplicated,
     ActionFailed,
@@ -410,4 +457,14 @@ enum class MessageKind {
     ImageSaved,
     ImageCopied,
     NothingToExport,
+    PdfFailed,
+    ExportStopped,
+    PictureFolderGranted,
+    PictureFolderUnrelated,
+    PictureTooLarge,
+    PictureNotImage,
+    PictureFailed,
+    PicturesStayedWithDraft,
+    PictureInsertStopped,
+    PictureCopiedNotLinked,
 }

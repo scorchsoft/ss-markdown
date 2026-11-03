@@ -13,11 +13,20 @@ import kotlinx.coroutines.withTimeoutOrNull
  * serial: whatever arrives while one is pending belongs to it. A page
  * that never answers (renderer gone, diagram too slow) times out to null
  * rather than hanging an export.
+ *
+ * A request belongs to the document it was made for ([owner] when it
+ * starts). It waits for a page that is on screen ([awaitPage]) before it
+ * asks, and if the document changes before the answer ([cancel], or a
+ * different [owner] by then) it is null: a diagram is never taken from the
+ * next document and saved under this one's name (edge-cases "Export PDF from
+ * Code did nothing, then printed the next file", the same flaw in exports).
  */
 class DiagramExports(
     private val send: (HostMessage) -> Unit,
     private val onFinished: () -> Unit = {},
     private val timeoutMillis: Long = TIMEOUT_MILLIS,
+    private val owner: () -> Any? = { null },
+    private val awaitPage: suspend () -> Boolean = { true },
 ) {
     /**
      * True while the page is drawing an export. Drawing scrolls the page to
@@ -36,21 +45,24 @@ class DiagramExports(
         line: Int,
         png: Boolean,
         scale: Int = 2,
-    ): ByteArray? =
-        serial.withLock {
+    ): ByteArray? {
+        val document = owner()
+        return serial.withLock {
+            if (!awaitPage() || owner() !== document) return@withLock null
             val answer = CompletableDeferred<ByteArray?>()
             val id = nextId++
             pendingId = id
             pending = answer
             send(HostMessage.ExportImage(id, line, png, scale))
             try {
-                withTimeoutOrNull(timeoutMillis) { answer.await() }
+                withTimeoutOrNull(timeoutMillis) { answer.await() }?.takeIf { owner() === document }
             } finally {
                 pending = null
                 pendingId = 0
                 onFinished()
             }
         }
+    }
 
     /** `PreviewListener.onExportResult`. */
     fun onResult(
@@ -62,6 +74,12 @@ class DiagramExports(
 
     /** The page reported an error: if an export is waiting, that was its answer. */
     fun onError() {
+        pending?.complete(null)
+    }
+
+    /** The page is given another document or replaced: a waiting export gets null now. */
+    fun cancel() {
+        pendingId = 0
         pending?.complete(null)
     }
 

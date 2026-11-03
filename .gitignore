@@ -14,6 +14,7 @@ apps/android/**/*.hprof
 
 # Signing material never enters git.
 *.keystore
+!apps/android/sideload-debug.keystore
 *.jks
 *.p12
 

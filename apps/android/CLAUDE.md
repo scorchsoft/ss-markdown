@@ -8,7 +8,7 @@ module holds real code; the map below says what each one has.
 ```
 app/              MainActivity, AppGraph, navigation and the screens (editor state machine, history, storage, settings, themes, licences)
 core/text         PURE JVM. Piece table, line index, graphemes, undo.        (piece tree, done: see core/text/NOTICE)
-core/markdown     PURE JVM. Tokenizer, block index, anchor maths, edit commands.  (done: tokenizer, outline, edit commands with fence-aware line commands and list renumbering)
+core/markdown     PURE JVM. Tokenizer, block index, anchor maths, edit commands.  (done: tokenizer, outline, edit commands with fence-aware line commands and list renumbering; code/ holds the fenced-code lexers)
 core/history      PURE JVM. Journal, keyframe+diff history, retention.        (done: journal (FORMAT.md), versions, export/import + export listing (VERSIONS-FORMAT.md))
 core/theme        PURE JVM. Theme schema, CSS generation, contrast checks.    (done: schema, codec, CSS, contrast; see THEME-CSS.md)
 core/ui           Design system: SS.colors, SSType, SSDimens, SS* components  (formatting strip incl. table mode)
@@ -80,6 +80,15 @@ Measured 2026-11-01: **6.15 MB** (classes.dex 3.32 MB), down from 15.12 MB
 when it was debuggable. CI fails the build if it becomes debuggable again,
 ships `PreviewActivity`, or loses `baseline.prof` or the licence texts.
 
+- **One signing key for every hand-over.** The debug build type signs with
+  the committed `apps/android/sideload-debug.keystore` (passwords
+  "android"; not a secret, Play refuses debug-signed uploads), so a newer
+  APK installs over an older one instead of failing with "App not
+  installed". Signer SHA-256: `59:E4:37:E6:B2:C9:A5:BF:77:68:42:CF:AF:99:D3:88:51:B2:54:08:FA:B0:BD:E6:EF:8D:BF:47:53:CE:FF:93`;
+  both CI jobs that build the hand-over fail if it changes. Never replace
+  the keystore: every installed copy would need uninstalling. Updates also
+  need a higher `versionCode` (bump by one per hand-over) and the same
+  `applicationId`.
 - **Archive `mapping.txt` with every APK.** The build is obfuscated, so a
   stack trace from it is unreadable without the mapping of that exact
   build: `app/build/outputs/mapping/debug/mapping.txt`. CI uploads it in
@@ -109,6 +118,37 @@ unit-test component). Robolectric is pinned to `sdk=34` in
 `app/src/test/resources/robolectric.properties`; a different `@Config`
 sdk buys a second sandbox and doubles the run time.
 
+## CI levels
+
+Each commit runs CI once: pull requests run on their own event, and a push
+runs only on `main`. A newer commit on the same pull request cancels the
+older run. A full run takes about 22 minutes: Checks takes 19, Instrumented
+22 and Preview bundle 9, all in parallel.
+
+- **Prove it locally first.** `apps/android/tools/local-ci.sh` runs the
+  Checks and Preview bundle jobs here, in parallel. Use `--kotlin` or
+  `--web` to run one of them. Pass any init script and `--max-workers`
+  through `GRADLE_ARGS`. The emulator jobs need KVM, so they stay in CI.
+- **`[skip ci]`** in the commit message runs nothing. Use it for commits
+  that only touch docs or comments.
+- **A pull request commit runs lean by default**: Checks and Preview bundle
+  only (CI minutes are free for this public repo; the cost is waiting). The
+  emulator job runs when the pull request has the **`full-ci`** label, when
+  the head commit says **`[ci full]`**, on `main`, nightly and on a manual
+  dispatch. Use `[ci full]` for any change to the editor, IME, focus, files,
+  saving or the WebView bridge.
+- **`[ci lean]`** in the head commit message forces a lean run anywhere
+  (Checks and Preview bundle, no emulator job). Use it for small changes that cannot affect
+  device behaviour: copy, docs inside the app, tests only, CI scripts. A
+  change to the editor, IME, focus, files, saving or the WebView bridge needs
+  a full run.
+- **Before any hand-over build**, the head commit must have a full green
+  run.
+- **The perf job** (emulator perf and Baseline Profile) runs only on
+  `workflow_dispatch` with `perf: true`, or on a pull request labelled
+  `perf`. A branch with no pull request (e.g. `ccr-perf-experiment`) runs
+  CI only through `workflow_dispatch`. The nightly schedule is off while the repository is private (paid minutes); turn it back on when it goes public.
+
 ## Emulator evidence (rubric #4, #11)
 
 CI's `perf` job (`.github/workflows/android.yml`) runs
@@ -127,6 +167,26 @@ deliberate change, run the script with `--write-baseline` on the job's
 nearest app frame is ours; its allowlist (WebView/Chromium internals only)
 says why for each entry.
 
+- **Open problem (2026-11-03): the perf job stalls on every run.** Since
+  2026-11-02 the device finishes each stage in about 8 minutes, but Gradle
+  hears about the results minutes late or never. UTP's
+  `AndroidAdditionalTestOutputPlugin` runs adb shell commands
+  (`am get-current-user`, `ls`) after every test on the thread that reads
+  the results, and on GitHub's 2-vCPU, 8 GB runners they hang until a
+  6-minute timeout (UTP thread dump and `utp.0.log`, run 41623253135). GPU
+  mode, emulator cores, AVD RAM, the Gradle heap and vsock were ruled out;
+  adb itself moves 32 MiB in under a second. The next thing to try is
+  running each stage with `am instrument` detached on the device and
+  pulling `additional_test_output` (tried on `ccr-perf-experiment`, commit
+  9d366fb, `benchmark/ci/instrument.sh`: the Macrobenchmarks passed 8/8 that
+  way; the generator still failed with "Unable to select a directory",
+  and the APK must be rebuilt with the new profile before measuring).
+- **A stage that overruns** (20 minutes, retried once, inside a 62-minute
+  script budget so the job always uploads) saves `stall-<stage>-<n>/` in
+  the `emulator-evidence` artifact: screencap and view tree, `dumpsys`,
+  `ps`/`top`, logcat, `/data/anr` thread dumps, adb throughput, and the
+  host's memory, sockets, JVM thread dumps (Gradle and UTP, taken before
+  the stage is stopped) and UTP logs. Read those before guessing.
 - **The app's side**: core/ui's `PerfTrace` sections (`SSM:open`,
   `SSM:commit`, `SSM:previewRefresh`), and MainActivity reports drawn when a
   document is bound (`timeToFullDisplayMs`). Renaming a section breaks the
@@ -218,6 +278,23 @@ Traps:
 - **CI runs all of it** (`preview-web` job): typecheck, lint, unit, a
   fresh build that must match the committed assets byte for byte, the
   size budget, then Playwright e2e on Chromium.
-- **Bundle budget**: 3.5 MiB for the whole `assets/preview` folder, as
-  `build.mjs` reports it (3.43 MiB on 2026-11-01), enforced in CI; `cytoscape` is stubbed (mindmap and
+- **Bundle budget**: 3.75 MiB for the whole `assets/preview` folder, as
+  `build.mjs` reports it (3.43 MiB on 2026-11-01, 3.50 MiB on 2026-11-03),
+  enforced in CI. Raised from 3.5 MiB on 2026-11-03: tap-to-caret, the list
+  and paste rules and the coming plain-text paste had used the last of the
+  old headroom, and the features earn their bytes. Size is not the user's
+  problem at this scale (the APK is about 7 MB); the budget exists to catch
+  an accidental dependency, so keep raising it only with a reason here. `cytoscape` is stubbed (mindmap and
   architecture diagrams show a named "not supported" box with Show source).
+- **esbuild target stays `chrome90`.** Paste formatting and plain-text
+  paste (2026-11-03) took the folder from 3,674,849 to 3,692,173 bytes,
+  well inside the budget. `chrome91` would save about 28 KB (optional
+  chaining stops being down-levelled), but no doc or ADR states a minimum
+  WebView, and WebView updates apart from minSdk 29, so the target only
+  moves when a stated minimum allows it.
+- **Paste conversions have a Kotlin twin.** `src/core/htmlToMarkdown.ts`
+  and `plainWords.ts` are written again in core/markdown's `paste/`
+  package (Code pastes without a WebView). Both run
+  `test/vectors/paste-conversions.txt`; change both, regenerate the file
+  with `UPDATE_VECTORS=1 npx vitest run --project unit test/unit/pasteConversions.test.ts`,
+  review the diff, then run `:core:markdown:test`.

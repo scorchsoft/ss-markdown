@@ -7,7 +7,9 @@ import com.scorchsoft.ssmarkdown.media.MediaMenuAction
 import com.scorchsoft.ssmarkdown.navigator.NavigatorAction
 import com.scorchsoft.ssmarkdown.preview.bridge.TableOp
 import com.scorchsoft.ssmarkdown.settings.Appearance
+import com.scorchsoft.ssmarkdown.settings.CopyFormat
 import com.scorchsoft.ssmarkdown.settings.PreviewWrap
+import com.scorchsoft.ssmarkdown.ui.strip.BlockChoice
 import com.scorchsoft.ssmarkdown.ui.strip.CursorStep
 import com.scorchsoft.ssmarkdown.ui.strip.StripKey
 
@@ -28,11 +30,19 @@ enum class MenuItem {
     ExportPdf,
     ExportImages,
     Share,
-    CopyRichText,
+
+    /** "Copy as…": the Copy chooser, Markdown or formatted text. */
+    CopyAs,
     Display,
     Settings,
 
-    /** Only above 1.5× font scale, when Copy moves into ⋮. */
+    /** Insert image…: a picture from the picker, linked by a relative path (ux-spec "Pictures"). */
+    InsertImage,
+
+    /** Only while the page has pictures it cannot show without the document's folder. */
+    ShowPictures,
+
+    /** Only above 1.5× font scale, when Copy moves into ⋮: opens the Copy chooser, like the button. */
     Copy,
 }
 
@@ -50,9 +60,16 @@ sealed interface EditorAction {
         val mode: ViewMode,
     ) : EditorAction
 
+    /** The header's Copy: opens the chooser, last-used choice first. */
     data object CopyTapped : EditorAction
 
+    /** Long-press Copy: the last choice again, at once (the shortcut; the chooser is its visible twin). */
     data object CopyLongPressed : EditorAction
+
+    /** A row of the Copy chooser: copies the whole document as [format] and remembers it. */
+    data class CopyAs(
+        val format: CopyFormat,
+    ) : EditorAction
 
     data object SaveTapped : EditorAction
 
@@ -61,6 +78,20 @@ sealed interface EditorAction {
     data object ToggleAutosaveThisFile : EditorAction
 
     data object OpenMenu : EditorAction
+
+    /**
+     * Opens the View sheet: the ⋮ "Aa" icon (null), or a long-press on a mode
+     * segment, which tints that pane's Lines row ([highlight]) and leaves the
+     * mode as it is.
+     */
+    data class OpenView(
+        val highlight: Pane?,
+    ) : EditorAction
+
+    /** Undo or Redo from the top row of the ⋮ menu; the menu stays open for another tap. */
+    data class MenuHistory(
+        val redo: Boolean,
+    ) : EditorAction
 
     data class ChooseMenuItem(
         val item: MenuItem,
@@ -162,6 +193,23 @@ sealed interface EditorAction {
 
     data class CursorStepped(
         val step: CursorStep,
+    ) : EditorAction
+
+    /** The Link prompt's Done: `[text](url)` over the prompt's selection or link. */
+    data class LinkDone(
+        val text: String,
+        val url: String,
+    ) : EditorAction
+
+    /** The Link prompt's Remove link: the link becomes its text. */
+    data object LinkRemove : EditorAction
+
+    /** The copy prompt's "Copy into this file's folder", for a picture picked outside it. */
+    data object CopyPictureIn : EditorAction
+
+    /** A type from the ¶ menu: every block in the selection becomes [choice]. */
+    data class BlockChosen(
+        val choice: BlockChoice,
     ) : EditorAction
 
     data class ImeVisibilityChanged(

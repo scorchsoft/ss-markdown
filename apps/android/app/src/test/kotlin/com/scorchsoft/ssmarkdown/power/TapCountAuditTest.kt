@@ -29,6 +29,8 @@ import com.scorchsoft.ssmarkdown.folder.FolderReducer
 import com.scorchsoft.ssmarkdown.folder.FolderSource
 import com.scorchsoft.ssmarkdown.folder.FolderUiState
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
+import com.scorchsoft.ssmarkdown.preview.PrintOutcome
+import com.scorchsoft.ssmarkdown.preview.PrintTarget
 import com.scorchsoft.ssmarkdown.settings.RecentFile
 import com.scorchsoft.ssmarkdown.share.DirectShareIds
 import com.scorchsoft.ssmarkdown.share.DirectShareTargets
@@ -187,7 +189,7 @@ class TapCountAuditTest {
         val (f, taps) = editor()
         assertTrue(f.vm.uiState.value.codeWrap)
         taps.tap(MORE)
-        taps.tap("Display")
+        taps.tap("View")
         taps.tap("No wrap")
         assertFalse(f.vm.uiState.value.codeWrap)
         assertEquals(2, taps.afterMenu())
@@ -213,7 +215,7 @@ class TapCountAuditTest {
         }
         val taps = TapCounter(rule)
         taps.tap(MORE)
-        taps.tap("Display")
+        taps.tap("View")
         taps.tap("Edit theme…")
         assertEquals(BuiltInThemes.DEFAULT.id, editing)
         // The custom theme's fonts are the first rows there: no further tap to see them.
@@ -226,9 +228,20 @@ class TapCountAuditTest {
     @Test
     fun `PDF export is one tap after the menu`() {
         val (f, taps) = editor()
+        val printed = ArrayList<String>()
+        val page =
+            object : PrintTarget {
+                override val isOnScreen = true
+
+                override suspend fun print(jobName: String): PrintOutcome {
+                    printed += jobName
+                    return PrintOutcome.Opened
+                }
+            }
+        f.vm.preview.attachPage(page) {}
         taps.tap(MORE)
         taps.tap("Export PDF")
-        assertTrue(f.events.any { it is EditorEvent.Print })
+        assertEquals("the page is asked to print this file", listOf("notes"), printed)
         assertEquals(1, taps.afterMenu())
     }
 
@@ -363,7 +376,7 @@ class TapCountAuditTest {
 
         override fun current() = emptyList<ShortcutSpec>()
 
-        override fun push(spec: ShortcutSpec) = Unit
+        override fun push(spec: ShortcutSpec) = true
 
         override fun remove(ids: List<String>) = Unit
 

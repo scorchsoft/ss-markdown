@@ -13,6 +13,7 @@ import androidx.core.net.toUri
 import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.files.saf.SafeFileName
 import com.scorchsoft.ssmarkdown.media.ExportFile
+import com.scorchsoft.ssmarkdown.preview.FormattedCopy
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -21,7 +22,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 /**
- * The Android half of exporting images and copying rich text: Downloads
+ * The Android half of exporting images and copying formatted text: Downloads
  * through MediaStore (no storage permission on Android 10+), a ZIP through
  * a picked URI, the share sheet and the clipboard through the app's
  * FileProvider. Everything that touches a stream runs on [io] and reports
@@ -99,13 +100,16 @@ class MediaActions(
         return true
     }
 
-    /** "Copy as rich text": [text] as plain Markdown with [html] beside it for apps that paste formatting. */
-    fun copyHtml(
-        text: CharSequence,
-        html: String,
-    ) {
+    /**
+     * "Copy formatted text": one clip of MIME type `text/html` whose item holds
+     * the HTML for apps that paste formatting and the plain-text twin for apps
+     * that paste text. The page has already kept both within the clipboard's
+     * Binder budget; the Binder call itself runs on [io].
+     */
+    suspend fun copyFormatted(copy: FormattedCopy) {
         val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return
-        clipboard.setPrimaryClip(ClipData.newHtmlText(context.getString(R.string.app_name), text, html))
+        val clip = ClipData.newHtmlText(context.getString(R.string.app_name), copy.text, copy.html)
+        withContext(io) { clipboard.setPrimaryClip(clip) }
     }
 
     /**

@@ -3,6 +3,7 @@ package com.scorchsoft.ssmarkdown.editor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** The per-line drawing cache's policy, on the host JVM with strings standing in for RenderNodes. */
@@ -71,6 +72,28 @@ class LineDrawCacheTest {
         val first = cache.get(7, key()) { StringBuilder("a") }
         val second = cache.get(7, key(epoch = 2)) { reused -> reused ?: StringBuilder("new") }
         assertSame(first, second)
+    }
+
+    @Test
+    fun `a drawing the platform emptied is recorded again even though its key still holds`() {
+        // A RenderNode's display list is dropped by the platform once nothing draws it.
+        val live = mutableMapOf<Int, Boolean>()
+        var n = 0
+        val cache = LineDrawCache<Int>(capacity = 8, isLive = { live.getValue(it) })
+        val record = { reused: Int? -> (reused ?: n++).also { live[it] = true } }
+        val drawn = (1..3).map { cache.get(it, key(), record) }
+        assertEquals(3, cache.recordings)
+
+        // Lines 1..3 scroll off screen: the platform discards their content, the cache keeps them.
+        drawn.forEach { live[it] = false }
+        val back = (1..3).map { cache.get(it, key(), record) }
+
+        assertEquals("the same nodes are reused", drawn, back)
+        assertEquals("each is recorded again before it is drawn", 6, cache.recordings)
+        assertEquals(3, cache.revived)
+        back.forEach { assertTrue("line $it has content again", live.getValue(it)) }
+        cache.get(1, key(), record)
+        assertEquals("a live drawing is replayed", 6, cache.recordings)
     }
 
     private companion object {

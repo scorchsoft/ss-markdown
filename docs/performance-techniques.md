@@ -18,6 +18,7 @@ where each idea came from, so a future reader can check the source.
 | Long-line windows: 2,000 chars unwrapped, 10,000 wrapped | CodeMirror `view/src/viewstate.ts` (MIT) | `feature/editor` |
 | Height map: measured lines plus estimated gaps; scroll anchoring by `newTop − oldTop`; a 1,000 px viewport margin; a height scaler above 7M px | CodeMirror `view/src/heightmap.ts`, `editorview.ts` | editor view + preview |
 | Line end-state equality stops re-tokenising; idle background slices; heuristic tokens for lines not yet reached | VS Code `textModelTokens.ts`; CodeMirror `language.ts` (sync work 20 ms, idle slices 25 ms, at most 1e5 chars past the viewport) | `core/markdown` tokenizer |
+| Fenced-code highlighting as more line state: each language's lexer carries its own small state (open comment, string, template) inside the Markdown tokenizer's per-line state, so the same end-state-equality stop, budgets and heuristic guesses apply to code. Own table-driven lexers, no grammar engine; **the token class names mirror highlight.js's** (`keyword`, `title`, `meta`, …) so Code and Preview group colours the same way. No highlight.js, Prism or TextMate grammar was copied | VS Code `textModelTokens.ts` and CodeMirror `language.ts` (the state-per-line model); highlight.js class names (BSD-3, names only) | `core/markdown/code`, `feature/editor` `SyntaxStyles` |
 | `data-line` from markdown-it `token.map` + binary-search scroll sync | VS Code `extensions/markdown-language-features/preview-src/scroll-sync.ts` | `feature/preview` |
 | Section-keyed incremental parse with a global references `env`; `content-visibility: auto` | Obsidian (public descriptions only); Chromium | `feature/preview` |
 | Log record framing (length + CRC + type), torn-tail tolerance | LevelDB `doc/log_format.md` | `core/history` journal |
@@ -56,6 +57,26 @@ test, never a wall-clock threshold. The tokenizer rows come from
 | PERF-H whole-document definition scans while typing beside a `[^1]` citation | 1 per keystroke (3 regexes a line + a JSON hash) | 0; 1 only when a citation or definition changes | `definitions.test.ts` |
 | PERF-I budget for a 12 MB stream of unknown size | Normal (admitted as 0 bytes); an `OutOfMemoryError` mid-decode crashed the app | Lean, from the bytes that arrived; an `OutOfMemoryError` declines the file | `DocumentLoaderTest` |
 | CC-F the three wall-clock tests | < 1 s, < 2 s, < 10 s | ≤ 16 char reads a char; ≤ 3 lines tokenised and ≤ 1 outline rebuild per edit | `LineTokenizerTest`, `OutlineTest` |
+
+## Code highlighting (host, 2026-11-03)
+
+`CodeHighlightBenchmarkTest` (opt-in, `-Pssmarkdown.heavyTests=true`).
+Host JVM in a shared container, so absolute times moved up to 2x between
+runs; the ranges below are two runs. A phone is several times slower.
+
+| What | Measured | Budget (quality-bar §4) |
+|---|---|---|
+| Full accurate pass over a 20 MB document of code blocks (1.14M lines, 14 languages) | 0.9–1.5 s plain, 2.1–4.9 s highlighted (+130–225%); 1.8–3.0 µs a line | Never on the main thread in one go: the Code pane's pass stops 100k chars past the viewport, in ≤ 4 ms slices inside the 8 ms frame budget. The outline's full pass runs off the main thread with highlighting off |
+| Heap kept by one full tokenise of that document | 14 MB measured either way (10 MB estimated): code state lives in the per-line state's spare bits, tokens stay in the 1,024-line cache | Admission estimate unchanged |
+| A keystroke inside a 5,000-line block | 1.0 line re-lexed; 29–98 µs including the idle pass | < 16 ms keystroke to glyph |
+| `/*` typed at the top of that block: the frame | 61 lines (the viewport) in 0.14–5.3 ms | ≤ 8 ms main-thread tokenising a frame |
+| … idle slices to the 100k-char lookahead | 3,404 lines in 3–5 slices of 4 ms | Bounded by the lookahead: the hard cap |
+| … a viewport at the block's end before the pass reaches it | 60 lines guessed from their stored state, 0.2–0.6 ms; exact once the pass or a scroll reaches them | ≤ 8 ms a frame |
+| Lines over 2,000 chars | Lexed to 2,000 only | Long lines chunked (robustness.md) |
+
+Big-file mode keeps highlighting on: the work per frame is the lines on
+screen, whatever the file size, and the measurements above fit the
+budgets with room. Nothing is turned off.
 
 ## Emulator measurements (CI, 2026-11-01/02): emulator, not device
 

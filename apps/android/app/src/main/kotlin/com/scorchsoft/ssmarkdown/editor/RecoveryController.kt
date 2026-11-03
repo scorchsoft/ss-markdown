@@ -23,7 +23,9 @@ class RecoveryController(
     private val host: EditorHost,
 ) {
     private val deps get() = host.deps
-    private var discarded: String? = null
+
+    /** The text "Discard edits" took away, and the document it belongs to, for the message's Undo. */
+    private var discarded: Pair<String, String>? = null
 
     /**
      * The launch scan. The most recently edited document opens on screen
@@ -134,7 +136,8 @@ class RecoveryController(
         sourceName: String?,
         make: suspend (DocumentUri) -> CopyOutcome,
     ): Boolean {
-        val draft = deps.drafts.create() ?: return false
+        // Creating and deleting draft files is disk work: off the main thread (StrictMode).
+        val draft = withContext(deps.io) { deps.drafts.create() } ?: return false
         return when (val copy = make(draft)) {
             is CopyOutcome.Copied -> {
                 (host as? EditorViewModel)?.show(
@@ -145,7 +148,7 @@ class RecoveryController(
             }
 
             is CopyOutcome.Unavailable -> {
-                deps.drafts.delete(draft) // Still empty: nothing was written to it.
+                withContext(deps.io) { deps.drafts.delete(draft) } // Still empty: nothing was written to it.
                 false
             }
         }
@@ -165,7 +168,7 @@ class RecoveryController(
         deps.scope.launch {
             when (val outcome = deps.store.discardEdits(doc.open.uri, evenIfNotKept)) {
                 is ResolveOutcome.Resolved -> {
-                    discarded = withContext(deps.compute) { kept.toString() }
+                    discarded = doc.open.uri.value to withContext(deps.compute) { kept.toString() }
                     host.rebind()
                     host.message(discardedMessage(outcome.checkpoint), undo = true)
                 }
@@ -194,11 +197,19 @@ class RecoveryController(
             CheckpointResult.Failed -> MessageKind.EditsDiscardedNotKept
         }
 
+    /** The discard's message timed out: its Undo is gone, and so is the text it would have brought back. */
+    fun forgetDiscard() {
+        discarded = null
+    }
+
     /** Undo on "Edits discarded · kept in History": the discarded text comes back, unsaved. */
     fun undoDiscard() {
-        val text = discarded ?: return
-        val doc = host.active ?: return
+        val (uri, text) = discarded ?: return
         discarded = null
+        // Only into the document it came from: the message can outlive a switch to another file.
+        val doc = host.active?.takeIf { it.open.uri.value == uri } ?: return
+        // A large paste still going in would split the whole-text op, and it would be refused: finish it first.
+        doc.surface.flushComposing()
         val current = doc.text.snapshot()
         doc.surface.apply(listOf(EditOp(0, current, text)), TextSelection.caret(0))
         host.refresh()

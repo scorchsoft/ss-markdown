@@ -2,18 +2,25 @@
  * The page: wires the bridge, the render controller, Mermaid, editing and
  * gestures together and answers Kotlin's messages.
  */
+import { nextLoad } from "../core/imagePaths";
+import { readingFraction } from "../core/readingFraction";
 import type { HostMessage, PageMessage, PreviewSettings } from "../protocol";
 import { Bridge } from "./bridge";
 import { RenderController } from "./controller";
 import { Editor } from "./editing/editor";
-import { exportHtml } from "./exportHtml";
+import { exportHtml, type FormattedCopy } from "./exportHtml";
 import { exportDiagram } from "./exportImage";
+import { FindMarks } from "./findMarks";
 import { Gestures } from "./gestures";
+import { PageImages } from "./images";
 import { MermaidRunner } from "./mermaidRunner";
 import { breadcrumb, fillTocs } from "./outline";
 import { scrollToLine, topLine } from "./scrollSync";
 import { applyTheme } from "./theme";
 import { BUILT_IN_THEMES } from "./themes";
+
+/** Reading-line resolution: a report is sent when the fraction moves by a step. */
+const FRACTION_STEPS = 1000;
 
 const DEFAULT_SETTINGS: PreviewSettings = { tapToEdit: true, pageMode: false, zoom: 1, lean: false, readOnly: false };
 
@@ -22,9 +29,12 @@ export class PreviewApp {
     private readonly controller: RenderController;
     private readonly mermaid = new MermaidRunner();
     private readonly editor: Editor;
+    private readonly find: FindMarks;
+    private readonly images: PageImages;
     private settings: PreviewSettings = DEFAULT_SETTINGS;
     private anchorLine: number | null = null;
     private lastTop = -1;
+    private lastFractionStep = -1;
     /**
      * Where Kotlin last asked to land, when the page could not scroll that
      * line to the top (the last screen of the document). Until the reader
@@ -37,15 +47,20 @@ export class PreviewApp {
     private pinned: number | null = null;
     private scrollFrame = 0;
     private renderStarted = 0;
+    /** Bumped by each print preparation, `load` and `finishPrint`: a preparation answers only while it is current. */
+    private printRequest = 0;
 
     constructor(root: HTMLElement, worker: Worker) {
         this.bridge = new Bridge((m) => this.onHostMessage(m));
         const post = (m: PageMessage): void => this.bridge.post(m);
+        this.images = new PageImages(post);
         this.controller = new RenderController(root, worker, {
             onRendered: (views) => {
                 this.editor.onRendered(views);
+                for (const v of views) this.images.scan(v.el);
                 fillTocs(document, this.controller.outline());
                 this.restoreAnchor();
+                this.find.onRendered();
                 this.reportTop(true);
                 post({
                     type: "rendered",
@@ -56,10 +71,13 @@ export class PreviewApp {
             },
             onMounted: (view) => {
                 this.editor.onRendered([view]);
+                this.images.scan(view.el);
                 this.mermaid.enqueueIn(view.el);
                 fillTocs(view.el, this.controller.outline());
+                this.find.onRendered();
             },
         });
+        this.find = new FindMarks(this.controller);
         this.editor = new Editor(this.controller, post);
         worker.onerror = (e) => post({ type: "error", message: `Render worker failed: ${e.message}` });
         new Gestures({
@@ -71,7 +89,14 @@ export class PreviewApp {
         });
         window.addEventListener("scroll", () => this.onScroll(), { passive: true });
         for (const type of ["pointerdown", "wheel", "keydown", "touchstart"]) {
-            window.addEventListener(type, () => (this.pinned = null), { passive: true, capture: true });
+            window.addEventListener(
+                type,
+                () => {
+                    this.pinned = null;
+                    this.find.onReaderInput();
+                },
+                { passive: true, capture: true },
+            );
         }
         // Going to the background: typing still waiting for its pause goes now (DS-14).
         document.addEventListener("visibilitychange", () => {
@@ -87,9 +112,16 @@ export class PreviewApp {
     private onHostMessage(m: HostMessage): void {
         switch (m.type) {
             case "load":
+                // A print being prepared was for the page as it was: abandon it (it never answers).
+                this.printRequest++;
                 this.editor.end();
+                // Relative pictures belong to the document: another one's statuses do not apply,
+                // and another one's picture of the same path is not this one's.
+                this.images.reset();
+                nextLoad(m.epoch ?? 0);
                 this.renderStarted = performance.now();
                 this.anchorLine = m.anchorLine ?? null;
+                this.find.clear();
                 this.controller.load(m.text ?? "", m.rev);
                 break;
             case "edit":
@@ -120,12 +152,23 @@ export class PreviewApp {
                 this.land(m.line, m.smooth ?? false);
                 // Not rendered yet: land again, exactly, once its section arrives.
                 if (this.controller.viewAtLine(m.line)?.html === null) this.anchorLine = m.line;
+                // Split following the Code pane must not scroll a find match just revealed out of view.
+                this.find.afterHostScroll();
+                break;
+            case "scrollToFraction":
+                // The fast-scroll thumb (Kotlin clamps it to 0..1; the browser clamps the offset):
+                // the reader is moving, so nothing pinned may pull the page back.
+                this.pinned = this.anchorLine = null;
+                window.scrollTo(0, m.fraction * (document.documentElement.scrollHeight - innerHeight));
                 break;
             case "tableNav":
                 this.editor.moveCell(m.direction);
                 break;
             case "tableOp":
                 this.editor.tableOp(m.op);
+                break;
+            case "pastePlain":
+                this.editor.pastePlain(m.text, m.html);
                 break;
             case "endEditing":
                 this.editor.end();
@@ -135,15 +178,25 @@ export class PreviewApp {
                 void this.exportImage(m.requestId, m.line, m.format, m.scale);
                 break;
             case "preparePrint":
-                void this.preparePrint();
+                void this.preparePrint(m.requestId);
                 break;
             case "flush":
                 this.editor.flushTyping();
                 break;
             case "exportHtml":
-                void this.exportHtml(m.requestId, m.fromLine, m.toLine);
+                void this.exportHtml(m.requestId, m.fromLine, m.toLine, m.maxChars);
+                break;
+            case "find":
+                this.findMatches(m);
+                break;
+            case "imageStatus":
+                this.images.onStatus(m.id, m.statuses);
+                break;
+            case "imagesChanged":
+                this.images.changed();
                 break;
             case "finishPrint":
+                this.printRequest++;
                 this.controller.virtualizer.keepAll = false;
                 document.documentElement.classList.remove("printing");
                 for (const v of this.controller.views) this.controller.virtualizer.update(v);
@@ -173,6 +226,18 @@ export class PreviewApp {
                 this.resync(outcome.reason);
                 break;
         }
+    }
+
+    /** Kotlin's find matches, mapped over any page edits still in flight; dropped when stale. */
+    private findMatches(m: Extract<HostMessage, { type: "find" }>): void {
+        if (this.controller.sync.fromHost(0, m.rev) === null) return;
+        let ranges: number[] | null = null;
+        if (m.ranges) {
+            ranges = [];
+            for (const offset of m.ranges) ranges.push(this.controller.sync.fromHost(offset, m.rev) ?? offset);
+        }
+        if (ranges?.length === 0) this.find.clear();
+        else this.find.set(ranges, m.current, m.reveal);
     }
 
     /** Out of step with Kotlin: ask for its text. Every edit made here has already been sent. */
@@ -222,9 +287,22 @@ export class PreviewApp {
             // The page grew under a pin (sections mounted): land again, now that it may reach.
             if (this.pinned !== null && !atBottom()) this.land(this.pinned);
             const line = this.pinned ?? Math.floor(topLine(this.controller));
-            if (line === this.lastTop && !force) return;
+            // The reading line follows the scroll position, which moves on the last screen
+            // where the top line no longer can; a step of 1/1000 is about a pixel of the line.
+            const fraction = readingFraction(window.scrollY, document.documentElement.scrollHeight, window.innerHeight);
+            const step = Math.round(fraction * FRACTION_STEPS);
+            if (line === this.lastTop && step === this.lastFractionStep && !force) return;
             this.lastTop = line;
-            this.bridge.post({ type: "topLine", line, crumbs: breadcrumb(this.controller.outline(), line) });
+            this.lastFractionStep = step;
+            // How much of the page shows, for the fast-scroll thumb (Kotlin clamps it to 0..1).
+            const visible = innerHeight / document.documentElement.scrollHeight;
+            this.bridge.post({
+                type: "topLine",
+                line,
+                crumbs: breadcrumb(this.controller.outline(), line),
+                fraction,
+                visible,
+            });
         });
     }
 
@@ -245,22 +323,37 @@ export class PreviewApp {
         }
     }
 
-    private async exportHtml(requestId: number, fromLine: number, toLine: number): Promise<void> {
-        let html: string | null = null;
+    private async exportHtml(requestId: number, fromLine: number, toLine: number, maxChars: number): Promise<void> {
+        let copy: FormattedCopy | null = null;
         try {
-            html = await exportHtml(this.controller, fromLine, toLine);
+            copy = await exportHtml(this.controller, fromLine, toLine, maxChars, (source) =>
+                this.mermaid.drawForCopy(source),
+            );
         } catch (e) {
             this.bridge.post({ type: "error", message: e instanceof Error ? e.message : String(e) });
         }
-        this.bridge.post({ type: "htmlResult", requestId, html });
+        this.bridge.post({
+            type: "htmlResult",
+            requestId,
+            html: copy?.html ?? null,
+            text: copy?.text ?? null,
+            truncated: copy?.truncated ?? false,
+        });
     }
 
-    /** Print is the one path that renders every block; Kotlin shows progress meanwhile. */
-    private async preparePrint(): Promise<void> {
+    /**
+     * Print is the one path that renders every block. The answer names the
+     * request; a `load` or `finishPrint` while it renders abandons it, so a
+     * request made for one document is never answered from the next.
+     */
+    private async preparePrint(requestId: number): Promise<void> {
+        const mine = ++this.printRequest;
+        const current = (): boolean => mine === this.printRequest;
         this.editor.end();
         this.controller.virtualizer.keepAll = true;
         document.documentElement.classList.add("printing");
         await this.controller.renderAll();
+        if (!current()) return;
         for (const v of this.controller.views) {
             v.mount();
             this.mermaid.enqueueIn(v.el, true);
@@ -268,7 +361,7 @@ export class PreviewApp {
         fillTocs(document, this.controller.outline());
         await this.mermaid.idle();
         await document.fonts.ready;
-        this.bridge.post({ type: "printReady" });
+        if (current()) this.bridge.post({ type: "printReady", requestId });
     }
 }
 

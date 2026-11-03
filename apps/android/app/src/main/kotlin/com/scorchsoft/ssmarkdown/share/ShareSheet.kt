@@ -77,6 +77,7 @@ fun ShareSheet(
             Quote(state)
             when (val phase = state.phase) {
                 SharePhase.Choosing, SharePhase.Working -> Choosing(state, onAction)
+                is SharePhase.AlreadyThere -> AlreadyThere(phase, onAction)
                 else -> Outcome(phase, onAction)
             }
         }
@@ -130,7 +131,60 @@ private fun Choosing(
         Text(stringResource(R.string.share_another), style = SS.type.body, color = SS.colors.ink)
     }
     if (state.target != null) AppendOptions(state, onAction)
+    // A rebuilt sheet whose last Append was cut off before it landed: one quiet line, Append still on offer.
+    if (state.interrupted) {
+        Text(
+            stringResource(R.string.share_interrupted),
+            style = SS.type.meta,
+            color = SS.colors.inkMuted,
+            modifier = Modifier.padding(top = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
+        )
+    }
     Buttons(state, onAction)
+}
+
+/**
+ * The shared text is already where Append would put it: nothing was
+ * written. Open the file, Add again (appends anyway) or Cancel. Announced
+ * like the other outcomes, as a polite live region.
+ */
+@Composable
+private fun AlreadyThere(
+    phase: SharePhase.AlreadyThere,
+    onAction: (ShareAction) -> Unit,
+) {
+    val message =
+        if (phase.position == AppendPosition.Top) R.string.share_already_top else R.string.share_already_end
+    Text(
+        stringResource(message, phase.name),
+        style = SS.type.body,
+        color = SS.colors.ink,
+        modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+    )
+    Row(
+        Modifier.fillMaxWidth().padding(top = 12.dp),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TextButton(onClick = { onAction(ShareAction.Cancel) }) {
+            Text(stringResource(R.string.cancel), style = SS.type.label, color = SS.colors.ink)
+        }
+        TextButton(onClick = { onAction(ShareAction.AddAgain) }) {
+            Text(stringResource(R.string.share_add_again), style = SS.type.label, color = SS.colors.ink)
+        }
+        TextButton(
+            onClick = { onAction(ShareAction.OpenResult) },
+            modifier = Modifier.weight(1f, fill = false).background(SS.colors.ink, RoundedCornerShape(20.dp)),
+        ) {
+            Text(
+                stringResource(R.string.share_open_named, phase.name),
+                style = SS.type.label,
+                color = SS.colors.bg,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
 }
 
 @Composable

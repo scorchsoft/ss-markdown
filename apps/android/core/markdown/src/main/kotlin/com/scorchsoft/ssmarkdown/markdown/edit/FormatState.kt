@@ -16,13 +16,25 @@ public data class FormatState(
     public val list: ListKind? = null,
     /** True inside a blockquote. */
     public val quote: Boolean = false,
+    /** The block type for the ¶ menu's tick, or null for none of its types. */
+    public val block: BlockType? = BlockType.Paragraph,
+    /** True on a line of a GFM table, where ¶ is disabled (converting one row would break the table). */
+    public val inTable: Boolean = false,
 ) {
+    /**
+     * Whether Indent can do anything here: on a list item or a line of fenced
+     * code. On a paragraph, heading or quote it would only make an indented
+     * code block, so the key is disabled (docs/editing-behaviours.md D3).
+     */
+    public val canIndent: Boolean get() = list != null || block == BlockType.CodeBlock
+
     /** Reading the state. */
     public companion object {
-        /** The state at [selection] in [text]. */
+        /** The state at [selection] in [text]; [fences] says which lines are code, for [block]. */
         public fun at(
             text: CharSequence,
             selection: TextSelection,
+            fences: FenceStates = FenceStates.NONE,
         ): FormatState {
             require(selection.end <= text.length) { "selection $selection outside text of ${text.length}" }
             val line = TextLines.lineAt(text, selection.start)
@@ -41,7 +53,9 @@ public data class FormatState(
                     else -> null
                 }
             val (level, _) = HeadingEdit.parse(line.content.substring(p.quoteEnd))
-            return FormatState(inline, level, list, p.quoteEnd > 0)
+            val block = BlockType.at(text, selection, fences)
+            val table = block != BlockType.CodeBlock && TableLines.isTableLine(text, line)
+            return FormatState(inline, level, list, p.quoteEnd > 0, block, table)
         }
     }
 }

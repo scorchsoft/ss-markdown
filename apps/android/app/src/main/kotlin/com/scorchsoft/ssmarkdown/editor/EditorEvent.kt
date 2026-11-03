@@ -2,6 +2,7 @@ package com.scorchsoft.ssmarkdown.editor
 
 import com.scorchsoft.ssmarkdown.media.ExportFile
 import com.scorchsoft.ssmarkdown.nav.AppScreen
+import com.scorchsoft.ssmarkdown.preview.FormattedCopy
 
 /**
  * One-shot effects only the Activity can perform: system pickers, the
@@ -37,7 +38,7 @@ sealed interface EditorEvent {
         val text: CharSequence,
     ) : EditorEvent
 
-    /** Share [text]; [richText] offers it as HTML too ("Copy as rich text" until Preview renders HTML). */
+    /** Share [text]; [richText] offers it as HTML too (a `<pre>` of the Markdown). */
     data class ShareText(
         val text: CharSequence,
         val richText: Boolean,
@@ -51,6 +52,12 @@ sealed interface EditorEvent {
     /** Close the keyboard (Preview's Done key). */
     data object HideKeyboard : EditorEvent
 
+    /**
+     * The Link sheet closed (Done, Remove link or Cancel): its fields had the
+     * keyboard, so give it back to the text, where the caret already is.
+     */
+    data object ReturnKeyboard : EditorEvent
+
     /** A light tick: mode switch, save success. */
     data object Tick : EditorEvent
 
@@ -60,14 +67,9 @@ sealed interface EditorEvent {
     /** Leave the app. */
     data object Finish : EditorEvent
 
-    /**
-     * "Copy as rich text": [text] as Markdown plus the preview's rendering of
-     * source lines `[fromLine, toLine)` as HTML, when the preview can give it.
-     */
-    data class CopyRichText(
-        val text: CharSequence,
-        val fromLine: Int,
-        val toLine: Int,
+    /** "Copy formatted text": [copy]'s HTML with its plain-text twin, as one clip. */
+    data class CopyFormatted(
+        val copy: FormattedCopy,
     ) : EditorEvent
 
     /** Opens a web, mail or phone link in another app, after the user tapped Open on the chip. */
@@ -79,6 +81,16 @@ sealed interface EditorEvent {
     class SaveToDownloads(
         val folder: String,
         val files: List<ExportFile>,
+    ) : EditorEvent
+
+    /** Insert image: the system picker for one picture, starting in [initialFolder] (the document's folder). */
+    data class PickImage(
+        val initialFolder: String?,
+    ) : EditorEvent
+
+    /** "Allow access": the system folder picker, starting in [initialFolder] (the document's folder). */
+    data class PickPictureFolder(
+        val initialFolder: String?,
     ) : EditorEvent
 
     /** Export images as one ZIP, through the system picker, starting in [initialFolder] when remembered. */
@@ -101,10 +113,5 @@ sealed interface EditorEvent {
     /** Display → Edit theme: the theme editor, on a copy of [themeId] when it is a built-in. */
     data class EditTheme(
         val themeId: String,
-    ) : EditorEvent
-
-    /** ⋮ → Export PDF: the system print dialog for the preview, named [jobName]. */
-    data class Print(
-        val jobName: String,
     ) : EditorEvent
 }

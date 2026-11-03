@@ -3,6 +3,7 @@ package com.scorchsoft.ssmarkdown.editor
 import android.content.ClipData
 import android.content.ClipDescription
 import android.content.ClipboardManager
+import com.scorchsoft.ssmarkdown.markdown.paste.PasteClip
 
 /**
  * Carries out [EditorCommand]s from the keyboard, the text toolbar and
@@ -27,12 +28,33 @@ internal class CommandRunner(
                 description.hasMimeType(ClipDescription.MIMETYPE_TEXT_HTML)
         }
 
+    /**
+     * True when "Paste as plain text" would paste something other than
+     * Paste: the clip has HTML, or plain text holding Markdown syntax
+     * ([PasteClip.isRich]). The toolbar shows the item only then.
+     */
+    val canPastePlain: Boolean
+        get() {
+            val description = clipboard?.primaryClipDescription ?: return false
+            if (description.hasMimeType(ClipDescription.MIMETYPE_TEXT_HTML)) return true
+            if (!description.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN)) return false
+            val text =
+                clipboard.primaryClip
+                    ?.takeIf { it.itemCount > 0 }
+                    ?.getItemAt(0)
+                    ?.text ?: return false
+            return PasteClip.isRich(text.take(PasteClip.RICH_SCAN_CHARS).toString(), null)
+        }
+
     /** Runs [command]; [extend] makes a movement select. Returns true if the command applied. */
     fun run(
         command: EditorCommand,
         extend: Boolean = false,
     ): Boolean {
         if (command !in VERTICAL) goalX = Float.NaN
+        // The toolbar and accessibility are not held by the paste's gate, as keys are: finish the paste first.
+        // Undo and Redo do it themselves, holding the typing the paste held until after they act.
+        if (command in EDITS && command != EditorCommand.UNDO && command != EditorCommand.REDO) view.completePaste()
         return edit(command) ?: move(command, extend)
     }
 
@@ -40,16 +62,51 @@ internal class CommandRunner(
     private fun edit(command: EditorCommand): Boolean? {
         val session = view.session
         return when (command) {
-            EditorCommand.UNDO -> session.undo()
-            EditorCommand.REDO -> session.redo()
-            EditorCommand.CUT -> copy(cut = true)
-            EditorCommand.COPY -> copy(cut = false)
-            EditorCommand.PASTE -> paste()
-            EditorCommand.SELECT_ALL -> applied { session.selectAll() }
-            EditorCommand.BACKSPACE -> applied { session.pressBackspace() }
-            EditorCommand.FORWARD_DELETE -> applied { session.pressForwardDelete() }
-            EditorCommand.ENTER -> applied { session.pressEnter() }
-            else -> null
+            EditorCommand.UNDO -> {
+                view.undo()
+            }
+
+            EditorCommand.REDO -> {
+                view.redo()
+            }
+
+            EditorCommand.CUT -> {
+                copy(cut = true)
+            }
+
+            EditorCommand.COPY -> {
+                copy(cut = false)
+            }
+
+            EditorCommand.PASTE, EditorCommand.PASTE_PLAIN -> {
+                paste(plainOnly = command == EditorCommand.PASTE_PLAIN)
+            }
+
+            EditorCommand.SELECT_ALL -> {
+                applied { session.selectAll() }
+            }
+
+            EditorCommand.BACKSPACE -> {
+                applied {
+                    if (session.hasSelection ||
+                        view.listener?.onEditKey(EditKey.Backspace) != true
+                    ) {
+                        session.pressBackspace()
+                    }
+                }
+            }
+
+            EditorCommand.FORWARD_DELETE -> {
+                applied { session.pressForwardDelete() }
+            }
+
+            EditorCommand.ENTER -> {
+                applied { if (view.listener?.onEditKey(EditKey.Enter) != true) session.pressEnter() }
+            }
+
+            else -> {
+                null
+            }
         }
     }
 
@@ -187,19 +244,34 @@ internal class CommandRunner(
     }
 
     /**
-     * Pastes the clipboard. Plain text the clip already holds is measured
-     * first; a URI or a large text goes through the sliced paste, which
-     * reads it off the main thread (docs/edge-cases.md, "Paste of 50 MB").
+     * Pastes the clipboard (docs/ux-spec.md, "Copy and paste"). Plain text
+     * goes in as copied ([PastedText.clean]): Code is raw Markdown, so a
+     * Markdown clip is already what it should be. HTML (a copy from a
+     * browser, Gmail, Docs or Word) goes in converted to Markdown
+     * ([PasteClip.content]), unless it only wraps the clip's plain text, or
+     * the caret is in a code block, where the plain text goes in. A bare web
+     * address over selected text outside code links it instead
+     * ([PastedText.pasteLink]). [plainOnly] is "Paste as plain text": only
+     * the words ([PasteClip.words]), and never a link (decision D9). A
+     * URI, an HTML clip or a large text goes through the sliced paste,
+     * which reads and converts it off the main thread (docs/edge-cases.md,
+     * "Paste of 50 MB"); each paste is one undo step.
      */
-    private fun paste(): Boolean {
-        val item = clipboard?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)
-        val plain = item?.text
-        val pasteable = item != null && (plain == null || plain.isNotEmpty())
-        if (pasteable) {
-            val context = view.context
-            view.pasteText(plain?.length ?: UNKNOWN_LENGTH) { plain ?: item.coerceToText(context) }
+    private fun paste(plainOnly: Boolean): Boolean {
+        val item = clipboard?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0) ?: return false
+        val plain = item.text
+        val html = item.htmlText?.takeIf { it.isNotBlank() }
+        if (plain?.isEmpty() == true) return false
+        val raw = !plainOnly && html == null
+        if (raw && plain != null && PastedText.pasteLink(view, plain)) return true
+        val inCode = PastedText.inCode(view)
+        val context = view.context
+        view.pasteText(if (raw) plain?.length ?: UNKNOWN_LENGTH else UNKNOWN_LENGTH) {
+            // Only a clip with neither text nor HTML (a URI) is read through coerceToText.
+            val text = plain ?: if (html == null) item.coerceToText(context) else null
+            PastedText.clean(PastedText.forClip(text, html, plainOnly, inCode))
         }
-        return pasteable
+        return true
     }
 
     private companion object {
@@ -211,6 +283,19 @@ internal class CommandRunner(
 
         /** A clip item with no text yet (a URI): its size is known only once read, off the main thread. */
         const val UNKNOWN_LENGTH = -1
+
+        /** Commands that change the text or the history; they wait for a large paste to be in. */
+        val EDITS =
+            setOf(
+                EditorCommand.UNDO,
+                EditorCommand.REDO,
+                EditorCommand.CUT,
+                EditorCommand.PASTE,
+                EditorCommand.PASTE_PLAIN,
+                EditorCommand.BACKSPACE,
+                EditorCommand.FORWARD_DELETE,
+                EditorCommand.ENTER,
+            )
 
         /** Commands that keep the goal x of the previous vertical move. */
         val VERTICAL = setOf(EditorCommand.UP, EditorCommand.DOWN, EditorCommand.PAGE_UP, EditorCommand.PAGE_DOWN)

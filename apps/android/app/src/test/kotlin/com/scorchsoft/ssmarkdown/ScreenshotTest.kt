@@ -4,15 +4,28 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.View
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.snapshots.Snapshot
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
 import androidx.core.graphics.Insets
 import androidx.core.graphics.withTranslation
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.scorchsoft.ssmarkdown.about.AboutScreen
+import com.scorchsoft.ssmarkdown.core.ui.components.FastScrollDefaults
+import com.scorchsoft.ssmarkdown.core.ui.components.FastScrollState
+import com.scorchsoft.ssmarkdown.core.ui.components.FastScrollThumb
+import com.scorchsoft.ssmarkdown.editor.EditorOverlay
 import com.scorchsoft.ssmarkdown.editor.EditorUiState
+import com.scorchsoft.ssmarkdown.editor.Pane
 import com.scorchsoft.ssmarkdown.editor.ViewMode
 import com.scorchsoft.ssmarkdown.fixtures.PreviewSamples
 import com.scorchsoft.ssmarkdown.fixtures.Samples
@@ -21,6 +34,7 @@ import com.scorchsoft.ssmarkdown.fontpicker.FontPickerScreen
 import com.scorchsoft.ssmarkdown.history.HistoryScreen
 import com.scorchsoft.ssmarkdown.media.ViewerScreen
 import com.scorchsoft.ssmarkdown.settings.AppSettings
+import com.scorchsoft.ssmarkdown.settings.CopyFormat
 import com.scorchsoft.ssmarkdown.settings.SettingsScreen
 import com.scorchsoft.ssmarkdown.share.ShareSheet
 import com.scorchsoft.ssmarkdown.storage.StorageScreen
@@ -29,6 +43,8 @@ import com.scorchsoft.ssmarkdown.themes.ThemeEditorScreen
 import com.scorchsoft.ssmarkdown.ui.EditorWith
 import com.scorchsoft.ssmarkdown.ui.RealCodePane
 import com.scorchsoft.ssmarkdown.ui.Themed
+import com.scorchsoft.ssmarkdown.ui.strip.StripPage
+import com.scorchsoft.ssmarkdown.ui.strip.StripRows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -70,6 +86,9 @@ open class ScreenshotTest(
     @Test fun editorFailed() = editor("editor-save-failed", Samples.failed)
 
     @Test fun editorRecovered() = editor("editor-recovered", Samples.recovered)
+
+    // Settings → Show line numbers off: the Code view with no gutter, the text a small inset from the edge.
+    @Test fun codeNoLineNumbers() = shot("code-no-line-numbers") { EditorShot(Samples.saved, lineNumbers = false) }
 
     @Test fun editorSplit() = editor("editor-split", Samples.zoomed.copy(mode = ViewMode.Split))
 
@@ -127,6 +146,34 @@ open class ScreenshotTest(
 
     @Test fun bigFile() = editor("editor-big-file", Samples.bigFile)
 
+    // ux-spec "Fast scroll": the thumb held part-way down the Code pane, its section bubble beside it.
+    @Test
+    fun fastScroll() {
+        val thumb = FastScrollState()
+        render {
+            EditorWith(Samples.saved, codePane = { m ->
+                Box(m) {
+                    RealCodePane(Samples.saved, Modifier.fillMaxSize())
+                    FastScrollThumb(thumb, onDrag = {}, animate = false)
+                }
+            })
+        }
+        // The clock stands still from here, so the thumb cannot fade between being shown and being taken.
+        rule.mainClock.autoAdvance = false
+        rule.runOnIdle {
+            thumb.onTouch(true)
+            thumb.onScrolled(FAST_SCROLL_AT, FAST_SCROLL_VISIBLE)
+            thumb.onTouch(false)
+            thumb.setSection(1, "Saving and safety")
+            Snapshot.sendApplyNotifications()
+        }
+        rule.mainClock.advanceTimeByFrame()
+        rule.onNodeWithTag(FastScrollDefaults.THUMB_TAG, useUnmergedTree = true).performTouchInput { down(center) }
+        rule.mainClock.advanceTimeByFrame()
+        rule.waitForIdle()
+        capture("fast-scroll-dragging")
+    }
+
     // UX2-13: the rubric's widths (#8).
     @Test
     @Config(qualifiers = "w360dp-h780dp-420dpi")
@@ -174,13 +221,52 @@ open class ScreenshotTest(
 
     @Test fun sectionMenu() = sheet("section-menu", ScreenSamples.sectionMenu)
 
+    /** The Copy chooser, anchored to Copy, with the last-used choice (formatted text) first. */
+    @Test
+    fun copyChooser() =
+        sheet("copy-chooser", Samples.saved.copy(overlay = EditorOverlay.CopyChooser(CopyFormat.Formatted)))
+
     @Test fun history() = shot("history") { HistoryScreen(ScreenSamples.history, {}) }
 
     @Test fun share() = shot("share-sheet") { ShareSheet(ScreenSamples.share) {} }
 
+    @Test fun shareAlreadyThere() = shot("share-sheet-already-there") { ShareSheet(ScreenSamples.shareAlreadyThere) {} }
+
+    @Test fun shareInterrupted() = shot("share-sheet-interrupted") { ShareSheet(ScreenSamples.shareInterrupted) {} }
+
+    @Test
+    fun shareAlreadyThereLargeFont() =
+        shot("share-sheet-already-there-font-200", fontScale = 2f) { ShareSheet(ScreenSamples.shareAlreadyThere) {} }
+
     @Test fun strip() = keyboard("formatting-strip", Samples.unsaved)
 
     @Test fun stripLargeFont() = keyboard("formatting-strip-font-200", Samples.unsaved, fontScale = 2f)
+
+    // Settings → Formatting bar → Two rows: the formatting page and the symbols page at 412 dp.
+    @Test fun stripTwoRows() = keyboard("formatting-strip-two-rows", Samples.unsaved, rows = StripRows.Two)
+
+    @Test
+    fun stripTwoRowsSymbols() =
+        keyboard(
+            "formatting-strip-two-rows-symbols",
+            Samples.unsaved.copy(strip = Samples.unsaved.strip.copy(page = StripPage.Symbols)),
+            rows = StripRows.Two,
+        )
+
+    @Test
+    @Config(qualifiers = "w360dp-h780dp-420dpi")
+    fun stripTwoRows360() = keyboard("formatting-strip-two-rows-360", Samples.unsaved, rows = StripRows.Two)
+
+    @Test
+    fun stripTwoRowsLargeFont() =
+        keyboard("formatting-strip-two-rows-font-200", Samples.unsaved, fontScale = 2f, rows = StripRows.Two)
+
+    /** Fenced Python, TypeScript, PHP, C and Java, coloured as Preview colours them. */
+    @Test
+    fun codeHighlighting() =
+        shot("editor-code-highlighting") {
+            EditorWith(Samples.saved, codePane = { RealCodePane(Samples.saved, it, sample = Samples.highlightedCode) })
+        }
 
     @Test fun preview() = editor("preview", Samples.saved.copy(mode = ViewMode.Preview))
 
@@ -194,6 +280,12 @@ open class ScreenshotTest(
 
     @Test fun display() = sheet("display", PreviewSamples.display)
 
+    /** The View sheet from a long-press on Code: the same layout, Code's Lines row tinted. */
+    @Test
+    fun viewFromCode() = sheet("view-from-code", Samples.saved.copy(overlay = EditorOverlay.Display(Pane.Code)))
+
+    @Test fun linkPrompt() = sheet("link-prompt", PreviewSamples.linkPrompt)
+
     @Test fun themeEditor() = shot("theme-editor") { ThemeEditorScreen(PreviewSamples.themeType, {}) }
 
     @Test fun themeEditorColours() = shot("theme-editor-colours") { ThemeEditorScreen(PreviewSamples.themeColours, {}) }
@@ -201,6 +293,30 @@ open class ScreenshotTest(
     @Test fun fontPicker() = shot("font-picker") { FontPickerScreen(PreviewSamples.fonts, {}) }
 
     @Test fun settings() = shot("settings") { SettingsScreen(AppSettings(), "48.2 MB", {}) }
+
+    // Settings → Text → When typing in Split, scrolled into view under Formatting bar.
+    @Test
+    fun settingsSplitTyping() {
+        render { SettingsScreen(AppSettings(), "48.2 MB", {}) }
+        rule.onNodeWithText("On wide screens both panes stay.", substring = true).performScrollTo()
+        rule.waitForIdle()
+        capture("settings-split-typing")
+    }
+
+    // Split while typing (ux-spec "Split while typing"): the edited pane fills the page above the strip.
+    @Test
+    fun splitTypingCode() =
+        keyboard(
+            "split-typing-code",
+            Samples.unsaved.copy(mode = ViewMode.Split, keyboardUp = true, typingPane = Pane.Code),
+        )
+
+    @Test
+    fun splitTypingPreview() =
+        keyboard(
+            "split-typing-preview",
+            Samples.unsaved.copy(mode = ViewMode.Split, keyboardUp = true, typingPane = Pane.Preview),
+        )
 
     @Test fun storage() = shot("storage") { StorageScreen(StorageUiState(), {}) }
 
@@ -229,11 +345,12 @@ open class ScreenshotTest(
         name: String,
         state: EditorUiState,
         fontScale: Float = 1f,
+        rows: StripRows = StripRows.One,
     ) {
         lateinit var view: View
         render(fontScale) {
             view = LocalView.current
-            EditorShot(state)
+            EditorShot(state, rows)
         }
         rule.runOnIdle {
             val ime = (KEYBOARD_DP * view.resources.displayMetrics.density).toInt()
@@ -306,11 +423,17 @@ open class ScreenshotTest(
 
     /** The editor in [state] with the real Code pane, so shots show the app's syntax colouring. */
     @Composable
-    private fun EditorShot(state: EditorUiState) = EditorWith(state, codePane = { RealCodePane(state, it) })
+    private fun EditorShot(
+        state: EditorUiState,
+        rows: StripRows = StripRows.One,
+        lineNumbers: Boolean = true,
+    ) = EditorWith(state, codePane = { RealCodePane(state, it, lineNumbers) }, stripRows = rows)
 
     companion object {
         private const val PNG_QUALITY = 100
         private const val KEYBOARD_DP = 300
+        private const val FAST_SCROLL_AT = 0.42f
+        private const val FAST_SCROLL_VISIBLE = 0.05f
         private const val SCREENSHOTS = "build/screenshots"
 
         @JvmStatic

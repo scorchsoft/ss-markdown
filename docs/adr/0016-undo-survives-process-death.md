@@ -44,12 +44,18 @@ Option 3. Journal format version 2 (`core/history/FORMAT.md`):
   fresh run), after the Snapshot (recovery, compaction, a save typed
   through, a resync after a failed write), or alone.
 - **Saves keep the history.** A verified save no longer deletes the
-  journal while there are undo steps: it writes a *clean* journal (base =
-  the saved file, History only). The launch scan tells a clean journal
-  apart by its record frames and never offers it for recovery. Its first
-  later change is synced at once, so a death right after an edit still
-  finds a journal that says "edits began", as a fresh journal's header
-  always did.
+  journal while there are undo steps the 8 MB tail would keep: it
+  appends a Rebase marker (kind 6) naming the saved file and syncs it,
+  so the journal it already had becomes a *clean* journal on the saved
+  file (FORMAT.md, "Saves"). The launch scan tells a clean journal apart
+  by its record frames and never offers it for recovery. Its first later
+  change is synced at once, so a death right after an edit still finds a
+  journal that says "edits began", as a fresh journal's header always
+  did. Keeping the history is best effort: if the Rebase cannot be
+  written, the old journal is deleted (it must never outlive the save on
+  the old base), the history is let go, and the next edit starts a fresh
+  journal. That never raises "Recovery copies stopped": nothing unsaved
+  is at risk.
 - **Recovery restores text and steps separately.** The replayed text goes
   into the `TextDocument` as one replace, and `UndoStack.restore` puts the
   steps back as data, replacing the stacks (so that replace is not a
@@ -94,10 +100,32 @@ Option 3. Journal format version 2 (`core/history/FORMAT.md`):
   closes, and with "Don't save"; Settings → Storage counts it under
   recovery copies. The History on/off setting governs version history,
   not this: like the journal itself, the undo tail is part of crash
-  recovery.
-- A compaction or save rewrites up to 8 MB of history; the journal thread
-  does it, never the main thread. Capturing the steps on the main thread
-  copies references only (the ops are immutable).
+  recovery. Deleted text therefore stays in app-private storage while the
+  document is open, after a swipe-kill until the next launch settles, and
+  in a journal set aside into `quarantine/` until the user clears
+  set-aside edits. Accepted, and kept out of backups
+  (`backup_rules.xml`, `data_extraction_rules.xml`); review r3 L5 left it
+  as this decision.
+- A save writes one 66-byte record and one `fsync`, and never reads the
+  undo stack. As first built, each save rewrote the whole history (up to
+  8 MB, two `fsync`s) and exported the undo stack on the main thread,
+  walking every op and allocating one object per op; with autosave after
+  every 2 s pause that was gigabytes an hour (review r3 M3). Measured on
+  the host with a full tail of 700,000 one-char ops: 8.6 MB and 65 to
+  245 ms of main thread per save before, 66 bytes and under 0.01 ms after
+  (`SaveJournalCostTest`).
+- A compaction (and a run's first start, Save as, a resync) still writes
+  the history. Capturing it on the main thread walks the stack's ops
+  (the export copies its lists; ops are immutable and their strings are
+  built on the journal thread), but makes no per-op object. Since saves
+  no longer restart the run, compaction also comes once a run's records
+  pass 16 MiB, so a journal of keystrokes stays bounded (about 16 MiB of
+  ops plus its snapshot and history).
+- A history whose every step is over the 8 MB cap (one paste of more
+  than about 4.19 M chars) keeps nothing: the save ends the journal
+  instead (review r3 M2); a clean journal always carries a History
+  record, even an empty one, so it is never a bare header, which means
+  "edits began" and is offered.
 - Measured on the host (`UndoReplayBenchmarkTest`, a 20 MB document with a
   full 8 MB tail of 1,047 steps): a reopen takes 528 ms from a clean
   journal, 1,232 ms from Snapshot + History and 1,435 ms with the tail as

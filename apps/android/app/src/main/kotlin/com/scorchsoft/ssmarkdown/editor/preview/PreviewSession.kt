@@ -4,8 +4,12 @@ import com.scorchsoft.ssmarkdown.document.ActiveDocument
 import com.scorchsoft.ssmarkdown.document.TextChangeListener
 import com.scorchsoft.ssmarkdown.preview.DocumentSnapshot
 import com.scorchsoft.ssmarkdown.preview.DocumentSource
+import com.scorchsoft.ssmarkdown.preview.FormattedCopy
+import com.scorchsoft.ssmarkdown.preview.ImageStatus
 import com.scorchsoft.ssmarkdown.preview.PreviewListener
 import com.scorchsoft.ssmarkdown.preview.PreviewView
+import com.scorchsoft.ssmarkdown.preview.PrintOutcome
+import com.scorchsoft.ssmarkdown.preview.PrintTarget
 import com.scorchsoft.ssmarkdown.preview.RendererState
 import com.scorchsoft.ssmarkdown.preview.bridge.Crumb
 import com.scorchsoft.ssmarkdown.preview.bridge.HostMessage
@@ -19,6 +23,8 @@ import com.scorchsoft.ssmarkdown.preview.editing.PreviewEditor
 import com.scorchsoft.ssmarkdown.preview.editing.PreviewText
 import com.scorchsoft.ssmarkdown.text.EditOp
 import com.scorchsoft.ssmarkdown.text.Snapshot
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * The editor's side of the Preview: binds `PreviewEditor` to the document
@@ -38,13 +44,23 @@ class PreviewSession(
     private val host: PreviewHost,
 ) : PreviewListener {
     /** Rendered diagrams for the viewer, the Mermaid sheet and Export images. */
-    val exports = DiagramExports(::send, onFinished = { scrollTo(host.anchorLine) })
+    val exports =
+        DiagramExports(::send, onFinished = { scrollTo(host.anchorLine) }, owner = { bound }, awaitPage = ::awaitPage)
+
+    /** The Preview pane's fast-scroll thumb (ux-spec "Fast scroll"). */
+    val fastScroll = PreviewFastScroll(::send) { bound?.outline }
 
     /** The view on screen, if any. */
     var view: PreviewView? = null
         private set
 
     private var sender: ((HostMessage) -> Unit)? = null
+
+    /** What prints the page and copies it as formatted text: the attached view, or a test stand-in. */
+    private var printTarget: PrintTarget? = null
+
+    /** True while the attached page is drawn, so it renders and answers. */
+    private var onScreen: () -> Boolean = { false }
     private var editor: PreviewEditor? = null
 
     /**
@@ -58,6 +74,9 @@ class PreviewSession(
     private var bound: ActiveDocument? = null
     private var applyingPageEdit = false
 
+    /** The find matches the page paints, kept so a page that loads again paints them too; null while none. */
+    private var findMarks: FindMarks? = null
+
     /** Between `onPause` and `onResume`: a page edit arriving now is made durable at once (DS-14). */
     private var paused = false
 
@@ -67,9 +86,13 @@ class PreviewSession(
     /** [document] is now on screen (null: nothing is). Reloads the page if one is attached. */
     fun bind(document: ActiveDocument?) {
         if (document === bound) return
+        // A diagram being drawn for the previous document is not this one's.
+        exports.cancel()
         // Typing still waiting in the page goes out first, stamped with the old epoch (DS-13).
         send(HostMessage.Flush)
         bound?.changes = null
+        // Matches are offsets into the old document: the next one starts with none.
+        findMarks = null
         bound = document
         retired = editor
         editor = document?.let(::editorFor)
@@ -107,8 +130,12 @@ class PreviewSession(
     /** The Preview pane's view is on screen: it reports here and loads the document. */
     fun attach(target: PreviewView) {
         if (view === target) return
+        // A new page (another window's view): nothing asked of the old one is answered here.
+        exports.cancel()
         view = target
         sender = target::send
+        printTarget = target
+        onScreen = { target.isOnScreen }
         target.listener = this
         target.documentSource =
             DocumentSource { editor?.documentSource?.snapshot() ?: DocumentSnapshot("", 0) }
@@ -122,19 +149,118 @@ class PreviewSession(
         target.documentSource = null
         view = null
         sender = null
+        printTarget = null
+        onScreen = { false }
     }
 
     /**
      * Connects a page that is not a [PreviewView]: the tests' recording
      * page, which hears exactly what a WebView would.
      */
-    internal fun attachPage(send: (HostMessage) -> Unit) {
+    internal fun attachPage(
+        print: PrintTarget? = null,
+        send: (HostMessage) -> Unit,
+    ) {
         sender = send
+        printTarget = print
+        onScreen = { print?.isOnScreen ?: true }
         open()
     }
 
+    /**
+     * ⋮ → Export PDF for [document]: waits up to [waitMillis] for a page that
+     * holds it and is on screen (a switch to Preview attaches one within a
+     * frame or two), then prints it. Never prints anything else: if another
+     * document is bound first, or while the page prepares, the answer is
+     * [PrintOutcome.DocumentChanged] and nothing opens (edge-cases "Export PDF
+     * from Code did nothing, then printed the next file"). No page in time
+     * is [PrintOutcome.PageGone]. Call on the main thread.
+     */
+    suspend fun print(
+        document: ActiveDocument,
+        jobName: String,
+        waitMillis: Long = PAGE_WAIT_MILLIS,
+    ): PrintOutcome =
+        when (pageFor(document, waitMillis)) {
+            PageWait.Ready -> printTarget?.print(jobName) ?: PrintOutcome.PageGone
+            PageWait.DocumentChanged -> PrintOutcome.DocumentChanged
+            PageWait.NoPage -> PrintOutcome.PageGone
+        }
+
+    /**
+     * "Copy formatted text" of [document]'s lines `[fromLine, toLine)`, within
+     * [maxChars]: waits, like [print], for a drawn page that holds it, then
+     * asks that page. Null when no page comes in time, the page cannot answer,
+     * or another document is bound first, so a copy is never of the wrong
+     * file. Call on the main thread.
+     */
+    suspend fun copyFormatted(
+        document: ActiveDocument,
+        fromLine: Int,
+        toLine: Int,
+        maxChars: Int,
+        waitMillis: Long = PAGE_WAIT_MILLIS,
+    ): FormattedCopy? {
+        if (pageFor(document, waitMillis) != PageWait.Ready) return null
+        val copy = printTarget?.exportFormatted(fromLine, toLine, maxChars)
+        return copy?.takeIf { bound === document }
+    }
+
+    /** For [DiagramExports]: true once a page holding the bound document is on screen. */
+    private suspend fun awaitPage(): Boolean = bound?.let { pageFor(it, PAGE_WAIT_MILLIS) == PageWait.Ready } ?: false
+
+    private enum class PageWait { Ready, DocumentChanged, NoPage }
+
+    /**
+     * Waits for a page that holds [document] and is drawn. A page that is not
+     * drawn (Code view, another window's stopped Activity) may never finish
+     * rendering, so nothing is asked of it until it is.
+     */
+    private suspend fun pageFor(
+        document: ActiveDocument,
+        waitMillis: Long,
+    ): PageWait =
+        withTimeoutOrNull(waitMillis) {
+            var state: PageWait? = null
+            while (state == null) {
+                state =
+                    when {
+                        bound !== document -> PageWait.DocumentChanged
+                        sender != null && onScreen() -> PageWait.Ready
+                        else -> null
+                    }
+                if (state == null) delay(PAGE_POLL_MILLIS)
+            }
+            state
+        } ?: if (bound !== document) PageWait.DocumentChanged else PageWait.NoPage
+
     /** Scrolls the page so [line] is at the top. */
     fun scrollTo(line: Int) = send(HostMessage.ScrollToLine(line))
+
+    /**
+     * Find & replace (docs/ux-spec.md, "Find & replace"): the page paints
+     * the matches `[starts[i], ends[i])` on the rendered text and marks
+     * [current]; with [reveal] it scrolls it into view. Null arrays keep the
+     * matches it has (Next, Previous). Offsets are in the text as it is now.
+     */
+    fun find(
+        starts: IntArray?,
+        ends: IntArray?,
+        current: Int,
+        reveal: Boolean,
+    ) {
+        val marks =
+            if (starts != null && ends != null) FindMarks(starts, ends, current) else findMarks?.copy(current = current)
+        findMarks = marks ?: return
+        send(HostMessage.Find(rev, starts, ends, current, reveal))
+    }
+
+    /** The find bar closed: the page's matches go. */
+    fun clearFind() {
+        if (findMarks == null) return
+        findMarks = null
+        send(HostMessage.Find(rev, IntArray(0), IntArray(0), current = -1, reveal = false))
+    }
 
     /** A strip key in Preview. */
     fun format(action: FormatAction) {
@@ -152,6 +278,8 @@ class PreviewSession(
     private fun open() {
         if (sender == null) return
         editor?.open(host.anchorLine)
+        // A load clears the page's matches: a page that loads again (a new view, a resync) gets them back.
+        findMarks?.let { send(HostMessage.Find(rev, it.starts, it.ends, it.current, reveal = false)) }
     }
 
     /** A change from the Code pane, the strip, undo or replace: the page hears it as line edits. */
@@ -176,7 +304,17 @@ class PreviewSession(
     override fun onTopLine(
         line: Int,
         crumbs: List<Crumb>,
-    ) = host.onPreviewTopLine(line)
+    ) {
+        fastScroll.onTopLine(line)
+        host.onPreviewTopLine(line)
+    }
+
+    override fun onScrollFraction(fraction: Float) {
+        fastScroll.onScrollFraction(fraction)
+        host.onPreviewScrollFraction(fraction)
+    }
+
+    override fun onVisibleFraction(visible: Float) = fastScroll.onVisibleFraction(visible)
 
     override fun onRendererStateChanged(state: RendererState) = host.onPreviewEvent(PreviewEvent.Renderer(state))
 
@@ -188,12 +326,24 @@ class PreviewSession(
         epoch: Int,
     ) {
         val target = editorOf(epoch) ?: return
+        // A paste still going into Code goes in now and reaches the page as a host edit first; put in
+        // while this edit is applied, it would be taken for the page's own and never sent.
+        if (target === editor) bound?.surface?.completePending()
+        if (target === editor && host.readOnly) {
+            // The file refuses edits: acking would leave the page showing a change (a task tick) the
+            // text never took. Reloading puts the page back as the text is.
+            target.onResync("read-only")
+            return
+        }
         target.onPageEdits(baseRev, edits)
         // The pause already flushed the journal; this edit arrived after it.
         if (paused && target === editor) host.onPreviewEvent(PreviewEvent.EditedWhilePaused)
     }
 
-    override fun onEditingChanged(editing: Boolean) = host.onPreviewEvent(PreviewEvent.Editing(editing))
+    override fun onEditingChanged(editing: Boolean) {
+        if (!editing) fastScroll.onSelection(false)
+        host.onPreviewEvent(PreviewEvent.Editing(editing))
+    }
 
     override fun onSelection(
         from: Int,
@@ -202,11 +352,23 @@ class PreviewSession(
         inTable: Boolean,
         baseRev: Int,
     ) {
+        fastScroll.onSelection(from != to)
         editor?.formatState(from, to, baseRev)?.let { host.onPreviewEvent(PreviewEvent.Format(it, inTable)) }
     }
 
     override fun onFormatRequest(request: PreviewFormatRequest) {
         if (request.epoch != PageMessage.UNSTAMPED && request.epoch != editor?.epoch) return
+        bound?.surface?.completePending()
+        if (request.action == FormatAction.IMAGE) {
+            // Insert image opens the picker first; the picture goes at the page's selection.
+            editor?.selectionOf(request)?.let { host.onPreviewEvent(PreviewEvent.InsertImage(it)) }
+            return
+        }
+        if (request.action == FormatAction.LINK) {
+            // The Link key asks where the link goes first: the prompt opens on the page's selection.
+            editor?.selectionOf(request)?.let { host.onPreviewEvent(PreviewEvent.LinkPrompt(it)) }
+            return
+        }
         val handled = editor?.onFormatRequest(request) ?: return
         if (!handled) host.onPreviewEvent(PreviewEvent.History(redo = request.action == FormatAction.REDO))
     }
@@ -252,9 +414,29 @@ class PreviewSession(
         line: Int,
     ) = host.onPreviewEvent(PreviewEvent.MediaLongPress(kind, line))
 
+    override fun onImageStatuses(statuses: Map<String, ImageStatus>) =
+        host.onPreviewEvent(PreviewEvent.PictureStatuses(statuses.values.any { it == ImageStatus.NO_ACCESS }))
+
+    override fun onAllowFolder() = host.onPreviewEvent(PreviewEvent.AllowFolder)
+
     override fun onExportResult(
         requestId: Int,
         mime: String,
         bytes: ByteArray,
     ) = exports.onResult(requestId, bytes)
+
+    /** The matches last sent to the page. */
+    private class FindMarks(
+        val starts: IntArray,
+        val ends: IntArray,
+        val current: Int,
+    ) {
+        fun copy(current: Int) = FindMarks(starts, ends, current)
+    }
+
+    private companion object {
+        /** A switch to Preview attaches the page within a frame or two; this is generous. */
+        const val PAGE_WAIT_MILLIS = 3_000L
+        const val PAGE_POLL_MILLIS = 50L
+    }
 }

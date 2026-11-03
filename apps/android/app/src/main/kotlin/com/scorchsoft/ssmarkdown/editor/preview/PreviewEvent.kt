@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.editor.preview
 
 import com.scorchsoft.ssmarkdown.markdown.edit.FormatState
+import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.preview.RendererState
 import com.scorchsoft.ssmarkdown.preview.bridge.LinkTarget
 import com.scorchsoft.ssmarkdown.preview.bridge.MediaKind
@@ -60,6 +61,24 @@ sealed interface PreviewEvent {
         val inTable: Boolean,
     ) : PreviewEvent
 
+    /** The strip's Link key in Preview: the prompt opens on the page's [selection], in host offsets. */
+    data class LinkPrompt(
+        val selection: TextSelection,
+    ) : PreviewEvent
+
+    /** The Insert image key in Preview: the picture goes at the page's [selection], in host offsets. */
+    data class InsertImage(
+        val selection: TextSelection,
+    ) : PreviewEvent
+
+    /** A picture placeholder's "Allow access". */
+    data object AllowFolder : PreviewEvent
+
+    /** The page was told why some pictures cannot be shown; [needFolder] when any lacks folder access. */
+    data class PictureStatuses(
+        val needFolder: Boolean,
+    ) : PreviewEvent
+
     /** A change Preview could not write back was undone on screen. */
     data class EditRefused(
         val line: Int,
@@ -87,6 +106,9 @@ interface PreviewHost {
 
     /** The preview's top line changed. */
     fun onPreviewTopLine(line: Int)
+
+    /** The page's scroll position over its scrollable range, 0 to 1, for the reading line. */
+    fun onPreviewScrollFraction(fraction: Float) = Unit
 
     /** Everything else the preview reports. */
     fun onPreviewEvent(event: PreviewEvent)

@@ -43,7 +43,7 @@ describe("rendering the corpus", () => {
             expect(await count(page, sel), sel).toBeGreaterThan(0);
         }
         expect(await count(page, "pre code.hljs.language-kotlin .hljs-keyword")).toBeGreaterThan(0);
-        expect(await page.locator("img").getAttribute("src")).toBe("/doc/pictures/cat.png");
+        expect(await page.locator("img").getAttribute("src")).toMatch(/^\/doc\/0\/pictures\/cat\.png\?d=\d+&e=0$/);
         expect(await page.locator("h2#setext-heading").count()).toBe(1);
         expect(pageErrors(page)).toEqual([]);
     });

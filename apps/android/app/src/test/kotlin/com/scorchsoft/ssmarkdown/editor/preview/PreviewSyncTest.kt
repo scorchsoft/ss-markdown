@@ -5,13 +5,16 @@ import com.scorchsoft.ssmarkdown.editor.Pane
 import com.scorchsoft.ssmarkdown.editor.ViewMode
 import com.scorchsoft.ssmarkdown.fixtures.EditorFixture
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
+import com.scorchsoft.ssmarkdown.preview.RendererState
 import com.scorchsoft.ssmarkdown.preview.bridge.HostMessage
+import com.scorchsoft.ssmarkdown.preview.bridge.PageMessage
 import com.scorchsoft.ssmarkdown.preview.bridge.TextEdit
 import com.scorchsoft.ssmarkdown.settings.AppSettings
 import com.scorchsoft.ssmarkdown.text.EditOp
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -41,6 +44,67 @@ class PreviewSyncTest {
     fun `the page opens at the anchor`() {
         fixture()
         assertTrue(page.first() is HostMessage.Load)
+    }
+
+    @Test
+    fun `a task tick in a file that refuses edits is undone on the page, never acknowledged`() {
+        val f = fixture()
+        val bom = byteArrayOf(0xFF.toByte(), 0xFE.toByte(), 0, 0)
+        java.io.File(f.files, "utf32.md").writeBytes(bom + "- [ ] task\n".toByteArray(charset("UTF-32LE")))
+        f.vm.openDocument(EditorFixture.SCHEME + "utf32.md")
+        f.vm.onAction(EditorAction.SelectMode(ViewMode.Preview))
+        page.clear()
+
+        f.vm.preview.onSourceEdits(f.vm.preview.rev, listOf(TextEdit(3, 4, "x")), PageMessage.UNSTAMPED)
+
+        assertEquals(
+            "- [ ] task\n",
+            f.vm.active
+                ?.text
+                ?.text
+                ?.toString(),
+        )
+        assertTrue("no ack: the page would think the tick was kept", page.none { it is HostMessage.Ack })
+        assertTrue("the page loads the text as it is, so the box is unticked", page.any { it is HostMessage.Load })
+    }
+
+    @Test
+    fun `another file opens in Preview at its own place, not at the line the last one was read to`() {
+        val f = fixture()
+        f.vm.onAction(EditorAction.SelectMode(ViewMode.Preview))
+        f.vm.onPaneTopLine(Pane.Preview, 40)
+        page.clear()
+
+        f.vm.openDocument(f.file("b.md", (1..60).joinToString("") { "other $it\n" }))
+
+        val load = page.filterIsInstance<HostMessage.Load>().single()
+        assertEquals("b.md has no remembered place: it opens at the top", 0, load.anchorLine)
+        assertEquals(0, f.vm.anchorLine.value)
+    }
+
+    @Test
+    fun `in Split the Code view taking focus takes the strip back from a page that was editing`() {
+        val f = fixture()
+        f.vm.onAction(EditorAction.SelectMode(ViewMode.Split))
+        f.vm.preview.onEditingChanged(true)
+        assertTrue("the strip drives the page while it has the caret", f.vm.state.previewTyping)
+        page.clear()
+
+        f.vm.onCodeFocused()
+
+        assertFalse("Bold now goes to Code, where the caret is", f.vm.state.previewTyping)
+        assertTrue("the page stops editing", page.contains(HostMessage.EndEditing))
+    }
+
+    @Test
+    fun `a renderer restart ends Preview editing, so the strip is not left driving a page that lost it`() {
+        val f = fixture()
+        f.vm.onAction(EditorAction.SelectMode(ViewMode.Split))
+        f.vm.preview.onEditingChanged(true)
+
+        f.vm.preview.onRendererStateChanged(RendererState.RESTARTED)
+
+        assertFalse(f.vm.state.previewTyping)
     }
 
     @Test
@@ -125,5 +189,33 @@ class PreviewSyncTest {
         page.clear()
         f.vm.onAction(EditorAction.StripKeyTapped(com.scorchsoft.ssmarkdown.ui.strip.StripKey.Undo))
         assertEquals(listOf(TextEdit(0, 1, "")), page.filterIsInstance<HostMessage.Edit>().single().ops)
+    }
+
+    @Test
+    fun `a paste in Preview during Split reaches Code as one undo step, a pasted link as two`() {
+        val f = fixture()
+        f.vm.onAction(EditorAction.SelectMode(ViewMode.Split))
+        val text = {
+            f.vm.active
+                ?.text
+                ?.text
+                ?.toString()
+                .orEmpty()
+        }
+        val before = text()
+        // A list pasted into an item: the paste and the renumbering after it arrive as one sourceEdit.
+        f.vm.preview.onSourceEdits(f.vm.preview.rev, listOf(TextEdit(0, 6, "1. a\n2. b"), TextEdit(7, 13, "3. line 2")))
+        assertTrue(text().startsWith("1. a\n2. b\n3. line 2\nline 3\n"))
+        f.vm.onAction(EditorAction.StripKeyTapped(com.scorchsoft.ssmarkdown.ui.strip.StripKey.Undo))
+        assertEquals(before, text())
+
+        // EB-UNDO-07: the page sends a link paste as the plain paste, then the link.
+        f.vm.preview.onSourceEdits(f.vm.preview.rev, listOf(TextEdit(0, 4, "https://e.com")))
+        f.vm.preview.onSourceEdits(f.vm.preview.rev, listOf(TextEdit(0, 13, "[line](https://e.com)")))
+        assertTrue(text().startsWith("[line](https://e.com) 1\n"))
+        f.vm.onAction(EditorAction.StripKeyTapped(com.scorchsoft.ssmarkdown.ui.strip.StripKey.Undo))
+        assertTrue(text().startsWith("https://e.com 1\n"))
+        f.vm.onAction(EditorAction.StripKeyTapped(com.scorchsoft.ssmarkdown.ui.strip.StripKey.Undo))
+        assertEquals(before, text())
     }
 }

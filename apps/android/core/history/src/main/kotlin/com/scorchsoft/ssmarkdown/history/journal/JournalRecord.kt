@@ -77,4 +77,16 @@ internal sealed interface JournalRecord {
     data class History(
         val history: JournalHistory,
     ) : JournalRecord
+
+    /**
+     * A verified save: the text here is exactly the file [base] names, which
+     * becomes the base of everything after it (marker kind 6, FORMAT.md
+     * "Saves"). Changes no text and no history.
+     */
+    data class Rebase(
+        val base: BaseFingerprint,
+    ) : JournalRecord
 }
+
+/** The marker kind byte of a [JournalRecord.Rebase]. Never reuse or renumber it. */
+internal const val REBASE_MARKER_CODE: Int = 6

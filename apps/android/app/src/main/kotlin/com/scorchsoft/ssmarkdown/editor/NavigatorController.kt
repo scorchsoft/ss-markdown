@@ -25,7 +25,16 @@ class NavigatorController(
     private val vm get() = host as? EditorViewModel
     private var lastDeleted: DocumentUri? = null
 
-    /** Opens the sheet: tapping the title, Ctrl+K or Ctrl+P. */
+    /**
+     * Tapping the title, Ctrl+K or Ctrl+P: opens the sheet, or closes it
+     * when it is open. The title stays above the sheet, so the control that
+     * opened it is also a way out (ux-spec "Navigator").
+     */
+    fun toggle() {
+        if (host.state.navigator != null) host.update { it.copy(navigator = null) } else open()
+    }
+
+    /** Opens the sheet. */
     fun open() {
         val outline = outlineRows()
         host.update {
@@ -61,7 +70,7 @@ class NavigatorController(
             NavigatorAction.OpenFirstResult -> openFirstResult()
             NavigatorAction.OpenPicker -> host.emit(EditorEvent.PickFileToOpen)
             is NavigatorAction.DeleteDraft -> deleteDraft(action.uri)
-            is NavigatorAction.CopySection -> copySection(action.line, action.richText)
+            is NavigatorAction.CopySection -> vm?.copies?.copySection(action.line, action.format)
             is NavigatorAction.SelectSection -> selectSection(action.line)
             is NavigatorAction.ExportSection -> exportSection(action.line)
             else -> Unit
@@ -102,7 +111,14 @@ class NavigatorController(
         host.update {
             it.copy(
                 navigator = null,
-                overlay = EditorOverlay.SectionMenu(line, headings[index].text, range.last - range.first + 1, next),
+                overlay =
+                    EditorOverlay.SectionMenu(
+                        line,
+                        headings[index].text,
+                        range.last - range.first + 1,
+                        next,
+                        copyFirst = host.deps.settings.settings.value.copyFormat,
+                    ),
             )
         }
     }
@@ -115,28 +131,14 @@ class NavigatorController(
         return tree.getText(tree.lineStartOffset(range.first), tree.lineEndOffset(range.last))
     }
 
-    private fun copySection(
-        line: Int,
-        richText: Boolean,
-    ) {
-        val text = sectionText(line) ?: return
-        host.update { it.copy(overlay = null) }
-        if (richText) {
-            val range = host.active?.outline?.sectionRange(line) ?: return
-            host.emit(EditorEvent.CopyRichText(text, range.first, range.last + 1))
-            host.message(MessageKind.CopiedRichText)
-        } else {
-            host.emit(EditorEvent.CopyText(text))
-            host.message(MessageKind.SectionCopied)
-        }
-    }
-
     private fun selectSection(line: Int) {
         val doc = host.active ?: return
         val range = doc.outline.sectionRange(line) ?: return
         val tree = doc.text.text
         host.update { it.copy(overlay = null, mode = if (it.mode == ViewMode.Preview) ViewMode.Code else it.mode) }
         doc.surface.select(tree.lineStartOffset(range.first), tree.lineEndOffset(range.last))
+        // The section's heading at the top, as a Navigator jump puts it.
+        doc.surface.scrollToLine(range.first)
     }
 
     private fun exportSection(line: Int) {

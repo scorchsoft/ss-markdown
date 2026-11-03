@@ -188,4 +188,50 @@ describe("Code ↔ Preview anchor mapping over the corpus", () => {
         expect(top).not.toBeNull();
         expect(top as number).toBeLessThan(last);
     });
+
+    /** The reading line follows the scroll position: the top line stops on the last screen, it must not. */
+    it("reports the reading fraction: 0 at the top, exactly 1 at the very bottom", async () => {
+        const fractionAfter = async (scroll: () => Promise<void>): Promise<number | undefined> => {
+            await clearReceived(page);
+            await scroll();
+            await page.waitForTimeout(100);
+            await frames(page);
+            const tops = (await received(page)).filter((m) => m.type === "topLine");
+            const last = tops[tops.length - 1];
+            return last && last.type === "topLine" ? last.fraction : undefined;
+        };
+        const page = await openPreview(h);
+        await loadMarkdown(page, corpusDocument());
+        await diagramsSettled(page);
+        const bottom = await fractionAfter(() =>
+            page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)),
+        );
+        expect(bottom).toBe(1);
+        const top = await fractionAfter(() => page.evaluate(() => window.scrollTo(0, 0)));
+        expect(top).toBe(0);
+    });
+
+    /** The fast-scroll thumb (ux-spec "Fast scroll"): the page goes to the fraction it is sent and says so. */
+    it("scrolls to the fraction the thumb sends and reports it back with the page's visible share", async () => {
+        const page = await openPreview(h);
+        await loadMarkdown(page, corpusDocument());
+        await diagramsSettled(page);
+        const reportAfter = async (fraction: number) => {
+            await clearReceived(page);
+            await send(page, { type: "scrollToFraction", fraction });
+            await page.waitForTimeout(100);
+            await frames(page);
+            const tops = (await received(page)).filter((m) => m.type === "topLine");
+            const last = tops[tops.length - 1];
+            return last && last.type === "topLine" ? last : undefined;
+        };
+        const half = await reportAfter(0.5);
+        expect(half?.fraction).toBeCloseTo(0.5, 2);
+        expect(half?.visible).toBeGreaterThan(0);
+        expect(half?.visible).toBeLessThan(1);
+        const end = await reportAfter(1);
+        expect(end?.fraction).toBe(1);
+        expect((half?.line ?? 0) < (end?.line ?? 0)).toBe(true);
+        expect(pageErrors(page)).toEqual([]);
+    });
 });

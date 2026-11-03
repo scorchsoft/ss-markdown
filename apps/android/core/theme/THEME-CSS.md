@@ -39,6 +39,25 @@ All are set on `:root`. Colours are `#RRGGBB`; there is no alpha.
 | `--ssm-code-bg` | `codeBg` | Inline code and fenced-block background. |
 | `--ssm-muted` | `muted` | Blockquote text, captions, footnotes, table header rules. |
 | `--ssm-border` | `border` | `hr`, table borders, the blockquote bar. Decorative: not contrast-checked. |
+| `--ssm-code-comment` | `codeComment` | Highlighted code: comments (`.hljs-comment`, `.hljs-quote`). |
+| `--ssm-code-keyword` | `codeKeyword` | Keywords, built-in types and literals (`.hljs-keyword`, `-type`, `-literal`, `-selector-tag`). |
+| `--ssm-code-string` | `codeString` | Strings, regular expressions, diff additions. |
+| `--ssm-code-number` | `codeNumber` | Numbers, symbols, list bullets. |
+| `--ssm-code-title` | `codeTitle` | Function and class names, section headers. |
+| `--ssm-code-attr` | `codeAttr` | Attributes, keys, properties, sigil variables. |
+| `--ssm-code-built-in` | `codeBuiltIn` | Built-in functions, markup tags and their names. |
+| `--ssm-code-meta` | `codeMeta` | Annotations, decorators, preprocessor lines. |
+| `--ssm-code-deletion` | `codeDeletion` | Diff deletions. |
+
+The nine `code*` colours are optional in JSON (a custom theme without
+them inherits its base's) and each is contrast-checked against `codeBg`.
+Their defaults are exactly Preview's highlight.js palette in
+`feature/preview/web/src/styles/code.css` (a GitHub-like set, and an AAA
+set for Contrast); `BuiltInThemesTest` reads that file and fails if the
+two drift. The Code view draws the same colours (`feature/editor`
+`EditorTheme.withSyntax`). Preview's stylesheet does not read these
+variables yet, so a custom theme's code colours reach the Code view
+only; the variables are emitted so it can.
 
 `color-scheme` is `light` or `dark`, so scrollbars and form controls match.
 Print always uses the **light** variant (ux-spec, PDF).

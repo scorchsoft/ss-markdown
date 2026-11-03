@@ -50,7 +50,7 @@ class DirectSharePreselectTest {
 
                     override fun current() = emptyList<ShortcutSpec>()
 
-                    override fun push(spec: ShortcutSpec) = Unit
+                    override fun push(spec: ShortcutSpec) = true
 
                     override fun remove(ids: List<String>) = Unit
 

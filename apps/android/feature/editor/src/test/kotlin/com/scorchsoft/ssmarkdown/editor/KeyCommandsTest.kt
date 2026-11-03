@@ -21,6 +21,7 @@ class KeyCommandsTest {
         assertEquals(KeyAction(EditorCommand.COPY), action(KeyEvent.KEYCODE_C, ctrl = true))
         assertEquals(KeyAction(EditorCommand.CUT), action(KeyEvent.KEYCODE_X, ctrl = true))
         assertEquals(KeyAction(EditorCommand.PASTE), action(KeyEvent.KEYCODE_V, ctrl = true))
+        assertEquals(KeyAction(EditorCommand.PASTE_PLAIN), action(KeyEvent.KEYCODE_V, ctrl = true, shift = true))
     }
 
     @Test

@@ -19,6 +19,16 @@ sealed interface SharePhase {
         val uri: String,
     ) : SharePhase
 
+    /**
+     * The shared text already sits at [position] in [name] (`AppendPlanner.alreadyThere`): nothing was
+     * written. Offers Open, Add again and Cancel.
+     */
+    data class AlreadyThere(
+        val name: String,
+        val target: String,
+        val position: AppendPosition,
+    ) : SharePhase
+
     /** The target can't take it (read-only or changed elsewhere): offer New note instead. */
     data class Blocked(
         val name: String,
@@ -41,6 +51,8 @@ sealed interface SharePhase {
  *
  * @property target the chosen file's URI, or null for New note.
  * @property source where the text came from ("example.org"), when known.
+ * @property interrupted the sheet was rebuilt while its last Append was writing, and that Append had not
+ *   landed: a quiet note above Append says so.
  */
 @Immutable
 data class ShareUiState(
@@ -51,6 +63,7 @@ data class ShareUiState(
     val position: AppendPosition = AppendPosition.Bottom,
     val prefix: AppendPrefix = AppendPrefix.None,
     val phase: SharePhase = SharePhase.Choosing,
+    val interrupted: Boolean = false,
 )
 
 /** What the share sheet can do. */
@@ -68,6 +81,9 @@ sealed interface ShareAction {
     data object TogglePrefix : ShareAction
 
     data object Confirm : ShareAction
+
+    /** Append anyway, after [SharePhase.AlreadyThere]. */
+    data object AddAgain : ShareAction
 
     data object Cancel : ShareAction
 

@@ -36,6 +36,37 @@ internal class ViewSizing(
         return view.frame.textColumnWidth() != geometry.textWidth
     }
 
+    /**
+     * The gutter was shown or hidden: the text column's width changed, so
+     * every row wraps again. A caret on screen keeps its row at the same
+     * view y, as near as the new wrapping allows (a row that no longer
+     * exists lands where the caret's new row is); otherwise the top line
+     * keeps its place, part-scrolled offset included, so the anchor
+     * Preview follows does not move.
+     */
+    fun onGutterChanged() {
+        // A fling would carry on from coordinates the relayout no longer uses.
+        view.viewport.stopFling()
+        val caret = view.session.caret
+        val caretY = view.yForOffset(caret)
+        val caretShown = view.height > 0 && caretY >= 0f && caretY < view.height
+        val top = view.anchorLine
+        val topY = (view.geometry.heights.lineTop(top) - view.scrollY).toFloat()
+        onMetricsChanged()
+        if (!caretShown) {
+            relayout(top, topY)
+            return
+        }
+        val line = view.geometry.locate(caret).line
+        relayout(line, caretY)
+        // The rows between the pane's top and the caret are measured now, or measuring them while
+        // drawing would push the caret down the screen; the anchoring keeps the top line, not this one.
+        view.viewport.measureAbove(line, view.height)
+        // The relayout made a new height map: read it, not the one from before.
+        val rowOffset = view.geometry.locate(caret).top - view.geometry.heights.lineTop(line)
+        view.viewport.placeLine(line, caretY - rowOffset)
+    }
+
     /** Throws away layouts, heights and drawings, then scrolls so [line] sits at view y [viewY] again. */
     fun relayout(
         line: Int,

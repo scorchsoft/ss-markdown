@@ -10,6 +10,8 @@ android {
     namespace = "com.scorchsoft.ssmarkdown.feature.preview"
     buildFeatures { compose = true }
     testOptions {
+        // The "Paste as plain text" item's string must resolve under Robolectric.
+        unitTests.isIncludeAndroidResources = true
         unitTests.all { test ->
             // Same cap as :app: each Robolectric fork carries a sandbox.
             test.maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4)

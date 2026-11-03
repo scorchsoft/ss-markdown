@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.preview.bridge
 
+import com.scorchsoft.ssmarkdown.preview.FormattedCopy
 import com.scorchsoft.ssmarkdown.preview.PreviewListener
 import com.scorchsoft.ssmarkdown.preview.editing.FormatAction
 import java.util.Base64
@@ -74,12 +75,25 @@ sealed interface PageMessage {
         val millis: Int,
     ) : PageMessage
 
-    /** The source line at the top of the viewport, for anchors and the breadcrumb. */
+    /**
+     * The source line at the top of the viewport, for anchors and the
+     * breadcrumb, and [fraction], the scroll position over the scrollable
+     * range (0 to 1, exactly 1 at the bottom) for the reading line; null
+     * from a page that does not report it. [visible] is how much of the page
+     * the viewport shows (0 to 1), for the fast-scroll thumb.
+     */
     data class TopLine(
         val line: Int,
         val crumbs: List<Crumb>,
+        val fraction: Float? = null,
+        val visible: Float? = null,
     ) : PageMessage {
-        override fun deliverTo(listener: PreviewListener) = listener.onTopLine(line, crumbs)
+        override fun deliverTo(listener: PreviewListener) {
+            // The page's size first: the fraction is what shows the fast-scroll thumb, on a long page only.
+            visible?.let(listener::onVisibleFraction)
+            listener.onTopLine(line, crumbs)
+            fraction?.let(listener::onScrollFraction)
+        }
     }
 
     /**
@@ -227,7 +241,10 @@ sealed interface PageMessage {
         }
     }
 
-    data object PrintReady : PageMessage
+    /** The answer to [HostMessage.PreparePrint] [requestId]: every block is rendered and mounted. */
+    data class PrintReady(
+        val requestId: Int,
+    ) : PageMessage
 
     /**
      * The answer to [HostMessage.ExportHtml]: the rendered lines as clean
@@ -237,7 +254,29 @@ sealed interface PageMessage {
     data class HtmlResult(
         val requestId: Int,
         val html: String?,
+        val text: String? = null,
+        val truncated: Boolean = false,
+    ) : PageMessage {
+        /** The copy, or null when the page could not render the lines. */
+        val copy: FormattedCopy?
+            get() = if (html != null && text != null) FormattedCopy(html, text, truncated) else null
+    }
+
+    /**
+     * Pictures beside the document the page could not load, by its key
+     * (`1/img/a.png`, see `DocPaths`). Answered by [HostMessage.ImageStatus]
+     * with the same [id]; consumed by `PreviewView`, which resolves them off
+     * the main thread.
+     */
+    data class ImageQuery(
+        val id: Int,
+        val paths: List<String>,
     ) : PageMessage
+
+    /** A picture placeholder's "Allow access". */
+    data object AllowFolder : PageMessage {
+        override fun deliverTo(listener: PreviewListener) = listener.onAllowFolder()
+    }
 
     data class Error(
         val message: String,

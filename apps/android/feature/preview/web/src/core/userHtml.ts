@@ -16,7 +16,7 @@
 
 /** Attributes the page itself relies on, which document HTML may never set. */
 const RESERVED =
-    /^(?:data-(?:s|e|rl|rle|line|line-end|offset|edit-rl|mermaid-key|viewer|toc|toc-line|state)|contenteditable)$/i;
+    /^(?:data-(?:s|e|rl|rle|line|line-end|offset|edit-rl|mermaid-key|viewer|toc|toc-line|state|src)|contenteditable)$/i;
 
 const WHITESPACE = /[\t\n\f\r ]/;
 const TAG_START = /[A-Za-z]/;

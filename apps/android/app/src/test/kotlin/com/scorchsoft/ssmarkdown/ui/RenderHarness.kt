@@ -16,8 +16,10 @@ import com.scorchsoft.ssmarkdown.editor.panes.PreviewPlaceholder
 import com.scorchsoft.ssmarkdown.fixtures.FakeCodePane
 import com.scorchsoft.ssmarkdown.fixtures.Samples
 import com.scorchsoft.ssmarkdown.settings.Appearance
+import com.scorchsoft.ssmarkdown.settings.SplitTyping
 import com.scorchsoft.ssmarkdown.text.PieceTree
 import com.scorchsoft.ssmarkdown.text.TextDocument
+import com.scorchsoft.ssmarkdown.ui.strip.StripRows
 
 /** [content] in the app theme (with the app's bundled fonts), at [fontScale], with a fixed clock. */
 @Composable
@@ -41,12 +43,17 @@ fun EditorFor(
     onAction: (EditorAction) -> Unit = {},
 ) = EditorWith(state, codePane = { FakeCodePane(it) }, onAction = onAction)
 
-/** The editor screen in [state] with [codePane] as the Code pane (the screenshots pass [RealCodePane]). */
+/**
+ * The editor screen in [state] with [codePane] as the Code pane (the screenshots pass [RealCodePane]),
+ * [stripRows] as Settings → Formatting bar and [splitTyping] as Settings → When typing in Split.
+ */
 @Composable
 fun EditorWith(
     state: EditorUiState,
     codePane: @Composable (Modifier) -> Unit,
     onAction: (EditorAction) -> Unit = {},
+    stripRows: StripRows = StripRows.One,
+    splitTyping: SplitTyping = SplitTyping.EditedPane,
 ) {
     EditorScreen(
         state = state,
@@ -55,20 +62,24 @@ fun EditorWith(
         previewPane = { PreviewPlaceholder(it) },
         previewState = Samples.previewState,
         appearance = Appearance.System,
+        stripRows = stripRows,
+        splitTyping = splitTyping,
     )
 }
 
 /**
  * The app's real Code pane ([CodePane]: the view, the core/ui colours and
  * the bundled code font) over [Samples.codeSample], at [state]'s wrap and
- * zoom. The screenshots use it, so they show the colouring the app draws;
+ * zoom, with or without [lineNumbers]. The screenshots use it, so they show the colouring the app draws;
  * the stand-in pane was plain `Text` and showed none.
  */
 @Composable
 fun RealCodePane(
     state: EditorUiState,
     modifier: Modifier = Modifier,
+    lineNumbers: Boolean = true,
+    sample: String = Samples.codeSample,
 ) {
-    val text = remember { TextDocument(PieceTree.of(Samples.codeSample)) }
-    CodePane(text, wrap = state.codeWrap, zoomPercent = state.codeZoom, modifier = modifier)
+    val text = remember(sample) { TextDocument(PieceTree.of(sample)) }
+    CodePane(text, wrap = state.codeWrap, zoomPercent = state.codeZoom, modifier = modifier, lineNumbers = lineNumbers)
 }

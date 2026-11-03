@@ -12,6 +12,9 @@
 
     <!-- Top bar -->
     <string name="open_navigator">Open Navigator: outline and files</string>
+    <string name="close_navigator">Close navigator</string>
+    <string name="navigator_expanded">Navigator, expanded</string>
+    <string name="navigator_collapsed">Navigator, collapsed</string>
     <string name="copy_all">Copy all</string>
     <string name="more">More</string>
     <string name="open_folder_drawer">Open folder</string>
@@ -46,6 +49,7 @@
     <string name="status_autosave_paused">Autosave paused · %1$s</string>
     <string name="badge_read_only">READ-ONLY</string>
     <string name="big_file_mode">Big-file mode</string>
+    <string name="big_file_chip">Big file</string>
     <string name="time_just_now">just now</string>
 
     <!-- Save problems -->
@@ -73,9 +77,20 @@
     <string name="menu_export_images">Export images…</string>
     <string name="menu_export_images_hint">ZIP or files</string>
     <string name="menu_share">Share</string>
-    <string name="menu_copy_rich">Copy as rich text</string>
-    <string name="menu_display">Display</string>
-    <string name="menu_display_hint">Theme · size · wrap</string>
+    <string name="menu_copy_as">Copy as…</string>
+    <!-- The Copy chooser (ux-spec "Top bar"): the last-used choice is listed first. -->
+    <string name="copy_markdown">Copy Markdown</string>
+    <string name="copy_markdown_hint">The source, exactly as written</string>
+    <string name="copy_formatted">Copy formatted text</string>
+    <string name="copy_formatted_hint">For Gmail, Google Docs, Word…</string>
+    <string name="copy_again_markdown">Copy Markdown again</string>
+    <string name="copy_again_formatted">Copy formatted text again</string>
+    <string name="menu_display">View</string>
+    <string name="menu_display_hint">Wrap · A4 page · theme · size</string>
+    <!-- The ⋮ menu's top-row icon: opens the View sheet. -->
+    <string name="view_options">View options</string>
+    <!-- Long-click label on a mode segment (Code, Split, Preview). -->
+    <string name="view_options_for">View options for %1$s</string>
     <string name="menu_settings">Settings</string>
     <string name="menu_copy">Copy</string>
     <string name="save_menu_autosave_file">Autosave this file</string>
@@ -120,17 +135,21 @@
     <!-- Messages -->
     <string name="msg_saved_to">Saved to %1$s</string>
     <string name="msg_all_saved">All saved</string>
-    <string name="msg_copied">Copied as Markdown</string>
-    <string name="msg_copied_rich">Copied as rich text</string>
+    <string name="msg_copied">Markdown copied</string>
+    <string name="msg_copied_formatted">Formatted text copied</string>
+    <string name="msg_copied_formatted_shortened">Formatted text copied, shortened to fit the clipboard</string>
+    <string name="msg_formatted_failed">Couldn\'t prepare formatted text, so the Markdown was copied</string>
     <string name="msg_copy_too_large">Too large to copy. Share as file instead.</string>
     <string name="msg_paste_too_large">Too large to paste on this phone. Nothing was changed.</string>
     <string name="msg_edits_discarded">Edits discarded · kept in History</string>
     <string name="msg_edits_discarded_no_history">Edits discarded · History is off, so only Undo brings them back</string>
     <string name="msg_draft_deleted">Draft deleted</string>
-    <string name="msg_section_copied">Section copied</string>
+    <string name="msg_section_copied">Section copied as Markdown</string>
+    <string name="msg_section_copied_formatted">Section copied as formatted text</string>
     <string name="msg_replaced_all">Replaced %1$s</string>
     <string name="msg_restored">Restored · your previous text is in History</string>
     <string name="msg_renamed">Renamed</string>
+    <string name="msg_save_before_rename">Save your changes first, then rename</string>
     <string name="msg_deleted">Deleted · its history is kept</string>
     <string name="msg_duplicated">Duplicated</string>
     <string name="msg_failed">That didn\'t work. Nothing was changed.</string>
@@ -138,6 +157,7 @@
     <string name="msg_autosave_file_on">Autosave on for this file</string>
     <string name="msg_autosave_file_off">Autosave off for this file</string>
     <string name="undo">Undo</string>
+    <string name="redo">Redo</string>
 
     <!-- Dirty prompt -->
     <string name="leave_title">Save changes to %1$s?</string>
@@ -200,6 +220,9 @@
     <string name="find_count">%1$d of %2$d</string>
     <string name="find_count_capped">%1$d of %2$d+</string>
     <string name="find_none">No matches</string>
+    <!-- After the count when Next or Previous wrapped round: "1 of 12, from the top". -->
+    <string name="find_wrapped_first">%1$s, from the top</string>
+    <string name="find_wrapped_last">%1$s, from the end</string>
     <string name="find_invalid">Not a valid pattern</string>
     <string name="find_previous">Previous match</string>
     <string name="find_next">Next match</string>
@@ -233,19 +256,19 @@
     <string name="nav_delete_draft">Delete draft</string>
 
     <!-- Section menu -->
-    <string name="section_copy">Copy section</string>
-    <string name="section_copy_rich">Copy as rich text</string>
+    <string name="section_copy">Copy section as Markdown</string>
+    <string name="section_copy_formatted">Copy section as formatted text</string>
     <string name="section_select">Select section</string>
     <string name="section_export">Export section…</string>
     <string name="section_select_text">Select text instead</string>
 
-    <!-- Display -->
-    <string name="display_title">Display</string>
+    <!-- View (⋮ → View, or long-press a mode) -->
+    <string name="display_title">View</string>
+    <string name="display_lines">Lines</string>
     <string name="display_appearance">Appearance</string>
     <string name="appearance_system">System</string>
     <string name="appearance_light">Light</string>
     <string name="appearance_dark">Dark</string>
-    <string name="display_wrap">Line wrapping · Code</string>
     <string name="wrap_on">Wrap</string>
     <string name="wrap_off">No wrap</string>
     <string name="display_theme_placeholder">Preview themes, fonts and page modes arrive with the theme module.</string>
@@ -262,6 +285,8 @@
     <string name="save_failed_untouched">Your text is safe on this phone, and the file on disk was not changed.</string>
 
     <!-- Preview slot -->
+    <!-- The fast-scroll bubble in a Code pane with no heading above its top (ux-spec "Fast scroll"). -->
+    <string name="fast_scroll_line">Line %1$d</string>
     <string name="preview_placeholder">Preview draws here (a stand-in where no WebView runs)</string>
 
     <!-- Bottom bar while the keyboard is up: Done hides it -->
@@ -285,4 +310,18 @@
     <string name="file_delete_title">Delete %1$s?</string>
     <string name="file_delete_body">The file is deleted from the folder. Its version history stays in SS Markdown.</string>
     <string name="file_name">Name</string>
+    <!-- Pictures beside the document (ux-spec "Pictures"). -->
+    <string name="menu_insert_image">Insert image…</string>
+    <string name="menu_show_pictures">Show pictures beside this file…</string>
+    <string name="copy_picture_title">Copy this picture next to the file?</string>
+    <string name="copy_picture_body">It is outside this file\'s folder, so a link to it would not work elsewhere. SS Markdown copies it into an images folder beside the file and links to the copy.</string>
+    <string name="copy_picture_confirm">Copy into this file\'s folder</string>
+    <string name="msg_picture_folder_granted">Showing pictures from %1$s</string>
+    <string name="msg_picture_folder_unrelated">That folder doesn\'t hold this file. Choose the folder it\'s in.</string>
+    <string name="msg_picture_too_large">That picture is too large (over 32 MB)</string>
+    <string name="msg_picture_not_image">That file isn\'t a picture</string>
+    <string name="msg_picture_failed">Couldn\'t add the picture</string>
+    <string name="msg_picture_insert_stopped">Insert image stopped: another file opened</string>
+    <string name="msg_picture_copied_not_linked">Insert image stopped: another file opened. The picture was copied to %1$s beside the file you left</string>
+    <string name="msg_pictures_stayed">Saved. Its pictures stayed with the draft: insert them again here</string>
 </resources>

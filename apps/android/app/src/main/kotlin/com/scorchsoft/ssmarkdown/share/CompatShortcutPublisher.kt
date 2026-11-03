@@ -29,7 +29,7 @@ class CompatShortcutPublisher(
             .filter { it.id.startsWith(DirectShareIds.PREFIX) }
             .map { ShortcutSpec(it.id, it.shortLabel.toString(), it.longLabel?.toString().orEmpty(), it.rank) }
 
-    override fun push(spec: ShortcutSpec) {
+    override fun push(spec: ShortcutSpec): Boolean {
         val shortcut =
             ShortcutInfoCompat
                 .Builder(app, spec.id)
@@ -41,7 +41,8 @@ class CompatShortcutPublisher(
                 .setLongLived(true)
                 .setRank(spec.rank)
                 .build()
-        ShortcutManagerCompat.pushDynamicShortcut(app, shortcut)
+        // False while the platform rate-limits us (API 29, our minSdk, through the compat library).
+        return ShortcutManagerCompat.pushDynamicShortcut(app, shortcut)
     }
 
     override fun remove(ids: List<String>) {

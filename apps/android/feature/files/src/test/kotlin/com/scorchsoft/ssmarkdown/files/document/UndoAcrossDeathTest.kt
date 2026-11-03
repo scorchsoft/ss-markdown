@@ -122,6 +122,35 @@ class UndoAcrossDeathTest {
             first.opened().document.step("one")
             first.store.save(uri)
             first.store.flushJournals()
+            // Review r3 L3: the case under test is a journal on disk that holds history, not no journal.
+            assertTrue(first.journals.holdsHistoryOnly(uri.value))
+
+            val after = fixture()
+            assertTrue(
+                after.store
+                    .scanForRecovery()
+                    .offers
+                    .isEmpty(),
+            )
+            val back = after.opened()
+            assertNull(back.recovery)
+            assertTrue(back.document.document.canUndo)
+        }
+
+    @Test
+    fun `a clean journal after several saves and an oversize step is never offered for recovery`() =
+        runTest {
+            val first = fixture()
+            val doc = first.opened().document
+            doc.step("one ")
+            first.store.save(uri)
+            doc.step("two")
+            first.store.save(uri)
+            // Review r3 M2: a step bigger than the 8 MB tail, undone, then a save: nothing on disk is unsaved.
+            doc.replace(doc.document.text.length, 0, "p".repeat(4_300_000))
+            doc.undo()
+            first.store.save(uri)
+            first.store.flushJournals()
 
             assertTrue(
                 fixture()

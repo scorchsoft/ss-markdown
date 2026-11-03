@@ -17,6 +17,7 @@ import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
 import android.widget.OverScroller
 import com.scorchsoft.ssmarkdown.feature.editor.R
+import com.scorchsoft.ssmarkdown.text.EditOp
 import com.scorchsoft.ssmarkdown.text.PieceTree
 import com.scorchsoft.ssmarkdown.text.TextDocument
 import java.util.concurrent.Executor
@@ -90,6 +91,7 @@ class MarkdownCodeView
         internal val paste = ChunkedPaste.forView(this, gate)
 
         private var lastAnchorLine = -1
+        private var lastScrollFraction = -1f
         private var lastCaretLine = 0
         private var themeFollowsSystem = true
 
@@ -145,6 +147,8 @@ class MarkdownCodeView
             renderer.versions.reset(document.text.lineCount)
             viewport.stopFling()
             scrollTo(0, 0)
+            // A new document reports its position afresh, even where it matches the old one's.
+            lastScrollFraction = -1f
             sizing.onMetricsChanged()
             sizing.relayout(line = 0, viewY = 0f)
             inputMethods?.restartInput(this)
@@ -157,6 +161,22 @@ class MarkdownCodeView
                 if (field == value) return
                 field = value
                 sizing.relayout(anchorLine, 0f)
+            }
+
+        /**
+         * Whether the line-number gutter is drawn (Settings → Show line
+         * numbers). Off, the gutter is 0 px wide and the text column starts
+         * a small inset from the left edge, so it widens and wrapped rows
+         * break again. Switching keeps the caret's row where it is on screen
+         * (or as near as the new wrapping allows), else the top line where
+         * it is ([ViewSizing.onGutterChanged]).
+         */
+        var showLineNumbers: Boolean
+            get() = frame.showGutter
+            set(value) {
+                if (frame.showGutter == value) return
+                frame.showGutter = value
+                sizing.onGutterChanged()
             }
 
         /**
@@ -207,7 +227,7 @@ class MarkdownCodeView
         /** Width of one monospace cell, in px. */
         val charWidth: Float get() = font.measurer.charWidth
 
-        /** Left edge of the text column, in view px (gutter plus its gap). */
+        /** Left edge of the text column, in view px (gutter plus its gap; the gap alone with no line numbers). */
         val textLeft: Int get() = frame.textLeft
 
         /** Scrolls so [line] is at the top of the pane. */
@@ -216,10 +236,48 @@ class MarkdownCodeView
             viewport.placeLine(line, viewY = 0f)
         }
 
-        /** Commits the keyboard's in-progress word; hosts call it before layout changes, commands and saves. */
+        /**
+         * Scrolls the least distance that shows `[start, end)` with two rows
+         * of context, wrapped rows included; its start wins when it is
+         * taller than the pane. A no-op when it is already in view. Hosts use
+         * it to show a find match or a selection they set.
+         */
+        fun revealRange(
+            start: Int,
+            end: Int,
+        ) {
+            val length = session.document.text.length
+            viewport.revealRange(start.coerceIn(0, length), end.coerceIn(0, length), rowHeight, rowHeight * REVEAL_ROWS)
+        }
+
+        /**
+         * Commits the keyboard's in-progress word, and puts the rest of a large paste in
+         * ([completePaste]); hosts call it before layout changes, commands and saves.
+         */
         fun requestFlushComposing() {
+            completePaste()
             session.finishComposingText()
         }
+
+        /**
+         * Puts the rest of a running large paste in now, as part of its undo
+         * step, so a host edit or undo can follow it ([applyEdit] and
+         * [applyEdits] do this themselves, moving their offsets past it).
+         * While the clip is still becoming text nothing is open, and nothing waits.
+         */
+        fun completePaste() {
+            paste.completeNow()
+        }
+
+        /**
+         * Undoes one step. A running paste goes in first and is what is
+         * undone; typing held during it goes in after, at the caret Undo
+         * leaves (edge-cases "Undo during a paste with typing held").
+         */
+        fun undo(): Boolean = paste.completeThen { session.undo() }
+
+        /** Redoes one step, finishing a running paste as [undo] does. */
+        fun redo(): Boolean = paste.completeThen { session.redo() }
 
         /**
          * An edit from outside the keyboard (toolbar, Preview round-trip):
@@ -233,9 +291,13 @@ class MarkdownCodeView
             selectStart: Int = EditingSession.NONE,
             selectEnd: Int = EditingSession.NONE,
         ) {
+            // Inside a paste's open edit group it would join the paste and shift under its slices: finish it first.
+            val rest = paste.completeNow()
+            if (rest != null && rest.splits(minOf(start, end), maxOf(start, end))) return
+            val follow = { at: Int -> if (rest == null || at == EditingSession.NONE) at else rest.follow(at) }
             session.document.beginEditGroup()
             try {
-                session.applyEdit(start, end, text, selectStart, selectEnd)
+                session.applyEdit(follow(start), follow(end), text, follow(selectStart), follow(selectEnd))
             } finally {
                 session.document.endEditGroup()
             }
@@ -243,6 +305,16 @@ class MarkdownCodeView
 
         /** Places the caret at [offset], ends any composition and scrolls it into view. */
         fun setCaret(offset: Int) = session.moveCaretTo(offset)
+
+        /** True while any selection handle is drawn: the insertion handle after a tap, or the selection's ends. */
+        val isSelectionHandleShown: Boolean
+            get() = HandleKind.entries.any { selectionUi.handlePoint(it) != null }
+
+        /** True while a selection handle is dragged or the text toolbar shows: the fast-scroll thumb keeps away. */
+        val isSelectionInUse: Boolean get() = touch.isSelecting || selectionUi.isToolbarShown
+
+        /** The fast-scroll thumb's view of this pane: its line-index position, and drags ([CodeFastScroll]). */
+        val fastScroll: CodeFastScroll by lazy { CodeFastScroll(this, geometry, viewport) }
 
         /** Starts a vertical fling, as a finger would; the benchmark uses this for scripted scrolling. */
         fun fling(velocityY: Int) = viewport.startFling(0, velocityY)
@@ -273,7 +345,14 @@ class MarkdownCodeView
             oldh: Int,
         ) {
             super.onSizeChanged(w, h, oldw, oldh)
-            if (w != oldw) sizing.relayout(anchorLine, 0f)
+            if (w != oldw) {
+                sizing.relayout(anchorLine, 0f)
+            } else if (h in 1 until oldh) {
+                // The keyboard or the find bar took room: a caret that was on screen stays on screen,
+                // as in EditText, so a find match is never left under the keyboard.
+                val caretY = yForOffset(session.caret)
+                if (caretY >= 0f && caretY < oldh) viewport.reveal(session.caret, rowHeight)
+            }
         }
 
         /** Settles layout and scroll, and tokenises the visible lines within the main-thread budget. */
@@ -283,6 +362,12 @@ class MarkdownCodeView
             if (visible.first != lastAnchorLine) {
                 lastAnchorLine = visible.first
                 listener?.onAnchorLineChanged(visible.first)
+            }
+            // Checked every frame: an edit, wrap or zoom moves it as surely as scrolling does.
+            val fraction = viewport.scrollFraction()
+            if (fraction != lastScrollFraction) {
+                lastScrollFraction = fraction
+                listener?.onScrollFractionChanged(fraction)
             }
             return visible
         }
@@ -348,7 +433,7 @@ class MarkdownCodeView
 
         override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection {
             ImeConfig.fill(outAttrs, session)
-            return CodeInputConnection(this, session, keys::onKey, gate, cursorAnchors)
+            return CodeInputConnection(this, session, keys::onKey, gate, cursorAnchors) { listener }
         }
 
         override fun onKeyDown(
@@ -373,8 +458,67 @@ class MarkdownCodeView
             if (sizing.onMetricsChanged()) sizing.relayout(anchorLine, 0f)
             selectionUi.setInsertionHandle(false)
             selectionUi.hideToolbar()
-            listener?.onTextEdited(change, session.document.version)
+            if (compoundDepth > 0) heldChange = change else listener?.onTextEdited(change, session.document.version)
             invalidate()
+        }
+
+        /** Open [applyEdits] calls; while above 0 the host hears of edits once, at the end. */
+        private var compoundDepth = 0
+
+        /** The last edit made inside [applyEdits], reported when it ends; null when none. */
+        private var heldChange: LineChange? = null
+
+        /**
+         * Applies [ops] (each at its offset in the text as the ops before it
+         * left it, so highest offset first for offsets in one snapshot) as
+         * one undo step, then selects `[selectStart, selectEnd)`. The host
+         * and the keyboard hear about it once, not once per op: a
+         * replace-all of 10,000 matches told them 10,000 times and took
+         * seconds on the main thread (edge-cases "Replace all with many matches").
+         */
+        fun applyEdits(
+            ops: List<EditOp>,
+            selectStart: Int,
+            selectEnd: Int,
+        ) {
+            // A running paste goes in first; ops taken before it follow the text past it, or are refused
+            // when it landed inside one of them (edge-cases "Undo or a command during a large paste").
+            val rest = paste.completeNow()
+            if (rest != null) {
+                if (ops.any { rest.splits(it.offset, it.offset + it.deleted.length) }) return
+                applyEdits(
+                    ops.map { EditOp(rest.follow(it.offset), it.deleted, it.inserted) },
+                    rest.follow(selectStart),
+                    rest.follow(selectEnd),
+                )
+                return
+            }
+            val document = session.document
+            // Ops built on text that has since moved would delete the wrong chars: refuse them whole.
+            if (!fits(document.text, ops)) return
+            session.beginBatchEdit()
+            document.beginEditGroup()
+            compoundDepth++
+            try {
+                if (ops.size > MANY_OPS) {
+                    // Every cache told once, for the envelope of all of them, as undo does: told op by op,
+                    // the tokenizer's and the highlights' shifting made this quadratic.
+                    session.finishComposingText()
+                    ops.forEach { document.replace(it.offset, it.deleted.length, it.inserted) }
+                    session.reportExternalChange(EditEnvelope.of(ops).lineChange(document.text), selectStart)
+                } else {
+                    ops.forEach { session.applyEdit(it.offset, it.offset + it.deleted.length, it.inserted) }
+                }
+            } finally {
+                document.endEditGroup()
+                compoundDepth--
+                if (compoundDepth == 0) {
+                    heldChange?.let { listener?.onTextEdited(it, document.version) }
+                    heldChange = null
+                }
+                session.setSelection(selectStart, selectEnd)
+                session.endBatchEdit()
+            }
         }
 
         override fun onSelectionSettled() {
@@ -434,5 +578,39 @@ class MarkdownCodeView
 
         private companion object {
             const val PREFETCH_LINES_PER_FRAME = 4
+
+            /** Chars compared at each end of an op's deleted text by [fits]; a whole-text replace stays cheap. */
+            const val FIT_CHARS = 256
+
+            /**
+             * True when each op still finds its deleted text at its offset. Ops in one snapshot (highest
+             * offset first, none overlapping) are all checked against the text as it is; any other list
+             * has only its first op checked, the one that sees the text unchanged.
+             */
+            fun fits(
+                text: PieceTree,
+                ops: List<EditOp>,
+            ): Boolean {
+                val descending = ops.zipWithNext().all { (a, b) -> a.offset >= b.offset + b.deleted.length }
+                return (if (descending) ops else ops.take(1)).all { holds(text, it) }
+            }
+
+            private fun holds(
+                text: PieceTree,
+                op: EditOp,
+            ): Boolean {
+                val deleted = op.deleted
+                val end = op.offset + deleted.length
+                if (end > text.length) return false
+                val n = minOf(deleted.length, FIT_CHARS)
+                return text.getText(op.offset, op.offset + n).contentEquals(deleted.subSequence(0, n)) &&
+                    text.getText(end - n, end).contentEquals(deleted.subSequence(deleted.length - n, deleted.length))
+            }
+
+            /** Rows of context [revealRange] keeps above and below what it shows. */
+            const val REVEAL_ROWS = 2
+
+            /** More ops than this in one [applyEdits] reach the caches as one change and drop the find highlights. */
+            const val MANY_OPS = 64
         }
     }

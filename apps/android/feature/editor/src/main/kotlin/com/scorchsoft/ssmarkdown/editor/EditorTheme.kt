@@ -7,6 +7,9 @@ import androidx.compose.ui.graphics.toArgb
 import com.scorchsoft.ssmarkdown.core.ui.SSColors
 import com.scorchsoft.ssmarkdown.core.ui.SSDarkColors
 import com.scorchsoft.ssmarkdown.core.ui.SSLightColors
+import com.scorchsoft.ssmarkdown.theme.SyntaxColors
+import com.scorchsoft.ssmarkdown.theme.ThemeColor
+import com.scorchsoft.ssmarkdown.theme.contrast.Contrast
 
 /**
  * The code view's colours as ARGB ints, built from the `core:ui` tokens
@@ -51,19 +54,82 @@ data class EditorTheme(
     val findCurrent: Int = LIGHT_FIND_CURRENT,
     /** The outline around the current find match: ink, so it reads without colour too. */
     val findCurrentOutline: Int = text,
+    /** Highlighted code: comments. The nine `code*` colours are the theme's [SyntaxColors]; see [withSyntax]. */
+    val codeComment: Int = argb(SyntaxColors.LIGHT.comment),
+    /** Highlighted code: keywords, built-in types and literals. */
+    val codeKeyword: Int = argb(SyntaxColors.LIGHT.keyword),
+    /** Highlighted code: strings, regular expressions and diff additions. */
+    val codeString: Int = argb(SyntaxColors.LIGHT.string),
+    /** Highlighted code: numbers and symbols. */
+    val codeNumber: Int = argb(SyntaxColors.LIGHT.number),
+    /** Highlighted code: function and class names, section headers. */
+    val codeTitle: Int = argb(SyntaxColors.LIGHT.title),
+    /** Highlighted code: attributes, keys and variables. */
+    val codeAttr: Int = argb(SyntaxColors.LIGHT.attr),
+    /** Highlighted code: built-ins and markup tags. */
+    val codeBuiltIn: Int = argb(SyntaxColors.LIGHT.builtIn),
+    /** Highlighted code: annotations, decorators and preprocessor lines. */
+    val codeMeta: Int = argb(SyntaxColors.LIGHT.meta),
+    /** Highlighted code: deleted diff lines. */
+    val codeDeletion: Int = argb(SyntaxColors.LIGHT.deletion),
 ) {
+    /**
+     * This theme with [syntax]'s code colours: the Preview theme's, so a
+     * fenced block looks the same in both views. A colour that would read
+     * below [MIN_CODE_CONTRAST] on this theme's code band (a custom theme
+     * tuned for a different code background) falls back to the default for
+     * the band's lightness, and that, should it fail too, to [codeText].
+     */
+    fun withSyntax(syntax: SyntaxColors): EditorTheme {
+        val band = ThemeColor.of(codeBlockBackground)
+        val defaults = if (Contrast.relativeLuminance(band) < HALF_LUMINANCE) SyntaxColors.DARK else SyntaxColors.LIGHT
+
+        fun pick(
+            chosen: ThemeColor,
+            fallback: ThemeColor,
+        ): Int =
+            when {
+                Contrast.ratio(chosen, band) >= MIN_CODE_CONTRAST -> argb(chosen)
+                Contrast.ratio(fallback, band) >= MIN_CODE_CONTRAST -> argb(fallback)
+                else -> codeText
+            }
+        return copy(
+            codeComment = pick(syntax.comment, defaults.comment),
+            codeKeyword = pick(syntax.keyword, defaults.keyword),
+            codeString = pick(syntax.string, defaults.string),
+            codeNumber = pick(syntax.number, defaults.number),
+            codeTitle = pick(syntax.title, defaults.title),
+            codeAttr = pick(syntax.attr, defaults.attr),
+            codeBuiltIn = pick(syntax.builtIn, defaults.builtIn),
+            codeMeta = pick(syntax.meta, defaults.meta),
+            codeDeletion = pick(syntax.deletion, defaults.deletion),
+        )
+    }
+
     /** Built-in themes. */
     companion object {
+        /** WCAG AA for normal text: every code colour on the code band (quality-bar §3). */
+        const val MIN_CODE_CONTRAST: Double = 4.5
+        private const val HALF_LUMINANCE = 0.5
+        private const val OPAQUE = 0xFF shl 24
+
+        private fun argb(color: ThemeColor): Int = OPAQUE or color.rgb
+
         /** The light theme from the `core:ui` light tokens. */
         val LIGHT: EditorTheme = fromColors(SSLightColors)
 
         /** The dark theme from the `core:ui` dark tokens. */
         val DARK: EditorTheme = fromColors(SSDarkColors)
 
-        /** Maps design-system roles onto editor roles; [selection] defaults to a translucent info blue. */
+        /**
+         * Maps design-system roles onto editor roles; [selection] defaults to a
+         * translucent info blue, and the code colours to the default
+         * [SyntaxColors] for the appearance ([withSyntax] applies a theme's).
+         */
         fun fromColors(
             colors: SSColors,
             selection: Int = (colors.info.toArgb() and RGB_MASK) or SELECTION_ALPHA,
+            syntax: SyntaxColors = if (colors.isDark) SyntaxColors.DARK else SyntaxColors.LIGHT,
         ): EditorTheme =
             EditorTheme(
                 background = colors.bg.toArgb(),
@@ -82,7 +148,7 @@ data class EditorTheme(
                 findMatch = if (colors.isDark) DARK_FIND_MATCH else LIGHT_FIND_MATCH,
                 findCurrent = if (colors.isDark) DARK_FIND_CURRENT else LIGHT_FIND_CURRENT,
                 findCurrentOutline = colors.ink.toArgb(),
-            )
+            ).withSyntax(syntax)
 
         /**
          * The theme for [context]'s light/dark mode, with the system's

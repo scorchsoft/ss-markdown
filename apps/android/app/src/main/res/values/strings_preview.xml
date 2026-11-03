@@ -12,6 +12,11 @@
     <!-- Links -->
     <string name="link_open">Open</string>
     <string name="link_edit">Edit link</string>
+    <string name="link_prompt_title">Add link</string>
+    <string name="link_prompt_text">Link text</string>
+    <string name="link_prompt_url">Address (URL)</string>
+    <string name="link_prompt_done">Done</string>
+    <string name="link_remove">Remove link</string>
     <string name="link_copy">Copy link</string>
     <string name="link_blocked">This link can\'t be opened from here.</string>
     <string name="msg_link_blocked">That link can\'t be opened</string>
@@ -78,6 +83,8 @@
     <string name="msg_images_exported">Saved to Downloads/SS Markdown/%1$s</string>
     <string name="msg_images_failed">Couldn\'t export the images</string>
     <string name="msg_nothing_to_export">No diagrams or pictures in this file</string>
+    <string name="msg_pdf_failed">Couldn\'t prepare the PDF. Open Preview, then ⋮ → Export PDF again.</string>
+    <string name="msg_export_stopped">Export stopped: another file opened. Nothing was saved.</string>
 
     <!-- Display -->
     <string name="display_preview_theme">Preview theme</string>
@@ -123,6 +130,16 @@
     <string name="theme_colour_code_bg">Code background</string>
     <string name="theme_colour_muted">Secondary text</string>
     <string name="theme_colour_border">Borders</string>
+    <string name="theme_code_colours">Code colours</string>
+    <string name="theme_colour_code_comment">Comments</string>
+    <string name="theme_colour_code_keyword">Keywords</string>
+    <string name="theme_colour_code_string">Strings</string>
+    <string name="theme_colour_code_number">Numbers</string>
+    <string name="theme_colour_code_title">Function names</string>
+    <string name="theme_colour_code_attr">Attributes and variables</string>
+    <string name="theme_colour_code_built_in">Built-ins and tags</string>
+    <string name="theme_colour_code_meta">Annotations</string>
+    <string name="theme_colour_code_deletion">Deleted lines</string>
     <string name="theme_step_down">Decrease %1$s</string>
     <string name="theme_step_up">Increase %1$s</string>
     <string name="theme_duplicate">Duplicate</string>

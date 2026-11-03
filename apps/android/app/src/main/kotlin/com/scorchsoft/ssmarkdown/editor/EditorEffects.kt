@@ -22,10 +22,20 @@ internal object EditorEffects {
                 // The pane coming into view lands on the anchor (the Code pane does so as it attaches).
                 if (action.mode != ViewMode.Code) vm.preview.scrollTo(vm.anchorLine.value)
                 if (action.mode != ViewMode.Split) vm.update { it.copy(preview = it.preview.copy(editing = false)) }
+                vm.onReadingPaneChanged()
+                vm.find.onModeChanged()
             }
 
             EditorAction.CopyTapped -> {
-                vm.saves.copyAll(richText = false)
+                vm.copies.openChooser()
+            }
+
+            EditorAction.CopyLongPressed -> {
+                vm.copies.copyDocument(vm.deps.settings.settings.value.copyFormat)
+            }
+
+            is EditorAction.CopyAs -> {
+                vm.copies.copyDocument(action.format)
             }
 
             EditorAction.SaveTapped -> {
@@ -44,8 +54,20 @@ internal object EditorEffects {
                 menu(vm, action.item)
             }
 
+            EditorAction.OpenMenu -> {
+                // The menu needs the room: the keyboard's word is committed first (R6), then the
+                // keyboard goes. Closing the menu does not bring it back; tapping the text does.
+                vm.active?.surface?.flushComposing()
+                vm.emit(EditorEvent.HideKeyboard)
+            }
+
+            is EditorAction.MenuHistory -> {
+                vm.active?.surface?.let { if (action.redo) it.redo() else it.undo() }
+                vm.refresh()
+            }
+
             EditorAction.TitleTapped -> {
-                vm.navigator.open()
+                vm.navigator.toggle()
             }
 
             is EditorAction.ResetZoom, is EditorAction.StepZoom, is EditorAction.ZoomChanged -> {
@@ -167,7 +189,41 @@ internal object EditorEffects {
                 vm.strip.onCursor(action.step)
             }
 
+            is EditorAction.BlockChosen -> {
+                vm.strip.onBlock(action.choice)
+            }
+
+            is EditorAction.LinkDone -> {
+                (before.overlay as? EditorOverlay.LinkPrompt)?.let {
+                    vm.strip.links.onDone(
+                        it,
+                        action.text,
+                        action.url,
+                    )
+                    vm.emit(EditorEvent.ReturnKeyboard)
+                }
+            }
+
+            EditorAction.CopyPictureIn -> {
+                (before.overlay as? EditorOverlay.CopyPicture)?.let { vm.pictures.copyIn(it.picked) }
+            }
+
+            EditorAction.LinkRemove -> {
+                (before.overlay as? EditorOverlay.LinkPrompt)?.let {
+                    vm.strip.links.onRemove(it)
+                    vm.emit(EditorEvent.ReturnKeyboard)
+                }
+            }
+
+            EditorAction.DismissOverlay -> {
+                // Cancelling the Link sheet hands the keyboard back as Done does; other overlays never had it.
+                if (before.overlay is EditorOverlay.LinkPrompt) vm.emit(EditorEvent.ReturnKeyboard)
+            }
+
             is EditorAction.Find -> {
+                // Find moves the Code pane to each match and, in Split, the Preview with it: Code leads,
+                // so the Preview following its scroll can never pull the Code pane off the match.
+                if (vm.uiState.value.mode == ViewMode.Split) vm.scrollLink.touched(Pane.Code)
                 vm.find.onAction(action.action)
             }
 
@@ -184,20 +240,27 @@ internal object EditorEffects {
             }
 
             // The reducer does all there is to do for these.
-            EditorAction.CopyLongPressed,
-            EditorAction.OpenMenu,
-            EditorAction.DismissOverlay,
+            is EditorAction.OpenView,
             is EditorAction.AnchorChanged,
             EditorAction.RecoveryGotIt,
             EditorAction.ShowFailureDetails,
             EditorAction.DismissBanner,
             EditorAction.AskUseMine,
             EditorAction.KeepEditing,
-            is EditorAction.ImeVisibilityChanged,
             EditorAction.BigFileChipTapped,
-            EditorAction.MessageShown,
             -> {
                 Unit
+            }
+
+            is EditorAction.ImeVisibilityChanged -> {
+                if (action.visible) vm.onKeyboardShown()
+            }
+
+            EditorAction.MessageShown -> {
+                // The discard's Undo has gone with its message: let go of the text it held (up to a whole file).
+                if (before.message?.undo == true && before.message.kind != MessageKind.DraftDeleted) {
+                    vm.recovery.forgetDiscard()
+                }
             }
         }
     }
@@ -219,10 +282,12 @@ internal object EditorEffects {
             MenuItem.ExportPdf -> PreviewEffects.exportPdf(vm)
             MenuItem.ExportImages -> vm.imageExports.openExport()
             MenuItem.Share -> vm.saves.share(richText = false)
-            MenuItem.CopyRichText -> PreviewEffects.copyAllRich(vm)
-            MenuItem.Display -> vm.update { it.copy(overlay = EditorOverlay.Display) }
+            MenuItem.CopyAs -> vm.copies.openChooser()
+            MenuItem.Display -> vm.update { it.copy(overlay = EditorOverlay.Display()) }
             MenuItem.Settings -> vm.emit(EditorEvent.Open(AppScreen.Settings))
-            MenuItem.Copy -> vm.saves.copyAll(richText = false)
+            MenuItem.Copy -> vm.copies.openChooser()
+            MenuItem.InsertImage -> vm.pictures.insertHere()
+            MenuItem.ShowPictures -> vm.pictures.askForFolder()
         }
     }
 }

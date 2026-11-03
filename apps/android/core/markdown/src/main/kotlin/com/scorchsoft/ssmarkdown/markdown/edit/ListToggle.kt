@@ -1,10 +1,18 @@
 package com.scorchsoft.ssmarkdown.markdown.edit
 
 /**
- * Bulleted, numbered and task lists. When every selected line is already
- * that kind the markers come off; otherwise every line becomes that kind,
- * keeping its quote and indentation, so a mixed selection turns uniform
- * first and only then toggles off.
+ * Bulleted, numbered and task lists (docs/ux-spec.md, "Formatting strip").
+ *
+ * - Every selected line already that kind: the markers come off. One
+ *   top-level item leaves its list as Outdent does ([ListContinuation.exitList]),
+ *   so the rest of the list stays a list.
+ * - Every selected line an item of the other kind (bullet for Numbered,
+ *   numbered for Bullet): each whole list they are in switches kind, at
+ *   their level, as a word processor's list-style switch does. Nested
+ *   lines move with their item when the marker's width changes.
+ * - Otherwise every line becomes that kind, keeping its quote and
+ *   indentation, so a mixed selection turns uniform first and only then
+ *   toggles off.
  */
 internal object ListToggle {
     fun apply(
@@ -18,11 +26,18 @@ internal object ListToggle {
         if (lines.isEmpty()) return EditResult.unchanged(selection)
         val prefixes = lines.map { LinePrefix.parse(it.content) }
         val builder = EditBuilder(text)
+        val single = lines.singleOrNull()
+        if (single != null && prefixes[0].isKind(kind) && prefixes[0].indent.isEmpty()) {
+            return ListContinuation.exitList(text, single, prefixes[0], selection)
+        }
         if (prefixes.all { it.isKind(kind) }) {
             lines.forEachIndexed { i, line -> remove(builder, line.start, prefixes[i]) }
+        } else if (kind != ListKind.Task && prefixes.all { it.isOtherKind(kind) }) {
+            switchLists(text, builder, style, kind, lines, prefixes, fences)
         } else {
             val adder = Adder(builder, style, Numbering(text, lines.first(), prefixes.first(), style))
             lines.forEachIndexed { i, line -> if (!prefixes[i].isKind(kind)) adder.add(line.start, prefixes[i], kind) }
+            separate(text, builder, lines.first(), lines.last(), prefixes.first())
         }
         return builder.buildMapping(selection)
     }
@@ -33,6 +48,100 @@ internal object ListToggle {
             ListKind.Numbered -> marker is ListMarker.Ordered
             ListKind.Task -> isTask
         }
+
+    /**
+     * Plain lines made into items between paragraph lines: a blank line
+     * above and below keeps the paragraphs whole and the next line from
+     * being a lazy continuation of the new item (EB-LIST-37).
+     */
+    private fun separate(
+        text: CharSequence,
+        builder: EditBuilder,
+        first: LineSpan,
+        last: LineSpan,
+        firstPrefix: LinePrefix,
+    ) {
+        if (firstPrefix.isListItem || firstPrefix.quoteEnd > 0 || firstPrefix.indent.isNotEmpty()) return
+        val above = TextLines.previous(text, first)
+        // At the line above's end, so it never meets the marker written at this line's start.
+        if (above != null && isParagraphLine(above)) builder.insert(above.end, "\n")
+        val below = TextLines.next(text, last)
+        if (below != null && isParagraphLine(below)) builder.insert(below.start, "\n")
+    }
+
+    private fun isParagraphLine(line: LineSpan): Boolean {
+        val p = LinePrefix.parse(line.content)
+        val starter = line.content.trimStart().firstOrNull()
+        return !line.isBlank && !p.isListItem && p.quoteEnd == 0 && p.indent.isEmpty() && starter != '#' &&
+            starter != '|' &&
+            !line.content.startsWith("```") && !line.content.startsWith("~~~")
+    }
+
+    /** An item a [kind] key switches whole lists from: numbered for Bullet, any bullet (tasks too) for Numbered. */
+    private fun LinePrefix.isOtherKind(kind: ListKind): Boolean =
+        when (kind) {
+            ListKind.Bullet -> marker is ListMarker.Ordered
+            ListKind.Numbered -> marker is ListMarker.Bullet
+            ListKind.Task -> false
+        }
+
+    /**
+     * Rewrites the marker of every item in the lists [lines] are in, at their
+     * level, as [kind]; task boxes stay. Numbers count from 1 in the
+     * document's delimiter. Where the marker's width changes, the lines
+     * nested in the item move by the same amount, so they stay nested.
+     */
+    @Suppress("LongParameterList") // One pass over parsed lines; splitting it would only pass them around.
+    private fun switchLists(
+        text: CharSequence,
+        builder: EditBuilder,
+        style: DocumentStyle,
+        kind: ListKind,
+        lines: List<LineSpan>,
+        prefixes: List<LinePrefix>,
+        fences: FenceStates,
+    ) {
+        val done = HashSet<Int>()
+        lines.forEachIndexed { i, line ->
+            if (line.start in done) return@forEachIndexed
+            val block = ListBlock.around(text, line, prefixes[i], fences)
+            var number = 1L
+            for (item in block.items) {
+                done += item.span.start
+                val p = item.prefix
+                val marker =
+                    if (kind ==
+                        ListKind.Numbered
+                    ) {
+                        "${number++}${style.orderedDelimiter}"
+                    } else {
+                        "${style.bullet}"
+                    }
+                val old = p.markerEnd - p.indentEnd
+                builder.replace(item.span.start + p.indentEnd, item.span.start + p.markerEnd, marker)
+                val shift = marker.length - old
+                if (shift != 0) {
+                    for (child in item.children) shiftIndent(builder, child, shift)
+                }
+            }
+        }
+    }
+
+    /** Moves a nested line by [shift] columns: spaces added after its quote, or up to that many removed. */
+    private fun shiftIndent(
+        builder: EditBuilder,
+        line: LineSpan,
+        shift: Int,
+    ) {
+        val p = LinePrefix.parse(line.content)
+        val at = line.start + p.quoteEnd
+        if (shift > 0) {
+            builder.insert(at, " ".repeat(shift))
+        } else {
+            val spaces = p.indent.takeWhile { it == ' ' }.length
+            builder.delete(at, at + minOf(spaces, -shift))
+        }
+    }
 
     /** Takes the whole marker off, task box included, so pressing a list key twice is a no-op. */
     private fun remove(
@@ -93,7 +202,10 @@ internal object ListToggle {
         val delimiter: Char
 
         init {
-            val above = TextLines.previous(text, first)?.let { LinePrefix.parse(it.content) }
+            // Blank lines between items keep one (loose) list, so the count goes on across them.
+            var line = TextLines.previous(text, first)
+            while (line != null && line.isBlank) line = TextLines.previous(text, line)
+            val above = line?.let { LinePrefix.parse(it.content) }
             val marker = above?.marker
             if (marker is ListMarker.Ordered && above.indent == firstPrefix.indent &&
                 above.quote == firstPrefix.quote

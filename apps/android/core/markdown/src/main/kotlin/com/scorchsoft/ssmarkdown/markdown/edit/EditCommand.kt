@@ -62,6 +62,22 @@ public sealed interface EditCommand {
         ): EditResult = checked(text, selection) { HeadingEdit.set(text, selection, level, fences) }
     }
 
+    /**
+     * The ¶ menu: makes every block in the selection a [type], replacing the
+     * block syntax it had and keeping its text ([BlockType]).
+     */
+    public data class SetBlockType(
+        /** What the blocks become. */
+        public val type: BlockType,
+    ) : EditCommand {
+        override fun apply(
+            text: CharSequence,
+            selection: TextSelection,
+            style: DocumentStyle,
+            fences: FenceStates,
+        ): EditResult = checked(text, selection) { BlockTypeEdit.apply(text, selection, style, type, fences) }
+    }
+
     /** The H key: paragraph → H1 → H2 → H3 → paragraph. */
     public data object CycleHeading : EditCommand {
         override fun apply(
@@ -132,6 +148,35 @@ public sealed interface EditCommand {
         ): EditResult = checked(text, selection) { InsertEdit.link(text, selection) }
     }
 
+    /**
+     * The Link prompt's Done: `[label](url)` over the link the selection is
+     * in, or over the selection ([ExistingLink]). A blank [label] shows the
+     * address.
+     */
+    public data class SetLink(
+        /** The link's text, as typed (brackets are escaped). */
+        public val label: String,
+        /** The destination; spaces or unbalanced parentheses get `<>`. */
+        public val url: String,
+    ) : EditCommand {
+        override fun apply(
+            text: CharSequence,
+            selection: TextSelection,
+            style: DocumentStyle,
+            fences: FenceStates,
+        ): EditResult = checked(text, selection) { LinkEdit.set(text, selection, label, url) }
+    }
+
+    /** The Link prompt's Remove link: the link at the selection becomes its text. */
+    public data object RemoveLink : EditCommand {
+        override fun apply(
+            text: CharSequence,
+            selection: TextSelection,
+            style: DocumentStyle,
+            fences: FenceStates,
+        ): EditResult = checked(text, selection) { LinkEdit.remove(text, selection) }
+    }
+
     /** A [columns] × [rows] table skeleton below the caret's line, in the document's table style. */
     public data class InsertTable(
         /** Number of columns. */
@@ -147,24 +192,43 @@ public sealed interface EditCommand {
         ): EditResult = checked(text, selection) { InsertEdit.table(text, selection, style, columns, rows) }
     }
 
-    /** Indents the selected lines one level; list items nest under the item above. */
+    /**
+     * Indents the selected lines one level: list items nest under the item
+     * above, and lines of fenced code get one of the block's indent units
+     * ([CodeIndent]). A plain paragraph line is left alone, since four
+     * spaces would make it an indented code block.
+     */
     public data object Indent : EditCommand {
         override fun apply(
             text: CharSequence,
             selection: TextSelection,
             style: DocumentStyle,
             fences: FenceStates,
-        ): EditResult = checked(text, selection) { IndentEdit.indent(text, selection, style, fences) }
+        ): EditResult =
+            checked(text, selection) {
+                CodeIndent.shift(text, selection, fences, outdent = false)
+                    ?: IndentEdit.indent(text, selection, style, fences)
+            }
     }
 
-    /** Outdents the selected lines one level. */
+    /**
+     * Outdents the selected lines one level. On a single top-level list item
+     * there is no level left, so it leaves the list: the marker comes off and
+     * the line becomes a paragraph, as Enter does on an empty item. In fenced
+     * code it only takes off up to one indent unit ([CodeIndent]).
+     */
     public data object Outdent : EditCommand {
         override fun apply(
             text: CharSequence,
             selection: TextSelection,
             style: DocumentStyle,
             fences: FenceStates,
-        ): EditResult = checked(text, selection) { IndentEdit.outdent(text, selection, style, fences) }
+        ): EditResult =
+            checked(text, selection) {
+                CodeIndent.shift(text, selection, fences, outdent = true)
+                    ?: ListContinuation.outOfTopLevelItem(text, selection, fences)
+                    ?: IndentEdit.outdent(text, selection, style, fences)
+            }
     }
 
     /**
@@ -214,7 +278,30 @@ public sealed interface EditCommand {
         ): EditResult = checked(text, selection) { ListContinuation.apply(text, selection, style, fences) }
     }
 
-    /** Types [text] over the selection; [smartPairs] (off by default) closes brackets and backticks. */
+    /**
+     * Backspace with the caret at the very start of a list item's text: the
+     * marker (and any task box) comes off and the text stays where it is, a
+     * paragraph line now ([ListContinuation.unwrapItem]). Anywhere else it
+     * changes nothing ([EditResult.isNoOp]), and the editor deletes as usual,
+     * so a second Backspace joins the line to the one above.
+     */
+    public data object BackspaceAtItemStart : EditCommand {
+        override fun apply(
+            text: CharSequence,
+            selection: TextSelection,
+            style: DocumentStyle,
+            fences: FenceStates,
+        ): EditResult =
+            checked(text, selection) {
+                ListContinuation.unwrapItem(text, selection, fences) ?: EditResult.unchanged(selection)
+            }
+    }
+
+    /**
+     * Types [text] over the selection; [smartPairs] (off by default) closes
+     * brackets and backticks. A `}`, `]` or `)` typed first on a line of
+     * fenced code takes one indent unit off the line ([CodeIndent.closer]).
+     */
     public data class Type(
         /** What was typed. */
         public val text: String,
@@ -226,7 +313,11 @@ public sealed interface EditCommand {
             selection: TextSelection,
             style: DocumentStyle,
             fences: FenceStates,
-        ): EditResult = checked(text, selection) { TypeText.apply(text, selection, this.text, smartPairs) }
+        ): EditResult =
+            checked(text, selection) {
+                CodeIndent.closer(text, selection, this.text, fences)
+                    ?: TypeText.apply(text, selection, this.text, smartPairs)
+            }
     }
 }
 

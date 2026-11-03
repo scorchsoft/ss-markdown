@@ -7,9 +7,21 @@
  */
 import { runEdit } from "../../core/minimalEdit";
 import { mapOffset } from "../../core/ot";
-import { newlineInsert, type BlockKind } from "../../core/newline";
+import {
+    isEmptyQuoteLine,
+    isIndentOnly,
+    isListLine,
+    itemTextStart,
+    newlineInsert,
+    type BlockKind,
+} from "../../core/newline";
+import type { FormatAction } from "../../protocol";
 import { escapeTyped } from "../../core/minimalEdit";
-import type { SourceEdit } from "../../core/sourceDoc";
+import type { SourceDoc, SourceEdit } from "../../core/sourceDoc";
+import { atBlockStart, linkFor, pasteMarkdown, pasteText, pasteWords, renumberAfter } from "../../core/paste";
+import { clipContent, clipWords } from "../../core/pasteClip";
+import { hasMarkdown, plainWords } from "../../core/plainWords";
+import { OWN_HTML } from "./clip";
 import type { SectionView } from "../sectionView";
 import { pointToSource, runText, sectionOffset, shiftRuns, snapshotRuns, type RunRecord } from "./runs";
 import { StrayGuard } from "./strayGuard";
@@ -18,12 +30,19 @@ export const FLUSH_DELAY_MS = 150;
 
 /** What the session needs from the editor that owns it. */
 export interface SessionHost {
+    readonly doc: SourceDoc;
     lineTextAt(offset: number): string;
+    /** The source offset where the line holding [offset] starts. */
+    lineStartAt(offset: number): number;
     isLineStart(offset: number): boolean;
+    /** D4: the edit that leaves the code block at [offset], or null. */
+    codeExitAt(offset: number): { from: number; to: number; insert: string; caret: number } | null;
     commit(edits: readonly SourceEdit[]): void;
     commitAndRerender(edits: readonly SourceEdit[], caret: number): void;
     /** A browser input type that formats (formatBold…) or steps history. */
     requestFormat(inputType: string): void;
+    /** Asks Kotlin to apply [action] to the selection: Code's own Enter, Backspace, Indent… */
+    format(action: FormatAction): void;
     nextCell(): void;
     /** A change could not be written back: undo it on screen and say so. */
     refuse(): void;
@@ -32,9 +51,12 @@ export interface SessionHost {
 export class EditSession {
     private runs: Map<HTMLElement, RunRecord>;
     private timer: ReturnType<typeof setTimeout> | null = null;
+    /** Ctrl+Shift+V was pressed: the paste it starts is "Paste as plain text" (Chromium's paste-and-match-style). */
+    private plainNext = false;
     private readonly guard: StrayGuard;
     private readonly onInput = (): void => this.schedule();
     private readonly onBeforeInput = (e: InputEvent): void => this.beforeInput(e);
+    private readonly onKeyDown = (e: KeyboardEvent): void => this.keyDown(e);
     readonly startKey: string;
 
     constructor(
@@ -61,6 +83,7 @@ export class EditSession {
         this.block.classList.add("editing");
         this.block.addEventListener("input", this.onInput);
         this.block.addEventListener("beforeinput", this.onBeforeInput);
+        this.block.addEventListener("keydown", this.onKeyDown);
         this.block.focus({ preventScroll: true });
         this.guard.start();
     }
@@ -70,6 +93,7 @@ export class EditSession {
         this.guard.stop();
         this.block.removeEventListener("input", this.onInput);
         this.block.removeEventListener("beforeinput", this.onBeforeInput);
+        this.block.removeEventListener("keydown", this.onKeyDown);
         this.block.removeAttribute("contenteditable");
         this.block.classList.remove("editing");
     }
@@ -119,6 +143,9 @@ export class EditSession {
         inserts: readonly { at: number; text: string }[],
         refused: boolean,
     ): void {
+        // These run edits are written here, and the block is re-rendered next: the flush that ending
+        // the session runs must not find them again and write them twice.
+        this.runs = new Map();
         const all: SourceEdit[] = [...runEdits];
         for (const ins of inserts) {
             const clash = all.some((e) => e.from <= ins.at && ins.at <= e.to);
@@ -172,13 +199,28 @@ export class EditSession {
         if (type === "insertParagraph" || type === "insertLineBreak") {
             e.preventDefault();
             if (this.inTable) this.host.nextCell();
-            else this.structural(this.newline(type === "insertLineBreak"), null);
+            else this.enter(type === "insertLineBreak");
+            return;
+        }
+        if (type === "deleteContentBackward" && this.atItemTextStart()) {
+            e.preventDefault();
+            this.host.format("backspace");
+            return;
+        }
+        if (type === "insertText" && this.closerToDedent(e.data)) {
+            e.preventDefault();
+            this.host.format(`type${e.data}` as FormatAction);
             return;
         }
         if (type === "insertFromPaste" || type === "insertFromDrop") {
             e.preventDefault();
-            const text = e.dataTransfer?.getData("text/plain") ?? "";
-            this.structural(this.escapePasted(text), null);
+            const plain = this.plainNext && type === "insertFromPaste";
+            this.plainNext = false;
+            this.insertClip(
+                e.dataTransfer?.getData("text/plain") ?? "",
+                e.dataTransfer?.getData("text/html") ?? "",
+                plain,
+            );
             return;
         }
         const target = e.getTargetRanges()[0];
@@ -218,10 +260,75 @@ export class EditSession {
         this.host.commitAndRerender([edit], edit.from + insert.length);
     }
 
-    private newline(hard: boolean): string {
+    /**
+     * Enter. Typing waiting for its pause is written back first: until it is,
+     * the caret's offset is ahead of the source, and the rules read the wrong
+     * line (a soft keyboard's composing word made Enter at the end of a list
+     * item read the line below: edge-cases "Enter at the end of a list item").
+     * A list item, an empty quote line and code take Code's own Enter from
+     * Kotlin; a paragraph, heading or quote line gets a new paragraph here.
+     */
+    /** Enter, for keystrokes the keyboard keeper held while the block re-rendered. */
+    pressEnter(): void {
+        if (this.inTable) this.host.nextCell();
+        else this.enter(false);
+    }
+
+    private enter(hard: boolean): void {
+        this.flush();
         const r = this.selectionRange();
-        const line = this.host.lineTextAt(r?.from ?? 0);
-        return newlineInsert(line, this.blockKind(), hard);
+        if (!r) {
+            this.host.refuse();
+            return;
+        }
+        const line = this.host.lineTextAt(r.from);
+        const kind = this.blockKind();
+        if (kind === "code") {
+            const exit = r.from === r.to ? this.host.codeExitAt(r.from) : null;
+            if (exit) this.host.commitAndRerender([exit], exit.caret);
+            else this.host.format("enter");
+        } else if (!hard && (kind === "listItem" || isListLine(line) || isEmptyQuoteLine(line))) {
+            this.host.format("enter");
+        } else {
+            this.structural(newlineInsert(line, hard), null);
+        }
+    }
+
+    /** True with the caret right at the start of a list item's text, where Backspace takes the marker off. */
+    private atItemTextStart(): boolean {
+        if (this.blockKind() === "code") return false;
+        this.flush();
+        const r = this.selectionRange();
+        if (!r || r.from !== r.to) return false;
+        const start = itemTextStart(this.host.lineTextAt(r.from));
+        return start >= 0 && r.from - this.host.lineStartAt(r.from) === start;
+    }
+
+    /** A `}`, `]` or `)` typed with only indentation before it on a code line: Kotlin takes a unit off. */
+    private closerToDedent(data: string | null): boolean {
+        if (data === null || !"}])".includes(data) || data.length !== 1 || this.blockKind() !== "code") return false;
+        this.flush();
+        const r = this.selectionRange();
+        if (!r || r.from !== r.to) return false;
+        return isIndentOnly(this.host.lineTextAt(r.from).slice(0, r.from - this.host.lineStartAt(r.from)));
+    }
+
+    /**
+     * Tab and Shift+Tab: Indent and Outdent in a list or code; Shift+Tab
+     * outdents anywhere. Tab in a paragraph does nothing (D3), and never
+     * moves focus out of the text, which would take the keyboard away.
+     */
+    private keyDown(e: KeyboardEvent): void {
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "v") {
+            // Chromium pastes plain text next, in this same task; its paste carries no sign of being plain.
+            this.plainNext = true;
+            setTimeout(() => (this.plainNext = false), 0);
+            return;
+        }
+        if (e.key !== "Tab" || e.ctrlKey || e.altKey || e.metaKey || this.inTable) return;
+        e.preventDefault();
+        if (!e.shiftKey && this.blockKind() === "paragraph") return;
+        this.host.format(e.shiftKey ? "outdent" : "indent");
     }
 
     private blockKind(): BlockKind {
@@ -230,12 +337,72 @@ export class EditSession {
         return "paragraph";
     }
 
-    private escapePasted(text: string): string {
-        if (this.blockKind() === "code") return text;
-        return text
-            .replace(/\r\n?/g, "\n")
-            .split("\n")
-            .map((line, i) => escapeTyped(line, { inTable: this.inTable, atLineStart: i > 0 }))
-            .join(this.inTable ? " " : "\n");
+    /** Cut: the selection's source goes, as one edit (the clipboard was filled by `clip.ts`). */
+    cut(): void {
+        this.structural("", null);
+    }
+
+    /**
+     * A paste or a drop (docs/ux-spec.md, "Copy and paste"), from the menu,
+     * the keyboard, a drop or Kotlin's "Paste as plain text". A normal paste
+     * is Markdown kept literally: plain text (a `.md` file's Markdown),
+     * Preview's own copy and HTML converted to Markdown all render
+     * formatted, fitted to the block they land in. [plainOnly] inserts only
+     * the words, escaped so they show exactly as pasted. A bare web address
+     * over selected text links it (never for a plain paste, decision D9).
+     */
+    insertClip(plainData: string, html: string, plainOnly: boolean): void {
+        const plain = plainData === "" ? null : plainData;
+        this.flush();
+        const sel = window.getSelection();
+        const ends = [sel?.anchorNode, sel?.focusNode].map((n) => (n instanceof Element ? n : n?.parentElement));
+        const r = ends.some((n) => n?.closest("[contenteditable=false]")) ? null : this.selectionRange();
+        if (!r) {
+            // Nowhere in the source to put it, or inside text that cannot be edited: say so, never put it elsewhere.
+            this.host.refuse();
+            return;
+        }
+        const doc = this.host.doc;
+        const line = doc.lineAt(r.from);
+        const lineStart = doc.lineStart(line);
+        const lastLine = doc.lineAt(r.to);
+        const span = doc.lines.slice(line, lastLine + 1).join("\n");
+        const kind = this.blockKind();
+        const target = {
+            kind,
+            inTable: this.inTable,
+            line: doc.lines[line] ?? "",
+            atBlockStart: atBlockStart(span, r.from - lineStart),
+            atLineEnd: r.to - doc.lineStart(lastLine) === (doc.lines[lastLine] ?? "").length,
+        };
+        const own = html.includes(OWN_HTML);
+        let insert: string;
+        if (plainOnly) {
+            insert = pasteWords(own ? plainWords(plain ?? "") : clipWords(plain, html || null), target);
+        } else if (own) {
+            insert = pasteMarkdown(plain ?? "", target);
+        } else if (kind === "code") {
+            insert = pasteText(plain ?? clipWords(null, html || null), target);
+        } else {
+            const clip = clipContent(plain, html || null);
+            insert = pasteText(clip.text, target, clip.fromHtml || hasMarkdown(clip.text));
+        }
+        const inCode = ends.some((n) => n?.closest("a, code"));
+        const link =
+            !plainOnly && kind !== "code" && !inCode
+                ? linkFor(span.slice(r.from - lineStart, r.to - lineStart), plain ?? "")
+                : null;
+        if (r.from === r.to && insert.length === 0) return;
+        const edits: SourceEdit[] = [{ from: r.from, to: r.to, insert }];
+        if (link && r.to > r.from) {
+            // Two steps, so the first Undo leaves the plain paste (decision D9, EB-UNDO-07).
+            this.host.commit(edits);
+            edits[0] = { from: r.from, to: r.from + insert.length, insert: link };
+            insert = link;
+        } else if (kind === "listItem") {
+            const added = insert.match(/\n\s*(?:>\s?)*\s*\d{1,9}[.)]\s/g)?.length ?? 0;
+            edits.push(...renumberAfter(doc.lines, (l) => doc.lineStart(l), line, lastLine, added));
+        }
+        this.host.commitAndRerender(edits, r.from + insert.length);
     }
 }

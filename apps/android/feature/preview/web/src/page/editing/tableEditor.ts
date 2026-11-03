@@ -18,6 +18,7 @@ import {
     setAlign,
     setCell,
     widthsOf,
+    type LineReplacement,
     type Table,
 } from "../../core/table";
 import type { TableOp } from "../../protocol";
@@ -54,18 +55,45 @@ function tableLines(doc: SourceDoc, addr: CellAddress): string[] {
     return doc.lines.slice(addr.startLine, addr.endLine);
 }
 
-/** Converts whole-line replacements inside the table into character edits. */
-function toSourceEdits(doc: SourceDoc, addr: CellAddress, before: string[], after: string[]): SourceEdit[] {
-    return diffLines(before, after).map((r) => {
-        const fromLine = addr.startLine + r.fromLine;
-        const toLine = addr.startLine + r.toLine;
-        const from = doc.lineStart(fromLine);
-        if (r.toLine === r.fromLine) {
-            return { from, to: from, insert: r.lines.map((l) => `${l}\n`).join("") };
+/** Offset just past the last character of [line], before its terminator. */
+function lineEnd(doc: SourceDoc, line: number): number {
+    return doc.lineStart(line) + (doc.lines[line]?.length ?? 0);
+}
+
+/**
+ * Converts whole-line replacements inside the table into character edits.
+ *
+ * Lines are separated by terminators, so a change that adds or removes whole
+ * lines must carry one terminator with it. Removing lines takes the
+ * terminator after them (or, for the document's last line, the one before),
+ * so a deleted row leaves no blank line behind: a blank line inside a table
+ * ends it, and every row below would turn into a paragraph of pipes.
+ * Inserting after the document's last line puts the terminator in front.
+ */
+export function lineEdits(doc: SourceDoc, firstLine: number, replacements: readonly LineReplacement[]): SourceEdit[] {
+    const last = doc.lineCount - 1;
+    return replacements.map((r) => {
+        const fromLine = firstLine + r.fromLine;
+        const toLine = firstLine + r.toLine;
+        if (r.lines.length === 0 && toLine > fromLine) {
+            if (toLine <= last) return { from: doc.lineStart(fromLine), to: doc.lineStart(toLine), insert: "" };
+            if (fromLine > 0) return { from: lineEnd(doc, fromLine - 1), to: lineEnd(doc, last), insert: "" };
+            return { from: 0, to: lineEnd(doc, last), insert: "" };
         }
-        const to = doc.lineStart(toLine - 1) + (doc.lines[toLine - 1]?.length ?? 0);
-        return { from, to, insert: r.lines.join("\n") };
+        if (toLine === fromLine) {
+            if (fromLine <= last) {
+                const at = doc.lineStart(fromLine);
+                return { from: at, to: at, insert: r.lines.map((l) => `${l}\n`).join("") };
+            }
+            const at = lineEnd(doc, last);
+            return { from: at, to: at, insert: r.lines.map((l) => `\n${l}`).join("") };
+        }
+        return { from: doc.lineStart(fromLine), to: lineEnd(doc, toLine - 1), insert: r.lines.join("\n") };
     });
+}
+
+function toSourceEdits(doc: SourceDoc, addr: CellAddress, before: string[], after: string[]): SourceEdit[] {
+    return lineEdits(doc, addr.startLine, diffLines(before, after));
 }
 
 /** Whether the table at [addr] is padded, judged before anyone types into it. */
@@ -91,16 +119,23 @@ function targetAfter(op: TableOp, addr: CellAddress, table: Table): { row: numbe
     switch (op.kind) {
         case "addRow":
             return { row: addr.row + 1, col: addr.col };
+        case "addRowAbove":
+            return { row: Math.max(1, addr.row), col: addr.col };
         case "addColumn":
             return { row: addr.row, col: addr.col + 1 };
         case "deleteRow":
             return { row: Math.min(addr.row, table.rows.length - 1), col: addr.col };
         case "deleteColumn":
             return { row: addr.row, col: Math.min(addr.col, table.aligns.length - 1) };
-        case "moveRow":
-            return { row: addr.row + op.by, col: addr.col };
-        case "moveColumn":
-            return { row: addr.row, col: addr.col + op.by };
+        case "moveRow": {
+            // A refused move (the header, or the last row down) leaves the caret where it was.
+            const to = addr.row + op.by;
+            return { row: addr.row >= 1 && to >= 1 && to < table.rows.length ? to : addr.row, col: addr.col };
+        }
+        case "moveColumn": {
+            const to = addr.col + op.by;
+            return { row: addr.row, col: to >= 0 && to < table.aligns.length ? to : addr.col };
+        }
         default:
             return { row: addr.row, col: addr.col };
     }
@@ -117,14 +152,29 @@ export function tableOpEdits(doc: SourceDoc, addr: CellAddress, op: TableOp): Ta
     const before = tableLines(doc, addr);
     const table = parseTable(before);
     if (!table) return null;
+    if (op.kind === "deleteTable") {
+        // Only the table's own lines go; the blank lines around it stay, so
+        // the blocks before and after keep their separation.
+        const at = addr.startLine;
+        return {
+            edits: lineEdits(doc, at, [{ fromLine: 0, toLine: before.length, lines: [] }]),
+            caretAfter: (next) => next.lineStart(Math.min(at, next.lineCount - 1)),
+        };
+    }
     const widths = widthsOf(table);
-    const body = addr.row === 0 ? 0 : addr.row;
     switch (op.kind) {
         case "addRow":
-            addRow(table, body);
+            addRow(table, addr.row);
+            break;
+        case "addRowAbove":
+            // Nothing goes above the header: from the header this adds the first body row.
+            addRow(table, Math.max(0, addr.row - 1));
             break;
         case "addColumn":
             addColumn(table, addr.col);
+            break;
+        case "addColumnLeft":
+            addColumn(table, addr.col - 1);
             break;
         case "align":
             setAlign(table, addr.col, op.align);

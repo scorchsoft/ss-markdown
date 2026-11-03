@@ -30,7 +30,15 @@ import kotlin.coroutines.coroutineContext
  * Until it lands, the Code view keeps shifting the old highlights with
  * each edit, and replacing waits for the fresh matches rather than act on
  * stale offsets. The match count is capped at [FindEngine.MAX_MATCHES].
+ *
+ * Next and Previous move every pane on screen to the match (edge-cases
+ * "Find next does not move"): the Code pane selects it, so typing replaces
+ * it, and scrolls the least distance that shows it, wrapped rows included;
+ * in Preview and Split the page paints every match on the rendered text,
+ * marks the current one and scrolls to it. The page hears nothing while
+ * only Code is on screen; a switch to Preview or Split sends the matches.
  */
+@Suppress("TooManyFunctions") // Search, steps, both panes and both replaces: each small, over one state.
 class FindController(
     private val host: EditorHost,
 ) {
@@ -57,7 +65,8 @@ class FindController(
             }
 
             FindAction.Next, FindAction.Previous -> {
-                showCurrent().also { highlight() }
+                showCurrent()
+                highlight(ranges = false, reveal = true)
             }
 
             FindAction.ReplaceOne -> {
@@ -100,8 +109,8 @@ class FindController(
                 val result = withContext(host.deps.compute) { find(snapshot, find.query, find.options) }
                 val caret = doc.surface.selection.start
                 host.update { it.copy(find = it.find?.withResult(result, caret)) }
-                highlight()
                 if (select) showCurrent()
+                highlight(reveal = select)
             }
     }
 
@@ -135,14 +144,34 @@ class FindController(
         }
     }
 
-    /** Every match drawn in the Code view, the current one stronger (ux-spec "Find & replace"). */
-    private fun highlight() {
+    /** The view mode changed: a page coming on screen with the bar open paints the matches too. */
+    fun onModeChanged() {
+        if (host.state.find != null && host.state.mode != ViewMode.Code) highlight(reveal = false)
+    }
+
+    /**
+     * Every match drawn in the Code view and, while it is on screen, the
+     * page; the current one stronger (ux-spec "Find & replace"). [ranges]
+     * false sends the page only the current index (a step); [reveal]
+     * scrolls the page to it.
+     */
+    private fun highlight(
+        ranges: Boolean = true,
+        reveal: Boolean = false,
+    ) {
         val find = host.state.find ?: return
         val starts = IntArray(find.matches.size) { find.matches[it].start }
         val ends = IntArray(find.matches.size) { find.matches[it].end }
         host.active?.highlight(starts, ends, find.current)
+        if (host.state.mode == ViewMode.Code) return
+        if (ranges) {
+            host.preview.find(starts, ends, find.current, reveal)
+        } else {
+            host.preview.find(null, null, find.current, reveal)
+        }
     }
 
+    /** Selects the current match in the source, which scrolls the Code pane to it when one is on screen. */
     private fun showCurrent() {
         val match = host.state.find?.currentMatch ?: return
         host.active?.surface?.select(match.start, match.end)

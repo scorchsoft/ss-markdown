@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -61,12 +62,43 @@ fun EditorOverlays(
             LeaveSheet(name, onAction, historyOn = state.historyOn)
         }
 
-        EditorOverlay.Display -> {
-            DisplaySheet(state, display, onAction, themeControls)
+        is EditorOverlay.Display -> {
+            DisplaySheet(state, display, onAction, themeControls, highlight = overlay.highlight)
         }
 
         is EditorOverlay.SectionMenu -> {
             SectionMenuSheet(overlay, onAction)
+        }
+
+        EditorOverlay.BigFileInfo -> {
+            BigFileInfoDialog { onAction(EditorAction.DismissOverlay) }
+        }
+
+        is EditorOverlay.NotKept -> {
+            NotKeptDialog(overlay, onAction)
+        }
+
+        is EditorOverlay.SaveFailureDetails -> {
+            SaveFailureDialog(
+                overlay.problem,
+            ) { onAction(EditorAction.DismissOverlay) }
+        }
+
+        else -> {
+            EditingOverlays(overlay, onAction)
+        }
+    }
+}
+
+/** The sheets of editing and Preview: the Link prompt, the link chip, media, tables and image export. */
+@Composable
+private fun EditingOverlays(
+    overlay: EditorOverlay?,
+    onAction: (EditorAction) -> Unit,
+) {
+    when (overlay) {
+        is EditorOverlay.LinkPrompt -> {
+            LinkPromptSheet(overlay, onAction)
         }
 
         is EditorOverlay.LinkChip -> {
@@ -85,24 +117,39 @@ fun EditorOverlays(
             ExportImagesSheet(overlay.state, onAction)
         }
 
-        EditorOverlay.BigFileInfo -> {
-            BigFileInfoDialog { onAction(EditorAction.DismissOverlay) }
-        }
-
-        is EditorOverlay.NotKept -> {
-            NotKeptDialog(overlay, onAction)
-        }
-
-        is EditorOverlay.SaveFailureDetails -> {
-            SaveFailureDialog(
-                overlay.problem,
-            ) { onAction(EditorAction.DismissOverlay) }
+        is EditorOverlay.CopyPicture -> {
+            CopyPictureDialog(onAction)
         }
 
         else -> {
             Unit
         }
     }
+}
+
+/**
+ * Insert image picked a picture outside the document's folder: copy it into
+ * `images/` beside the file, or Cancel (docs/ux-spec.md, "Pictures"). A
+ * raw `content://` link is never offered: it would stop working.
+ */
+@Composable
+private fun CopyPictureDialog(onAction: (EditorAction) -> Unit) {
+    AlertDialog(
+        onDismissRequest = { onAction(EditorAction.DismissOverlay) },
+        containerColor = SS.colors.chrome,
+        title = { Text(stringResource(R.string.copy_picture_title), style = SS.type.title, color = SS.colors.ink) },
+        text = { Text(stringResource(R.string.copy_picture_body), style = SS.type.body, color = SS.colors.ink) },
+        confirmButton = {
+            TextButton(onClick = { onAction(EditorAction.CopyPictureIn) }) {
+                Text(stringResource(R.string.copy_picture_confirm), style = SS.type.label, color = SS.colors.ink)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { onAction(EditorAction.DismissOverlay) }) {
+                Text(stringResource(R.string.cancel), style = SS.type.label, color = SS.colors.ink)
+            }
+        },
+    )
 }
 
 /**
@@ -180,7 +227,9 @@ private fun messageText(message: UserMessage): String =
         MessageKind.SavedTo -> stringResource(R.string.msg_saved_to, message.argument)
         MessageKind.AllSaved -> stringResource(R.string.msg_all_saved)
         MessageKind.Copied -> stringResource(R.string.msg_copied)
-        MessageKind.CopiedRichText -> stringResource(R.string.msg_copied_rich)
+        MessageKind.CopiedFormatted -> stringResource(R.string.msg_copied_formatted)
+        MessageKind.CopiedFormattedShortened -> stringResource(R.string.msg_copied_formatted_shortened)
+        MessageKind.FormattedFailed -> stringResource(R.string.msg_formatted_failed)
         MessageKind.CopyTooLarge -> stringResource(R.string.msg_copy_too_large)
         MessageKind.PasteTooLarge -> stringResource(R.string.msg_paste_too_large)
         MessageKind.EditsDiscarded -> stringResource(R.string.msg_edits_discarded)
@@ -188,9 +237,11 @@ private fun messageText(message: UserMessage): String =
         MessageKind.EditsDiscardedNotKept -> stringResource(R.string.msg_edits_discarded_not_kept)
         MessageKind.DraftDeleted -> stringResource(R.string.msg_draft_deleted)
         MessageKind.SectionCopied -> stringResource(R.string.msg_section_copied)
+        MessageKind.SectionCopiedFormatted -> stringResource(R.string.msg_section_copied_formatted)
         MessageKind.ReplacedAll -> stringResource(R.string.msg_replaced_all, message.argument)
         MessageKind.Restored -> stringResource(R.string.msg_restored)
         MessageKind.Renamed -> stringResource(R.string.msg_renamed)
+        MessageKind.SaveBeforeRename -> stringResource(R.string.msg_save_before_rename)
         MessageKind.Deleted -> stringResource(R.string.msg_deleted)
         MessageKind.Duplicated -> stringResource(R.string.msg_duplicated)
         MessageKind.ActionFailed -> stringResource(R.string.msg_failed)
@@ -206,6 +257,16 @@ private fun messageText(message: UserMessage): String =
         MessageKind.ImageSaved -> stringResource(R.string.msg_image_saved, message.argument)
         MessageKind.ImageCopied -> stringResource(R.string.msg_image_copied)
         MessageKind.NothingToExport -> stringResource(R.string.msg_nothing_to_export)
+        MessageKind.PdfFailed -> stringResource(R.string.msg_pdf_failed)
+        MessageKind.ExportStopped -> stringResource(R.string.msg_export_stopped)
+        MessageKind.PictureFolderGranted -> stringResource(R.string.msg_picture_folder_granted, message.argument)
+        MessageKind.PictureFolderUnrelated -> stringResource(R.string.msg_picture_folder_unrelated)
+        MessageKind.PictureTooLarge -> stringResource(R.string.msg_picture_too_large)
+        MessageKind.PictureNotImage -> stringResource(R.string.msg_picture_not_image)
+        MessageKind.PictureFailed -> stringResource(R.string.msg_picture_failed)
+        MessageKind.PicturesStayedWithDraft -> stringResource(R.string.msg_pictures_stayed)
+        MessageKind.PictureInsertStopped -> stringResource(R.string.msg_picture_insert_stopped)
+        MessageKind.PictureCopiedNotLinked -> stringResource(R.string.msg_picture_copied_not_linked, message.argument)
     }
 
 /** "This 180 MB file needs about 400 MB, and this phone allows 256 MB" in place of the editor. */

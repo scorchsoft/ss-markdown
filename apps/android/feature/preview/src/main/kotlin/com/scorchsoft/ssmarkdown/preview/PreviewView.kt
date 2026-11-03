@@ -4,7 +4,10 @@ import android.content.Context
 import android.graphics.Color
 import android.os.SystemClock
 import android.util.AttributeSet
+import android.view.ActionMode
+import android.view.KeyEvent
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
 import android.widget.FrameLayout
@@ -34,7 +37,8 @@ class PreviewView
     constructor(
         context: Context,
         attrs: AttributeSet? = null,
-    ) : FrameLayout(context, attrs) {
+    ) : FrameLayout(context, attrs),
+        PrintTarget {
         var listener: PreviewListener? = null
         var documentSource: DocumentSource? = null
 
@@ -58,8 +62,8 @@ class PreviewView
          */
         var backgroundExecutor: Executor = Executor(Runnable::run)
 
-        /** Rich-text exports waiting for the page's answer, by request id. Main thread only. */
-        private val htmlRequests = HashMap<Int, (String?) -> Unit>()
+        /** Formatted copies waiting for the page's answer, by request id. Main thread only. */
+        private val htmlRequests = HashMap<Int, (FormattedCopy?) -> Unit>()
         private var nextHtmlRequest = 1
 
         private val recovery = RendererRecovery()
@@ -69,8 +73,9 @@ class PreviewView
                 when (message) {
                     is PageMessage.Rendered -> refreshTrace.onRendered(message.rev)
                     is PageMessage.TopLine -> topLine = message.line
-                    is PageMessage.PrintReady -> printing.onPageReady(webView)
-                    is PageMessage.HtmlResult -> htmlRequests.remove(message.requestId)?.invoke(message.html)
+                    is PageMessage.PrintReady -> printing.onPageReady(message.requestId)
+                    is PageMessage.HtmlResult -> htmlRequests.remove(message.requestId)?.invoke(message.copy)
+                    is PageMessage.ImageQuery -> answerImages(message)
                     else -> Unit
                 }
                 listener?.let(message::deliverTo)
@@ -83,7 +88,25 @@ class PreviewView
         private var backgroundColour = Color.WHITE
         private var settings = PreviewSettings()
         private var topLine = 0
-        private val printing: PrintSession = PrintSession(context) { channel.send(HostMessage.FinishPrint) }
+
+        /** The binding of the document the page was given last: only its pictures are served. */
+        @Volatile private var pageEpoch = 0
+        private val printing: PrintSession =
+            PrintSession(
+                sendToPage = ::send,
+                openDialog = { job ->
+                    webView?.let { web ->
+                        PreviewPrinter.print(context, web, job, screenBackground = backgroundColour) {
+                            channel.send(HostMessage.FinishPrint)
+                        }
+                    } != null
+                },
+                schedule = { delay, action ->
+                    val run = Runnable(action)
+                    postDelayed(run, delay)
+                    ({ removeCallbacks(run) })
+                },
+            )
 
         /**
          * Sends a message to the page: [HostMessage.Load] to open a document,
@@ -91,6 +114,12 @@ class PreviewView
          * requests. Queued, in order, until the page is ready.
          */
         fun send(message: HostMessage) {
+            // The page is about to hold a document (another one, or the same one afresh): anything
+            // asked of the page it holds now must not be answered from the next one.
+            if (message is HostMessage.Load) {
+                abandonPageRequests()
+                pageEpoch = message.epoch
+            }
             ensureWebView()
             refreshTrace.onSent(message)
             channel.send(message)
@@ -122,30 +151,79 @@ class PreviewView
             send(HostMessage.Settings(settings))
         }
 
-        /** Renders every block, then opens the system print dialog ("Save as PDF" included). */
-        fun print(jobName: String) {
-            printing.request(jobName)
-            send(HostMessage.PreparePrint)
-        }
+        /** In a visible window and laid out: the page's frames, timers and idle callbacks are running. */
+        override val isOnScreen: Boolean
+            get() = isAttachedToWindow && windowVisibility == VISIBLE && isShown && width > 0 && height > 0
 
         /**
-         * "Copy as rich text": the page's own rendering of source lines
-         * `[fromLine, toLine)` as clean HTML (no editing attributes or chips),
-         * or null when the preview cannot give it within [timeoutMillis]; the
-         * caller then copies plain Markdown. Only the sections holding those
+         * Renders every block, then opens the system print dialog ("Save as
+         * PDF" included), for the document the page holds now. Ends without a
+         * dialog if the page is given a document first, is destroyed, or does
+         * not answer within a minute (edge-cases "Export PDF from Code did
+         * nothing, then printed the next file"). Call on the main thread.
+         */
+        override suspend fun print(jobName: String): PrintOutcome =
+            suspendCancellableCoroutine { done ->
+                printing.request(jobName) { outcome -> if (done.isActive) done.resume(outcome) }
+                done.invokeOnCancellation { post { printing.cancel() } }
+            }
+
+        /**
+         * "Copy formatted text": source lines `[fromLine, toLine)` as HTML with
+         * inline light styles and its plain-text twin, together at most
+         * [maxChars], or null when the page cannot give it within [timeoutMillis]
+         * or is given another document first. Only the sections holding those
          * lines are rendered. Call on the main thread.
          */
-        suspend fun exportHtml(
+        override suspend fun exportFormatted(
             fromLine: Int,
             toLine: Int,
-            timeoutMillis: Long = EXPORT_TIMEOUT_MILLIS,
-        ): String? {
+            maxChars: Int,
+        ): FormattedCopy? = exportFormatted(fromLine, toLine, maxChars, EXPORT_TIMEOUT_MILLIS)
+
+        /** [exportFormatted] with its own [timeoutMillis]. */
+        suspend fun exportFormatted(
+            fromLine: Int,
+            toLine: Int,
+            maxChars: Int,
+            timeoutMillis: Long,
+        ): FormattedCopy? {
             val id = nextHtmlRequest++
             return withTimeoutOrNull(timeoutMillis) {
                 suspendCancellableCoroutine { done ->
-                    htmlRequests[id] = { html -> done.resume(html) }
+                    htmlRequests[id] = { copy -> done.resume(copy) }
                     done.invokeOnCancellation { post { htmlRequests.remove(id) } }
-                    send(HostMessage.ExportHtml(id, fromLine, toLine))
+                    send(HostMessage.ExportHtml(id, fromLine, toLine, maxChars))
+                }
+            }
+        }
+
+        /**
+         * The host can now see more pictures (a folder was granted, or the
+         * folder changed): every placeholder for a picture beside the
+         * document tries again.
+         */
+        fun refreshImages() = send(HostMessage.ImagesChanged)
+
+        /**
+         * Says why each picture the page could not load cannot be shown: one
+         * answer per query, resolved on [backgroundExecutor] because it reads
+         * storage. A query from a page that has since been given another
+         * document is answered anyway; the page drops answers it no longer
+         * wants.
+         */
+        private fun answerImages(query: PageMessage.ImageQuery) {
+            val resolver = resourceResolver
+            backgroundExecutor.execute {
+                val statuses = LinkedHashMap<String, ImageStatus>()
+                for (key in query.paths) {
+                    val relative = DocPaths.relative(key)
+                    statuses[key] =
+                        if (relative == null || resolver == null) ImageStatus.NOT_FOUND else resolver.status(relative)
+                }
+                post {
+                    channel.send(HostMessage.ImageStatus(query.id, statuses))
+                    listener?.onImageStatuses(statuses)
                 }
             }
         }
@@ -160,15 +238,62 @@ class PreviewView
         /** Destroys the WebView. The view can be used again; it rebuilds on the next call. */
         fun release() {
             channel.close()
-            // The page that would have answered is gone: waiting exports copy plain text instead.
-            val waiting = htmlRequests.values.toList()
-            htmlRequests.clear()
-            waiting.forEach { it(null) }
+            printing.onPageGone()
+            abandonPageRequests()
             webView?.let {
                 removeView(it)
                 it.destroy()
             }
             webView = null
+        }
+
+        /**
+         * The page is about to hold another document, or is gone: a print it
+         * was preparing ends without a dialog, and formatted copies waiting on
+         * it get null (the caller says so and copies the Markdown).
+         */
+        private fun abandonPageRequests() {
+            printing.onDocumentLoaded()
+            val waiting = htmlRequests.values.toList()
+            htmlRequests.clear()
+            waiting.forEach { it(null) }
+        }
+
+        /**
+         * The WebView's text-selection menu, with "Paste as plain text" made
+         * ours ([PlainPasteCallback]): after Paste, for a formatted clip.
+         */
+        override fun startActionModeForChild(
+            originalView: View,
+            callback: ActionMode.Callback,
+            type: Int,
+        ): ActionMode? {
+            val wrapped =
+                PlainPasteCallback(
+                    delegate = callback,
+                    resources = resources,
+                    isRich = { PlainPasteCallback.clipIsRich(context) },
+                    pastePlain = ::pastePlain,
+                    schedule = { delay, action -> postDelayed(action, delay) },
+                )
+            return super.startActionModeForChild(originalView, wrapped, type)
+        }
+
+        /** Ctrl+Shift+V while the page has focus: "Paste as plain text", as in Code. */
+        override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+            val plainPaste =
+                event.keyCode == KeyEvent.KEYCODE_V && event.isCtrlPressed && event.isShiftPressed &&
+                    !event.isAltPressed
+            if (!plainPaste || webView?.hasFocus() != true) return super.dispatchKeyEvent(event)
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) pastePlain()
+            return true
+        }
+
+        /** Sends the clip to the page, which inserts its words at the selection being edited. */
+        fun pastePlain() {
+            val (text, html) = PlainPasteCallback.readClip(context) ?: return
+            if (text.isEmpty() && html.isEmpty()) return
+            send(HostMessage.PastePlain(text, html))
         }
 
         override fun dispatchTouchEvent(event: MotionEvent): Boolean {
@@ -185,6 +310,7 @@ class PreviewView
                     onRendererGone = { didCrash ->
                         recover(recovery.onRendererGone(SystemClock.elapsedRealtime(), didCrash))
                     },
+                    pageEpoch = { pageEpoch },
                 )
             val view = PreviewWebViews.create(context, backgroundColour, client)
             addView(view, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -214,10 +340,14 @@ class PreviewView
         private fun rebuild() {
             release()
             ensureWebView()
-            documentSource?.snapshot()?.let { channel.send(HostMessage.Load(it.rev, it.text, topLine, it.epoch)) }
+            documentSource?.snapshot()?.let {
+                pageEpoch = it.epoch
+                channel.send(HostMessage.Load(it.rev, it.text, topLine, it.epoch))
+            }
         }
 
         private companion object {
-            const val EXPORT_TIMEOUT_MILLIS = 5_000L
+            /** Pictures and diagrams take the page up to 8 s (exportHtml.ts); this leaves room for the words. */
+            const val EXPORT_TIMEOUT_MILLIS = 20_000L
         }
     }

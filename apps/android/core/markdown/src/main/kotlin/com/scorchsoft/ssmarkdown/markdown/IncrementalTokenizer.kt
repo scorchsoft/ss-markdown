@@ -77,7 +77,7 @@ public class IncrementalTokenizer(
 
     private val states = LineStates(lineCount)
     private val marks = SortedMarks()
-    private val guesser = LineTokenizer()
+    private val guesser = LineTokenizer(tokenizer.highlightCode)
     private val cache = TokenCache(tokenCacheLines)
 
     /**

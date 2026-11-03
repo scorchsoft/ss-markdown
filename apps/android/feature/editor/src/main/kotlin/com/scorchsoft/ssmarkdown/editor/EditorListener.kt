@@ -26,6 +26,15 @@ interface EditorListener {
     fun onAnchorLineChanged(line: Int) = Unit
 
     /**
+     * How far through the document the pane is scrolled, for the reading
+     * line: the scroll offset over the scrollable range, from the height
+     * map, so wrapped lines count at their height and nothing is measured
+     * to answer. 0 at the top and when the document fits, exactly 1 at the
+     * very bottom.
+     */
+    fun onScrollFractionChanged(fraction: Float) = Unit
+
+    /**
      * The zoom changed to [percent]. [pinching] is true while fingers are
      * down (show "Pinching · 112%"), and false once for the settled value,
      * which the host stores per file.
@@ -67,4 +76,31 @@ interface EditorListener {
      * 2a, "Admission control"; performance review PERF-G).
      */
     fun admitPaste(chars: Int): Boolean = true
+
+    /**
+     * A key whose effect depends on the Markdown around the caret ([EditKey]),
+     * with no word being composed. Return true when the host made the edit
+     * itself; false lets the view type a line break, delete or type as usual.
+     */
+    fun onEditKey(key: EditKey): Boolean = false
+}
+
+/** The keys offered to [EditorListener.onEditKey]. */
+sealed interface EditKey {
+    /**
+     * Enter, from a key or a keyboard's committed line break: list and quote
+     * continuation (docs/ux-spec.md "Enter in a list").
+     */
+    data object Enter : EditKey
+
+    /**
+     * Backspace, from a key or a keyboard's one-char delete: at the start of
+     * a list item's text the marker comes off (docs/ux-spec.md "Enter in a list").
+     */
+    data object Backspace : EditKey
+
+    /** A `}`, `]` or `)` typed: first on a code line it takes one indent unit off. */
+    data class Closer(
+        val text: String,
+    ) : EditKey
 }

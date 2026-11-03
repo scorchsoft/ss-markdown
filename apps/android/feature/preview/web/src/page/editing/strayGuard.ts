@@ -32,6 +32,14 @@ export interface StrayReport {
     readonly refused: boolean;
 }
 
+/** Page chrome added inside a block (a picture's placeholder): never typed, never content. */
+const CHROME = ".img-ph";
+
+function isChrome(node: Node): boolean {
+    const el = node instanceof Element ? node : node.parentElement;
+    return el?.closest(CHROME) != null;
+}
+
 const REPLACED = "img, input, br, hr, svg, video, audio, canvas, iframe, object, embed, math, .katex";
 
 function runOf(node: Node, block: HTMLElement): HTMLElement | null {
@@ -130,8 +138,10 @@ export class StrayGuard {
                 if (!this.before.has(node)) this.before.set(node, r.oldValue ?? "");
                 continue;
             }
+            if (isChrome(r.target)) continue;
             const insideRun = runOf(r.target, this.block) !== null;
             for (const n of r.removedNodes) {
+                if (n instanceof Element && n.matches(CHROME)) continue;
                 const lostRun = n instanceof Element && (n.matches("[data-s]") || n.querySelector("[data-s]"));
                 if (lostRun) {
                     this.refused = true;
@@ -145,6 +155,7 @@ export class StrayGuard {
             }
             if (insideRun) continue;
             for (const n of r.addedNodes) {
+                if (n instanceof Element && n.matches(CHROME)) continue;
                 if (n instanceof Text) {
                     if (!this.before.has(n)) this.before.set(n, "");
                 } else if (n instanceof Element && !n.matches("[data-s]") && visibleText(n).length > 0) {

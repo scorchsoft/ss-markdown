@@ -72,6 +72,13 @@ METRICS = {
     "fling20Mb.framesOver32MsPercent": ("%", 0, 2, REPORTED, "Fling 20 MB, frames over 32 ms"),
     "previewRefresh50Kb.meanMs": ("ms", 150, 20, GATED, "Preview refresh after typing, mean, 50 KB"),
     "previewRefresh50Kb.maxMs": ("ms", 150, 30, REPORTED, "Preview refresh after typing, worst, 50 KB"),
+    # Flinging up a wrapped file through estimated heights (edge-cases.md, "Upward fling judders").
+    # Gated like the fling down; until a baseline is recorded it is reported with none.
+    "flingUp1Mb.jankyPercent": ("%", 5, 3, REPORTED, "Fling up 1 MB wrapped, janky frames"),
+    "flingUp1Mb.frameCpuP50Ms": ("ms", None, 2, GATED, "Fling up 1 MB wrapped, frame CPU p50"),
+    "flingUp1Mb.frameCpuP90Ms": ("ms", None, 2, REPORTED, "Fling up 1 MB wrapped, frame CPU p90"),
+    "flingUp1Mb.frameCpuP99Ms": ("ms", 16, 4, REPORTED, "Fling up 1 MB wrapped, frame CPU p99"),
+    "flingUp1Mb.framesOver32MsPercent": ("%", 0, 2, REPORTED, "Fling up 1 MB wrapped, frames over 32 ms"),
 }
 
 # Counts that must be non-zero, or the benchmark measured nothing.
@@ -149,19 +156,21 @@ def derive(benchmarks):
             cpu = frames(b, "frameDurationCpuMs")
             put(name + ".frameCpuP50Ms", percentile(cpu, 50))
             put(name + ".frameCpuP99Ms", percentile(cpu, 99))
-    b = benchmarks.get("fling20Mb")
-    if b:
+    for name in ("fling20Mb", "flingUp1Mb", "fastScroll20Mb"):
+        b = benchmarks.get(name)
+        if not b:
+            continue
         cpu = frames(b, "frameDurationCpuMs")
         overrun = frames(b, "frameOverrunMs")
-        put("fling20Mb.frameCpuP50Ms", percentile(cpu, 50))
-        put("fling20Mb.frameCpuP90Ms", percentile(cpu, 90))
-        put("fling20Mb.frameCpuP99Ms", percentile(cpu, 99))
-        put("fling20Mb.frameCount", len(cpu))
+        put(name + ".frameCpuP50Ms", percentile(cpu, 50))
+        put(name + ".frameCpuP90Ms", percentile(cpu, 90))
+        put(name + ".frameCpuP99Ms", percentile(cpu, 99))
+        put(name + ".frameCount", len(cpu))
         if overrun:
             # A frame is janky when it missed its deadline (overrun > 0); it
             # took over 32 ms when it overran by more than one more frame.
-            put("fling20Mb.jankyPercent", 100.0 * sum(1 for v in overrun if v > 0) / len(overrun))
-            put("fling20Mb.framesOver32MsPercent", 100.0 * sum(1 for v in overrun if v > FRAME_MS) / len(overrun))
+            put(name + ".jankyPercent", 100.0 * sum(1 for v in overrun if v > 0) / len(overrun))
+            put(name + ".framesOver32MsPercent", 100.0 * sum(1 for v in overrun if v > FRAME_MS) / len(overrun))
     b = benchmarks.get("previewRefresh50Kb")
     if b:
         mean, count = mean_per_section(b, "previewRefresh")

@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.settings
 
 import com.scorchsoft.ssmarkdown.editor.EditorReducer
+import com.scorchsoft.ssmarkdown.ui.strip.StripRows
 
 /** What the Settings screen can do. */
 sealed interface SettingsAction {
@@ -20,7 +21,20 @@ sealed interface SettingsAction {
         val steps: Int,
     ) : SettingsAction
 
-    data object ToggleLineNumbers : SettingsAction
+    /** Text → Show line numbers: the Code view's gutter on or off. */
+    data class SetLineNumbers(
+        val show: Boolean,
+    ) : SettingsAction
+
+    /** Text → Formatting bar: one row or two above the keyboard. */
+    data class SetFormattingBar(
+        val value: StripRows,
+    ) : SettingsAction
+
+    /** Text → When typing in Split: only the edited pane, or both. */
+    data class SetSplitTyping(
+        val value: SplitTyping,
+    ) : SettingsAction
 
     data class SetSaveMode(
         val value: SaveMode,
@@ -68,8 +82,16 @@ object SettingsReducer {
                 )
             }
 
-            SettingsAction.ToggleLineNumbers -> {
-                settings.copy(lineNumbers = !settings.lineNumbers)
+            is SettingsAction.SetLineNumbers -> {
+                settings.copy(lineNumbers = action.show)
+            }
+
+            is SettingsAction.SetFormattingBar -> {
+                settings.copy(formattingBar = action.value)
+            }
+
+            is SettingsAction.SetSplitTyping -> {
+                settings.copy(splitTyping = action.value)
             }
 
             is SettingsAction.SetSaveMode -> {

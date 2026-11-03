@@ -5,7 +5,17 @@ package com.scorchsoft.ssmarkdown.editor
 // they reach only its internal edit and selection primitives.
 
 /** Enter: a line break in place of the selection. */
-fun EditingSession.pressEnter(): Unit = commitText("\n", 1)
+fun EditingSession.pressEnter(): Unit = typeKey("\n")
+
+/**
+ * A char from a key (Enter, Tab, a hardware letter): typed at the selection, keeping the keyboard's
+ * composing word. `commitText` would type over that word, and a keyboard that sends Enter as a key
+ * while a word is underlined lost the word (edge-cases "Enter as a key while composing").
+ */
+fun EditingSession.typeKey(text: CharSequence) {
+    clearComposing()
+    commitText(text, 1)
+}
 
 /** Backspace: deletes the selection, or the grapheme before the caret. */
 fun EditingSession.pressBackspace() {

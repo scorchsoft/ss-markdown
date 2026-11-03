@@ -1,0 +1,431 @@
+=== gmail
+--- html
+<div dir="ltr">Hi Sam,<div><br></div><div>Thanks for the <b>notes</b> &amp; the <i>draft</i>. A few points:</div><ul><li>Move the launch to <u>Friday</u></li><li>Check the <a href="https://example.com/plan?id=7&amp;v=2">plan</a></li></ul><div>Cheers,<br>Ellie</div><div class="gmail_quote" style="display:none">hidden quote</div></div>
+--- plain
+Hi Sam,
+
+Thanks for the notes & the draft. A few points:
+
+   - Move the launch to Friday
+   - Check the plan <https://example.com/plan?id=7&v=2>
+
+Cheers,
+Ellie
+--- markdown
+Hi Sam,
+
+Thanks for the **notes** & the *draft*. A few points:
+
+- Move the launch to Friday
+- Check the [plan](https://example.com/plan?id=7&v=2)
+
+Cheers,\
+Ellie
+--- words
+Hi Sam,
+
+Thanks for the notes & the draft. A few points:
+
+Move the launch to Friday
+Check the plan
+
+Cheers,
+Ellie
+=== google-docs
+--- html
+<meta charset="utf-8"><b style="font-weight:normal;" id="docs-internal-guid-1a2b3c"><h1 dir="ltr" style="line-height:1.38;margin-top:20pt"><span style="font-size:20pt;font-family:Arial;font-weight:400;">Project brief</span></h1><p dir="ltr" style="line-height:1.38"><span style="font-weight:700;">Goal:</span><span style="font-weight:400;"> ship the </span><span style="font-style:italic;">first</span><span> release by </span><span style="text-decoration:line-through;">May</span><span> June.</span></p><ol style="margin-top:0;"><li dir="ltr" style="list-style-type:decimal;"><p dir="ltr" role="presentation"><span>Write the spec</span></p></li><li dir="ltr"><p dir="ltr" role="presentation"><span>Review it</span></p></li><ol><li><p><span>with design</span></p></li></ol></ol><br><div dir="ltr" align="left"><table style="border:none"><colgroup><col width="100"><col width="100"></colgroup><tbody><tr><td><p dir="ltr"><span style="font-weight:700">Owner</span></p></td><td><p dir="ltr"><span style="font-weight:700">Due</span></p></td></tr><tr><td><p dir="ltr"><span>Ellie | Sam</span></p></td><td><p dir="ltr"><span>1 June</span></p></td></tr></tbody></table></div></b>
+--- plain
+Project brief
+Goal: ship the first release by May June.
+Write the spec
+Review it
+with design
+
+Owner	Due
+Ellie | Sam	1 June
+--- markdown
+# Project brief
+
+**Goal:** ship the *first* release by ~~May~~ June.
+
+1. Write the spec
+2. Review it
+   1. with design
+
+| **Owner** | **Due** |
+| --- | --- |
+| Ellie \| Sam | 1 June |
+--- words
+Project brief
+
+Goal: ship the first release by May June.
+
+Write the spec
+Review it
+with design
+
+Owner	Due
+Ellie | Sam	1 June
+=== word
+--- html
+<html xmlns:o="urn:schemas-microsoft-com:office:office"><head><meta charset="utf-8"><style><!-- p.MsoNormal {margin:0cm;} --></style></head><body lang=EN-GB><!--StartFragment--><p class=MsoNormal><b><span lang=EN-GB>Minutes</span></b><span lang=EN-GB> of the <i>weekly</i> meeting<o:p></o:p></span></p><p class=MsoListParagraphCxSpFirst style='text-indent:-18.0pt;mso-list:l0 level1 lfo1'><![if !supportLists]><span style='font-family:Symbol;mso-list:Ignore'>·<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp; </span></span><![endif]><span lang=EN-GB>Budget agreed<o:p></o:p></span></p><p class=MsoListParagraphCxSpMiddle style='margin-left:72.0pt;mso-list:l0 level2 lfo1'><![if !supportLists]><span style='mso-list:Ignore'>1.<span>&nbsp;&nbsp; </span></span><![endif]><span>Spend under £5,000<o:p></o:p></span></p><p class=MsoListParagraphCxSpLast style='mso-list:l0 level1 lfo1'><![if !supportLists]><span style='mso-list:Ignore'>·<span>&nbsp;&nbsp; </span></span><![endif]>Next meeting: <span style='color:red'>Tuesday</span><o:p></o:p></p><p class=MsoNormal><o:p>&nbsp;</o:p></p><!--EndFragment--></body></html>
+--- markdown
+**Minutes** of the *weekly* meeting
+
+- Budget agreed
+  1. Spend under £5,000
+- Next meeting: Tuesday
+--- words
+Minutes of the weekly meeting
+
+Budget agreed
+Spend under £5,000
+Next meeting: Tuesday
+=== nested-lists
+--- html
+<ul><li>One<ul><li>One A</li><li>One B<ol start="3"><li>deep</li></ol></li></ul></li><li>Two</li></ul><ol start="9"><li>nine</li><li>ten</li></ol>
+--- markdown
+- One
+  - One A
+  - One B
+    3. deep
+- Two
+
+9. nine
+10. ten
+--- words
+One
+One A
+One B
+deep
+Two
+nine
+ten
+=== task-list
+--- html
+<ul class="contains-task-list"><li class="task-list-item"><input type="checkbox" checked disabled> Done</li><li><input type="checkbox"> Todo <em>soon</em></li></ul>
+--- markdown
+- [x] Done
+- [ ] Todo *soon*
+--- words
+Done
+Todo soon
+=== code-with-language
+--- html
+<pre><code class="language-kotlin">fun main() {
+    println("a &lt; b")
+}
+</code></pre><p>Use <code>val x = `y`</code> here.</p>
+--- markdown
+```kotlin
+fun main() {
+    println("a < b")
+}
+```
+
+Use `` val x = `y` `` here.
+--- words
+fun main() {
+    println("a < b")
+}
+
+Use val x = `y` here.
+=== code-fence-in-code
+--- html
+<pre class="lang-md"><code>```
+nested
+```</code></pre><pre>line 1<br>line 2</pre>
+--- markdown
+````md
+```
+nested
+```
+````
+
+```
+line 1
+line 2
+```
+--- words
+```
+nested
+```
+
+line 1
+line 2
+=== links
+--- html
+<p><a href="https://example.com/a b">spaced</a>, <a href="javascript:alert(1)">evil</a>, <a href="mailto:me@example.com">mail</a>, <a href="/relative">rel</a>, <a href="https://e.com/x_(y)">paren</a>, <a href="https://e.com/"> <b>bold link</b> </a></p>
+--- markdown
+[spaced](<https://example.com/a%20b>), evil, [mail](mailto:me@example.com), rel, [paren](https://e.com/x_(y)), [**bold link**](https://e.com/)
+--- words
+spaced, evil, mail, rel, paren, bold link
+=== images
+--- html
+<p><img src="https://example.com/cat.png" alt="A [cat]"> and <img src="data:image/png;base64,AAAA" alt="inline"> and <img src="file:///C:/x.png"></p>
+--- markdown
+![A \[cat\]](https://example.com/cat.png) and and
+--- words
+A [cat] and and
+=== unsafe-dropped
+--- html
+<style>p{color:red}</style><p onclick="steal()">Safe <script>alert(1)</script>text</p><!-- secret --><template><p>tpl</p></template><noscript>ns</noscript><iframe src="https://evil.example"></iframe><button>Click</button>
+--- markdown
+Safe text
+--- words
+Safe text
+=== whitespace
+--- html
+<p>  Lots   of
+	space  <b> bold </b>and&nbsp;&nbsp;nbsp  </p>
+
+<p>
+  next
+</p><p>a<br>b<br><br>c</p>
+--- markdown
+Lots of space **bold** and  nbsp
+
+next
+
+a\
+b
+
+c
+--- words
+Lots of space bold and  nbsp
+
+next
+
+a
+b
+
+c
+=== escaping
+--- html
+<p># not a heading</p><p>1. not a list</p><p>a *star* and snake_case and 2 * 3 and [x] and $x$</p>
+--- markdown
+\# not a heading
+
+1\. not a list
+
+a \*star\* and snake_case and 2 * 3 and \[x\] and \$x\$
+--- words
+# not a heading
+
+1. not a list
+
+a *star* and snake_case and 2 * 3 and [x] and $x$
+=== complex-table
+--- html
+<table><tr><th colspan="2">Head</th></tr><tr><td>a | b</td><td><ul><li>x</li><li>y</li></ul></td></tr></table>
+--- markdown
+Head
+
+a \| b | x y
+--- words
+Head
+
+a | b | x y
+=== quote-rule-headings
+--- html
+<h2>Title <strong>bold</strong></h2><blockquote><p>Quoted <b>text</b></p><p>Second</p></blockquote><hr><h3>Next</h3><h4></h4>
+--- markdown
+## Title bold
+
+> Quoted **text**
+>
+> Second
+
+---
+
+### Next
+--- words
+Title bold
+
+Quoted text
+
+Second
+
+Next
+=== trivial-span
+--- html
+<span style="color:#333">Just *words*</span>
+--- plain
+Just *words*
+--- markdown
+Just *words*
+--- words
+Just words
+=== trivial-paragraphs
+--- html
+<p>Line one</p><p>Line two</p>
+--- plain
+Line one
+Line two
+--- markdown
+Line one
+Line two
+--- words
+Line one
+Line two
+=== chrome-page
+--- html
+<meta charset='utf-8'><h2 style="color: rgb(0, 0, 0); font-family: sans-serif;">Heading</h2><p style="margin: 0px;">Some <strong>strong</strong> and <span style="font-weight: bold">styled</span> text.</p>
+--- plain
+Heading
+Some strong and styled text.
+--- markdown
+## Heading
+
+Some **strong** and **styled** text.
+--- words
+Heading
+
+Some strong and styled text.
+=== html-only-plain-words
+--- html
+<p>Plain <span>words</span> only</p>
+--- markdown
+Plain words only
+--- words
+Plain words only
+=== markdown-inline
+--- plain
+# Title #
+
+Some **bold**, *it*, _u_, ~~gone~~, ==mark==, `code *x*` and snake_case_name.
+Second line
+Third\
+--- words
+Title
+
+Some bold, it, u, gone, mark, code *x* and snake_case_name.
+Second line
+Third
+=== markdown-lists
+--- plain
+- one
+- two
+  - nested *a*
+    continued
+
+1. first
+2) second
+- [x] done
+- [ ] todo
+--- words
+one
+two
+nested a
+continued
+first
+second
+done
+todo
+=== markdown-table
+--- plain
+| A | B |
+|:--|--:|
+| **x** | [l](u) |
+| a \| b | <br>c |
+--- words
+A	B
+x	l
+a | b	c
+=== markdown-code
+--- plain
+Before
+
+```js
+const a = `*x*`;
+
+  indented
+```
+
+After
+~~~
+raw ~~
+~~~
+--- words
+Before
+
+const a = `*x*`;
+
+  indented
+
+After
+
+raw ~~
+=== markdown-links
+--- plain
+See [the *docs*](https://e.com/x_(y) "t") and ![a cat](cat.png) and <https://auto.link> and [ref][r] and [^1] and \[not\] and [bare].
+
+[r]: https://r.com
+--- words
+See the docs and a cat and https://auto.link and ref and  and [not] and [bare].
+=== markdown-quotes
+--- plain
+> quoted **bold**
+> - item
+>
+> > deeper
+
+---
+
+Setext
+===
+
+After
+--- words
+quoted bold
+
+item
+
+deeper
+
+Setext
+
+After
+=== markdown-unpaired
+--- plain
+5* rating, a * b, 2*3*4, x_y_z, _lead and trail_, ***both***, &amp; &copy; &#169; &unknown;
+--- words
+5* rating, a * b, 234, x_y_z, lead and trail, both, & © © &unknown;
+=== markdown-html-inline
+--- plain
+Line <b>bold</b><br>next <!-- c --> end
+--- words
+Line bold next  end
+=== plain-prose
+--- plain
+Just a sentence with snake_case, a * b, $5 and C:\Users\me.
+--- words
+Just a sentence with snake_case, a * b, $5 and C:\Users\me.
+=== broken-structure
+--- html
+<li>stray item</li><table><td>loose</td></table><p>a</b>b</p><ul><ul><li>deep</li></ul></ul><h7>x</h7><p>open <b>bold <i>both</i></b>
+--- markdown
+- stray item
+
+| loose |
+| --- |
+
+ab
+
+- deep
+
+x
+
+open **bold *both***
+--- words
+stray item
+
+loose
+
+ab
+
+deep
+
+x
+
+open bold both

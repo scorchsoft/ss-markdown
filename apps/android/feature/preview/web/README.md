@@ -32,6 +32,7 @@ Kotlin (PreviewView) ──WebMessagePort, JSON──▶ page main thread ──
 | `src/worker/` | The render worker entry. |
 | `src/page/` | The page: controller, virtualiser, scroll sync, outline, Mermaid, theme, gestures, bridge. |
 | `src/page/editing/` | Tap-to-edit: sessions, run mapping, table editing and its toolbar. |
+| `src/page/copy/` | "Copy formatted text": the allow-list rebuild with inline light styles (`formatted.ts`), its plain-text twin, maths as text and embedding pictures and diagrams within the clipboard budget. `exportHtml.ts` drives it. |
 | `src/styles/` | Theme-variable CSS, highlight.js palette, print stylesheet and A4 page mode. |
 | `src/shell/index.html` | The page shell and its Content Security Policy. |
 | `test/corpus/` | Markdown that covers every syntax, plus the hostile security corpus. |
@@ -66,6 +67,12 @@ run edge, adds a line or pastes is intercepted and turned into a source edit,
 and the caret comes back by source offset after the re-render. Raw HTML,
 footnote and reference definitions, front matter, maths and diagrams are
 read-only with an **Edit in Code** chip.
+
+Paste and copy (`core/paste.ts`, `page/editing/clip.ts`; ux-spec "Copy and
+paste"): every paste enters `EditSession.paste`. Plain text is escaped only
+where it would act and its lines join the way Enter would in that block; a
+selection's copy carries its Markdown source as plain text and its rendering
+as HTML marked `data-ssmd`, and a paste with that mark goes in as Markdown.
 
 Nothing typed is ever left on screen without reaching the source:
 

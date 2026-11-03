@@ -1,18 +1,23 @@
 package com.scorchsoft.ssmarkdown.core.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
@@ -21,8 +26,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -34,6 +44,8 @@ private val SegmentGap = 2.dp
 private val TrackShape = RoundedCornerShape(12.dp)
 private val SegmentShape = RoundedCornerShape(9.dp)
 private val LabelPadding = 12.dp
+private val IconSize = 18.dp
+private val IconGap = 6.dp
 
 /** The design canvas's segment width: what each segment gets when there is room. */
 private val PreferredSegmentWidth = 104.dp
@@ -55,6 +67,14 @@ private val PreferredSegmentWidth = 104.dp
  * - when a label cannot fit its share on one line, at a large font or in
  *   a narrow pane, the control becomes a vertical list of radio rows,
  *   which always fits and reads the same to TalkBack.
+ *
+ * [icons], when given, puts a small glyph before each segment's label (one
+ * per option); it is decoration, so TalkBack still reads only the label.
+ *
+ * [onLongPress], when given, makes a long-press on a segment a shortcut
+ * (with a light haptic) that does not select it; TalkBack offers it as a
+ * custom action named by [longPressLabel]. A shortcut needs a visible twin
+ * elsewhere (ux-spec "Gestures").
  */
 @Composable
 fun SSSegmentedControl(
@@ -62,7 +82,11 @@ fun SSSegmentedControl(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    icons: List<ImageVector>? = null,
+    onLongPress: ((Int) -> Unit)? = null,
+    longPressLabel: (Int) -> String? = { null },
 ) {
+    val press = LongPress(onLongPress, longPressLabel)
     val style = SS.type.label
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -75,12 +99,12 @@ fun SSSegmentedControl(
                         .size.width
                         .toDp()
                 } ?: 0.dp
-            } + LabelPadding * 2
+            } + LabelPadding * 2 + (if (icons != null) IconSize + IconGap else 0.dp)
         val sizing = SegmentSizing.of(options.size, maxWidth, widest, fill = constraints.hasFixedWidth)
         if (sizing.stacked) {
-            StackedChoices(options, selectedIndex, onSelect)
+            StackedChoices(options, selectedIndex, onSelect, press)
         } else {
-            Segments(options, selectedIndex, onSelect, sizing.segmentWidth)
+            Segments(options, selectedIndex, onSelect, sizing.segmentWidth, icons, press)
         }
     }
 }
@@ -91,6 +115,8 @@ private fun Segments(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     segmentWidth: Dp,
+    icons: List<ImageVector>?,
+    press: LongPress,
 ) {
     val colors = SS.colors
     Row(
@@ -112,15 +138,22 @@ private fun Segments(
                         .width(segmentWidth)
                         .then(if (selected && !colors.isDark) Modifier.shadow(1.dp, SegmentShape) else Modifier)
                         .background(if (selected) colors.segmentSelected else Color.Transparent, SegmentShape)
-                        .selectable(selected = selected, role = Role.RadioButton, onClick = { onSelect(index) })
+                        .choice(selected, index, onSelect, press)
                         .padding(horizontal = 4.dp, vertical = 4.dp),
             ) {
-                Text(
-                    text = label,
-                    style = SS.type.label,
-                    color = if (selected) colors.ink else colors.inkMuted,
-                    textAlign = TextAlign.Center,
-                )
+                val ink = if (selected) colors.ink else colors.inkMuted
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    icons?.getOrNull(index)?.let {
+                        Icon(it, contentDescription = null, tint = ink, modifier = Modifier.size(IconSize))
+                        Spacer(Modifier.width(IconGap))
+                    }
+                    Text(
+                        text = label,
+                        style = SS.type.label,
+                        color = ink,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
         }
     }
@@ -132,6 +165,7 @@ private fun StackedChoices(
     options: List<String>,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
+    press: LongPress,
 ) {
     val colors = SS.colors
     Column(
@@ -150,7 +184,7 @@ private fun StackedChoices(
                         .fillMaxWidth()
                         .heightIn(min = SS.dimens.rowPrimary)
                         .background(if (selected) colors.segmentSelected else Color.Transparent, SegmentShape)
-                        .selectable(selected = selected, role = Role.RadioButton, onClick = { onSelect(index) })
+                        .choice(selected, index, onSelect, press)
                         .padding(horizontal = 8.dp),
             ) {
                 RadioButton(
@@ -167,6 +201,39 @@ private fun StackedChoices(
             }
         }
     }
+}
+
+/** A segment's long-press shortcut, if the control has one. */
+class LongPress(
+    val action: ((Int) -> Unit)?,
+    val label: (Int) -> String?,
+)
+
+/**
+ * A segment as a radio button; with a [LongPress] also a long-click, which
+ * gives a light haptic and never selects (TalkBack names it by its label).
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun Modifier.choice(
+    selected: Boolean,
+    index: Int,
+    onSelect: (Int) -> Unit,
+    press: LongPress,
+): Modifier {
+    val long =
+        press.action ?: return selectable(selected = selected, role = Role.RadioButton, onClick = { onSelect(index) })
+    val haptics = LocalHapticFeedback.current
+    return semantics { this.selected = selected }
+        .combinedClickable(
+            role = Role.RadioButton,
+            onLongClickLabel = press.label(index),
+            onLongClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                long(index)
+            },
+            onClick = { onSelect(index) },
+        )
 }
 
 /**

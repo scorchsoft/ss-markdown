@@ -27,6 +27,7 @@ import com.scorchsoft.ssmarkdown.files.saf.SharedContent
 import com.scorchsoft.ssmarkdown.files.saf.from
 import com.scorchsoft.ssmarkdown.platform.LaunchIntents
 import com.scorchsoft.ssmarkdown.platform.OpenTokens
+import com.scorchsoft.ssmarkdown.settings.AppendPosition
 import com.scorchsoft.ssmarkdown.ui.ChromeFonts
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -42,7 +43,7 @@ import java.util.Date
 class ShareActivity : ComponentActivity() {
     private val graph: AppGraph get() = (application as SSMarkdownApplication).graph
 
-    private val viewModel: ShareViewModel by lazy {
+    internal val viewModel: ShareViewModel by lazy {
         ShareViewModel(
             graph.store,
             graph.drafts,
@@ -57,23 +58,49 @@ class ShareActivity : ComponentActivity() {
         )
     }
 
+    /** The sheet as it stands: what a test of a recreated sheet reads. */
+    internal val sheetState: ShareUiState get() = viewModel.state.value
+
     /**
      * The recent file chosen in Android's share sheet, if this came from one
      * of our Direct Share targets. Mapped back through our own recents and
      * grants, never read as a URI (SEC-2); it only preselects (ADR 0017).
+     * Read on I/O: the grants are a binder call (review r3 L8).
      */
-    private val preselect: String? by lazy {
-        graph.directShare.resolve(intent.getStringExtra(ShortcutManagerCompat.EXTRA_SHORTCUT_ID))
+    private suspend fun preselect(): String? {
+        val id = intent.getStringExtra(ShortcutManagerCompat.EXTRA_SHORTCUT_ID) ?: return null
+        return withContext(graph.io) { graph.directShare.resolve(id) }
+    }
+
+    override fun onDestroy() {
+        // A grant lost since the last sync takes its shortcut with it. Checked as the sheet goes, never
+        // while it starts: shortcut calls stay off every launch path (DirectShareTargets).
+        if (isFinishing) graph.directShare.refresh()
+        super.onDestroy()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        if (savedInstanceState == null) {
-            readShared(intent)
-            // A grant lost since the last sync takes its shortcut with it.
-            graph.directShare.refresh()
+        // An append that finished before the rebuild (a process death in the "Added to" window) is not offered
+        // again: the sheet comes back done and closes.
+        savedInstanceState?.getString(KEY_DONE_URI)?.let { uri ->
+            viewModel.restoreDone(SharePhase.Done(savedInstanceState.getString(KEY_DONE_NAME).orEmpty(), uri))
         }
+        // An append still writing when Android closed the app may or may not have landed: the rebuilt sheet
+        // checks the file before it offers Append again.
+        if (savedInstanceState?.getBoolean(KEY_PENDING) == true) {
+            viewModel.restoreInterrupted(
+                savedInstanceState.getString(KEY_PENDING_TARGET),
+                savedInstanceState.getString(KEY_PENDING_NAME).orEmpty(),
+                AppendPosition.entries.firstOrNull { it.name == savedInstanceState.getString(KEY_PENDING_POSITION) }
+                    ?: AppendPosition.Bottom,
+            )
+        }
+        // Every create, not only the first: the sheet's state lives in this Activity's own view model, so
+        // a recreated sheet (process death, a locale change) must read what was shared again, or it comes
+        // back empty with Append enabled.
+        readShared(intent)
         setContent {
             val state by viewModel.state.collectAsState()
             val pick =
@@ -102,14 +129,31 @@ class ShareActivity : ComponentActivity() {
         }
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        val state = viewModel.state.value
+        (state.phase as? SharePhase.Done)?.let { done ->
+            outState.putString(KEY_DONE_NAME, done.name)
+            outState.putString(KEY_DONE_URI, done.uri)
+        }
+        if (state.phase == SharePhase.Working) {
+            outState.putBoolean(KEY_PENDING, true)
+            outState.putString(KEY_PENDING_TARGET, state.target)
+            outState.putString(KEY_PENDING_NAME, state.targets.firstOrNull { it.uri == state.target }?.name)
+            outState.putString(KEY_PENDING_POSITION, state.position.name)
+        }
+    }
+
     private fun readShared(intent: Intent) {
         when (val request = IncomingRequests.parse(IntentFields.from(intent))) {
             is IncomingRequest.SharedText -> {
-                viewModel.begin(
-                    request.text,
-                    ShareReducer.sourceOf(request.text, request.title),
-                    preselect,
-                )
+                lifecycleScope.launch {
+                    viewModel.begin(
+                        request.text,
+                        ShareReducer.sourceOf(request.text, request.title),
+                        preselect(),
+                    )
+                }
             }
 
             is IncomingRequest.SharedStreams -> {
@@ -125,7 +169,7 @@ class ShareActivity : ComponentActivity() {
     private fun readStream(uri: DocumentUri) {
         lifecycleScope.launch {
             when (val content = withContext(graph.io) { graph.sharedReader.read(uri) }) {
-                is SharedContent.Text -> viewModel.begin(content.text, content.name, preselect)
+                is SharedContent.Text -> viewModel.begin(content.text, content.name, preselect())
                 is SharedContent.TooLarge -> viewModel.unusable(content.sizeBytes)
                 else -> viewModel.unusable(null)
             }
@@ -133,14 +177,29 @@ class ShareActivity : ComponentActivity() {
     }
 
     private fun openResult(phase: SharePhase) {
-        val done = phase as? SharePhase.Done ?: return
-        startActivity(openIntent(done.uri))
+        val uri =
+            when (phase) {
+                is SharePhase.Done -> phase.uri
+                is SharePhase.AlreadyThere -> phase.target
+                else -> return
+            }
+        startActivity(openIntent(uri))
         finish()
     }
 
     companion object {
         /** "Added to <file> · Open" stays this long, then the sheet closes (ux-spec). */
         private const val CONFIRMATION_MILLIS = 1_500L
+
+        /** Saved state: the finished append, so a rebuilt sheet cannot append it again. */
+        private const val KEY_DONE_NAME = "share.done.name"
+        private const val KEY_DONE_URI = "share.done.uri"
+
+        /** Saved state: an append that was writing, to [KEY_PENDING_TARGET] (absent: a new note). */
+        internal const val KEY_PENDING = "share.pending"
+        internal const val KEY_PENDING_TARGET = "share.pending.target"
+        private const val KEY_PENDING_NAME = "share.pending.name"
+        private const val KEY_PENDING_POSITION = "share.pending.position"
 
         /**
          * The editor, asked to open [uri] through its launch sequence, so it

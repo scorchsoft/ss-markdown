@@ -1,5 +1,7 @@
 package com.scorchsoft.ssmarkdown.document
 
+import android.view.KeyEvent
+import com.scorchsoft.ssmarkdown.editor.EditKey
 import com.scorchsoft.ssmarkdown.editor.EditorListener
 import com.scorchsoft.ssmarkdown.editor.LineChange
 import com.scorchsoft.ssmarkdown.editor.MarkdownCodeView
@@ -11,6 +13,8 @@ import com.scorchsoft.ssmarkdown.editor.trimTokenCache
 import com.scorchsoft.ssmarkdown.files.document.OpenDocument
 import com.scorchsoft.ssmarkdown.files.memory.ShedStep
 import com.scorchsoft.ssmarkdown.markdown.edit.DocumentStyle
+import com.scorchsoft.ssmarkdown.markdown.edit.EditCommand
+import com.scorchsoft.ssmarkdown.markdown.edit.FormatState
 import com.scorchsoft.ssmarkdown.text.EditObserver
 import com.scorchsoft.ssmarkdown.text.EditOp
 import com.scorchsoft.ssmarkdown.text.Snapshot
@@ -32,6 +36,9 @@ interface ActiveDocumentListener {
 
     /** The source line at the top of the Code pane changed. */
     fun onAnchorLineChanged(line: Int) = Unit
+
+    /** The Code pane's scroll position over its scrollable range, 0 to 1. */
+    fun onScrollFractionChanged(fraction: Float) = Unit
 
     /** The Code pane's zoom changed; [pinching] while fingers are down. */
     fun onZoomChanged(
@@ -228,6 +235,8 @@ class ActiveDocument(
 
     override fun onAnchorLineChanged(line: Int) = listener.onAnchorLineChanged(line)
 
+    override fun onScrollFractionChanged(fraction: Float) = listener.onScrollFractionChanged(fraction)
+
     override fun onZoomChanged(
         percent: Int,
         pinching: Boolean,
@@ -243,7 +252,84 @@ class ActiveDocument(
         keyCode: Int,
         ctrl: Boolean,
         shift: Boolean,
-    ): Boolean = listener.onShortcut(keyCode, ctrl, shift)
+    ): Boolean = (!ctrl && keyCode == KeyEvent.KEYCODE_TAB && onTab(shift)) || listener.onShortcut(keyCode, ctrl, shift)
+
+    /**
+     * Tab and Shift+Tab on a hardware keyboard: Indent and Outdent, as the
+     * strip's keys. Shift+Tab always outdents; Tab indents a list item or a
+     * code line, and elsewhere is left to type a tab (docs/editing-behaviours.md D3).
+     */
+    private fun onTab(shift: Boolean): Boolean {
+        val codeView = codeView() ?: return false
+        val surface = CodeViewSurface(codeView)
+        val snapshot = text.snapshot()
+        val selection = surface.selection
+        if (selection.end > snapshot.length) return false
+        val fences = surface.fences
+        if (!shift && !FormatState.at(snapshot, selection, fences).canIndent) return false
+        val command = if (shift) EditCommand.Outdent else EditCommand.Indent
+        val result = command.apply(snapshot, selection, style, fences)
+        surface.apply(result.ops, result.selection)
+        return true
+    }
+
+    private fun codeView(): MarkdownCodeView? = view?.takeIf { it.session.document === text }
+
+    /**
+     * Enter in the Code view: Code's own `Newline`, the command Preview runs
+     * for `enter`, so a list continues and an empty item ends it in both
+     * views alike (ux-spec "Enter in a list"; edge-cases "No way out of a list").
+     */
+    private fun enter(): Boolean {
+        val codeView = view?.takeIf { it.session.document === text } ?: return false
+        val surface = CodeViewSurface(codeView)
+        val selection = surface.selection
+        // The command reads the caret's whole line; a minified one-line file just gets its line break.
+        val line = text.text.positionAt(selection.start).line
+        if (text.text.lineLength(line) > MAX_ENTER_LINE) return false
+        val snapshot = text.snapshot()
+        if (selection.end > snapshot.length) return false
+        val result = EditCommand.Newline.apply(snapshot, selection, style, surface.fences)
+        surface.apply(result.ops, result.selection)
+        return true
+    }
+
+    /**
+     * Enter ([enter]). Backspace in the Code view: at the very start of a list item's text the
+     * marker comes off (Code's `BackspaceAtItemStart`, the command Preview
+     * runs for `backspace`). A closer typed first on a code line takes one
+     * indent unit off it (`EditCommand.Type`). Anywhere else the view
+     * deletes or types as usual.
+     */
+    override fun onEditKey(key: EditKey): Boolean =
+        when (key) {
+            EditKey.Enter -> enter()
+            EditKey.Backspace -> runIfChanged(EditCommand.BackspaceAtItemStart)
+            is EditKey.Closer -> runIfChanged(EditCommand.Type(key.text), onlyWhenChangedDifferently = key.text)
+        }
+
+    /**
+     * Runs [command] at the caret and applies it unless it changed nothing,
+     * or (with [onlyWhenChangedDifferently]) did no more than type that text.
+     */
+    private fun runIfChanged(
+        command: EditCommand,
+        onlyWhenChangedDifferently: String? = null,
+    ): Boolean {
+        val surface = codeView()?.let(::CodeViewSurface) ?: return false
+        val selection = surface.selection
+        val snapshot = text.snapshot()
+        // A caret on a line the command can read whole (a minified one-line file just gets the key).
+        val usable =
+            selection.isCaret && selection.end <= snapshot.length &&
+                text.text.lineLength(text.text.positionAt(selection.start).line) <= MAX_ENTER_LINE
+        val result = if (usable) command.apply(snapshot, selection, style, surface.fences) else null
+        val op = result?.ops?.singleOrNull()
+        val plain = op != null && op.deleted.isEmpty() && op.inserted.toString() == onlyWhenChangedDifferently
+        if (result == null || result.isNoOp || plain) return false
+        surface.apply(result.ops, result.selection)
+        return true
+    }
 
     private fun afterBufferEdit(
         before: Snapshot,
@@ -269,6 +355,9 @@ class ActiveDocument(
         changes?.onTextChanged(start, ops)
     }
 }
+
+/** The longest line Enter continues as a list; past it, a plain line break (the command reads the whole line). */
+private const val MAX_ENTER_LINE = 64 * 1024
 
 /** Find matches as the Code view draws them: parallel offsets, and the current index or -1. */
 private class FindHighlights(

@@ -67,16 +67,32 @@ sealed interface TableOp {
         override fun toJson(): JSONObject = kind("addRow")
     }
 
+    /** A row above the current one; from the header row, the first body row. */
+    data object AddRowAbove : TableOp {
+        override fun toJson(): JSONObject = kind("addRowAbove")
+    }
+
     data object AddColumn : TableOp {
         override fun toJson(): JSONObject = kind("addColumn")
     }
 
+    /** A column to the left of the current one. */
+    data object AddColumnLeft : TableOp {
+        override fun toJson(): JSONObject = kind("addColumnLeft")
+    }
+
+    /** Deletes the current body row; the header row and the delimiter row stay. */
     data object DeleteRow : TableOp {
         override fun toJson(): JSONObject = kind("deleteRow")
     }
 
     data object DeleteColumn : TableOp {
         override fun toJson(): JSONObject = kind("deleteColumn")
+    }
+
+    /** Deletes the table's own lines; the blank lines around it stay. */
+    data object DeleteTable : TableOp {
+        override fun toJson(): JSONObject = kind("deleteTable")
     }
 
     data class Align(
@@ -263,6 +279,21 @@ sealed interface HostMessage {
         }
     }
 
+    /**
+     * The fast-scroll thumb: scroll to [fraction] (0 to 1) of the page's
+     * scrollable range, the inverse of [PageMessage.TopLine.fraction]. The
+     * host sends at most one a frame (docs/ux-spec.md, "Fast scroll").
+     */
+    data class ScrollToFraction(
+        val fraction: Float,
+    ) : HostMessage {
+        override val type = "scrollToFraction"
+
+        override fun writeTo(json: JSONObject) {
+            json.put("fraction", fraction.coerceIn(0f, 1f).toDouble())
+        }
+    }
+
     /** The strip's Prev / Next cell keys. */
     data class TableNav(
         val next: Boolean,
@@ -291,6 +322,22 @@ sealed interface HostMessage {
         override fun writeTo(json: JSONObject) = Unit
     }
 
+    /**
+     * "Paste as plain text" from the selection toolbar or Ctrl+Shift+V: the
+     * clip's [text] and [html] flavours, whose words the page inserts at the
+     * selection being edited (docs/ux-spec.md, "Copy and paste").
+     */
+    data class PastePlain(
+        val text: String,
+        val html: String,
+    ) : HostMessage {
+        override val type = "pastePlain"
+
+        override fun writeTo(json: JSONObject) {
+            json.put("text", text).put("html", html)
+        }
+    }
+
     /** Asks for the diagram at [line] as SVG or a PNG at [scale] (1–3). */
     data class ExportImage(
         val requestId: Int,
@@ -314,27 +361,41 @@ sealed interface HostMessage {
         }
     }
 
-    /** Renders and mounts every block, then the page answers [PageMessage.PrintReady]. */
-    data object PreparePrint : HostMessage {
+    /**
+     * Renders and mounts every block, then the page answers
+     * [PageMessage.PrintReady] with the same [requestId]. A `load` or
+     * [FinishPrint] before then abandons it: the page answers nothing.
+     */
+    data class PreparePrint(
+        val requestId: Int,
+    ) : HostMessage {
         override val type = "preparePrint"
 
-        override fun writeTo(json: JSONObject) = Unit
+        override fun writeTo(json: JSONObject) {
+            json.put("requestId", requestId)
+        }
     }
 
     /**
-     * "Copy as rich text": asks for the page's rendering of lines
-     * `[fromLine, toLine)`; answered by [PageMessage.HtmlResult]. Use
-     * `PreviewView.exportHtml`, which pairs the two.
+     * "Copy formatted text": asks for lines `[fromLine, toLine)` as HTML with
+     * inline light styles plus a plain-text twin, together within [maxChars]
+     * (the clipboard crosses Binder); answered by [PageMessage.HtmlResult].
+     * Use `PreviewView.exportFormatted`, which pairs the two.
      */
     data class ExportHtml(
         val requestId: Int,
         val fromLine: Int,
         val toLine: Int,
+        val maxChars: Int,
     ) : HostMessage {
         override val type = "exportHtml"
 
         override fun writeTo(json: JSONObject) {
-            json.put("requestId", requestId).put("fromLine", fromLine).put("toLine", toLine)
+            json
+                .put("requestId", requestId)
+                .put("fromLine", fromLine)
+                .put("toLine", toLine)
+                .put("maxChars", maxChars)
         }
     }
 
@@ -345,6 +406,64 @@ sealed interface HostMessage {
      */
     data object Flush : HostMessage {
         override val type = "flush"
+
+        override fun writeTo(json: JSONObject) = Unit
+    }
+
+    /**
+     * Find & replace in Preview (docs/ux-spec.md, "Find & replace"): the
+     * matches `[starts[i], ends[i])` as source offsets in the text at
+     * revision [rev], or null to keep the ones the page holds (a Next or
+     * Previous); empty arrays clear them. [current] is an index or -1, and
+     * with [reveal] the page scrolls it into view. The page paints them on
+     * the rendered text through the inline source map and drops a stale
+     * [rev]: the host searches again after every change.
+     */
+    class Find(
+        val rev: Int,
+        val starts: IntArray?,
+        val ends: IntArray?,
+        val current: Int,
+        val reveal: Boolean,
+    ) : HostMessage {
+        override val type = "find"
+
+        init {
+            require(starts?.size == ends?.size) { "starts and ends differ in length" }
+        }
+
+        override fun writeTo(json: JSONObject) {
+            json.put("rev", rev).put("current", current).put("reveal", reveal)
+            if (starts != null && ends != null) {
+                val ranges = JSONArray()
+                for (i in starts.indices) ranges.put(starts[i]).put(ends[i])
+                json.put("ranges", ranges)
+            }
+        }
+
+        override fun toString(): String = "Find(rev=$rev, matches=${starts?.size}, current=$current, reveal=$reveal)"
+    }
+
+    /**
+     * The answer to [PageMessage.ImageQuery] [id]: why each picture can or
+     * cannot be shown, by the key the page asked with.
+     */
+    data class ImageStatus(
+        val id: Int,
+        val statuses: Map<String, com.scorchsoft.ssmarkdown.preview.ImageStatus>,
+    ) : HostMessage {
+        override val type = "imageStatus"
+
+        override fun writeTo(json: JSONObject) {
+            val map = JSONObject()
+            for ((key, status) in statuses) map.put(key, status.wire)
+            json.put("id", id).put("statuses", map)
+        }
+    }
+
+    /** The host can now see more (a folder was granted or changed): failed pictures try again. */
+    data object ImagesChanged : HostMessage {
+        override val type = "imagesChanged"
 
         override fun writeTo(json: JSONObject) = Unit
     }

@@ -3,6 +3,7 @@ package com.scorchsoft.ssmarkdown.settings
 import com.scorchsoft.ssmarkdown.editor.ViewMode
 import com.scorchsoft.ssmarkdown.history.versions.HistoryPolicy
 import com.scorchsoft.ssmarkdown.history.versions.StorageLimit
+import com.scorchsoft.ssmarkdown.ui.strip.StripRows
 
 /** "When a file opens, show": Code, Preview or the view each file last used. */
 enum class OpenWith { Code, Preview, LastUsed }
@@ -12,6 +13,13 @@ enum class OnLaunch { ReopenLast, NewDraft }
 
 /** "Write to the file" (robustness §3a): only on Save, or after a pause in typing. */
 enum class SaveMode { WhenITapSave, Autosave }
+
+/**
+ * Text → "When typing in Split": while the keyboard is up for one pane of a
+ * stacked Split, show only that pane ([EditedPane], the default) or keep
+ * both. Side by side, both panes always stay (ux-spec "Split while typing").
+ */
+enum class SplitTyping { EditedPane, BothPanes }
 
 /** Display → Appearance. System follows the phone's dark-mode setting. */
 enum class Appearance { System, Light, Dark }
@@ -28,6 +36,10 @@ enum class Appearance { System, Light, Dark }
  * @property previewThemeId the preview theme (Display → Preview theme): a built-in or custom theme's id.
  * @property previewWrap Display → Preview wrapping: Fluid, the A4 page, or No wrap.
  * @property export Export images' remembered choices.
+ * @property copyFormat what Copy put on the clipboard last; the Copy chooser lists it first.
+ * @property lineNumbers Text → Show line numbers: the Code view draws its gutter (default on).
+ * @property formattingBar Text → Formatting bar: the strip above the keyboard in one row (default) or two.
+ * @property splitTyping Text → When typing in Split: only the pane being edited (default), or both.
  */
 data class AppSettings(
     val openWith: OpenWith = OpenWith.LastUsed,
@@ -48,6 +60,9 @@ data class AppSettings(
     val previewThemeId: String = "clean",
     val previewWrap: PreviewWrap = PreviewWrap.Fluid,
     val export: ExportDefaults = ExportDefaults(),
+    val copyFormat: CopyFormat = CopyFormat.Markdown,
+    val formattingBar: StripRows = StripRows.One,
+    val splitTyping: SplitTyping = SplitTyping.EditedPane,
 ) {
     /** Whether [uri] autosaves: drafts always do; otherwise its override, else the global mode. */
     fun autosaves(
@@ -109,6 +124,13 @@ data class ShareDefaults(
     val directShare: Boolean = true,
 )
 
+/**
+ * What Copy puts on the clipboard (ux-spec "Top bar"): the Markdown source
+ * exactly, or the rendered document as formatted text (HTML with a plain-text
+ * twin) for mail and document editors.
+ */
+enum class CopyFormat { Markdown, Formatted }
+
 /** Export images → Diagrams as. */
 enum class DiagramFormat { Png, Svg, Both }
 
@@ -156,7 +178,7 @@ fun AppSettings.withRecent(file: RecentFile): AppSettings {
 }
 
 /**
- * How Preview lays out its lines (ux-spec "Display sheet"): [Fluid] wraps
+ * How Preview lays out its lines (ux-spec "View sheet"): [Fluid] wraps
  * to the pane, [Page] shows the A4 page as it will print, and [NoWrap]
  * keeps code lines and tables at full width with a horizontal scroll.
  */

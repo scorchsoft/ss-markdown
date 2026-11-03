@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.preview
 
+import android.net.Uri
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -22,11 +23,25 @@ internal class PreviewWebViewClient(
     private val assetLoader: WebViewAssetLoader,
     private val onPageFinished: () -> Unit,
     private val onRendererGone: (didCrash: Boolean) -> Unit,
+    /** The binding (epoch) of the document the page was given last; read on WebView's IO thread. */
+    private val pageEpoch: () -> Int = { 0 },
 ) : WebViewClient() {
     override fun shouldInterceptRequest(
         view: WebView,
         request: WebResourceRequest,
-    ): WebResourceResponse = assetLoader.shouldInterceptRequest(request.url) ?: blocked()
+    ): WebResourceResponse = intercept(request.url)
+
+    /**
+     * The asset loader's answer for [url], except a picture beside the
+     * document asked for by a page that held another document (`e`, the
+     * binding it was loaded with): the resolver reads the document open now,
+     * so answering would draw the next document's picture, or a wrong "Not
+     * found", in the last one (edge-cases "picture request across a switch").
+     */
+    fun intercept(url: Uri): WebResourceResponse {
+        val stale = url.path?.startsWith(DOC_PATH) == true && url.getQueryParameter("e") != pageEpoch().toString()
+        return (if (stale) null else assetLoader.shouldInterceptRequest(url)) ?: blocked()
+    }
 
     override fun shouldOverrideUrlLoading(
         view: WebView,
@@ -56,5 +71,6 @@ internal class PreviewWebViewClient(
         const val ORIGIN = "https://appassets.androidplatform.net"
         const val PREVIEW_URL = "$ORIGIN/assets/preview/index.html"
         private const val NOT_FOUND = 404
+        private const val DOC_PATH = "/doc/"
     }
 }

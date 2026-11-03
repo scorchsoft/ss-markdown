@@ -1,6 +1,6 @@
 /**
  * The bridge messages added after the first release of the protocol: chunked
- * loads (PERF-12), rich-text export, theme fonts and the No wrap setting.
+ * loads (PERF-12), theme fonts and the No wrap setting (formatted copy: copyFormatted.test.ts).
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { PageMessage } from "../../src/protocol";
@@ -26,30 +26,6 @@ describe("bridge", () => {
         await waitForMessage(page, (m) => m.type === "rendered");
         await page.waitForFunction(() => document.querySelector("h1")?.textContent === "Chunked");
         expect(await page.locator("p").last().textContent()).toBe('"quotes" and \\ backslashes');
-    });
-
-    it("answers exportHtml with clean HTML for just the asked lines", async () => {
-        const page = await openPreview(h);
-        await loadMarkdown(page, "# One\n\nAlpha **bold**.\n\n## Two\n\nBeta.\n\n$$\nx\n$$\n");
-        await clearReceived(page);
-        await send(page, { type: "exportHtml", requestId: 7, fromLine: 2, toLine: 5 });
-        const result = (await waitForMessage(page, (m) => m.type === "htmlResult")) as Extract<
-            PageMessage,
-            { type: "htmlResult" }
-        >;
-        expect(result.requestId).toBe(7);
-        expect(result.html).toContain("<strong>bold</strong>");
-        expect(result.html).toContain("Two");
-        expect(result.html).not.toContain("One");
-        expect(result.html).not.toContain("Beta");
-        expect(result.html).not.toMatch(/data-|contenteditable|<button/);
-        await send(page, { type: "exportHtml", requestId: 8, fromLine: 8, toLine: 11 });
-        const maths = (await waitForMessage(page, (m) => m.type === "htmlResult" && m.requestId === 8)) as Extract<
-            PageMessage,
-            { type: "htmlResult" }
-        >;
-        expect(maths.html).toContain("katex");
-        expect(maths.html).not.toContain("Edit in Code");
     });
 
     it("applies the app's font faces and stacks, refusing faces from elsewhere", async () => {

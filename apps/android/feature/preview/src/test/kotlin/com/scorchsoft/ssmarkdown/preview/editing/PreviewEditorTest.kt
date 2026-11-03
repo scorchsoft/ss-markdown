@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.preview.editing
 
 import com.scorchsoft.ssmarkdown.markdown.edit.DocumentStyle
+import com.scorchsoft.ssmarkdown.markdown.edit.EditCommand
 import com.scorchsoft.ssmarkdown.markdown.edit.InlineFormat
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.preview.bridge.HostMessage
@@ -69,6 +70,27 @@ class PreviewEditorTest {
     }
 
     @Test
+    fun `Enter on an empty list item ends the list exactly as Enter in Code does`() {
+        // (text, caret at the end of the empty item, after)
+        val cases =
+            listOf(
+                Triple("- one\n- ", 8, "- one\n\n"),
+                // The rest of a numbered list counts on after a blank line: a list from 2
+                // cannot follow a paragraph line.
+                Triple("1. one\n2. [ ] \n3. two", 14, "1. one\n\n\n\n2. two"),
+                Triple("- one\n  - ", 10, "- one\n- "),
+                Triple("> - one\n> - ", 12, "> - one\n>\n> "),
+            )
+        for ((before, at, after) in cases) {
+            val (doc, editor, _) = editor(before)
+            assertTrue(editor.onFormatRequest(PreviewFormatRequest(FormatAction.ENTER, at, at, editor.rev, false)))
+            assertEquals(before, after, doc.text)
+            val code = EditCommand.Newline.apply(before, TextSelection.caret(at), DocumentStyle.detect(before))
+            assertEquals("same as Code", code.applyTo(before), doc.text)
+        }
+    }
+
+    @Test
     fun `a selection the page took before a Code edit is moved over it`() {
         val (doc, editor, _) = editor("alpha beta")
         val pageRev = editor.rev
@@ -85,6 +107,9 @@ class PreviewEditorTest {
         sent.clear()
         editor.onFormatRequest(PreviewFormatRequest(FormatAction.HEADING_1, 13, 13, editor.rev, true))
         assertEquals("|a|b|\n|-|-|\n|1|2|", doc.text)
+        // The refusal still answers with the selection: a page waiting after Enter or Backspace gets its caret back.
+        assertEquals(listOf(HostMessage.Select(editor.rev, 13, 13)), sent)
+        sent.clear()
         assertFalse(editor.onFormatRequest(PreviewFormatRequest(FormatAction.UNDO, 0, 0, editor.rev, false)))
         assertTrue(sent.isEmpty())
     }
@@ -123,6 +148,8 @@ class PreviewEditorTest {
         val r =
             PreviewFormatter.format("- a\n- b", TextSelection(2, 2), FormatAction.NUMBERED, DocumentStyle.DEFAULT)
                 ?: error("no result")
-        assertEquals("1. a\n- b", TextTransform.apply("- a\n- b", r.edits))
+        // Numbered on a bulleted item switches the whole list; each marker is one minimal edit.
+        assertEquals("1. a\n2. b", TextTransform.apply("- a\n- b", r.edits))
+        assertEquals(listOf(TextEdit(0, 1, "1."), TextEdit(4, 5, "2.")), r.edits)
     }
 }

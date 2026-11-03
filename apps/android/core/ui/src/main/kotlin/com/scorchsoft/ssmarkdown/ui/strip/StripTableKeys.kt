@@ -1,7 +1,6 @@
 package com.scorchsoft.ssmarkdown.ui.strip
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
@@ -10,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.scorchsoft.ssmarkdown.core.ui.SS
 
@@ -39,8 +39,9 @@ internal fun TableKeys(
 private fun TableMenuKey(onTableAction: (TableAction) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        StripKeyButton(StripKey.TableMenu, pressed = false, enabled = true) { open = true }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }, containerColor = SS.colors.chrome) {
+        StripKeyButton(StripKey.TableMenu, pressed = false, enabled = true) { open = !open }
+        // Above the strip and never focused, like the ¶ menu (StripMenu): the keyboard stays up.
+        StripMenu(open = open, onDismiss = { open = false }) {
             TableAction.entries.forEachIndexed { i, action ->
                 if (i > 0 && group(action) != group(TableAction.entries[i - 1])) HorizontalDivider()
                 DropdownMenuItem(
@@ -49,6 +50,7 @@ private fun TableMenuKey(onTableAction: (TableAction) -> Unit) {
                         open = false
                         onTableAction(action)
                     },
+                    modifier = Modifier.noFocus(),
                 )
             }
         }

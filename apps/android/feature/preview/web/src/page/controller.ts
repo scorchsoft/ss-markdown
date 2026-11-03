@@ -73,6 +73,9 @@ export class RenderController {
         this.sync.load(rev);
         for (const old of this.views) this.drop(old);
         this.views = [];
+        // A wait on the old sections would never end (they are never rendered now) and would keep them
+        // alive: end it, and the print or copy behind it finds its request abandoned.
+        for (const waiter of this.waiters.splice(0)) waiter.resolve();
         this.dirty.clear();
         this.refreshDefinitions(true);
         this.splice({ first: 0, end: 0, fresh: splitSections(this.doc.lines), delta: 0 });
@@ -150,7 +153,7 @@ export class RenderController {
 
     /**
      * The sections holding lines [fromLine, toLine), once each has HTML for
-     * its current key. Only those sections are rendered: a rich-text copy of
+     * its current key. Only those sections are rendered: a formatted copy of
      * one section does not render the whole document.
      */
     async renderLines(fromLine: number, toLine: number): Promise<SectionView[]> {
@@ -289,6 +292,8 @@ export class RenderController {
         if (view.key === key) return;
         this.unindex(view);
         view.key = key;
+        // Its HTML is for the old key: shown until the new render, but nothing (a caret) may be put into it.
+        if (view.html !== null) view.stale = true;
         this.index(view);
     }
 

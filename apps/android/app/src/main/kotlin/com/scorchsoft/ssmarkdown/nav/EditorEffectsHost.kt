@@ -14,6 +14,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.SoftwareKeyboardController
+import androidx.core.net.toUri
 import com.scorchsoft.ssmarkdown.AppGraph
 import com.scorchsoft.ssmarkdown.editor.EditorEvent
 import com.scorchsoft.ssmarkdown.editor.PendingLeave
@@ -45,6 +46,8 @@ private class Pickers(
     val saveZip: ManagedActivityResultLauncher<String, Uri?>,
     val importZip: ManagedActivityResultLauncher<Array<String>, Uri?>,
     val imagesZip: ManagedActivityResultLauncher<ZipWithStartFolder.Request, Uri?>,
+    val image: ManagedActivityResultLauncher<String?, Uri?>,
+    val pictureFolder: ManagedActivityResultLauncher<Uri?, Uri?>,
 )
 
 /** The views an effect may act on. */
@@ -79,6 +82,7 @@ fun EditorEffectsHost(
     }
 }
 
+@Suppress("LongMethod") // One launcher per picker, each a few lines; splitting would scatter them.
 @Composable
 private fun rememberPickers(
     graph: AppGraph,
@@ -120,6 +124,11 @@ private fun rememberPickers(
                         onZipWritten(graph, uri, ok)
                     }
                 }
+            },
+        image = rememberLauncherForActivityResult(OpenImage()) { uri -> vm.pictures.onImagePicked(uri?.toString()) },
+        pictureFolder =
+            rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) {
+                vm.pictures.onFolderPicked(it?.toString())
             },
         importZip =
             rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -202,6 +211,10 @@ private suspend fun onEditorEvent(
             targets.keyboard?.hide()
         }
 
+        EditorEvent.ReturnKeyboard -> {
+            KeyboardReturn.toFocusedText(targets.view)
+        }
+
         EditorEvent.Tick -> {
             platform.haptic(targets.view, error = false)
         }
@@ -219,8 +232,16 @@ private suspend fun onEditorEvent(
             pickers.imagesZip.launch(ZipWithStartFolder.Request("${event.docName}-images.zip", event.initialFolder))
         }
 
+        is EditorEvent.PickImage -> {
+            pickers.image.launch(event.initialFolder)
+        }
+
+        is EditorEvent.PickPictureFolder -> {
+            pickers.pictureFolder.launch(event.initialFolder?.toUri())
+        }
+
         else -> {
-            onPreviewEvent(event, graph, platform)
+            onPreviewEvent(event, graph)
         }
     }
 }

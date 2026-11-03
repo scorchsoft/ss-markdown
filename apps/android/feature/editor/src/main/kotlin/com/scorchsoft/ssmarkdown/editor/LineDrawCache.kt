@@ -99,11 +99,22 @@ internal class LineVersions(
  * ([LineDrawKey]). Generic over the drawing so the policy is tested on the
  * host JVM; the view stores `RenderNode`s in it.
  *
+ * A drawing is reused only while [isLive] says its content is still there.
+ * The platform frees a `RenderNode`'s display list on its own once no
+ * parent draws it: a line scrolled off screen for one frame comes back
+ * with a node whose key still matches but which draws nothing. Without
+ * this check the Code pane showed its gutter and an empty text column
+ * after scrolling down and back up (edge-cases.md, "Text vanishes after
+ * scrolling back").
+ *
  * @param capacity drawings kept; a few screens' worth.
+ * @param isLive false when the platform has dropped the drawing's content
+ *   (`RenderNode.hasDisplayList`), so it is recorded again before it is drawn.
  * @param release frees a drawing that falls out (`RenderNode.discardDisplayList`).
  */
 internal class LineDrawCache<T : Any>(
     private val capacity: Int,
+    private val isLive: (T) -> Boolean = { true },
     private val release: (T) -> Unit = {},
 ) {
     private class Entry<T>(
@@ -117,16 +128,29 @@ internal class LineDrawCache<T : Any>(
     var recordings: Int = 0
         private set
 
+    /** Drawings recorded again because the platform had dropped their content; tests read it. */
+    var revived: Int = 0
+        private set
+
     val size: Int get() = entries.size
 
-    /** The drawing for [lineId] under [key], recording it with [record] when missing or stale. */
+    /** Calls [action] with every cached drawing; tests use it to stand in for the platform. */
+    fun forEachDrawing(action: (T) -> Unit) = entries.values.forEach { action(it.drawing) }
+
+    /**
+     * The drawing for [lineId] under [key], recording it with [record] when
+     * missing, stale, or emptied by the platform ([isLive]).
+     */
     fun get(
         lineId: Int,
         key: LineDrawKey,
         record: (T?) -> T,
     ): T {
         val entry = entries[lineId]
-        if (entry != null && entry.key == key) return entry.drawing
+        if (entry != null && entry.key == key) {
+            if (isLive(entry.drawing)) return entry.drawing
+            revived++
+        }
         val drawing = record(entry?.drawing)
         recordings++
         // The caller may reuse [key] as a probe for every line, every frame: store a copy.

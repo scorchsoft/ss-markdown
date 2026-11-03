@@ -145,7 +145,7 @@ class BlockStateTest {
         assertEquals(a.hashCode(), b.hashCode())
         assertNotEquals(a, tokenizer.tokenize("```ts", LineState.NORMAL).endState)
         assertNotEquals(a, tokenizer.tokenize("~~~js", LineState.NORMAL).endState)
-        assertEquals("LineState(FENCED_CODE fence=`x3 info=js)", a.toString())
+        assertEquals("LineState(FENCED_CODE fence=`x3 info=js code=javascript/0)", a.toString())
     }
 
     @Test

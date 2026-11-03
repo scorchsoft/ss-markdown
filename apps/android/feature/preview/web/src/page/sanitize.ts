@@ -5,6 +5,7 @@
  * (docs/edge-cases.md, "Malicious Markdown").
  */
 import DOMPurify from "dompurify";
+import { DOC_PREFIX, docSrc } from "../core/imagePaths";
 
 const FORBID_TAGS = [
     "style",
@@ -39,12 +40,15 @@ const SECTION_DATA_ATTRS = [
     "data-mermaid-key",
     "data-viewer",
     "data-toc",
+    "data-src",
 ];
 
 /** Positions that let raw HTML leave its block and draw over the page or its controls (SEC-6). */
 const ESCAPING_POSITION = /^(?:fixed|sticky|absolute)$/i;
 
 let hooked = false;
+/** True while [sanitizeForCopy] runs. */
+let keepRemoteSrc = false;
 
 function installHooks(): void {
     if (hooked) return;
@@ -54,7 +58,14 @@ function installHooks(): void {
         const href = node.getAttribute("href");
         if (href !== null && !SAFE_HREF.test(href.trim())) node.removeAttribute("href");
         const src = node.getAttribute("src");
-        if (src !== null && !SAFE_SRC.test(src.trim())) node.removeAttribute("src");
+        if (src !== null && !SAFE_SRC.test(src.trim())) {
+            // A copy keeps a web picture's address to paste as a link; it is never loaded.
+            if (keepRemoteSrc && /^(?:https?:)?\/\//i.test(src.trim()))
+                node.setAttribute("data-remote-src", src.trim());
+            node.removeAttribute("src");
+        } else if (src?.startsWith(DOC_PREFIX)) {
+            node.setAttribute("src", docSrc(src));
+        }
         node.removeAttribute("target");
         if (node.tagName === "INPUT" && node.getAttribute("type") !== "checkbox") node.remove();
         if (node instanceof HTMLElement || node instanceof SVGElement) containStyle(node);
@@ -85,6 +96,20 @@ export function sanitizeSection(html: string): DocumentFragment {
         FORBID_ATTR: ["srcset", "formaction", "action", "xlink:href"],
         ALLOW_DATA_ATTR: false,
     });
+}
+
+/**
+ * [sanitizeSection] for "Copy formatted text": the same, except that a web
+ * picture's address survives as `data-remote-src` (with no `src`, so it is
+ * never fetched), for the copy to paste as a link.
+ */
+export function sanitizeForCopy(html: string): DocumentFragment {
+    keepRemoteSrc = true;
+    try {
+        return sanitizeSection(html);
+    } finally {
+        keepRemoteSrc = false;
+    }
 }
 
 /** Sanitises a Mermaid SVG: SVG profile, styles kept (they are scoped to the diagram id). */

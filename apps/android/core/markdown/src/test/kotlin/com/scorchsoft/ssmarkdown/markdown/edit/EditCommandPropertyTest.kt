@@ -52,6 +52,9 @@ class EditCommandPropertyTest {
             ListKind.entries.map { EditCommand.ToggleList(it) } +
             listOf(
                 EditCommand.SetHeading(2),
+                EditCommand.SetBlockType(BlockType.Paragraph),
+                EditCommand.SetBlockType(BlockType.Task),
+                EditCommand.SetBlockType(BlockType.CodeBlock),
                 EditCommand.CycleHeading,
                 EditCommand.ToggleBlockquote,
                 EditCommand.ToggleCodeBlock,
@@ -93,7 +96,14 @@ class EditCommandPropertyTest {
             for (command in toggles) {
                 val once = command.apply(text, selection)
                 val twice = command.apply(once.applyTo(text), once.selection)
-                assertEquals("$command seed $seed", text, twice.applyTo(once.applyTo(text)))
+                val back = twice.applyTo(once.applyTo(text))
+                if (command is EditCommand.ToggleList) {
+                    // A list made between paragraph lines is kept apart from them by blank lines (EB-LIST-37),
+                    // and those stay: every line's text comes back, in order.
+                    assertEquals("$command seed $seed", text.lines(), back.lines().filter { it.isNotEmpty() })
+                } else {
+                    assertEquals("$command seed $seed", text, back)
+                }
             }
         }
     }

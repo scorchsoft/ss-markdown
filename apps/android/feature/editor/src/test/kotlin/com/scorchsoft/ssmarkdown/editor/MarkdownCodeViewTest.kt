@@ -97,6 +97,70 @@ class MarkdownCodeViewTest {
         assertEquals(8, view.session.caret)
     }
 
+    /**
+     * A tap that stops a fling only stops it: it used to move the caret and
+     * raise the insertion handle, which showed as a stray handle over the
+     * text after a flick back to the top (edge-cases.md).
+     */
+    @Test
+    fun `a tap that stops a fling neither moves the caret nor shows a handle`() {
+        show((1..400).joinToString("\n") { "line $it" })
+        view.scrollTo(0, view.lineHeight * 10)
+        view.fling(VELOCITY)
+        val time = SystemClock.uptimeMillis()
+        val y = view.lineHeight * 1.5f
+        val x = view.textLeft + 2 * view.charWidth
+        view.dispatchTouchEvent(MotionEvent.obtain(time, time, MotionEvent.ACTION_DOWN, x, y, 0))
+        view.dispatchTouchEvent(MotionEvent.obtain(time, time + 50, MotionEvent.ACTION_UP, x, y, 0))
+        assertEquals("the caret stays put", 0, view.session.caret)
+        assertEquals(null, view.handlePoint(HandleKind.INSERTION))
+
+        // The next tap, with nothing moving, places the caret as usual.
+        val later = time + 1_000
+        view.dispatchTouchEvent(MotionEvent.obtain(later, later, MotionEvent.ACTION_DOWN, x, y, 0))
+        view.dispatchTouchEvent(MotionEvent.obtain(later, later + 50, MotionEvent.ACTION_UP, x, y, 0))
+        assertTrue("a plain tap moves the caret", view.session.caret > 0)
+    }
+
+    /**
+     * The reading line is the scroll position over the scrollable range,
+     * from the height map: exactly 1 at the very bottom, which the top
+     * line it used to follow never reaches (edge-cases.md).
+     */
+    @Test
+    fun `the scroll fraction is 0 at the top, exactly 1 at the bottom, and 0 when it all fits`() {
+        val reported = ArrayList<Float>()
+        view.listener =
+            object : EditorListener {
+                override fun onScrollFractionChanged(fraction: Float) {
+                    reported += fraction
+                }
+            }
+        view.wrap = true
+        show((1..300).joinToString("\n") { "paragraph $it " + "a long wrapped sentence ".repeat(12) })
+        draw()
+        assertEquals(0f, reported.last())
+
+        // Wrapped heights settle as lines are laid out; each scroll goes as far as it can.
+        repeat(SETTLE_PASSES) {
+            view.scrollByClamped(0, Int.MAX_VALUE / 2)
+            draw()
+        }
+        assertEquals("exactly 1 at the bottom", 1f, reported.last())
+        val half = view.scrollY / 2
+        view.scrollTo(0, half)
+        draw()
+        assertTrue("part way", reported.last() in 0.3f..0.7f)
+
+        view.scrollTo(0, 0)
+        draw()
+        assertEquals(0f, reported.last())
+
+        show("# Short\n\nfits on one screen")
+        draw()
+        assertEquals("a document that fits is at 0", 0f, reported.last())
+    }
+
     @Test
     fun `a one megabyte single line is windowed and still maps exactly`() {
         val line = "0123456789".repeat(100_000)
@@ -153,6 +217,8 @@ class MarkdownCodeViewTest {
     }
 
     private companion object {
+        const val VELOCITY = 8_000
+        const val SETTLE_PASSES = 3
         const val WIDTH = 1_080
         const val HEIGHT = 1_920
         const val PREFETCH_SLACK = 8

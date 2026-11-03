@@ -18,7 +18,7 @@ object FindReducer {
         action: FindAction,
     ): FindUiState =
         when (action) {
-            is FindAction.Query -> state.copy(query = action.text)
+            is FindAction.Query -> state.copy(query = action.text, wrapped = null)
             is FindAction.Replacement -> state.copy(replacement = action.text)
             FindAction.ToggleMatchCase -> state.copy(options = state.options.copy(matchCase = !state.options.matchCase))
             FindAction.ToggleWholeWord -> state.copy(options = state.options.copy(wholeWord = !state.options.wholeWord))

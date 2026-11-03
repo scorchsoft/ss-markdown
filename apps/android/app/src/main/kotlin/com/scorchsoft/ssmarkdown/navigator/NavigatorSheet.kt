@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
@@ -50,6 +51,12 @@ private val IndentPerLevel = 14.dp
  * dot and Save stay visible (ux-spec "Navigator"). The search field
  * autofocuses; an empty query shows the Outline and Files tabs, a typed
  * one shows the quick switcher's groups.
+ *
+ * The sheet fills the height [modifier] gives it and its list scrolls
+ * inside: a short outline leaves the sheet's own background below it,
+ * never a half-height sheet that reads as a layout fault. With the sheet
+ * that tall there is nothing beside it to tap, so the × next to the search
+ * field closes it; so do Back and tapping the title again.
  */
 @Composable
 fun NavigatorSheet(
@@ -62,32 +69,13 @@ fun NavigatorSheet(
     val pane = stringResource(R.string.nav_pane_title)
     // A pane title, so TalkBack announces the sheet as it opens (UX-13).
     Column(modifier.fillMaxWidth().background(SS.colors.chrome).semantics { paneTitle = pane }) {
-        OutlinedTextField(
-            value = state.query,
-            onValueChange = { onAction(NavigatorAction.Query(it)) },
-            placeholder = { Text(stringResource(R.string.nav_search_hint), style = SS.type.body) },
-            leadingIcon = { Icon(AppIcons.search, contentDescription = null, tint = SS.colors.inkMuted) },
-            trailingIcon = {
-                if (state.hardwareKeyboard) {
-                    Text(
-                        stringResource(R.string.nav_ctrl_k),
-                        style = SS.type.caption,
-                        color = SS.colors.inkMuted,
-                    )
-                }
-            },
-            singleLine = true,
-            textStyle = SS.type.body,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-            keyboardActions = KeyboardActions(onGo = { onAction(NavigatorAction.OpenFirstResult) }),
-            colors =
-                OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = SS.colors.ink,
-                    unfocusedBorderColor = SS.colors.inputOutline,
-                    cursorColor = SS.colors.ink,
-                ),
-            modifier = Modifier.fillMaxWidth().padding(12.dp).focusRequester(focus),
-        )
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 12.dp, end = 4.dp)) {
+            SearchField(state, onAction, Modifier.weight(1f).padding(vertical = 12.dp).focusRequester(focus))
+            // The visible way out (a 48 dp IconButton); Back and the title are its twins.
+            IconButton(onClick = { onAction(NavigatorAction.Close) }, modifier = Modifier.size(SS.dimens.pillHitArea)) {
+                Icon(AppIcons.close, stringResource(R.string.close_navigator), tint = SS.colors.inkMuted)
+            }
+        }
         if (!state.searching) {
             SSSegmentedControl(
                 options =
@@ -100,7 +88,8 @@ fun NavigatorSheet(
                 modifier = Modifier.padding(horizontal = 12.dp).align(Alignment.CenterHorizontally),
             )
         }
-        LazyColumn(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        // The list takes the room left and scrolls inside it; the divider closes the sheet's bottom edge.
+        LazyColumn(Modifier.fillMaxWidth().weight(1f).padding(top = 8.dp)) {
             when {
                 state.searching -> results(state, onAction)
                 state.tab == NavigatorTab.Outline -> outline(state, onAction)
@@ -109,6 +98,40 @@ fun NavigatorSheet(
         }
         HorizontalDivider(thickness = SS.dimens.hairline, color = SS.colors.border)
     }
+}
+
+@Composable
+private fun SearchField(
+    state: NavigatorUiState,
+    onAction: (NavigatorAction) -> Unit,
+    modifier: Modifier,
+) {
+    OutlinedTextField(
+        value = state.query,
+        onValueChange = { onAction(NavigatorAction.Query(it)) },
+        placeholder = { Text(stringResource(R.string.nav_search_hint), style = SS.type.body) },
+        leadingIcon = { Icon(AppIcons.search, contentDescription = null, tint = SS.colors.inkMuted) },
+        trailingIcon = {
+            if (state.hardwareKeyboard) {
+                Text(
+                    stringResource(R.string.nav_ctrl_k),
+                    style = SS.type.caption,
+                    color = SS.colors.inkMuted,
+                )
+            }
+        },
+        singleLine = true,
+        textStyle = SS.type.body,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+        keyboardActions = KeyboardActions(onGo = { onAction(NavigatorAction.OpenFirstResult) }),
+        colors =
+            OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = SS.colors.ink,
+                unfocusedBorderColor = SS.colors.inputOutline,
+                cursorColor = SS.colors.ink,
+            ),
+        modifier = modifier,
+    )
 }
 
 private fun LazyListScope.outline(
@@ -259,6 +282,7 @@ private fun FileRowView(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PlainRow(
     label: String,
@@ -274,7 +298,7 @@ private fun PlainRow(
                 // accessibility scanner's 48 dp touch target.
                 .heightIn(
                     min = SS.dimens.rowPrimary,
-                ).combinedClickableCompat(onClick)
+                ).combinedClickable(role = Role.Button, onClick = onClick)
                 .padding(horizontal = 16.dp),
     ) {
         if (icon) {
@@ -288,10 +312,6 @@ private fun PlainRow(
         Text(label, style = SS.type.body.copy(fontWeight = FontWeight.Medium), color = SS.colors.ink)
     }
 }
-
-@OptIn(ExperimentalFoundationApi::class)
-private fun Modifier.combinedClickableCompat(onClick: () -> Unit): Modifier =
-    combinedClickable(role = Role.Button, onClick = onClick)
 
 @Composable
 private fun GroupLabel(text: String) {

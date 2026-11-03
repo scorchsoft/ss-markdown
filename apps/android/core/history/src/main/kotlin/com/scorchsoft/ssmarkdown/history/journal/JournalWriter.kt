@@ -48,7 +48,7 @@ public sealed interface JournalWriteResult {
 @Suppress("TooManyFunctions") // One append per record kind, plus flush, compact and close.
 public class JournalWriter internal constructor(
     private val file: File,
-    private val header: JournalHeader,
+    private var header: JournalHeader,
     private val appender: JournalAppender,
     firstSeq: Long,
     private val timing: FlushTiming,
@@ -96,6 +96,20 @@ public class JournalWriter internal constructor(
     public fun redoStep(opCount: Int): JournalWriteResult {
         require(opCount > 0) { "a redo step has at least one edit" }
         return appendRecord(JournalRecord.Step(StepKind.Redo, opCount))
+    }
+
+    /**
+     * Records a verified save (FORMAT.md, "Saves"): the text the appended
+     * edits have produced is exactly the file [saved] names, which is the
+     * base of every edit after this. The journal and its undo history stay
+     * as they are, so a save costs one small record instead of a rewrite
+     * (ADR 0016). Not durable until the next [flush]; a save must flush it
+     * before the old base's copy goes.
+     */
+    public fun rebase(saved: BaseFingerprint): JournalWriteResult {
+        val result = appendRecord(JournalRecord.Rebase(saved))
+        if (result is JournalWriteResult.Written) header = header.copy(base = saved)
+        return result
     }
 
     /**

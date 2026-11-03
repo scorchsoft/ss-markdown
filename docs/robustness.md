@@ -64,8 +64,13 @@ work: keystrokes against disk work"):
   text in as one replace and restores the steps as data, so Undo walks
   back one step at a time, as before the death, never "all the recovered
   edits at once". A verified save keeps the steps as a **clean journal**
-  (History only, on the saved file), which the launch scan never offers
-  for recovery; its first later change is synced at once. History is
+  on the saved file: it appends one Rebase record to the journal it
+  already has (66 bytes, one `fsync`; never a rewrite of the history, and
+  never an export of the undo stack on the main thread), which the
+  launch scan never offers for recovery; its first later change is
+  synced at once. That is best effort: if the record cannot be written,
+  the old journal is deleted, never left on the pre-save version, and the
+  history is let go without a "Recovery copies stopped" banner. History is
   kept while the document is open, across saves, compaction and repeated
   deaths; it goes on an outside change (§2a), a close, "Don't save", an
   eviction, and for a document the launch does not reopen. Measured on

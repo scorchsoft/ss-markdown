@@ -94,6 +94,9 @@ public class TextDocument(
     public fun exportHistory(maxBytes: Long = UndoStack.HISTORY_TAIL_MAX_BYTES): UndoHistory =
         history.exportTail(maxBytes)
 
+    /** True when [exportHistory] with [maxBytes] would keep a step; see [UndoStack.hasTail]. */
+    public fun hasHistoryTail(maxBytes: Long = UndoStack.HISTORY_TAIL_MAX_BYTES): Boolean = history.hasTail(maxBytes)
+
     /**
      * Puts back undo and redo steps a process death took (ADR 0016),
      * replacing the stacks. Observers hear nothing: no text changes.

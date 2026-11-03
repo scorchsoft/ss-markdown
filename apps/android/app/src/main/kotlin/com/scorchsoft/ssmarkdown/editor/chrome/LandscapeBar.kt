@@ -59,6 +59,7 @@ fun LandscapeBar(
                 onSelect = { onAction(EditorAction.SelectMode(it)) },
                 iconOnly = true,
                 modes = if (state.isMarkdown) ViewMode.entries else listOf(ViewMode.Code),
+                onLongPress = { onAction(EditorAction.OpenView(it.viewHighlight())) },
             )
             TopBarActions(state, onAction, copyInMenu)
         }

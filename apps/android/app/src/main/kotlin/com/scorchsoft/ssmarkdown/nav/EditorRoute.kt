@@ -26,6 +26,7 @@ import com.scorchsoft.ssmarkdown.editor.panes.CodePaneHost
 import com.scorchsoft.ssmarkdown.editor.panes.PreviewHostState
 import com.scorchsoft.ssmarkdown.editor.panes.PreviewPaneHost
 import com.scorchsoft.ssmarkdown.editor.panes.PreviewPlaceholder
+import com.scorchsoft.ssmarkdown.editor.panes.showsLineNumbers
 import com.scorchsoft.ssmarkdown.editor.preview.PreviewSession
 import com.scorchsoft.ssmarkdown.editor.sheets.DisplayFacts
 import com.scorchsoft.ssmarkdown.history.HistoryScreen
@@ -36,10 +37,13 @@ import com.scorchsoft.ssmarkdown.preview.PreviewView
 import com.scorchsoft.ssmarkdown.settings.PreviewWrap
 import com.scorchsoft.ssmarkdown.settings.SettingsAction
 import com.scorchsoft.ssmarkdown.settings.SettingsReducer
+import com.scorchsoft.ssmarkdown.settings.SettingsRepository
 import com.scorchsoft.ssmarkdown.settings.SettingsScreen
 import com.scorchsoft.ssmarkdown.storage.StorageScreen
 import com.scorchsoft.ssmarkdown.text.EditOp
+import com.scorchsoft.ssmarkdown.theme.Theme
 import com.scorchsoft.ssmarkdown.themes.ThemeControls
+import com.scorchsoft.ssmarkdown.themes.ThemeLibrary
 import com.scorchsoft.ssmarkdown.themes.isDark
 import com.scorchsoft.ssmarkdown.themes.rememberPreviewLook
 import java.util.concurrent.Executor
@@ -54,7 +58,7 @@ internal fun EditorRoute(
     val active by vm.activeDocument.collectAsState()
     val settings by graph.settings.settings.collectAsState()
     // Remembered once: EditorPanes hosts this with movableContentOf, so its identity must never change.
-    val codePane = remember(vm) { codePaneFor(vm, graph.pasteExecutor) }
+    val codePane = remember(vm) { codePaneFor(vm, graph.settings, graph.themes, graph.pasteExecutor) }
     val look = rememberPreviewLook(graph.themes, settings.previewThemeId, settings.appearance, graph.fonts.faceSource)
     val preview =
         PreviewHostState(
@@ -99,6 +103,8 @@ internal fun EditorRoute(
                     .size.base,
                 settings.previewWrap,
             ),
+        stripRows = settings.formattingBar,
+        splitTyping = settings.splitTyping,
     )
 }
 
@@ -124,15 +130,47 @@ internal fun previewPaneFor(
     session: PreviewSession,
 ): @Composable (PreviewHostState) -> Unit = { state -> PreviewPaneHost(state, view, session) }
 
-private fun codePaneFor(
+/**
+ * The Code pane as the editor route hosts it: wrap and zoom from [vm]'s
+ * state, and line numbers from [settingsRepository], read live so a change in
+ * Settings reaches the open document's view at once. With [themes], fenced
+ * code takes the Preview theme's code colours, so it looks the same in Code
+ * and Preview; without, the default code colours.
+ */
+internal fun codePaneFor(
     vm: EditorViewModel,
+    settingsRepository: SettingsRepository,
+    themes: ThemeLibrary? = null,
     background: Executor,
 ): @Composable (Modifier) -> Unit =
     { modifier ->
         val active by vm.activeDocument.collectAsState()
         val state by vm.uiState.collectAsState()
-        CodePaneHost(active, state.codeWrap, state.codeZoom, vm::attach, vm::detach, background, modifier)
+        // Read here, not at open: Settings → Show line numbers applies to the open document at once.
+        val settings by settingsRepository.settings.collectAsState()
+        val codeTheme = themes?.let { rememberCodeTheme(it, settings.previewThemeId) }
+        CodePaneHost(
+            active,
+            state.codeWrap,
+            state.codeZoom,
+            vm::attach,
+            vm::detach,
+            background,
+            modifier,
+            lineNumbers = showsLineNumbers(settings.lineNumbers, state.mode),
+            codeTheme = codeTheme,
+        )
     }
+
+/** The Preview theme with [id], kept current as custom themes change. */
+@Composable
+private fun rememberCodeTheme(
+    themes: ThemeLibrary,
+    id: String,
+): Theme {
+    val customs by themes.themes.collectAsState()
+    return remember(id, customs) { themes.byId(id) }
+}
 
 /** A Preview edit becomes a minimal source change through the editor surface (one undo step). */
 private fun previewEdit(

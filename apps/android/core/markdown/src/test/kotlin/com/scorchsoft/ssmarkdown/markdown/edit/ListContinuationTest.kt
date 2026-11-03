@@ -47,13 +47,39 @@ class ListContinuationTest {
         assertCases(
             Newline,
             listOf(
-                Case("- one\n- ‸", "- one\n‸"),
-                Case("- one\n- [ ] ‸", "- one\n‸"),
-                Case("1. one\n2. ‸", "1. one\n‸"),
-                Case("- one\n-‸", "- one\n‸"),
+                // A blank line first: right under the item, a bare line would be a lazy
+                // continuation of it, still inside the list (CommonMark).
+                Case("- one\n- ‸", "- one\n\n‸"),
+                Case("- one\n- [ ] ‸", "- one\n\n‸"),
+                Case("1. one\n2. ‸", "1. one\n\n‸"),
+                Case("- one\n-‸", "- one\n\n‸"),
+                Case("- ‸", "‸"),
+                Case("para\n\n- ‸", "para\n\n‸"),
+                // In the middle of a list the rest stays a list after the new paragraph.
+                Case("- a\n- ‸\n- b", "- a\n\n‸\n- b"),
+                // ...and a numbered rest counts on, after a blank line: only a list that starts
+                // at 1 can follow a paragraph line directly (CommonMark).
+                Case("1. a\n2. ‸\n3. b\n4. c", "1. a\n\n‸\n\n2. b\n3. c"),
                 // A nested empty item steps out one level instead.
                 Case("- one\n  - ‸", "- one\n- ‸"),
-                Case("> - one\n> - ‸", "> - one\n> ‸"),
+                Case("> - one\n> - ‸", "> - one\n>\n> ‸"),
+            ),
+        )
+
+    @Test
+    fun outdentOnATopLevelItemLeavesTheList() =
+        assertCases(
+            EditCommand.Outdent,
+            listOf(
+                Case("- one\n- tw‸o", "- one\n\ntw‸o"),
+                Case("- on‸e", "on‸e"),
+                Case("1. a\n2. «b»", "1. a\n\n«b»"),
+                Case("- [ ] ta‸sk", "ta‸sk"),
+                Case("> - a\n> - b‸", "> - a\n>\n> b‸"),
+                // Nested items still step out one level.
+                Case("- one\n  - tw‸o", "- one\n- tw‸o"),
+                // Plain lines are unchanged.
+                Case("pla‸in", "pla‸in"),
             ),
         )
 

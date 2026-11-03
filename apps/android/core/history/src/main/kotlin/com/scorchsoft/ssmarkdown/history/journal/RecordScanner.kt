@@ -134,24 +134,57 @@ internal class RecordScanner(
     }
 
     /**
-     * Walks the remaining frames by their headers alone, skipping each
-     * payload: true when there is at least one and every one is a History
-     * record, up to the end or a torn or zero-filled tail. (A journal with
-     * no records at all is a run that began and was killed before its first
-     * edit landed; it stays an ordinary journal, as it always was.) Checks no CRC, so it only classifies;
+     * Walks the remaining frames by their headers alone, skipping every
+     * payload except a Rebase marker's (49 bytes, CRC-checked): what the
+     * launch scan needs to classify a journal without replaying it
+     * (FORMAT.md, "Clean journals"). Stops at the end, a torn or
+     * zero-filled tail. Checks no other CRC, so it only classifies;
      * replay is what trusts a record.
      */
-    fun onlyHistoryFollows(): Boolean {
-        var seen = false
+    fun summarize(): JournalSummary {
+        // No records at all is a run that began and was killed before its first edit landed: edits
+        // began, so it stays an ordinary journal (a changed file then opens as a conflict, never the
+        // outside version silently). Clean is a History record (or several) straight after the header,
+        // or a Rebase with nothing after it: any other record, an undo marker included, means edits began.
+        var holdsEdits = true
+        var rebase: BaseFingerprint? = null
+        var rebaseSeq = 0L
+        var onlyHistory = true
         while (true) {
-            val frame = ByteArray(RecordCodec.FRAME_BYTES)
-            if (input.readUpTo(frame) < frame.size || frame.all { it == ZERO }) return seen
-            if (!RecordCodec.isHistory(frame)) return false
-            seen = true
-            val length = RecordCodec.payloadLength(frame)
-            if (length > fileLength - input.position) return true
-            input.skip(length)
+            val frame = nextWholeFrame() ?: break
+            val rebased =
+                if (RecordCodec.mayBeRebase(frame)) {
+                    readRebase(frame) // Reads the payload, whatever marker of that size it turns out to be.
+                } else {
+                    null.also { input.skip(RecordCodec.payloadLength(frame)) }
+                }
+            if (rebased != null) {
+                rebase = rebased
+                rebaseSeq = RecordCodec.seq(frame)
+                holdsEdits = false
+            } else {
+                val stillClean = onlyHistory && rebase == null && RecordCodec.isHistory(frame)
+                onlyHistory = stillClean
+                holdsEdits = !stillClean
+            }
         }
+        return JournalSummary(holdsEdits, rebase, rebaseSeq)
+    }
+
+    /** The next frame header whose payload is all in the file; null at the end, a torn or a zero-filled tail. */
+    private fun nextWholeFrame(): ByteArray? {
+        val frame = ByteArray(RecordCodec.FRAME_BYTES)
+        val whole =
+            input.readUpTo(frame) == frame.size &&
+                frame.any { it != ZERO } &&
+                RecordCodec.payloadLength(frame) <= fileLength - input.position
+        return frame.takeIf { whole }
+    }
+
+    private fun readRebase(frame: ByteArray): BaseFingerprint? {
+        val payload = ByteArray(RecordCodec.REBASE_PAYLOAD_BYTES)
+        if (input.readUpTo(payload) < payload.size || !RecordCodec.crcMatches(frame, payload)) return null
+        return (RecordCodec.decode(frame, payload) as? JournalRecord.Rebase)?.base
     }
 
     private fun torn(start: Long) = ScanStep.TornTail(start, fileLength - start)
@@ -172,3 +205,20 @@ internal class RecordScanner(
         const val ZERO: Byte = 0
     }
 }
+
+/**
+ * What [RecordScanner.summarize] found, without replaying anything.
+ *
+ * @property holdsEdits true unless the journal is clean: History records
+ *   alone straight after the header, or a Rebase with nothing after it.
+ *   Any other record (an edit, a snapshot, an undo marker), and no records
+ *   at all (a run killed before its first edit landed), mean edits began
+ *   that the file may not have.
+ * @property rebase the base the newest Rebase names, or null if there is none.
+ * @property rebaseSeq that Rebase's sequence number; 0 when there is none.
+ */
+internal class JournalSummary(
+    val holdsEdits: Boolean,
+    val rebase: BaseFingerprint?,
+    val rebaseSeq: Long,
+)

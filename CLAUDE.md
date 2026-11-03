@@ -16,6 +16,7 @@ reasons behind every decision so far. Then:
 - `docs/research-findings.md` — what users hate and love in other editors, and the requirements (R1–R13) we took from it.
 - `docs/performance-techniques.md` — the open-source techniques we borrowed, with sources and licences.
 - `docs/edge-cases.md` — every known hostile case, how it's handled, and its test. Add a row for every new bug.
+- `docs/editing-behaviours.md` — the editing behaviours users expect in Code and Preview (EB-* rows), the source of the conformance test matrix.
 - `docs/engineering.md` — open-source code standards (Apache-2.0, showcase quality).
 - `docs/quality-bar.md` — the ten jobs, anti-goals, premium-feel spec, every budget, and how we score. If a feature can't point to a job here, it doesn't ship.
 - `docs/design-review-1.md` … `-4.md` — independent design reviews and how every finding was triaged.
@@ -55,6 +56,15 @@ only. The reasons for the big structural choices are in `docs/adr/`.
 - Build artefacts never go in git; hand-over APKs go to Drive, each with
   the `mapping.txt` of its build (the hand-over is obfuscated). The
   command and what it guarantees are in `apps/android/CLAUDE.md`.
+- **CI costs real money while the repository is private.** GitHub Actions
+  minutes are billed, and on 1–3 November 2026 careless CI (every commit
+  run twice, a stuck 90-minute emulator job on every push, several agents
+  pushing all day) cost about $150. So, until the repository is public:
+  prove every change locally first (`apps/android/tools/local-ci.sh`);
+  mark ordinary commits `[skip ci]`; ask Andrew before starting any CI run
+  he has not asked for, and say what it will run; one full run per
+  hand-over build. Never run the perf job or CI experiments without his
+  go-ahead. The CI levels are in `apps/android/CLAUDE.md`.
 - **Commits and pull requests carry no Claude or AI credit.** Commit
   messages end with the message itself: no `Co-Authored-By` line and no
   session link. PR titles and descriptions describe the change only: no

@@ -100,12 +100,21 @@ internal class SalvageState(
                 inserted.append(edit.inserted)
             }
 
-            // Undo history changes no text; an undo's own edits are Op records, applied above.
-            is JournalRecord.Marker, is JournalRecord.Step, is JournalRecord.History -> {
+            // Undo history and saves change no text; an undo's own edits are Op records, applied above.
+            is JournalRecord.Marker, is JournalRecord.Step, is JournalRecord.History, is JournalRecord.Rebase -> {
                 Unit
             }
         }
         return true
+    }
+
+    /**
+     * The journal outlived a save: from here on the text is [saved], the
+     * file that save wrote, whatever the records before it rebuilt.
+     */
+    fun restartFrom(saved: String) {
+        text = StringBuilder(saved)
+        inserted.setLength(0)
     }
 
     /** A damaged record: keep what came before it. */

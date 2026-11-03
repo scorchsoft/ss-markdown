@@ -30,33 +30,34 @@ export interface Table {
     delimiterLine: string | null;
 }
 
-/** Splits a row on pipes that are not escaped and not inside a code span. */
+/**
+ * Splits a row on pipes that are not escaped. As in GFM (and markdown-it,
+ * which renders the page), a pipe inside a code span still splits: the
+ * renderer's columns and these cells must be the same columns, or an
+ * operation on the column the user sees would land on another one.
+ */
 export function splitRow(line: string): { cells: string[]; leading: boolean; trailing: boolean } {
     const body = line.trim();
     const cells: string[] = [];
     let current = "";
-    let tick = 0;
+    let lastSplit = -1;
     for (let i = 0; i < body.length; i++) {
         const c = body[i] ?? "";
         if (c === "\\" && i + 1 < body.length) {
             current += c + (body[i + 1] ?? "");
             i++;
-        } else if (c === "`") {
-            let run = 1;
-            while (body[i + run] === "`") run++;
-            tick = tick === 0 ? run : tick === run ? 0 : tick;
-            current += "`".repeat(run);
-            i += run - 1;
-        } else if (c === "|" && tick === 0) {
+        } else if (c === "|") {
             cells.push(current);
             current = "";
+            lastSplit = i;
         } else {
             current += c;
         }
     }
     cells.push(current);
     const leading = body.startsWith("|");
-    const trailing = body.length > 1 && body.endsWith("|") && !body.endsWith("\\|");
+    // Ends in a pipe that is not escaped (`\\|` is an escaped backslash, then a real pipe).
+    const trailing = body.length > 1 && lastSplit === body.length - 1;
     if (leading) cells.shift();
     if (trailing) cells.pop();
     return { cells: cells.map((c) => c.trim()), leading, trailing };
@@ -78,6 +79,8 @@ export function parseTable(lines: readonly string[], style?: TableStyle): Table 
     const delim = splitRow(delimiter);
     if (!delim.cells.every((c) => /^:?-+:?$/.test(c))) return null;
     const head = splitRow(header);
+    // GFM: a header whose cell count differs from the delimiter's is not a table.
+    if (head.cells.length !== delim.cells.length) return null;
     const rows: TableRow[] = [{ cells: head.cells, line: header }];
     for (const line of lines.slice(2)) rows.push({ cells: splitRow(line).cells, line });
     return {
@@ -112,16 +115,34 @@ function columnWidths(t: Table): number[] {
     return widths;
 }
 
+/**
+ * One row's line. A table written without outer pipes still gets a leading
+ * pipe on a row whose first cell is empty: GFM drops a pipe at the start of
+ * a row, so ` | x` would read as `x` in the first column, and a header
+ * written that way would no longer match its delimiter row.
+ */
 function joinCells(t: Table, cells: string[]): string {
     const gap = t.style === "compact" ? "" : " ";
-    const inner = cells.map((c) => `${gap}${c}${gap}`).join("|");
-    return `${t.indent}${t.leadingPipe ? "|" : ""}${inner}${t.trailingPipe ? "|" : ""}`;
+    const leading = t.leadingPipe || (cells[0] ?? "").trim() === "";
+    const trailing = t.trailingPipe || (cells[cells.length - 1] ?? "").trim() === "";
+    let inner = cells.map((c) => `${gap}${c}${gap}`).join("|");
+    // Without an outer pipe there is nothing for the outer gap to separate.
+    if (!leading) inner = inner.slice(gap.length);
+    if (!trailing) inner = inner.trimEnd();
+    return `${t.indent}${leading ? "|" : ""}${inner}${trailing ? "|" : ""}`;
 }
 
+/**
+ * Cells past the header's count are not rendered, but they are the user's
+ * text, so a rewritten row keeps them after its columns.
+ */
 function serializeRow(t: Table, row: TableRow, widths: number[]): string {
-    const cells = t.aligns.map((_, c) => {
+    const count = Math.max(t.aligns.length, row.cells.length);
+    const cells = Array.from({ length: count }, (_, c) => {
         const text = row.cells[c] ?? "";
-        return t.style === "padded" ? text + " ".repeat((widths[c] ?? 0) - displayWidth(text)) : text;
+        return t.style === "padded" && c < t.aligns.length
+            ? text + " ".repeat((widths[c] ?? 0) - displayWidth(text))
+            : text;
     });
     return joinCells(t, cells);
 }
@@ -154,7 +175,7 @@ export function widthsOf(t: Table): number[] {
 export function setCell(t: Table, row: number, col: number, text: string): void {
     const target = t.rows[row];
     if (!target) return;
-    while (target.cells.length < t.aligns.length) target.cells.push("");
+    fill(t, target);
     target.cells[col] = text.replace(/(?<!\\)\|/g, "\\|").trim();
     target.line = null;
 }
@@ -163,7 +184,16 @@ export function addRow(t: Table, after: number): void {
     t.rows.splice(after + 1, 0, { cells: t.aligns.map(() => ""), line: null });
 }
 
+/**
+ * Fills a short row (GFM allows fewer cells than the header) to the column
+ * count, so an operation on column c moves the cell the user sees in column c.
+ */
+function fill(t: Table, row: TableRow): void {
+    while (row.cells.length < t.aligns.length) row.cells.push("");
+}
+
 export function addColumn(t: Table, after: number): void {
+    for (const row of t.rows) fill(t, row);
     t.aligns.splice(after + 1, 0, "none");
     for (const row of t.rows) {
         row.cells.splice(after + 1, 0, "");
@@ -212,6 +242,7 @@ export function moveColumn(t: Table, col: number, by: -1 | 1): void {
     };
     swap(t.aligns);
     for (const row of t.rows) {
+        fill(t, row);
         swap(row.cells);
         row.line = null;
     }
@@ -254,13 +285,12 @@ export function diffLines(before: readonly string[], after: readonly string[]): 
  * content, or for an empty cell the spot where typing should insert.
  */
 export function cellRange(line: string, col: number): { from: number; to: number } | null {
+    // Pipes split cells even inside code spans, as in splitRow and the renderer.
     const bounds: number[] = [];
-    let tick = 0;
     for (let i = 0; i < line.length; i++) {
         const c = line[i];
         if (c === "\\") i++;
-        else if (c === "`") tick = tick === 0 ? 1 : 0;
-        else if (c === "|" && tick === 0) bounds.push(i);
+        else if (c === "|") bounds.push(i);
     }
     const trimmedStart = line.length - line.trimStart().length;
     const leading = line.trimStart().startsWith("|");

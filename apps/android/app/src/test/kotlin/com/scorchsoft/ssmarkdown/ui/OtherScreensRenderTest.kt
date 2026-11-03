@@ -1,6 +1,8 @@
 package com.scorchsoft.ssmarkdown.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -24,12 +26,14 @@ import com.scorchsoft.ssmarkdown.settings.AppSettings
 import com.scorchsoft.ssmarkdown.settings.RecentFile
 import com.scorchsoft.ssmarkdown.settings.SettingsAction
 import com.scorchsoft.ssmarkdown.settings.SettingsScreen
+import com.scorchsoft.ssmarkdown.settings.SplitTyping
 import com.scorchsoft.ssmarkdown.share.ShareSheet
 import com.scorchsoft.ssmarkdown.share.ShareUiState
 import com.scorchsoft.ssmarkdown.storage.ClearKind
 import com.scorchsoft.ssmarkdown.storage.StorageReducer
 import com.scorchsoft.ssmarkdown.storage.StorageScreen
 import com.scorchsoft.ssmarkdown.storage.StorageUiState
+import com.scorchsoft.ssmarkdown.ui.strip.StripRows
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -54,6 +58,44 @@ class OtherScreensRenderTest(
         rule.onNodeWithText("Storage and history").performScrollTo().performClick()
         rule.onNodeWithText("Tap to edit in Preview").performScrollTo().assertIsDisplayed()
         assertTrue(SettingsAction.OpenStorage in actions)
+    }
+
+    @Test
+    fun `the formatting bar toggle offers one row or two`() {
+        val actions = ArrayList<SettingsAction>()
+        rule.setContent { Themed(dark) { SettingsScreen(AppSettings(), "48.2 MB", onAction = { actions += it }) } }
+        rule.onNodeWithText("Formatting bar").performScrollTo().assertIsDisplayed()
+        rule
+            .onNodeWithText("Two rows shows more keys at once. Landscape always uses one row.")
+            .performScrollTo()
+            .assertIsDisplayed()
+        rule.onNodeWithText("One row").assertIsSelected()
+        rule.onNodeWithText("Two rows").performScrollTo().performClick()
+        assertEquals(listOf<SettingsAction>(SettingsAction.SetFormattingBar(StripRows.Two)), actions)
+    }
+
+    @Test
+    fun `show line numbers is a switch, on by default, that says it is for the Code view`() {
+        val actions = ArrayList<SettingsAction>()
+        rule.setContent { Themed(dark) { SettingsScreen(AppSettings(), "48.2 MB", onAction = { actions += it }) } }
+        rule.onNodeWithText("In the Code view.").performScrollTo().assertIsDisplayed()
+        rule
+            .onNodeWithText("Show line numbers")
+            .performScrollTo()
+            .assertIsOn()
+            .performClick()
+        assertEquals(listOf<SettingsAction>(SettingsAction.SetLineNumbers(false)), actions)
+    }
+
+    @Test
+    fun `when typing in Split offers the edited pane or both, and says wide screens keep both`() {
+        val actions = ArrayList<SettingsAction>()
+        rule.setContent { Themed(dark) { SettingsScreen(AppSettings(), "48.2 MB", onAction = { actions += it }) } }
+        rule.onNodeWithText("When typing in Split").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("On wide screens both panes stay.", substring = true).performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Show only the pane you're editing").performScrollTo().assertIsSelected()
+        rule.onNodeWithText("Keep both panes").performScrollTo().performClick()
+        assertEquals(listOf<SettingsAction>(SettingsAction.SetSplitTyping(SplitTyping.BothPanes)), actions)
     }
 
     @Test

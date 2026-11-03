@@ -1,12 +1,21 @@
 package com.scorchsoft.ssmarkdown.ui
 
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.text.AnnotatedString
 import com.scorchsoft.ssmarkdown.editor.EditorAction
 import com.scorchsoft.ssmarkdown.editor.ViewMode
 import com.scorchsoft.ssmarkdown.fixtures.PreviewSamples
@@ -20,6 +29,7 @@ import com.scorchsoft.ssmarkdown.media.ViewerScreen
 import com.scorchsoft.ssmarkdown.settings.PreviewWrap
 import com.scorchsoft.ssmarkdown.themes.ThemeEditorAction
 import com.scorchsoft.ssmarkdown.themes.ThemeEditorScreen
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -83,6 +93,62 @@ class PreviewScreensRenderTest(
         rule.onNodeWithText("Edit link").assertDoesNotExist()
         rule.onNodeWithText("Copy link").performClick()
         assertTrue(EditorAction.CopyLink in actions)
+    }
+
+    @Test
+    fun linkPromptEditsAnExistingLink() {
+        val actions = ArrayList<EditorAction>()
+        rule.setContent { Themed(dark) { EditorFor(PreviewSamples.linkPrompt) { actions += it } } }
+        rule.onNodeWithText("Edit link").assertIsDisplayed()
+        // The fields are labelled for TalkBack and prefilled from the link.
+        rule.onNode(hasText("Link text") and hasSetTextAction()).assertTextContains("Scorchsoft")
+        val url = rule.onNode(hasText("Address (URL)") and hasSetTextAction())
+        url.assertTextContains("https://www.scorchsoft.com")
+        url.performTextReplacement("https://scorchsoft.com/apps")
+        // The keyboard's Done on the address is the same as the Done button.
+        url.performImeAction()
+        assertEquals(EditorAction.LinkDone("Scorchsoft", "https://scorchsoft.com/apps"), actions.last())
+        rule.onNodeWithText("Remove link").performScrollTo().performClick()
+        assertEquals(EditorAction.LinkRemove, actions.last())
+        rule.onNodeWithText("Cancel").performScrollTo().performClick()
+        assertEquals(EditorAction.DismissOverlay, actions.last())
+    }
+
+    @Test
+    fun linkPromptTakesAnAddressFromTheClipboard() {
+        val actions = ArrayList<EditorAction>()
+        rule.setContent {
+            Themed(dark) {
+                LocalClipboardManager.current.setText(AnnotatedString("https://example.com/from-clipboard"))
+                EditorFor(PreviewSamples.linkPromptEmpty) { actions += it }
+            }
+        }
+        rule.onNodeWithText("Add link").assertIsDisplayed()
+        rule.onNodeWithText("Remove link").assertDoesNotExist()
+        rule
+            .onNode(
+                hasText("Address (URL)") and hasSetTextAction(),
+            ).assertTextContains("https://example.com/from-clipboard")
+        rule.onNodeWithText("Done").performScrollTo().performClick()
+        assertEquals(EditorAction.LinkDone("the docs", "https://example.com/from-clipboard"), actions.last())
+    }
+
+    @Test
+    fun linkPromptDoneWaitsForAnAddress() {
+        val actions = ArrayList<EditorAction>()
+        rule.setContent {
+            Themed(dark) {
+                LocalClipboardManager.current.setText(AnnotatedString("just words"))
+                EditorFor(PreviewSamples.linkPromptEmpty) { actions += it }
+            }
+        }
+        rule.onNode(hasText("Address (URL)") and hasSetTextAction()).assertTextEquals("Address (URL)", "")
+        rule
+            .onNodeWithText("Done")
+            .performScrollTo()
+            .assertIsNotEnabled()
+            .performClick()
+        assertTrue(actions.none { it is EditorAction.LinkDone })
     }
 
     @Test

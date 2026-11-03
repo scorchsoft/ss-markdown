@@ -88,6 +88,23 @@ class SyntaxStyles(
             TokenKind.HTML_TAG, TokenKind.HTML_BLOCK, TokenKind.FRONT_MATTER_DELIMITER, TokenKind.FRONT_MATTER_TEXT,
             TokenKind.MATH_DELIMITER, TokenKind.FOOTNOTE_LABEL,
             -> RunStyle(theme.inlineMarker)
+
+            else -> codeStyle(kind)
+        }
+
+    /** Highlighted code inside a fence, grouped as Preview's highlight.js stylesheet groups the classes. */
+    private fun codeStyle(kind: TokenKind): RunStyle =
+        when (kind) {
+            TokenKind.CODE_COMMENT -> RunStyle(theme.codeComment, italic = true)
+            TokenKind.CODE_KEYWORD, TokenKind.CODE_TYPE, TokenKind.CODE_LITERAL -> RunStyle(theme.codeKeyword)
+            TokenKind.CODE_STRING, TokenKind.CODE_REGEXP, TokenKind.CODE_ADDITION -> RunStyle(theme.codeString)
+            TokenKind.CODE_NUMBER, TokenKind.CODE_SYMBOL -> RunStyle(theme.codeNumber)
+            TokenKind.CODE_FUNCTION, TokenKind.CODE_SECTION -> RunStyle(theme.codeTitle)
+            TokenKind.CODE_ATTRIBUTE, TokenKind.CODE_VARIABLE -> RunStyle(theme.codeAttr)
+            TokenKind.CODE_BUILT_IN, TokenKind.CODE_TAG -> RunStyle(theme.codeBuiltIn)
+            TokenKind.CODE_META -> RunStyle(theme.codeMeta)
+            TokenKind.CODE_DELETION -> RunStyle(theme.codeDeletion)
+            else -> RunStyle(theme.codeText)
         }
 
     private companion object {

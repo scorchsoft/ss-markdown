@@ -106,8 +106,13 @@ class MediaController(
         ensurePreview()
         val svg = action == MediaMenuAction.SaveSvg
         val scale = vm.deps.settings.settings.value.export.scale
+        val document = vm.active
         vm.deps.scope.launch {
             val bytes = bytes(item, svg, scale)
+            if (vm.active !== document) {
+                vm.message(MessageKind.ExportStopped)
+                return@launch
+            }
             if (bytes == null) {
                 vm.message(MessageKind.ImagesExportFailed)
                 return@launch

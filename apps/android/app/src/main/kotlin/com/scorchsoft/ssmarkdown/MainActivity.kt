@@ -3,6 +3,9 @@ package com.scorchsoft.ssmarkdown
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.ReportDrawnWhen
 import androidx.activity.compose.setContent
@@ -58,7 +61,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        graph.editor.start(launchRequest(intent))
+        // A recreated Activity (process death, "Don't keep activities", a locale change) is handed its
+        // ORIGINAL intent again: acting on it would reopen the file it first opened over the one the user
+        // went on to, and re-take its grant. The editor already knows where the user is.
+        val restored = savedInstanceState != null
+        graph.editor.start(if (restored) null else launchRequest(intent), restoring = restored)
         val platform = PlatformActions(this, graph.io)
         // Parsed when the Licences screen first opens, not on every launch (PERF-21).
         val licences by lazy { Licences.parse(readAsset(LICENCES_ASSET)) }
@@ -106,9 +113,17 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        // The keyboard goes with the window, so the input method has nothing of this Activity left to serve.
+        currentFocus?.let { focused ->
+            getSystemService(InputMethodManager::class.java)?.hideSoftInputFromWindow(focused.windowToken, 0)
+        }
         if (previewCreated) {
             graph.editor.preview.detach(previewView)
-            previewView.release()
+            // Released once the window is gone, not now: taking the focused WebView out of a live window moved
+            // focus to the Compose root, which InputMethodManager then kept as its next served view after the
+            // window was removed, holding this destroyed Activity (LeakCanary, StripKeepsKeyboardTest in Preview).
+            val preview = previewView
+            Handler(Looper.getMainLooper()).post { preview.release() }
         }
         super.onDestroy()
     }

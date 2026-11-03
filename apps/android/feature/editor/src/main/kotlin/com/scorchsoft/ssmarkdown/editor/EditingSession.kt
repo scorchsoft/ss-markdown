@@ -280,12 +280,35 @@ class EditingSession(
     ): Int {
         val text = normalizeBreaks(rawText)
         val tree = document.text
-        val firstLine = tree.positionAt(start).line
-        val removed = tree.positionAt(end).line - firstLine
-        beforeReplace?.invoke(start, end)
-        document.replace(start, end - start, text)
-        val added = text.count { it == '\n' }
+        // Only the chars that differ reach the document: a keyboard rewrites its whole composing word
+        // on every letter, and recorded as is each letter was an undo step of its own (edge-cases
+        // "Undo after typing with a soft keyboard").
+        val (keep, keepEnd) = sharedEnds(start, end, text)
+        val from = start + keep
+        val to = end - keepEnd
+        val changed = text.subSequence(keep, text.length - keepEnd)
         val delta = text.length - (end - start)
+        if (from < to || changed.isNotEmpty()) {
+            val firstLine = tree.positionAt(from).line
+            val removed = tree.positionAt(to).line - firstLine
+            beforeReplace?.invoke(from, to)
+            document.replace(from, to - from, changed)
+            val added = changed.count { it == '\n' }
+            moveMarks(start, end, delta)
+            onRangeReplaced?.invoke(from, to - from, changed.length)
+            listener?.onTextChanged(LineChange(firstLine, removed, added))
+        } else {
+            moveMarks(start, end, delta)
+        }
+        return text.length
+    }
+
+    /** Moves the selection and composing region the way `[start, end)` moved when it grew by [delta]. */
+    private fun moveMarks(
+        start: Int,
+        end: Int,
+        delta: Int,
+    ) {
         selectionStart = shift(selectionStart, start, end, delta)
         selectionEnd = shift(selectionEnd, start, end, delta)
         if (isComposing) {
@@ -293,9 +316,29 @@ class EditingSession(
             composingEnd = shift(composingEnd, start, end, delta)
             if (composingStart >= composingEnd) clearComposing()
         }
-        onRangeReplaced?.invoke(start, end - start, text.length)
-        listener?.onTextChanged(LineChange(firstLine, removed, added))
-        return text.length
+    }
+
+    /**
+     * How many chars [text] shares with `[start, end)` at its start and at its end, never splitting a
+     * surrogate pair (the journal writes each op as UTF-8). Only short ranges are compared: a long
+     * replacement is never a keyboard's word, and reading it twice would cost a large paste.
+     */
+    private fun sharedEnds(
+        start: Int,
+        end: Int,
+        text: CharSequence,
+    ): Pair<Int, Int> {
+        val length = end - start
+        if (minOf(length, text.length) == 0 || maxOf(length, text.length) > MAX_TRIMMED) return 0 to 0
+        val old = document.text.getText(start, end)
+        val limit = minOf(old.length, text.length)
+        var prefix = 0
+        while (prefix < limit && old[prefix] == text[prefix]) prefix++
+        if (prefix > 0 && old[prefix - 1].isHighSurrogate()) prefix--
+        var suffix = 0
+        while (suffix < limit - prefix && old[old.length - 1 - suffix] == text[text.length - 1 - suffix]) suffix++
+        if (suffix > 0 && old[old.length - suffix].isLowSurrogate()) suffix--
+        return prefix to suffix
     }
 
     /** Tells the listener about lines changed behind the session's back (undo, redo), then the selection. */
@@ -375,6 +418,9 @@ class EditingSession(
 
         /** The most text ever handed to a keyboard in one call (robustness.md: 32K). */
         const val MAX_IME_WINDOW: Int = 32 * 1024
+
+        /** The longest replacement whose shared ends are trimmed off before it is recorded. */
+        private const val MAX_TRIMMED = 1024
     }
 }
 

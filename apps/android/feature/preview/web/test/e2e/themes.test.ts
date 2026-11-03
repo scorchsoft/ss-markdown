@@ -304,31 +304,35 @@ describe("line length", () => {
         await page.close();
     });
 
-    it.each(BUILT_INS)("holds 45-90 characters per line on the 170 mm A4 column: $id", async (b) => {
-        const { theme } = b;
-        const page = await openPreview(h, { width: 390, height: 844 });
-        await applyTheme(page, b, false);
-        await send(page, {
-            type: "settings",
-            settings: { tapToEdit: true, pageMode: true, zoom: 1, lean: false, readOnly: false },
-        });
-        await loadMarkdown(page, PROSE);
-        await fontsReady(page, b);
-        // The text column is A4 less 20 mm margins in every theme: 170 mm. Prose
-        // stops short of it at a readable measure; tables and code use all of it.
-        const column = await page.evaluate(() => {
-            const doc = document.querySelector<HTMLElement>(".doc");
-            if (!doc) return 0;
-            const style = getComputedStyle(doc);
-            return doc.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-        });
-        expect(column).toBeCloseTo((170 / 25.4) * 96, 0);
-        const cpl = await charactersPerLine(page);
-        console.log(`line length: ${theme.name} ${cpl.toFixed(1)} characters per line`);
-        expect(cpl, `${theme.name}: ${cpl.toFixed(1)} characters per line`).toBeGreaterThanOrEqual(45);
-        expect(cpl, `${theme.name}: ${cpl.toFixed(1)} characters per line`).toBeLessThanOrEqual(90);
-        await page.close();
-    });
+    it.each(BUILT_INS)(
+        "sets 80-105 characters per line, as a word processor does, on the 170 mm A4 column: $id",
+        async (b) => {
+            const { theme } = b;
+            const page = await openPreview(h, { width: 390, height: 844 });
+            await applyTheme(page, b, false);
+            await send(page, {
+                type: "settings",
+                settings: { tapToEdit: true, pageMode: true, zoom: 1, lean: false, readOnly: false },
+            });
+            await loadMarkdown(page, PROSE);
+            await fontsReady(page, b);
+            // The text column is A4 less 20 mm margins in every theme: 170 mm, and prose
+            // uses all of it at 11 pt, as Word does (about 16 words, 90-100 characters).
+            // A 39 em measure left a quarter of the page empty (Andrew, 0.2.1).
+            const column = await page.evaluate(() => {
+                const doc = document.querySelector<HTMLElement>(".doc");
+                if (!doc) return 0;
+                const style = getComputedStyle(doc);
+                return doc.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+            });
+            expect(column).toBeCloseTo((170 / 25.4) * 96, 0);
+            const cpl = await charactersPerLine(page);
+            console.log(`line length: ${theme.name} ${cpl.toFixed(1)} characters per line`);
+            expect(cpl, `${theme.name}: ${cpl.toFixed(1)} characters per line`).toBeGreaterThanOrEqual(80);
+            expect(cpl, `${theme.name}: ${cpl.toFixed(1)} characters per line`).toBeLessThanOrEqual(105);
+            await page.close();
+        },
+    );
 });
 
 /** One document of every rendering corpus file. */

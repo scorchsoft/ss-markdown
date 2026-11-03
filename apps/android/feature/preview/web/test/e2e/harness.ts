@@ -65,8 +65,12 @@ export async function startHarness(): Promise<Harness> {
  * page sends with the next revision; set `window.__autoAck = false` to hold
  * acks back and play Kotlin by hand.
  */
-export async function openPreview(h: Harness, viewport = { width: 412, height: 860 }): Promise<Page> {
-    const page = await h.browser.newPage({ viewport });
+export async function openPreview(
+    h: Harness,
+    viewport = { width: 412, height: 860 },
+    device: { deviceScaleFactor?: number; hasTouch?: boolean } = {},
+): Promise<Page> {
+    const page = await h.browser.newPage({ viewport, ...device });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     (page as Page & { errors?: string[] }).errors = errors;
@@ -102,6 +106,20 @@ export async function send(page: Page, message: HostMessage): Promise<void> {
         if (m.type === "load" || m.type === "edit") w.__rev = m.rev;
         w.__port.postMessage(JSON.stringify(m));
     }, message);
+}
+
+/**
+ * The messages received so far, and clears them in the same step. Reading
+ * with [received] and then calling [clearReceived] loses any message that
+ * arrives between the two calls.
+ */
+export async function takeReceived(page: Page): Promise<PageMessage[]> {
+    return page.evaluate(() => {
+        const w = window as unknown as { __received: PageMessage[] };
+        const taken = w.__received;
+        w.__received = [];
+        return taken;
+    });
 }
 
 export async function received(page: Page): Promise<PageMessage[]> {

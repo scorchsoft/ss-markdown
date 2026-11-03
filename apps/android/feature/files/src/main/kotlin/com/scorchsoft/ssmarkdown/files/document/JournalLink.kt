@@ -11,6 +11,7 @@ import com.scorchsoft.ssmarkdown.history.journal.OpenResult
 import com.scorchsoft.ssmarkdown.text.EditOp
 import com.scorchsoft.ssmarkdown.text.Snapshot
 import com.scorchsoft.ssmarkdown.text.UndoHistory
+import java.io.IOException
 
 /**
  * One document's connection to the recovery journal (robustness §1): a
@@ -25,6 +26,17 @@ import com.scorchsoft.ssmarkdown.text.UndoHistory
  * the stacks after a process death exactly as the user left them. While
  * an undo or redo is applying its ops, the run is never restarted
  * (no compaction, no resync): its ops must follow its marker.
+ *
+ * ### Saves
+ * A verified save does not restart the run: it appends a Rebase record
+ * naming the saved file ([saved]), synced before the base copy moves, so
+ * the journal already holding the history and the ops simply carries on
+ * from the new base (FORMAT.md, "Saves"; review r3 M3). Keeping the
+ * history is best effort and guards no unsaved text: if that record
+ * cannot be written, the old journal is deleted (it must never outlive
+ * the save on the old base, r3 M1), the history is let go, and the next
+ * edit starts a fresh journal on the saved file. None of that turns the
+ * link unhealthy.
  *
  * ### Two halves, one order
  * Every public method is called on the document's owner thread (the main
@@ -69,6 +81,15 @@ internal class JournalLink(
     /** Chars recorded since the run's last snapshot (or header): what replay must work through. */
     private var journalledChars = 0L
 
+    /**
+     * About how many bytes the run's records take since its last snapshot
+     * (or header): each op's frame and offsets plus its chars, each marker's
+     * frame. A save no longer restarts the run, so keystroke after keystroke
+     * at about 48 bytes each would otherwise grow the file far past the
+     * chars they carry before [journalledChars] asked for a compaction.
+     */
+    private var journalledBytes = 0L
+
     /** Ops of the undo or redo in progress still to come; the run must not restart until they have. */
     private var stepOpsLeft = 0
 
@@ -91,6 +112,15 @@ internal class JournalLink(
     // ---- Journal-thread state. ----
 
     private var writer: JournalWriter? = null
+
+    /**
+     * Set when a save's history could not be kept and the journal was
+     * dropped: the next record starts a fresh journal on this base (the
+     * saved file, whose text that record's edit applies to), replacing a
+     * journal on [restartReplacing] if one is still there.
+     */
+    private var restartOn: BaseFingerprint? = null
+    private var restartReplacing: BaseFingerprint? = null
 
     /** The file holds a journal this link wrote (and so may replace or delete). */
     private var ownsFile = false
@@ -145,6 +175,7 @@ internal class JournalLink(
         }
         val edit = PendingEdit.of(op)
         journalledChars += op.deleted.length + op.inserted.length
+        journalledBytes += OP_RECORD_BYTES + op.deleted.length + op.inserted.length
         executor.execute { guarded { append(edit) } }
         syncIfFirstChange()
     }
@@ -152,7 +183,8 @@ internal class JournalLink(
     /**
      * Called after an op was applied, with the text's new length. When the
      * run's ops outgrow the text (more than [COMPACT_RATIO] times it, and at
-     * least [COMPACT_MIN_CHARS]), the journal is replaced by one snapshot of
+     * least [COMPACT_MIN_CHARS] chars or [COMPACT_MIN_BYTES] of records), the
+     * journal is replaced by one snapshot of
      * [after], so replay stays fast and the file stays small however long
      * the session (robustness §1, DS-11). It is the same atomic replace a
      * save uses, queued after the op it follows.
@@ -163,7 +195,9 @@ internal class JournalLink(
     ) {
         val base = journalBase ?: return
         if (stepOpsLeft > 0 || broken) return
-        if (journalledChars < COMPACT_MIN_CHARS || journalledChars < COMPACT_RATIO * textLength) return
+        val manyChars = journalledChars >= COMPACT_MIN_CHARS && journalledChars >= COMPACT_RATIO * textLength
+        val manyBytes = journalledBytes >= COMPACT_MIN_BYTES && journalledBytes >= COMPACT_RATIO * textLength
+        if (!manyChars && !manyBytes) return
         begin(base, after(), replacing = base)
     }
 
@@ -174,6 +208,7 @@ internal class JournalLink(
      */
     fun stepSealed() {
         if (!isRunning) return
+        journalledBytes += MARKER_RECORD_BYTES
         executor.execute { guarded { record { it.endStep() } } }
     }
 
@@ -213,15 +248,39 @@ internal class JournalLink(
 
     /**
      * Starts the run afresh as a *clean* journal on [base]: the text is
-     * exactly [base]'s, so the journal holds only the undo history. What a
-     * verified save does when the document has undo steps, instead of
-     * ending the journal (ADR 0016), and what a clean open that restored
+     * exactly [base]'s, so the journal holds only the undo history. What
+     * Save as does for its target, and what a clean open that restored
      * history does to keep it. In one atomic replace, like [resume].
+     *
+     * Best effort: a clean journal guards no unsaved text, so if it cannot
+     * be written the history is let go, no journal on another base is left
+     * behind, the link stays healthy, and the next edit starts a journal
+     * on [base] (review r3 M1, L4).
      */
     fun resumeClean(
         base: BaseFingerprint,
         replacing: BaseFingerprint? = journalBase,
     ) = begin(base, null, replacing, clean = true)
+
+    /**
+     * A verified save wrote exactly the text, as [base]; the document has
+     * undo history worth keeping (ADR 0016). The running journal already
+     * holds that history and every op since, so it is kept and a Rebase
+     * record is appended and synced: 66 bytes, where a rewrite was up to
+     * 8 MB and a capture of the whole undo stack on this thread (review r3
+     * M3). A broken or held run, or none, is replaced by a clean journal
+     * instead ([resumeClean], best effort).
+     */
+    fun saved(base: BaseFingerprint) {
+        val old = journalBase
+        if (old == null || !appendable) {
+            resumeClean(base, replacing = old)
+            return
+        }
+        journalBase = base
+        cleanRun = true
+        executor.execute { guarded { rebase(old, base) } }
+    }
 
     /**
      * Makes everything durable now: on pause and before any risky step.
@@ -266,6 +325,9 @@ internal class JournalLink(
 
     // ---- Owner-side helpers. ----
 
+    /** The running journal is ours, sound, and between steps: a record can go on its end. */
+    private val appendable: Boolean get() = !broken && !held && stepOpsLeft == 0
+
     private fun startOrRetry(
         base: BaseFingerprint,
         dirty: Boolean,
@@ -287,6 +349,7 @@ internal class JournalLink(
     ) {
         startOrRetry(base, dirty, before)
         stepOpsLeft = opCount
+        journalledBytes += MARKER_RECORD_BYTES + Int.SIZE_BYTES
         executor.execute { guarded { record(write) } }
         syncIfFirstChange()
     }
@@ -308,10 +371,17 @@ internal class JournalLink(
         journalBase = base
         broken = false
         journalledChars = 0
+        journalledBytes = 0
         cleanRun = clean
         lastRetryAt = clock()
         val history = PendingHistory.of(historySource())
-        executor.execute { guarded { start(base, text, replacing, setAside, history, clean) } }
+        executor.execute {
+            if (clean) {
+                bestEffort(base, replacing) { start(base, null, replacing, setAside, history, clean = true) }
+            } else {
+                guarded { start(base, text, replacing, setAside, history, clean = false) }
+            }
+        }
     }
 
     private fun resync(before: Snapshot) {
@@ -332,6 +402,7 @@ internal class JournalLink(
     ) {
         writer?.close()
         writer = null
+        restartOn = null
         if (setAside || (!ownsFile && store.fileFor(key).exists())) store.setAside(key)
         val history = pending.toJournalHistory()
         val result =
@@ -345,16 +416,89 @@ internal class JournalLink(
             ownsFile = true
             broken = false
             setHealthy(true)
+        } else if (clean) {
+            throw IOException("clean journal not written: $result")
         } else {
             breakRun()
         }
+    }
+
+    /**
+     * The journal-thread half of [saved]: the Rebase record, synced at
+     * once, because the base copy of [old] is replaced right after this
+     * step and a journal still on [old] would then name bytes that exist
+     * nowhere.
+     */
+    private fun rebase(
+        old: BaseFingerprint,
+        saved: BaseFingerprint,
+    ) = bestEffort(saved, replacing = old) {
+        val running = writer ?: throw IOException("no journal to rebase")
+        val written =
+            running.rebase(saved) is JournalWriteResult.Written && running.flush() is JournalWriteResult.Written
+        if (!written) throw IOException("rebase not written")
+        setHealthy(true)
+    }
+
+    /**
+     * Runs [block], which writes nothing but undo history onto [base], a
+     * file that holds the whole text. Any failure lets the history go
+     * rather than the link's health: whatever journal this link had is
+     * deleted (it may sit on [replacing], a base the file no longer has),
+     * and the next record starts a fresh journal on [base] (review r3 M1).
+     */
+    @Suppress("TooGenericExceptionCaught") // As guarded(): the boundary of the journal thread.
+    private inline fun bestEffort(
+        base: BaseFingerprint,
+        replacing: BaseFingerprint?,
+        block: () -> Unit,
+    ) {
+        try {
+            block()
+        } catch (_: Exception) {
+            dropAfterSave(base, replacing)
+        } catch (_: OutOfMemoryError) {
+            dropAfterSave(base, replacing)
+        }
+    }
+
+    private fun dropAfterSave(
+        base: BaseFingerprint,
+        replacing: BaseFingerprint?,
+    ) {
+        runCatching { writer?.close() }
+        writer = null
+        // Ours, whatever base its header or last Rebase names: nothing in it is unsaved any more.
+        val gone =
+            !ownsFile ||
+                when (runCatching { store.markClean(key) }.getOrNull()) {
+                    CleanResult.Deleted, CleanResult.NothingToClean, is CleanResult.Quarantined -> true
+                    else -> false
+                }
+        if (gone) ownsFile = false
+        restartOn = base
+        restartReplacing = if (gone) null else replacing
+        broken = false
+        setHealthy(true)
+    }
+
+    /** The first record after a dropped save journal: a fresh journal on the saved file, then the record. */
+    private fun restart(): JournalWriter? {
+        val base = restartOn ?: return null
+        restartOn = null
+        val result = store.resume(key, base, null, restartReplacing.takeIf { ownsFile }, JournalHistory.EMPTY)
+        restartReplacing = null
+        if (result !is OpenResult.Opened) return null
+        ownsFile = true
+        writer = result.writer
+        return result.writer
     }
 
     private fun append(edit: PendingEdit) = record { it.append(edit.toTextEdit()) }
 
     /** Writes one record through [write]; any trouble is handled as an append's would be. */
     private fun record(write: (JournalWriter) -> JournalWriteResult) {
-        val running = writer
+        val running = writer ?: restart()
         if (running == null) {
             breakRun()
             return
@@ -378,6 +522,7 @@ internal class JournalLink(
     private fun finish(expected: BaseFingerprint) {
         writer?.close()
         writer = null
+        restartOn = null
         if (!ownsFile) return
         when (store.markClean(key, expected)) {
             CleanResult.Deleted, CleanResult.NothingToClean, is CleanResult.Quarantined -> ownsFile = false
@@ -389,6 +534,7 @@ internal class JournalLink(
     private fun release() {
         writer?.close()
         writer = null
+        restartOn = null
     }
 
     private fun breakRun() {
@@ -435,28 +581,41 @@ internal class JournalLink(
 
     /**
      * The undo steps as the owner saw them when a run began. Captured on
-     * the owner thread (the stack moves on), turned into strings on the
-     * journal thread, like [PendingEdit].
+     * the owner thread (the stack moves on) as the stack's own export,
+     * whose lists are copies and whose ops are immutable; the strings are
+     * built on the journal thread, like [PendingEdit]. An op whose text is
+     * not already immutable (a String or a Snapshot) is copied here, but
+     * no per-op object is made for the rest: a full tail is about 600,000
+     * keystroke ops (review r3 M3).
      */
     private class PendingHistory(
-        val undo: List<List<PendingEdit>>,
-        val redo: List<List<PendingEdit>>,
-        val newestOpen: Boolean,
+        val history: UndoHistory,
     ) {
         fun toJournalHistory() =
             JournalHistory(
-                undo.map { step -> step.map(PendingEdit::toTextEdit) },
-                redo.map { step -> step.map(PendingEdit::toTextEdit) },
-                newestOpen,
+                history.undo.map { step -> step.map(::textEdit) },
+                history.redo.map { step -> step.map(::textEdit) },
+                history.newestOpen,
             )
 
         companion object {
-            fun of(history: UndoHistory) =
-                PendingHistory(
-                    history.undo.map { step -> step.map(PendingEdit::of) },
-                    history.redo.map { step -> step.map(PendingEdit::of) },
-                    history.newestOpen,
+            fun of(history: UndoHistory): PendingHistory {
+                val frozen = history.undo.all(::allFrozen) && history.redo.all(::allFrozen)
+                return PendingHistory(if (frozen) history else history.frozenCopy())
+            }
+
+            private fun allFrozen(step: List<EditOp>) = step.all { isFrozen(it.deleted) && isFrozen(it.inserted) }
+
+            private fun UndoHistory.frozenCopy() =
+                UndoHistory(
+                    undo.map { step -> step.map(::frozenOp) },
+                    redo.map { step -> step.map(::frozenOp) },
+                    newestOpen,
                 )
+
+            private fun frozenOp(op: EditOp) = EditOp(op.offset, frozen(op.deleted), frozen(op.inserted))
+
+            private fun textEdit(op: EditOp) = TextEdit(op.offset, op.deleted.toString(), op.inserted.toString())
         }
     }
 
@@ -469,7 +628,24 @@ internal class JournalLink(
         /** Compact once the journalled text is this many times the document. */
         const val COMPACT_RATIO = 2L
 
+        /**
+         * Compaction also comes once the run's records pass this many bytes
+         * (and twice the text): a run of one-char keystrokes is about 48
+         * bytes each, so this bounds a journal that outlives saves to about
+         * 16 MiB of ops plus its snapshot and 8 MB of history (review r3 M3).
+         */
+        const val COMPACT_MIN_BYTES = 16L shl 20
+
+        /** An Op record's frame (17 bytes) and fixed fields (12), before its chars. */
+        const val OP_RECORD_BYTES = 29L
+
+        /** A step-end marker record: a frame and the kind byte. */
+        const val MARKER_RECORD_BYTES = 18L
+
+        /** True when [text] is safe to read later on another thread: snapshots and strings are. */
+        fun isFrozen(text: CharSequence): Boolean = text is String || text is Snapshot
+
         /** [text] safe to read later on another thread: snapshots and strings are; anything else is copied. */
-        fun frozen(text: CharSequence): CharSequence = if (text is String || text is Snapshot) text else text.toString()
+        fun frozen(text: CharSequence): CharSequence = if (isFrozen(text)) text else text.toString()
     }
 }

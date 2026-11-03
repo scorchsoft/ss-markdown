@@ -5,11 +5,14 @@ import android.view.ActionMode
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import com.scorchsoft.ssmarkdown.feature.editor.R
 
 /**
- * The floating text toolbar (Cut, Copy, Paste, Select all) shown over a
- * selection, as `TextView` shows it. Items use the platform ids and
- * strings, so they read and translate exactly like every other app's.
+ * The floating text toolbar (Cut, Copy, Paste, Paste as plain text, Select
+ * all) shown over a selection, as `TextView` shows it. Items use the
+ * platform ids and strings, so they read and translate exactly like every
+ * other app's; "Paste as plain text" has the platform id and our own
+ * string, and shows only for a formatted clip (docs/ux-spec.md, "Copy and paste").
  * [onGetContentRect] places the toolbar over the selection (or caret).
  */
 internal class TextActionModeCallback(
@@ -22,6 +25,9 @@ internal class TextActionModeCallback(
 
         /** True when the clipboard holds text to paste. */
         val canPaste: Boolean
+
+        /** True when the clip is formatted (HTML or Markdown), so "Paste as plain text" differs from Paste. */
+        val canPastePlain: Boolean
 
         /** Runs a clipboard or selection command; returns true if it did something. */
         fun runCommand(command: EditorCommand): Boolean
@@ -80,6 +86,7 @@ internal class TextActionModeCallback(
                 when (item.command) {
                     EditorCommand.CUT, EditorCommand.COPY -> host.hasSelection
                     EditorCommand.PASTE -> host.canPaste
+                    EditorCommand.PASTE_PLAIN -> host.canPaste && host.canPastePlain
                     else -> true
                 }
             if (enabled) {
@@ -102,6 +109,8 @@ internal class TextActionModeCallback(
                 Item(android.R.id.cut, android.R.string.cut, EditorCommand.CUT),
                 Item(android.R.id.copy, android.R.string.copy, EditorCommand.COPY),
                 Item(android.R.id.paste, android.R.string.paste, EditorCommand.PASTE),
+                // The platform's id, so it reads as TextView's item does; our own string.
+                Item(android.R.id.pasteAsPlainText, R.string.editor_paste_plain, EditorCommand.PASTE_PLAIN),
                 Item(android.R.id.selectAll, android.R.string.selectAll, EditorCommand.SELECT_ALL),
             )
     }

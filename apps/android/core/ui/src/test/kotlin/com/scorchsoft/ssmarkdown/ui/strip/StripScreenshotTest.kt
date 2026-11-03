@@ -42,6 +42,18 @@ class StripScreenshotTest(
             FormattingStripState(mode = StripMode.Preview, canUndo = true, pressed = setOf(StripKey.Italic)),
         )
 
+    /** Settings → Formatting bar → Two rows: Code, symbols, Preview and table mode. */
+    @Test
+    fun twoRows() =
+        capture(
+            "strip-two-rows",
+            FormattingStripState(canUndo = true, pressed = setOf(StripKey.Bold)),
+            FormattingStripState(page = StripPage.Symbols, canUndo = true),
+            FormattingStripState(mode = StripMode.Preview, canUndo = true, pressed = setOf(StripKey.Italic)),
+            FormattingStripState(canUndo = true, inTable = true),
+            rows = StripRows.Two,
+        )
+
     @Test
     fun table() =
         capture(
@@ -77,11 +89,22 @@ class StripScreenshotTest(
     private fun capture(
         name: String,
         vararg states: FormattingStripState,
+        rows: StripRows = StripRows.One,
     ) {
         activity.compose.setContent {
             SSMarkdownTheme(darkTheme = dark) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column { states.forEach { FormattingStrip(it, onKey = {}, onSymbol = {}, onCursor = {}) } }
+                    Column {
+                        states.forEach {
+                            FormattingStrip(
+                                it,
+                                onKey = {},
+                                onSymbol = {},
+                                onCursor = {},
+                                rows = rows,
+                            )
+                        }
+                    }
                 }
             }
         }

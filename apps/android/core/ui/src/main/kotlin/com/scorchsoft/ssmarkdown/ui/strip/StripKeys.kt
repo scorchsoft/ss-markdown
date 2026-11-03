@@ -27,10 +27,12 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.scorchsoft.ssmarkdown.core.ui.SS
@@ -62,7 +64,8 @@ internal object PressedKeyFace {
 }
 
 /**
- * One 48 dp strip key. A toggle key is a checkbox to TalkBack ("Bold,
+ * One 48 dp strip key. It never takes focus ([noFocus]): the editor keeps
+ * it, so the keyboard stays up while keys are tapped. A toggle key is a checkbox to TalkBack ("Bold,
  * checked"), the Android twin of `aria-pressed`, and shows a filled tint
  * inside an ink ring when pressed ([PressedKeyFace]): never an accent
  * colour, since red means "needs you".
@@ -72,6 +75,9 @@ internal fun StripKeyButton(
     key: StripKey,
     pressed: Boolean,
     enabled: Boolean,
+    width: Dp = SS.dimens.key,
+    // What TalkBack reads after the label, such as the ¶ key's current block type.
+    state: String? = null,
     onClick: () -> Unit,
 ) {
     val colors = SS.colors
@@ -79,17 +85,24 @@ internal fun StripKeyButton(
     val tint = if (enabled) colors.ink else colors.inkMuted.copy(alpha = DISABLED_ALPHA)
     val action =
         if (key.toggles) {
-            Modifier.toggleable(value = pressed, enabled = enabled, role = Role.Checkbox, onValueChange = { onClick() })
+            Modifier.noFocus().toggleable(
+                value = pressed,
+                enabled = enabled,
+                role = Role.Checkbox,
+                onValueChange = { onClick() },
+            )
         } else {
-            Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            Modifier.noFocus().clickable(enabled = enabled, role = Role.Button, onClick = onClick)
         }
     Box(
         contentAlignment = Alignment.Center,
         modifier =
             Modifier
-                .size(SS.dimens.key)
-                .semantics { contentDescription = label }
-                .then(action),
+                .size(width, SS.dimens.key)
+                .semantics {
+                    contentDescription = label
+                    state?.let { stateDescription = it }
+                }.then(action),
     ) {
         Box(
             contentAlignment = Alignment.Center,
@@ -155,12 +168,14 @@ private fun KeyGlyph(
 private val keyIcons: Map<StripKey, () -> ImageVector> =
     mapOf(
         StripKey.BulletList to { StripIcons.bulletList },
+        StripKey.NumberedList to { StripIcons.numberedList },
         StripKey.Task to { StripIcons.task },
         StripKey.Code to { StripIcons.code },
         StripKey.Link to { StripIcons.link },
         StripKey.Indent to { StripIcons.indent },
         StripKey.Outdent to { StripIcons.outdent },
         StripKey.Table to { StripIcons.table },
+        StripKey.Image to { StripIcons.image },
         StripKey.Quote to { StripIcons.quote },
         StripKey.Undo to { StripIcons.undo },
         StripKey.Redo to { StripIcons.redo },
@@ -191,6 +206,7 @@ internal fun SymbolsToggleKey(
             Modifier
                 .size(SS.dimens.key)
                 .semantics { contentDescription = label }
+                .noFocus()
                 .toggleable(value = showingSymbols, role = Role.Checkbox, onValueChange = { onClick() }),
     ) {
         val face = Modifier.size(KeyFace).clearAndSetSemantics {}
@@ -216,6 +232,7 @@ internal fun SymbolsToggleKey(
 @Composable
 internal fun SymbolKeyButton(
     symbol: SymbolKey,
+    width: Dp = SS.dimens.key,
     onClick: () -> Unit,
 ) {
     val label = stringResource(symbol.label)
@@ -223,8 +240,9 @@ internal fun SymbolKeyButton(
         contentAlignment = Alignment.Center,
         modifier =
             Modifier
-                .size(SS.dimens.key)
+                .size(width, SS.dimens.key)
                 .semantics { contentDescription = label }
+                .noFocus()
                 .clickable(role = Role.Button, onClick = onClick),
     ) {
         Text(
@@ -245,6 +263,7 @@ internal fun SymbolKeyButton(
 internal fun CursorKey(
     step: CursorStep,
     onStep: (CursorStep) -> Unit,
+    width: Dp = SS.dimens.key,
 ) {
     val label = stringResource(if (step == CursorStep.Left) StripLabels.cursorLeft else StripLabels.cursorRight)
     val currentOnStep by rememberUpdatedState(onStep)
@@ -252,7 +271,7 @@ internal fun CursorKey(
         contentAlignment = Alignment.Center,
         modifier =
             Modifier
-                .size(SS.dimens.key)
+                .size(width, SS.dimens.key)
                 .semantics {
                     contentDescription = label
                     role = Role.Button

@@ -21,6 +21,16 @@ interface PreviewListener :
         crumbs: List<Crumb>,
     ) = Unit
 
+    /**
+     * The page scrolled: [fraction] is its scroll position over the
+     * scrollable range, 0 at the top and exactly 1 at the bottom (0 when it
+     * fits), for the header's reading line.
+     */
+    fun onScrollFraction(fraction: Float) = Unit
+
+    /** How much of the page the viewport shows, 0 to 1, for the fast-scroll thumb (long pages only). */
+    fun onVisibleFraction(visible: Float) = Unit
+
     fun onRendererStateChanged(state: RendererState) = Unit
 
     /** A non-fatal problem reported by the page, for logs. */
@@ -102,6 +112,16 @@ interface PreviewContentListener {
         index: Int,
         line: Int,
     ) = Unit
+
+    /**
+     * The page asked why some pictures beside the document cannot be shown
+     * and was told [statuses] (by the page's key). The host can offer "Allow
+     * access" from ⋮ when any is [ImageStatus.NO_ACCESS].
+     */
+    fun onImageStatuses(statuses: Map<String, ImageStatus>) = Unit
+
+    /** A picture placeholder's "Allow access": ask the user for the document's folder. */
+    fun onAllowFolder() = Unit
 
     /** A diagram export: SVG text as UTF-8, or PNG bytes. */
     fun onExportResult(

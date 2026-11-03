@@ -43,6 +43,8 @@ class CodeInputConnection internal constructor(
     private val onKey: (KeyEvent) -> Boolean,
     private val gate: InputGate,
     private val cursor: CursorAnchorReporter?,
+    /** The host's list and code rules for Backspace and typed closers ([EditorListener]). */
+    private val listener: () -> EditorListener? = { null },
 ) : BaseInputConnection(view, true) {
     /** A connection with no paste gate and no cursor reports, as before either existed. */
     constructor(
@@ -62,7 +64,48 @@ class CodeInputConnection internal constructor(
     override fun commitText(
         text: CharSequence?,
         newCursorPosition: Int,
-    ): Boolean = edit { session.commitText(text ?: "", newCursorPosition) }
+    ): Boolean =
+        edit {
+            // A keyboard's line break is Enter, so lists continue as they do for the key (ux-spec "Enter in a list").
+            when {
+                isEnter(text, newCursorPosition) -> {
+                    onKey(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+                }
+
+                text != null && isWordThenEnter(text, newCursorPosition) -> {
+                    // Some keyboards commit the composing word and the line break together: the word
+                    // goes in as typed, then the break is Enter (edge-cases "Enter at the end of a list item").
+                    session.commitText(text.subSequence(0, text.length - 1), 1)
+                    onKey(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+                }
+
+                isCloser(text, newCursorPosition) && listener()?.onEditKey(EditKey.Closer(text.toString())) == true -> {
+                    Unit
+                }
+
+                else -> {
+                    session.commitText(text ?: "", newCursorPosition)
+                }
+            }
+        }
+
+    /** A word with one line break after it, committed with the caret at the end. */
+    private fun isWordThenEnter(
+        text: CharSequence,
+        newCursorPosition: Int,
+    ): Boolean =
+        text.length > 1 && text.last() == '\n' && newCursorPosition == 1 && text.indexOf('\n') == text.length - 1
+
+    private fun isCloser(
+        text: CharSequence?,
+        newCursorPosition: Int,
+    ): Boolean = text != null && text.toString() in CLOSERS && newCursorPosition == 1 && !session.isComposing
+
+    /** A lone line break committed with the caret after it and no word composing: the keyboard's Enter. */
+    private fun isEnter(
+        text: CharSequence?,
+        newCursorPosition: Int,
+    ): Boolean = text != null && text.length == 1 && text[0] == '\n' && newCursorPosition == 1 && !session.isComposing
 
     override fun setComposingText(
         text: CharSequence?,
@@ -79,7 +122,16 @@ class CodeInputConnection internal constructor(
     override fun deleteSurroundingText(
         beforeLength: Int,
         afterLength: Int,
-    ): Boolean = edit { session.deleteSurroundingText(beforeLength, afterLength) }
+    ): Boolean =
+        edit {
+            // A keyboard's Backspace: at the start of a list item's text the host takes the marker off.
+            val backspace = beforeLength == 1 && afterLength == 0 && !session.hasSelection && !session.isComposing
+            if (!backspace ||
+                listener()?.onEditKey(EditKey.Backspace) != true
+            ) {
+                session.deleteSurroundingText(beforeLength, afterLength)
+            }
+        }
 
     override fun deleteSurroundingTextInCodePoints(
         beforeLength: Int,
@@ -187,6 +239,17 @@ class CodeInputConnection internal constructor(
             session.endBatchEdit()
         }
 
+    /**
+     * The keyboard's own editing panel (Gboard's Select all, Cut, Copy,
+     * Paste, Undo, Redo). The default did nothing and said so, silently:
+     * each runs as its Ctrl shortcut does, through the same key path.
+     */
+    override fun performContextMenuAction(id: Int): Boolean {
+        val key = CONTEXT_MENU_KEYS[id] ?: return false
+        val shift = if (id == android.R.id.redo || id == android.R.id.pasteAsPlainText) KeyEvent.META_SHIFT_ON else 0
+        return sendKeyEvent(KeyEvent(0, 0, KeyEvent.ACTION_DOWN, key, 0, KeyEvent.META_CTRL_ON or shift))
+    }
+
     /** Keys from soft keyboards (Backspace with nothing composing, Enter) and from `performEditorAction`. */
     override fun sendKeyEvent(event: KeyEvent): Boolean {
         if (!gate.isHolding) return onKey(event)
@@ -209,6 +272,18 @@ class CodeInputConnection internal constructor(
     private companion object {
         /** Enough text before the caret to see a sentence end for auto-capitalisation. */
         const val CAPS_CONTEXT = 64
+
+        /** `performContextMenuAction` ids and the Ctrl key that does the same (redo and plain paste add Shift). */
+        val CONTEXT_MENU_KEYS =
+            mapOf(
+                android.R.id.selectAll to KeyEvent.KEYCODE_A,
+                android.R.id.cut to KeyEvent.KEYCODE_X,
+                android.R.id.copy to KeyEvent.KEYCODE_C,
+                android.R.id.paste to KeyEvent.KEYCODE_V,
+                android.R.id.pasteAsPlainText to KeyEvent.KEYCODE_V,
+                android.R.id.undo to KeyEvent.KEYCODE_Z,
+                android.R.id.redo to KeyEvent.KEYCODE_Z,
+            )
 
         /** How many chars at one end of [text] make up [codePoints] code points. */
         fun charsForCodePoints(

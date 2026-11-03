@@ -81,12 +81,12 @@ class AccessibilityRenderTest {
             }
         }
         rule
-            .onNodeWithText("Line numbers")
+            .onNodeWithText("Show line numbers")
             .performScrollTo()
             .assertIsOn()
             .performClick()
         rule.onNodeWithText("Scroll panes together").performScrollTo().assertIsOff()
-        assertEquals(listOf(SettingsAction.ToggleLineNumbers), settings)
+        assertEquals(listOf<SettingsAction>(SettingsAction.SetLineNumbers(false)), settings)
     }
 
     @Test

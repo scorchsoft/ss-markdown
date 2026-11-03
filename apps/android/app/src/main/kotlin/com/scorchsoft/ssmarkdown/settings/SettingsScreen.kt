@@ -26,6 +26,7 @@ import com.scorchsoft.ssmarkdown.ui.SectionLabel
 import com.scorchsoft.ssmarkdown.ui.SettingRow
 import com.scorchsoft.ssmarkdown.ui.StepperButtons
 import com.scorchsoft.ssmarkdown.ui.SwitchRow
+import com.scorchsoft.ssmarkdown.ui.strip.StripRows
 import java.util.Locale
 
 /** Code's 100 % in sp and Preview's in px (ux-spec "Text size: one model"). */
@@ -135,9 +136,23 @@ private fun TextSection(
     }
     SettingRow(stringResource(R.string.settings_code_font), stringResource(R.string.settings_font_pending))
     SettingRow(stringResource(R.string.settings_preview_font), stringResource(R.string.settings_font_pending))
-    SwitchRow(stringResource(R.string.settings_line_numbers), settings.lineNumbers, {
-        onAction(SettingsAction.ToggleLineNumbers)
-    })
+    SwitchRow(
+        stringResource(R.string.settings_line_numbers),
+        settings.lineNumbers,
+        { onAction(SettingsAction.SetLineNumbers(!settings.lineNumbers)) },
+        stringResource(R.string.settings_line_numbers_hint),
+    )
+    // Set once, so it lives here and not on the View sheet.
+    SettingRow(stringResource(R.string.settings_formatting_bar))
+    Segments(listOf(R.string.formatting_bar_one, R.string.formatting_bar_two), settings.formattingBar.ordinal) {
+        onAction(SettingsAction.SetFormattingBar(StripRows.entries[it]))
+    }
+    NoteText(stringResource(R.string.settings_formatting_bar_note))
+    SettingRow(stringResource(R.string.settings_split_typing))
+    Segments(listOf(R.string.split_typing_edited, R.string.split_typing_both), settings.splitTyping.ordinal) {
+        onAction(SettingsAction.SetSplitTyping(SplitTyping.entries[it]))
+    }
+    NoteText(stringResource(R.string.settings_split_typing_note))
 }
 
 /**
@@ -168,7 +183,7 @@ private fun ZoomRow(
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
-        // The Display sheet's − / + pills, not chevrons (UX2-8).
+        // The View sheet's − / + pills, not chevrons (UX2-8).
         StepperButtons(
             stringResource(R.string.settings_zoom_decrease, title),
             stringResource(R.string.settings_zoom_increase, title),

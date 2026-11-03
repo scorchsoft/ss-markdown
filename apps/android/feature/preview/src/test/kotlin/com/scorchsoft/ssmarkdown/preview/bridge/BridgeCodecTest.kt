@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.preview.bridge
 
+import com.scorchsoft.ssmarkdown.preview.FormattedCopy
 import com.scorchsoft.ssmarkdown.preview.editing.FormatAction
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -71,10 +72,25 @@ class BridgeCodecTest {
         assertEquals("align", op.getString("kind"))
         assertEquals("right", op.getString("align"))
         assertEquals(1, encoded(HostMessage.Table(TableOp.MoveRow(5))).getJSONObject("op").getInt("by"))
+        // The kinds the page's tableOpEdits handles (web/src/protocol.ts, TableOp).
+        val kinds =
+            listOf(
+                TableOp.AddRow,
+                TableOp.AddRowAbove,
+                TableOp.AddColumn,
+                TableOp.AddColumnLeft,
+                TableOp.DeleteRow,
+                TableOp.DeleteColumn,
+                TableOp.DeleteTable,
+            ).map { encoded(HostMessage.Table(it)).getJSONObject("op").getString("kind") }
+        assertEquals(
+            listOf("addRow", "addRowAbove", "addColumn", "addColumnLeft", "deleteRow", "deleteColumn", "deleteTable"),
+            kinds,
+        )
         val export = encoded(HostMessage.ExportImage(requestId = 2, line = 7, png = true, scale = 9))
         assertEquals("png", export.getString("format"))
         assertEquals(3, export.getInt("scale"))
-        assertEquals("""{"type":"preparePrint"}""", BridgeCodec.encode(HostMessage.PreparePrint))
+        assertEquals("""{"type":"preparePrint","requestId":4}""", BridgeCodec.encode(HostMessage.PreparePrint(4)))
     }
 
     @Test
@@ -93,6 +109,19 @@ class BridgeCodecTest {
                 """{"type":"topLine","line":40,"crumbs":""" +
                     """[{"level":1,"text":"Intro","line":0},{"level":2,"text":"Setup","line":30}]}""",
             ),
+        )
+        // The reading fraction rides on the same report; junk is clamped or dropped, never thrown.
+        assertEquals(
+            PageMessage.TopLine(90, emptyList(), 1f),
+            BridgeCodec.decode("""{"type":"topLine","line":90,"crumbs":[],"fraction":1}"""),
+        )
+        assertEquals(
+            PageMessage.TopLine(0, emptyList(), 1f),
+            BridgeCodec.decode("""{"type":"topLine","line":0,"crumbs":[],"fraction":7.5}"""),
+        )
+        assertEquals(
+            PageMessage.TopLine(0, emptyList(), null),
+            BridgeCodec.decode("""{"type":"topLine","line":0,"crumbs":[],"fraction":"x"}"""),
         )
         assertEquals(
             PageMessage.Selection(1, 5, setOf("bold", "link"), false, 7),
@@ -116,11 +145,26 @@ class BridgeCodecTest {
             PageMessage.OpenViewer(MediaKind.DIAGRAM, 0, 12),
             BridgeCodec.decode("""{"type":"openViewer","kind":"diagram","index":0,"line":12}"""),
         )
-        assertEquals(PageMessage.PrintReady, BridgeCodec.decode("""{"type":"printReady"}"""))
+        assertEquals(PageMessage.PrintReady(4), BridgeCodec.decode("""{"type":"printReady","requestId":4}"""))
         assertEquals(
             PageMessage.TableMenu(3, 1, 0),
             BridgeCodec.decode("""{"type":"tableMenu","line":3,"row":1,"column":0}"""),
         )
+    }
+
+    @Test
+    fun `a formatted copy carries its budget out and its HTML, plain text and truncation back`() {
+        val ask = encoded(HostMessage.ExportHtml(4, 0, 12, 400_000))
+        assertEquals(400_000, ask.getInt("maxChars"))
+        val answer =
+            BridgeCodec.decode(
+                """{"type":"htmlResult","requestId":4,"html":"<p>x</p>","text":"x","truncated":true}""",
+            ) as PageMessage.HtmlResult
+        assertEquals(FormattedCopy("<p>x</p>", "x", truncated = true), answer.copy)
+        val none =
+            BridgeCodec.decode("""{"type":"htmlResult","requestId":5,"html":null,"text":null,"truncated":false}""")
+                as PageMessage.HtmlResult
+        assertNull(none.copy)
     }
 
     @Test
@@ -131,6 +175,22 @@ class BridgeCodecTest {
         assertNull(BridgeCodec.decode("""{"type":"openViewer","kind":"video","index":0,"line":1}"""))
         assertNull(
             BridgeCodec.decode("""{"type":"formatRequest","action":"blink","from":0,"to":1,"baseRev":1}"""),
+        )
+    }
+
+    @Test
+    fun `the fast-scroll thumb's page size rides on the top line, clamped like the fraction`() {
+        assertEquals(
+            PageMessage.TopLine(3, emptyList(), 0.5f, 0.1f),
+            BridgeCodec.decode("""{"type":"topLine","line":3,"crumbs":[],"fraction":0.5,"visible":0.1}"""),
+        )
+        assertEquals(
+            PageMessage.TopLine(3, emptyList(), 0.5f, 1f),
+            BridgeCodec.decode("""{"type":"topLine","line":3,"crumbs":[],"fraction":0.5,"visible":9}"""),
+        )
+        assertEquals(
+            PageMessage.TopLine(3, emptyList(), 0.5f, null),
+            BridgeCodec.decode("""{"type":"topLine","line":3,"crumbs":[],"fraction":0.5,"visible":"x"}"""),
         )
     }
 }

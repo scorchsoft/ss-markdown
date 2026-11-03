@@ -2,6 +2,4 @@
 <resources>
     <!-- Mirrors SSLightColors.bg / SSDarkColors.bg (values-night). -->
     <color name="window_background">#FFFFFFFF</color>
-    <!-- Scorchsoft red, the launcher tile only. -->
-    <color name="ic_launcher_background">#FFB3191B</color>
 </resources>

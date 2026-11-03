@@ -98,7 +98,8 @@ internal fun MarkdownCodeView.startFling(
     velocityY: Int,
 ) = viewport.startFling(velocityX, velocityY)
 
-internal fun MarkdownCodeView.stopFling() = viewport.stopFling()
+/** Stops a fling; true when one was still moving. */
+internal fun MarkdownCodeView.stopFling(): Boolean = viewport.stopFling()
 
 /** One pinch step; see [ViewSizing.zoomBy]. */
 internal fun MarkdownCodeView.zoomBy(

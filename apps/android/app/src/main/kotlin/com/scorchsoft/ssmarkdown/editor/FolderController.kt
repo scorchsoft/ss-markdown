@@ -36,6 +36,8 @@ class FolderController(
             )
         }
         load()
+        // A new folder grant may hold the open file: its pictures are looked up afresh.
+        host.pictures.onFolderRefreshed()
     }
 
     /** A folder action; the reducer has already applied its pure part. */
@@ -44,13 +46,14 @@ class FolderController(
         when (action) {
             is FolderAction.OpenFile -> host.openDocument(action.uri)
             FolderAction.SaveAll -> saveAll()
-            is FolderAction.Rename -> fileOp(MessageKind.Renamed) { deps.folders.rename(action.uri, action.newName) }
+            is FolderAction.Rename -> rename(action.uri, action.newName)
             is FolderAction.Duplicate -> duplicate(action.uri)
             is FolderAction.Delete -> fileOp(MessageKind.Deleted) { deps.folders.delete(action.uri) }
             FolderAction.NewFileHere -> newFile()
             FolderAction.OpenAnotherFolder -> host.emit(EditorEvent.PickFolder)
             FolderAction.CloseFolder -> close()
-            FolderAction.ToggleShowAllFiles, FolderAction.Refresh -> load()
+            FolderAction.ToggleShowAllFiles -> load()
+            FolderAction.Refresh -> load().also { host.pictures.onFolderRefreshed() }
             else -> Unit
         }
     }
@@ -78,6 +81,9 @@ class FolderController(
         val folder = host.state.folder ?: return
         deps.scope.launch {
             val result = withContext(deps.io) { deps.folders.list(folder.treeUri, null, folder.showAllFiles) }
+            // Another folder (or the other file filter) was chosen while this one listed: its rows are not these.
+            val now = host.state.folder
+            if (now?.treeUri != folder.treeUri || now.showAllFiles != folder.showAllFiles) return@launch
             when (result) {
                 is ProviderResult.Ok -> {
                     listed = result.value
@@ -145,6 +151,45 @@ class FolderController(
             }
             if (skipped.isEmpty()) host.emit(EditorEvent.Tick) else host.emit(EditorEvent.ErrorTick)
             refreshDots()
+        }
+    }
+
+    /**
+     * Renames a file. A provider whose ids are paths gives the renamed file
+     * a new URI, so an open file follows it: unsaved edits must be saved
+     * first (their journal and base copy belong to the old URI), and a clean
+     * file on screen is reopened under its new name rather than left on a
+     * URI that no longer exists ("File no longer exists").
+     */
+    private fun rename(
+        uri: String,
+        newName: String,
+    ) {
+        val before = deps.store[DocumentUri(uri)]
+        val unsaved = before?.run { isDirty || conflict != null || holdsUnappliedEdits } == true
+        if (unsaved) {
+            host.message(MessageKind.SaveBeforeRename)
+            return
+        }
+        deps.scope.launch {
+            when (val renamed = withContext(deps.io) { deps.folders.rename(uri, newName) }) {
+                is ProviderResult.Ok -> {
+                    host.message(MessageKind.Renamed)
+                    val open = deps.store[DocumentUri(uri)]
+                    // Typing that slipped in while the provider renamed stays on its buffer, journalled.
+                    val follow =
+                        host.active
+                            ?.open
+                            ?.uri
+                            ?.value == uri && open?.isDirty != true
+                    if (follow && renamed.value.value != uri) host.openDocument(renamed.value.value)
+                }
+
+                is ProviderResult.Failure -> {
+                    host.message(MessageKind.ActionFailed)
+                }
+            }
+            load()
         }
     }
 

@@ -42,8 +42,8 @@ android {
         minSdk = 29
         targetSdk = 36
         // versionCode bumps by exactly one per artefact handed to anyone.
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 5
+        versionName = "0.2.3"
         // AndroidJUnitRunner that also installs LeakCanary's watcher, so the
         // instrumented tests fail on a leaked Activity, View or ViewModel.
         testInstrumentationRunner = "com.scorchsoft.ssmarkdown.LeakCheckRunner"
@@ -56,8 +56,29 @@ android {
         localeFilters += "en"
     }
 
+    signingConfigs {
+        // Which debug key signs the hand-over APK decides whether a newer
+        // build installs over an older one. Left to AGP, the key is generated
+        // into ~/.android/debug.keystore on whatever machine or CI container
+        // ran the build: a new random key per container, so Android refuses
+        // the update (INSTALL_FAILED_UPDATE_INCOMPATIBLE, "App not
+        // installed") and the user must uninstall, losing drafts and the
+        // recovery journal. `sideload-debug.keystore` is checked in so every
+        // build signs the same. It is not a secret: the passwords are the
+        // literal "android", as AGP's own debug key, and Play rejects any
+        // debug-signed upload. CI checks the signer (expected SHA-256 in
+        // apps/android/CLAUDE.md, "The hand-over build").
+        getByName("debug") {
+            storeFile = rootProject.file("sideload-debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         debug {
+            signingConfig = signingConfigs.getByName("debug")
             isDebuggable = !minifyDebug
             isMinifyEnabled = minifyDebug
             isShrinkResources = minifyDebug

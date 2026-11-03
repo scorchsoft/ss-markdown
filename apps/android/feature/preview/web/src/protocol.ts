@@ -103,9 +103,17 @@ export type HostMessage =
     | { readonly type: "theme"; readonly theme: ThemeSpec; readonly dark: boolean; readonly fonts?: ThemeFonts }
     | { readonly type: "settings"; readonly settings: PreviewSettings }
     | { readonly type: "scrollToLine"; readonly line: number; readonly smooth?: boolean }
+    /** The fast-scroll thumb: scroll to [fraction] (0 to 1) of the scrollable range; at most one a frame. */
+    | { readonly type: "scrollToFraction"; readonly fraction: number }
     | { readonly type: "tableNav"; readonly direction: "prev" | "next" }
     | { readonly type: "tableOp"; readonly op: TableOp }
     | { readonly type: "endEditing" }
+    /**
+     * "Paste as plain text" from the selection toolbar or Ctrl+Shift+V
+     * (Kotlin reads the clipboard): [text] and [html] are the clip's two
+     * flavours; only their words go in, at the selection being edited.
+     */
+    | { readonly type: "pastePlain"; readonly text: string; readonly html: string }
     | {
           readonly type: "exportImage";
           readonly requestId: number;
@@ -113,16 +121,49 @@ export type HostMessage =
           readonly format: "svg" | "png";
           readonly scale: number;
       }
-    | { readonly type: "preparePrint" }
+    /**
+     * Render and mount every block, then answer `printReady` with the same id.
+     * A `load` or `finishPrint` first abandons it: no answer comes.
+     */
+    | { readonly type: "preparePrint"; readonly requestId: number }
     | { readonly type: "finishPrint" }
     /** Write back typing still waiting for its pause, now: the app is pausing or switching document (DS-14). */
     | { readonly type: "flush" }
     /**
-     * "Copy as rich text": the page's own rendering of source lines
-     * [fromLine, toLine), without editing attributes or chips. Answered by
+     * "Copy formatted text": source lines [fromLine, toLine) as HTML with
+     * inline light-theme styles only, plus its plain-text twin, together at
+     * most [maxChars] characters (the clipboard crosses Binder). Answered by
      * `htmlResult` with the same [requestId].
      */
-    | { readonly type: "exportHtml"; readonly requestId: number; readonly fromLine: number; readonly toLine: number };
+    | {
+          readonly type: "exportHtml";
+          readonly requestId: number;
+          readonly fromLine: number;
+          readonly toLine: number;
+          readonly maxChars: number;
+      }
+    /**
+     * Find & replace: the matches, as source offsets in the text at revision
+     * [rev], flat `[start0, end0, start1, end1, …]`; absent keeps the ones
+     * the page holds, empty clears them. [current] is an index or -1; with
+     * [reveal] the page scrolls it into view. A stale [rev] is dropped:
+     * Kotlin searches again after every change and sends fresh matches.
+     */
+    | {
+          readonly type: "find";
+          readonly rev: number;
+          readonly ranges?: readonly number[];
+          readonly current: number;
+          readonly reveal: boolean;
+      }
+    /**
+     * The answer to `imageQuery` [id]: why each picture beside the document
+     * can or cannot be shown (`ok`, `notFound`, `noAccess`, `notImage`,
+     * `tooLarge`), by the key the page asked with.
+     */
+    | { readonly type: "imageStatus"; readonly id: number; readonly statuses: Readonly<Record<string, string>> }
+    /** The host can now see more (a folder was granted or changed): pictures that failed try again. */
+    | { readonly type: "imagesChanged" };
 
 /**
  * Formatting actions Kotlin applies with core:markdown's EditCommand, in the
@@ -147,15 +188,36 @@ export type FormatAction =
     | "heading4"
     | "heading5"
     | "heading6"
+    | "enter"
+    | "backspace"
+    | "indent"
+    | "outdent"
+    | "type}"
+    | "type]"
+    | "type)"
+    | "blockParagraph"
+    | "blockHeading1"
+    | "blockHeading2"
+    | "blockHeading3"
+    | "blockBullet"
+    | "blockNumbered"
+    | "blockTask"
+    | "blockQuote"
+    | "blockCode"
+    /** The Insert image key: Kotlin opens the picker and inserts at this selection. */
+    | "image"
     | "undo"
     | "redo";
 
 export type TableOp =
     | { readonly kind: "addRow" }
+    | { readonly kind: "addRowAbove" }
     | { readonly kind: "addColumn" }
+    | { readonly kind: "addColumnLeft" }
     | { readonly kind: "align"; readonly align: Align }
     | { readonly kind: "deleteRow" }
     | { readonly kind: "deleteColumn" }
+    | { readonly kind: "deleteTable" }
     | { readonly kind: "moveRow"; readonly by: -1 | 1 }
     | { readonly kind: "moveColumn"; readonly by: -1 | 1 };
 
@@ -177,7 +239,15 @@ export interface Crumb {
 export type PageMessage =
     | { readonly type: "ready"; readonly version: number }
     | { readonly type: "rendered"; readonly rev: number; readonly sections: number; readonly millis: number }
-    | { readonly type: "topLine"; readonly line: number; readonly crumbs: readonly Crumb[] }
+    | {
+          readonly type: "topLine";
+          readonly line: number;
+          readonly crumbs: readonly Crumb[];
+          /** Scroll position over the scrollable range, 0 to 1, for the reading line. */
+          readonly fraction?: number;
+          /** How much of the page the viewport shows, 0 to 1: the fast-scroll thumb shows only on long pages. */
+          readonly visible?: number;
+      }
     | {
           readonly type: "sourceEdit";
           readonly baseRev: number;
@@ -236,9 +306,27 @@ export type PageMessage =
       }
     | { readonly type: "tableMenu"; readonly line: number; readonly row: number; readonly column: number }
     | { readonly type: "exportResult"; readonly requestId: number; readonly mime: string; readonly data: string }
-    | { readonly type: "printReady" }
-    /** The answer to `exportHtml`; [html] is null when the lines could not be rendered. */
-    | { readonly type: "htmlResult"; readonly requestId: number; readonly html: string | null }
+    | { readonly type: "printReady"; readonly requestId: number }
+    /**
+     * The answer to `exportHtml`: [html] and its plain-text twin [text], both
+     * null when the lines could not be rendered; [truncated] when the copy
+     * stopped early to fit [maxChars].
+     */
+    | {
+          readonly type: "htmlResult";
+          readonly requestId: number;
+          readonly html: string | null;
+          readonly text: string | null;
+          readonly truncated: boolean;
+      }
+    /**
+     * Pictures beside the document that failed to load in one burst, by key
+     * (`1/shared/a.png`: climbs, then the path; core/imagePaths.ts). Kotlin
+     * answers with one `imageStatus` carrying the same [id].
+     */
+    | { readonly type: "imageQuery"; readonly id: number; readonly paths: readonly string[] }
+    /** The placeholder's "Allow access": Kotlin asks for the document's folder. */
+    | { readonly type: "allowFolder" }
     | { readonly type: "error"; readonly message: string };
 
 /** Document-wide definitions every section render needs (see core/definitions.ts). */

@@ -25,6 +25,7 @@ import org.junit.runner.RunWith
  */
 @OptIn(ExperimentalMetricApi::class)
 @RunWith(AndroidJUnit4::class)
+@Suppress("TooManyFunctions") // One function per benchmark, plus their shared steps.
 class EditorBenchmarks {
     @get:Rule val rule = MacrobenchmarkRule()
 
@@ -136,6 +137,72 @@ class EditorBenchmarks {
         }
 
     /**
+     * Drags the fast-scroll thumb (ux-spec "Fast scroll") down and back up a
+     * 20 MB file. A short swipe shows the thumb at the top of the pane; the
+     * drag starts on it, at the right edge, and moves slowly so every frame
+     * is a jump to a new line. Budget: the fling's, no frame over 32 ms.
+     */
+    @Test
+    fun fastScroll20Mb() =
+        rule.measureRepeated(
+            packageName = PACKAGE,
+            metrics = listOf(FrameTimingMetric()),
+            compilationMode = CompilationMode.DEFAULT,
+            iterations = FLING_ITERATIONS,
+            setupBlock = {
+                resetApp(CorpusFile.Huge)
+                openForEditing(CorpusFile.Huge)
+                selectMode("Code")
+            },
+        ) {
+            val w = device.displayWidth
+            val h = device.displayHeight
+            // A small scroll near the top shows the thumb, close to the top of the pane.
+            device.swipe(w / 2, (h * NUDGE_FROM).toInt(), w / 2, (h * NUDGE_TO).toInt(), DRAG_STEPS)
+            val density = w.toFloat() / device.displaySizeDp.x
+            val x = w - (THUMB_FROM_EDGE_DP * density).toInt()
+            device.drag(x, (h * THUMB_START).toInt(), x, (h * FLING_LOW).toInt(), DRAG_STEPS)
+            device.drag(x, (h * FLING_LOW).toInt(), x, (h * THUMB_START).toInt(), DRAG_STEPS)
+        }
+
+    /**
+     * Flings UP a wrapped 1 MB file from its end, where every line above
+     * the screen still has an estimated height: each line measured on the
+     * way up corrects the scroll, the case that juddered on a phone
+     * (edge-cases.md, "Upward fling judders"). Budget: 60 fps, no frame over 32 ms.
+     */
+    @Test
+    fun flingUp1Mb() =
+        rule.measureRepeated(
+            packageName = PACKAGE,
+            metrics = listOf(FrameTimingMetric()),
+            compilationMode = CompilationMode.DEFAULT,
+            iterations = FLING_ITERATIONS,
+            setupBlock = {
+                resetApp(CorpusFile.Large)
+                disableKeyboards()
+                openForEditing(CorpusFile.Large)
+                selectMode("Code")
+                focusCodeAt(CODE_PANE_Y)
+                // Ctrl+End: to the end without laying out what is above it.
+                device.pressKeyCode(KeyEvent.KEYCODE_MOVE_END, KeyEvent.META_CTRL_ON)
+                device.waitForIdle()
+            },
+        ) {
+            try {
+                val x = device.displayWidth / 2
+                val h = device.displayHeight
+                repeat(FLINGS) {
+                    // The finger moves down the screen: the text scrolls towards the start.
+                    device.swipe(x, (h * FLING_HIGH).toInt(), x, (h * FLING_LOW).toInt(), FLING_STEPS)
+                    Thread.sleep(FLING_GAP_MILLIS)
+                }
+            } finally {
+                restoreKeyboards()
+            }
+        }
+
+    /**
      * Preview refresh after typing on a 50 KB document, in Split. Each key
      * is typed alone and given time to settle, so each `SSM:previewRefresh`
      * is "typing stopped → the visible section redrawn". Budget < 150 ms.
@@ -196,6 +263,13 @@ class EditorBenchmarks {
         const val FLING_HIGH = 0.25f
         const val FLING_STEPS = 4
         const val FLING_GAP_MILLIS = 700L
+
+        // Fast scroll: a slow nudge (shows the thumb), then drags along the right edge.
+        const val NUDGE_FROM = 0.6f
+        const val NUDGE_TO = 0.5f
+        const val THUMB_FROM_EDGE_DP = 12
+        const val THUMB_START = 0.13f
+        const val DRAG_STEPS = 120
 
         const val PREVIEW_LOAD_MILLIS = 3_000L
         const val PREVIEW_KEYSTROKES = 6

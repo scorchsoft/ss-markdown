@@ -34,6 +34,12 @@ import com.scorchsoft.ssmarkdown.history.HistoryViewModel
 import com.scorchsoft.ssmarkdown.history.journal.JournalStore
 import com.scorchsoft.ssmarkdown.history.versions.VersionStore
 import com.scorchsoft.ssmarkdown.media.DocumentPictures
+import com.scorchsoft.ssmarkdown.media.PictureAccess
+import com.scorchsoft.ssmarkdown.media.PictureFolders
+import com.scorchsoft.ssmarkdown.media.PreferencesFolderLinks
+import com.scorchsoft.ssmarkdown.media.SafDocumentTree
+import com.scorchsoft.ssmarkdown.media.SafPictureAccess
+import com.scorchsoft.ssmarkdown.media.TreeListings
 import com.scorchsoft.ssmarkdown.nav.ScreenStack
 import com.scorchsoft.ssmarkdown.platform.AppDirs
 import com.scorchsoft.ssmarkdown.platform.ExitReasons
@@ -44,6 +50,7 @@ import com.scorchsoft.ssmarkdown.settings.PreferencesSettingsStore
 import com.scorchsoft.ssmarkdown.settings.SettingsRepository
 import com.scorchsoft.ssmarkdown.share.CompatShortcutPublisher
 import com.scorchsoft.ssmarkdown.share.DirectShareTargets
+import com.scorchsoft.ssmarkdown.share.PreferencesPublishedRecord
 import com.scorchsoft.ssmarkdown.storage.StorageDependencies
 import com.scorchsoft.ssmarkdown.storage.StorageViewModel
 import com.scorchsoft.ssmarkdown.themes.ThemeEditorViewModel
@@ -214,6 +221,7 @@ class AppGraph(
                 io = io,
                 viewStates = JsonViewStateStore(File(dirs.files, "view-state.json"), ioScope),
                 pictures = pictures,
+                pictureAccess = pictureAccess,
                 memory = governor,
             ),
         ).also {
@@ -233,6 +241,22 @@ class AppGraph(
         governor.register(ShedStep.InactiveCleanBuffers) { mainScope.launch { store.evictInactiveClean() } }
     }
 
+    /** Folder listings for pictures, cached a few seconds (one listing per folder, not one walk per picture). */
+    private val pictureListings = TreeListings(SafDocumentTree(resolver))
+
+    /**
+     * Which granted folder holds a document, for its pictures: folder mode,
+     * the folder granted for this file (remembered, ADR 0018), or any folder
+     * grant that holds it.
+     */
+    private val pictureFolders =
+        PictureFolders(
+            pictureListings,
+            PreferencesFolderLinks({ app.getSharedPreferences(PICTURE_FOLDERS_PREFERENCES, Context.MODE_PRIVATE) }),
+            folderTree = { editor.state.folder?.treeUri },
+            heldTrees = { permissions.held().keys.map { it.value } },
+        )
+
     /** Pictures next to the open document, inside the folder the user granted; also the preview's `/doc/` resolver. */
     val pictures =
         DocumentPictures(
@@ -243,23 +267,57 @@ class AppGraph(
                     ?.uri
                     ?.value
             },
-            treeUri = { editor.state.folder?.treeUri },
+            folders = pictureFolders,
+            listings = pictureListings,
+            draftFile = { drafts.resolve(DocumentUri(it)) },
         )
+
+    /** Insert image and "Allow access": placing, copying and granting folders for pictures. */
+    private val pictureAccess: PictureAccess by lazy {
+        SafPictureAccess(
+            resolver,
+            pictureFolders,
+            pictureListings,
+            draftFile = { drafts.resolve(DocumentUri(it)) },
+            takeGrant = { tree ->
+                permissions.take(DocumentUri(tree), write = true) ||
+                    permissions.take(DocumentUri(tree), write = false)
+            },
+            releaseGrant = { tree ->
+                // A grant folder mode also uses stays.
+                if (editor.state.folder?.treeUri != tree) permissions.release(DocumentUri(tree))
+            },
+        )
+    }
 
     /** One-time tickets for the share sheet's "Open" (SEC-2: no URI travels in an extra). */
     val openTokens = OpenTokens(clock)
 
     /**
      * Recent files as Android Direct Share targets (ADR 0017), kept in step
-     * with Settings → Sharing and the recent list. Synced once now, on
-     * [io]; nothing here runs on the main thread or can throw.
+     * with Settings → Sharing and the recent list. The first sync runs a few
+     * seconds after launch, on [io], and makes no shortcut call when nothing
+     * changed since the last process; nothing here runs on the main thread
+     * or can throw.
      */
     val directShare =
-        DirectShareTargets(CompatShortcutPublisher(app), settings, permissions::held, ioScope, io).also {
-            it.start()
-        }
+        DirectShareTargets(
+            CompatShortcutPublisher(app),
+            settings,
+            permissions::held,
+            ioScope,
+            io,
+            record =
+                PreferencesPublishedRecord {
+                    app.getSharedPreferences(
+                        DIRECT_SHARE_PREFERENCES,
+                        Context.MODE_PRIVATE,
+                    )
+                },
+            startDelayMillis = DIRECT_SHARE_START_DELAY_MILLIS,
+        ).also { it.start() }
 
-    /** Downloads, ZIPs, sharing and the clipboard for exported images and rich text. */
+    /** Downloads, ZIPs, sharing and the clipboard for exported images and formatted text. */
     val media = MediaActions(app, io)
 
     /** The preview themes: built-ins plus custom JSON files. */
@@ -283,3 +341,12 @@ private fun singleThread(name: String): Executor =
 
 /** The settings file; the Application starts loading it before the graph is built (PERF-21). */
 internal const val SETTINGS_PREFERENCES = "settings"
+
+/** Which folder the user granted for each document's pictures (app-private; ADR 0018). */
+private const val PICTURE_FOLDERS_PREFERENCES = "picture_folders"
+
+/** Where Direct Share remembers the shortcut set it last published (app-private). */
+private const val DIRECT_SHARE_PREFERENCES = "direct_share"
+
+/** Direct Share's first sync waits this long after launch, so no shortcut call is on the launch path. */
+private const val DIRECT_SHARE_START_DELAY_MILLIS = 5_000L

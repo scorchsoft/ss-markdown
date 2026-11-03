@@ -18,7 +18,9 @@ import kotlin.math.roundToInt
  * 3. **Long-press** selects the word and, while the finger stays down,
  *    dragging extends the selection; lifting shows the text toolbar.
  * 4. **Double-tap** selects the word; **tap** places the caret and shows
- *    the insertion handle; **drag/fling** scroll.
+ *    the insertion handle; **drag/fling** scroll. A tap that lands while a
+ *    fling is moving only stops it, as in every platform list: it does not
+ *    move the caret or raise a handle the reader never asked for.
  */
 internal class TouchController(
     private val view: MarkdownCodeView,
@@ -34,8 +36,14 @@ internal class TouchController(
     private var pinching = false
     private var tapped = false
 
+    /** True while the gesture began by stopping a fling, so its tap only stops it. */
+    private var downStoppedFling = false
+
     /** Vertical gap between the finger and the handle's point, so the finger never hides the text it moves. */
     private var grabOffsetY = 0f
+
+    /** True while a handle is dragged or a long-press is extending a selection. */
+    val isSelecting: Boolean get() = dragging != null || selectingByLongPress
 
     /** True once after a tap placed the caret; the view answers it with `performClick`. */
     fun takeTap(): Boolean = tapped.also { tapped = false }
@@ -43,7 +51,7 @@ internal class TouchController(
     /** Routes [event]; returns true when it was consumed. */
     fun onTouchEvent(event: MotionEvent): Boolean {
         val down = event.actionMasked == MotionEvent.ACTION_DOWN
-        if (down) view.stopFling()
+        if (down) downStoppedFling = view.stopFling()
         return when {
             down && startHandleDrag(event) -> {
                 true
@@ -148,6 +156,7 @@ internal class TouchController(
         override fun onSingleTapConfirmed(e: MotionEvent): Boolean = true
 
         override fun onSingleTapUp(e: MotionEvent): Boolean {
+            if (downStoppedFling) return true
             view.onTap(e.x, e.y)
             tapped = true
             return true

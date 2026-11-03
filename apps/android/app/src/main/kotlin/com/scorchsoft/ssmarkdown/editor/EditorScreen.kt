@@ -2,6 +2,7 @@ package com.scorchsoft.ssmarkdown.editor
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -16,6 +17,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imeAnimationSource
+import androidx.compose.foundation.layout.imeAnimationTarget
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -27,6 +31,8 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +44,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
@@ -47,6 +54,7 @@ import com.scorchsoft.ssmarkdown.editor.chrome.LandscapeBar
 import com.scorchsoft.ssmarkdown.editor.chrome.ModeBar
 import com.scorchsoft.ssmarkdown.editor.chrome.TopBar
 import com.scorchsoft.ssmarkdown.editor.chrome.stripDocumentFor
+import com.scorchsoft.ssmarkdown.editor.chrome.viewHighlight
 import com.scorchsoft.ssmarkdown.editor.panes.EditorPanes
 import com.scorchsoft.ssmarkdown.editor.panes.PreviewHostState
 import com.scorchsoft.ssmarkdown.editor.preview.PreviewStripKeys
@@ -60,8 +68,11 @@ import com.scorchsoft.ssmarkdown.folder.FolderAction
 import com.scorchsoft.ssmarkdown.folder.FolderPanel
 import com.scorchsoft.ssmarkdown.navigator.NavigatorSheet
 import com.scorchsoft.ssmarkdown.settings.Appearance
+import com.scorchsoft.ssmarkdown.settings.SplitTyping
 import com.scorchsoft.ssmarkdown.ui.strip.FormattingStrip
+import com.scorchsoft.ssmarkdown.ui.strip.StripLayout
 import com.scorchsoft.ssmarkdown.ui.strip.StripMode
+import com.scorchsoft.ssmarkdown.ui.strip.StripRows
 
 /** The folder panel docks from this width (ux-spec "Layouts"). */
 private val DockedWidth = 840.dp
@@ -79,7 +90,10 @@ private const val LARGE_FONT_SCALE = 1.5f
  * under Robolectric in every state. The panes are slots: [codePane] is the
  * `MarkdownEditor` in the app and a stand-in in tests; [previewPane] is
  * the `feature/preview` host, and [themeControls] the `core/theme`
- * pickers inside Display. Both default to placeholders.
+ * pickers inside Display. Both default to placeholders. [stripRows] is
+ * Settings → Formatting bar; the strip falls back to one row in landscape
+ * and on a short window ([StripLayout.rowsFor]). [splitTyping] is Settings →
+ * When typing in Split.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -93,6 +107,8 @@ fun EditorScreen(
     modifier: Modifier = Modifier,
     themeControls: @Composable () -> Unit = { ThemeControlsPlaceholder() },
     display: DisplayFacts = DisplayFacts(appearance),
+    stripRows: StripRows = StripRows.One,
+    splitTyping: SplitTyping = SplitTyping.EditedPane,
 ) {
     val imeVisible = WindowInsets.isImeVisible
     LaunchedEffect(imeVisible) { onAction(EditorAction.ImeVisibilityChanged(imeVisible)) }
@@ -101,7 +117,7 @@ fun EditorScreen(
     BoxWithConstraints(modifier.fillMaxSize().background(SS.colors.bg)) {
         val landscape = maxWidth > maxHeight && maxHeight < LandscapeMaxHeight
         val docked = maxWidth >= DockedWidth && state.folder != null
-        val layout = ScreenLayout(landscape, docked, imeVisible, largeFont)
+        val layout = ScreenLayout(landscape, docked, imeVisible, largeFont, stripRows, wide = maxWidth > maxHeight)
         val drawerOpen = !docked && state.folder?.drawerOpen == true
         val behindDrawer = if (drawerOpen) Modifier.clearAndSetSemantics {} else Modifier
         Row(
@@ -118,7 +134,7 @@ fun EditorScreen(
                 )
                 VerticalDivider(thickness = SS.dimens.hairline, color = SS.colors.border)
             }
-            EditorColumn(state, onAction, layout, codePane, previewPane, previewState, Modifier.weight(1f))
+            EditorColumn(state, onAction, layout, codePane, previewPane, previewState, splitTyping, Modifier.weight(1f))
         }
         if (!docked) Drawer(state, onAction)
     }
@@ -131,6 +147,10 @@ private data class ScreenLayout(
     val docked: Boolean,
     val imeVisible: Boolean,
     val largeFont: Boolean,
+    /** Settings → Formatting bar, before the fallback. */
+    val stripRows: StripRows = StripRows.One,
+    /** Wider than tall: any landscape window, which always gets a one-row strip. */
+    val wide: Boolean = landscape,
 )
 
 @Suppress("LongParameterList") // The screen's slots, passed straight through.
@@ -142,27 +162,66 @@ private fun EditorColumn(
     codePane: @Composable (Modifier) -> Unit,
     previewPane: @Composable (PreviewHostState) -> Unit,
     previewState: PreviewHostState,
+    splitTyping: SplitTyping,
     modifier: Modifier,
 ) {
     Column(modifier.fillMaxHeight()) {
         Header(state, onAction, layout)
         state.banner?.let { EditorBannerView(it, state.title, onAction) }
         state.find?.let { FindBar(it, { action -> onAction(EditorAction.Find(action)) }) }
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            val tooLarge = state.tooLarge
-            if (tooLarge != null) {
-                TooLargeMessage(tooLarge)
-            } else {
-                EditorPanes(state, onAction, codePane, previewPane, previewState, layout.imeVisible)
+        // The panes and the footer share this room, so the strip's rows are chosen from it.
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            val rows = stripRowsFor(layout, maxHeight)
+            Column(Modifier.fillMaxSize()) {
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    val tooLarge = state.tooLarge
+                    if (tooLarge != null) {
+                        TooLargeMessage(tooLarge)
+                    } else {
+                        EditorPanes(state, onAction, codePane, previewPane, previewState, splitTyping)
+                    }
+                    state.navigator?.let { nav ->
+                        // Below the header, so the title, the unsaved dot and Save stay visible.
+                        NavigatorSurface {
+                            NavigatorSheet(nav, { action -> onAction(EditorAction.Navigator(action)) }, it)
+                        }
+                    }
+                    state.message?.let { MessageBar(it, onAction, Modifier.align(Alignment.BottomCenter)) }
+                }
+                Footer(state, onAction, layout, rows)
             }
-            state.navigator?.let { nav ->
-                // Below the header, so the title, the unsaved dot and Save stay visible.
-                NavigatorSheet(nav, { onAction(EditorAction.Navigator(it)) }, Modifier.heightIn(max = 560.dp))
-            }
-            state.message?.let { MessageBar(it, onAction, Modifier.align(Alignment.BottomCenter)) }
         }
-        Footer(state, onAction, layout)
     }
+}
+
+/**
+ * The strip's rows: the setting, unless the window is landscape or the
+ * editor would be left under [StripLayout.minEditorAboveTwoRows] above two
+ * rows. [room] is what the panes and the footer share. The keyboard's
+ * height is the largest of where it is, where it started and where it is
+ * going, so the answer holds for the whole of its slide and the strip never
+ * changes rows mid-animation; and it is a derived state, so a keyboard
+ * frame recomposes nothing unless the answer changes.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun stripRowsFor(
+    layout: ScreenLayout,
+    room: Dp,
+): StripRows {
+    val density = LocalDensity.current
+    val key = SS.dimens.key
+    val ime = WindowInsets.ime
+    val source = WindowInsets.imeAnimationSource
+    val target = WindowInsets.imeAnimationTarget
+    val rows by remember(layout.stripRows, layout.wide, room, density, key) {
+        derivedStateOf {
+            val keyboard = maxOf(ime.getBottom(density), source.getBottom(density), target.getBottom(density))
+            val oneRow = room - with(density) { keyboard.toDp() } - key
+            StripLayout.rowsFor(layout.stripRows, layout.wide, oneRow, key)
+        }
+    }
+    return rows
 }
 
 @Composable
@@ -196,6 +255,7 @@ private fun Footer(
     state: EditorUiState,
     onAction: (EditorAction) -> Unit,
     layout: ScreenLayout,
+    rows: StripRows,
 ) {
     when {
         layout.imeVisible -> {
@@ -210,11 +270,13 @@ private fun Footer(
                 onKey = { onAction(EditorAction.StripKeyTapped(it)) },
                 onSymbol = { onAction(EditorAction.SymbolTapped(it)) },
                 onCursor = { onAction(EditorAction.CursorStepped(it)) },
+                onBlock = { onAction(EditorAction.BlockChosen(it)) },
                 onSave = { onAction(EditorAction.SaveTapped) },
                 onTableAction = { action ->
-                    PreviewStripKeys.tableOp(action)?.let { onAction(EditorAction.Table(it)) }
+                    onAction(EditorAction.Table(PreviewStripKeys.tableOp(action)))
                 },
                 modifier = Modifier.imePadding(),
+                rows = rows,
             )
         }
 
@@ -228,6 +290,7 @@ private fun Footer(
                 onSelect = { onAction(EditorAction.SelectMode(it)) },
                 iconOnly = layout.largeFont,
                 modes = if (state.isMarkdown) ViewMode.entries else listOf(ViewMode.Code),
+                onLongPress = { onAction(EditorAction.OpenView(it.viewHighlight())) },
                 modifier = Modifier.navigationBarsPadding(),
             )
         }
@@ -275,3 +338,31 @@ private fun Drawer(
 }
 
 private const val SCRIM_ALPHA = 0.32f
+
+/** From this width the Navigator is a popover under the title, not a sheet across the pane. */
+private val NavigatorPopoverFrom = 600.dp
+private val NavigatorPopoverWidth = 420.dp
+private val NavigatorPopoverMaxHeight = 560.dp
+
+/**
+ * Where the Navigator sits in the pane area below the header. On a phone
+ * it fills that area down to the mode bar, so it reads as a deliberate
+ * surface: capped at its content's height it stopped part way over the
+ * editor and looked like a layout fault. On a tablet it is a 420 dp
+ * popover under the title (ux-spec "Navigator").
+ */
+@Composable
+private fun NavigatorSurface(sheet: @Composable (Modifier) -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        if (maxWidth >= NavigatorPopoverFrom) {
+            sheet(
+                Modifier
+                    .width(NavigatorPopoverWidth)
+                    .heightIn(max = NavigatorPopoverMaxHeight)
+                    .border(SS.dimens.hairline, SS.colors.border),
+            )
+        } else {
+            sheet(Modifier.fillMaxSize())
+        }
+    }
+}

@@ -138,6 +138,22 @@ internal class KillRun(
     private var reopened: OpenOutcome.Opened? = null
     private var undoStepsWalked = 0
 
+    /**
+     * One launch in four reopens only what the scan offered, then lets the
+     * launch settle ([DocumentStore.releaseUnclaimedHistory]) before the
+     * document is opened again by hand: its clean journal must be gone by
+     * then, history and all (ADR 0016; review r3 L2). Drawn from its own
+     * generator so the scenario itself is the same either way.
+     */
+    private val launchSkipsReopen = Random(seed * 31 + 7).nextInt(4) == 0
+    private var historyReleased = false
+
+    /** The open documents that held no unsaved edits when the process died, all their journal work done. */
+    private var cleanAtKill = emptySet<DocumentUri>()
+
+    /** A main-thread action is running; a kill now may land between its journal steps. */
+    private var inAction = false
+
     /** The independent model of typed edits: checked against the buffer after each one. */
     private var model = StringBuilder()
     private var format = TextFileFormat.DEFAULT
@@ -356,6 +372,7 @@ internal class KillRun(
         val statesBefore = states.size
         actionStates = statesBefore
         actionFormat = startFormat
+        inAction = true
         session.scope.launch {
             try {
                 block()
@@ -372,6 +389,7 @@ internal class KillRun(
             check(ran) { "action $name is stuck (seed $seed)" }
         }
         checkAlive()
+        inAction = false
         // A fault armed for a write that never came must not hit a later one (or recovery's restore).
         provider.failNextWriteAfter = null
         provider.failNextClose = false
@@ -655,6 +673,7 @@ internal class KillRun(
         dead = false
         recovering = true
         killAtByte = null
+        cleanAtKill = cleanAtKill()
         session = Session()
         wireHooks()
         val (recovered, reopenFailure) = relaunch()
@@ -667,6 +686,18 @@ internal class KillRun(
         return result(actions, failure, loss, lost)
     }
 
+    /**
+     * The documents saved, with nothing typed since, nothing held, and
+     * every journal step queued for them done: the next launch must not
+     * offer them (review r3 L2, M1, M2). A kill inside an action, before the
+     * journal thread caught up or tearing its last write may leave a journal
+     * on the old base, which the launch rightly treats as edits.
+     */
+    private fun cleanAtKill(): Set<DocumentUri> {
+        if (inAction || !session.thread.isEmpty || tornJournal) return emptySet()
+        return uris.filter { uri -> session.store[uri]?.let { !it.isDirty && !it.holdsUnappliedEdits } == true }.toSet()
+    }
+
     /** The next launch: the real scan, then every offered document and the one that was open. */
     private fun relaunch(): Pair<List<String>, String?> {
         val recovered = ArrayList<String>()
@@ -674,20 +705,16 @@ internal class KillRun(
         var finished = false
         session.scope.launch {
             val scan = session.store.scanForRecovery()
+            val offered = scan.offers.map { it.uri }.toSet()
             val toOpen = LinkedHashSet<DocumentUri>()
-            toOpen += scan.offers.map { it.uri }
-            toOpen += current
+            toOpen += offered
+            if (!launchSkipsReopen) toOpen += current
+            (offered intersect cleanAtKill).firstOrNull()?.let { failure = "$it was saved, yet offered for recovery" }
             for (uri in toOpen.filter(provider::exists)) {
-                val outcome = session.store.open(uri)
-                if (outcome !is OpenOutcome.Opened) {
-                    failure = "could not reopen $uri: $outcome"
-                    continue
-                }
-                if (outcome.recovery is Recovery.Kept) failure = "recovery kept $uri aside: ${outcome.recovery}"
-                if (uri == current) reopened = outcome
-                recovered +=
-                    outcome.document.document.text
-                        .toString()
+                reopen(uri, recovered)?.let { failure = it }
+            }
+            if (launchSkipsReopen && current !in offered && provider.exists(current)) {
+                failure = failure ?: releaseThenReopen(recovered)
             }
             finished = true
         }
@@ -695,16 +722,50 @@ internal class KillRun(
         return recovered to failure
     }
 
+    /** Opens [uri] at relaunch and adds its text to [recovered]; returns a failure, or null. */
+    private suspend fun reopen(
+        uri: DocumentUri,
+        recovered: MutableList<String>,
+    ): String? {
+        val outcome = session.store.open(uri) as? OpenOutcome.Opened ?: return "could not reopen $uri"
+        if (uri == current) reopened = outcome
+        recovered +=
+            outcome.document.document.text
+                .toString()
+        return if (outcome.recovery is Recovery.Kept) "recovery kept $uri aside: ${outcome.recovery}" else null
+    }
+
+    /**
+     * The launch settles without having reopened [current]: its clean
+     * journal must go, history and all. Then it is opened by hand, for the
+     * checks; its text goes into [recovered]. Returns a failure, or null.
+     */
+    private suspend fun releaseThenReopen(recovered: MutableList<String>): String? {
+        session.store.releaseUnclaimedHistory()
+        val outlived = session.journals.fileFor(current.value).exists()
+        historyReleased = true
+        val outcome = session.store.open(current) as? OpenOutcome.Opened ?: return "could not reopen $current"
+        reopened = outcome
+        recovered +=
+            outcome.document.document.text
+                .toString()
+        return if (outlived) "the clean journal of $current outlived a launch that did not reopen it" else null
+    }
+
     /**
      * Undo survives the kill (ADR 0016): the recovered document's undo and
      * redo steps are the ones the live document had in a state with the
      * recovered text, and walking Undo all the way back, then Redo all the
-     * way forward, passes through exactly the texts those steps lead to. A
+     * way forward, passes through exactly the texts the live steps lead to.
+     * No history at all passes only where the live document had none in
+     * the newest state with that text (r3 L2: an older state with the same
+     * text and no history, such as the file as opened, is not enough). A
      * recovery that had to treat the edits as a conflict starts with no
      * history, by design (robustness §2a), as do the old URI of an
-     * interrupted Save as and an interrupted "Don't save".
+     * interrupted Save as, an interrupted "Don't save", and a document the
+     * launch did not reopen (its clean journal is released).
      */
-    @Suppress("ReturnCount") // Not reopened, read-only, no such state, no such history, and a bad walk.
+    @Suppress("ReturnCount", "CyclomaticComplexMethod") // One reason to stop per line, and the expected-none cases.
     private fun checkUndo(): String? {
         val opened = reopened ?: return null
         val doc = opened.document
@@ -722,10 +783,19 @@ internal class KillRun(
         // interrupted (it may already have deleted the journal, history and all).
         val noHistoryExpected =
             opened.recovery is Recovery.Conflicted || trail.lastOrNull() in setOf("save as", "don't save")
+        if (historyReleased) {
+            return if (actual == Steps.NONE) null else "history $actual survived a launch that let it go"
+        }
         if (actual !in candidates && !(noHistoryExpected && actual == Steps.NONE)) {
             return "recovered undo steps $actual match no state with that text: ${candidates.take(2)}"
         }
-        val expected = actual.walk(text)
+        val newest = histories[states.indexOfLast { it.second == text }]
+        if (actual == Steps.NONE && newest != Steps.NONE && !noHistoryExpected) {
+            return "recovered no undo steps where the live document had $newest"
+        }
+        // The live steps matched (actual is one of candidates): the walk is checked against theirs.
+        val live = candidates.firstOrNull { it == actual } ?: Steps.NONE
+        val expected = live.walk(text)
         val walked = mutableListOf(text)
         while (doc.undo() != null) walked += doc.document.text.toString()
         while (doc.redo() != null) walked += doc.document.text.toString()

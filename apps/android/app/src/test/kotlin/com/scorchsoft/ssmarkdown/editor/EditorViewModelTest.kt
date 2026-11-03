@@ -128,6 +128,34 @@ class EditorViewModelTest {
     }
 
     @Test
+    fun `a merge settled for one file is never applied to another`() {
+        val f = fixture()
+        // Two files in conflict, each with one edit of mine, so their buffers stand at the same version.
+        f.openFile("one.md", "a\nb\n")
+        f.type(0, "mine\n")
+        f.externalWrite("one.md", "theirs\nb\n")
+        f.vm.onAction(EditorAction.SaveTapped)
+        f.openFile("two.md", "x\ny\n")
+        f.type(0, "mine too\n")
+        f.externalWrite("two.md", "theirs too\ny\n")
+        f.vm.onAction(EditorAction.SaveTapped)
+        f.vm.openDocument("test:one.md") // Folder-style switch: the dirty one.md was kept in memory.
+        f.vm.onAction(EditorAction.MergeMine) // An overlap: MergeResolve opens for one.md.
+        assertNotNull(f.vm.conflicts.merge.value)
+
+        f.vm.openDocument("test:two.md") // Meanwhile two.md is on screen.
+        f.vm.conflicts.finishMerge()
+
+        assertEquals("mine too\nx\ny\n", f.text())
+        assertNotNull(
+            f.store[
+                com.scorchsoft.ssmarkdown.files.provider
+                    .DocumentUri("test:two.md"),
+            ]?.conflict,
+        )
+    }
+
+    @Test
     fun `use my version asks first`() {
         val f = fixture()
         f.openFile("u.md", "x\n")
@@ -161,6 +189,23 @@ class EditorViewModelTest {
         second.vm.onAction(EditorAction.MessageUndo)
         assertEquals("typed kept\n", second.text())
         assertTrue(second.vm.uiState.value.isDirty)
+    }
+
+    @Test
+    fun `Undo on a discard never writes the discarded text into another document`() {
+        val first = fixture()
+        first.openFile("k.md", "kept\n")
+        first.type(0, "typed ")
+        first.vm.onPause()
+        val second = EditorFixture(temp.root, dispatcher)
+        second.vm.start()
+        second.vm.onAction(EditorAction.RecoveryDiscard)
+        // The message with Undo is still up when the user opens another file.
+        second.openFile("other.md", "other\n")
+        second.vm.onAction(EditorAction.MessageUndo)
+
+        assertEquals("other\n", second.text())
+        assertFalse(second.vm.uiState.value.isDirty)
     }
 
     @Test

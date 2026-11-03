@@ -24,7 +24,16 @@
           "code": "#1C1C1E",
           "codeBg": "#F4F4F5",
           "muted": "#5E5E64",
-          "border": "#D9D9DE"
+          "border": "#D9D9DE",
+          "codeComment": "#616972",
+          "codeKeyword": "#7C47DD",
+          "codeString": "#0A783B",
+          "codeNumber": "#A45100",
+          "codeTitle": "#0550AE",
+          "codeAttr": "#953800",
+          "codeBuiltIn": "#116329",
+          "codeMeta": "#57606A",
+          "codeDeletion": "#82071E"
         },
         "dark": {
           "bg": "#161618",
@@ -34,12 +43,21 @@
           "code": "#E6E6E9",
           "codeBg": "#242428",
           "muted": "#A1A1A8",
-          "border": "#3A3A3F"
+          "border": "#3A3A3F",
+          "codeComment": "#8B949E",
+          "codeKeyword": "#D2A8FF",
+          "codeString": "#7EE787",
+          "codeNumber": "#FFA657",
+          "codeTitle": "#79C0FF",
+          "codeAttr": "#FFA198",
+          "codeBuiltIn": "#7EE787",
+          "codeMeta": "#8B949E",
+          "codeDeletion": "#FFA198"
         },
         "css": ""
       },
       "fonts": {
-        "faces": "@font-face { font-family: \"Inter\"; src: url(\"/assets/fonts/bundled/inter.ttf\") format(\"truetype\"); font-style: normal; font-weight: 100 900; font-display: swap; }\n@font-face { font-family: \"Inter\"; src: url(\"/assets/fonts/bundled/inter-italic.ttf\") format(\"truetype\"); font-style: italic; font-weight: 100 900; font-display: swap; }\n@font-face { font-family: \"JetBrains Mono\"; src: url(\"/assets/fonts/bundled/jetbrains-mono.ttf\") format(\"truetype\"); font-style: normal; font-weight: 100 800; font-display: swap; }\n@font-face { font-family: \"JetBrains Mono\"; src: url(\"/assets/fonts/bundled/jetbrains-mono-italic.ttf\") format(\"truetype\"); font-style: italic; font-weight: 100 800; font-display: swap; }\n",
+        "faces": "@font-face { font-family: \"Inter\"; src: url(\"\/assets\/fonts\/bundled\/inter.ttf\") format(\"truetype\"); font-style: normal; font-weight: 100 900; font-display: swap; }\n@font-face { font-family: \"Inter\"; src: url(\"\/assets\/fonts\/bundled\/inter-italic.ttf\") format(\"truetype\"); font-style: italic; font-weight: 100 900; font-display: swap; }\n@font-face { font-family: \"JetBrains Mono\"; src: url(\"\/assets\/fonts\/bundled\/jetbrains-mono.ttf\") format(\"truetype\"); font-style: normal; font-weight: 100 800; font-display: swap; }\n@font-face { font-family: \"JetBrains Mono\"; src: url(\"\/assets\/fonts\/bundled\/jetbrains-mono-italic.ttf\") format(\"truetype\"); font-style: italic; font-weight: 100 800; font-display: swap; }\n",
         "body": "\"Inter\", sans-serif",
         "heading": "\"Inter\", sans-serif",
         "code": "\"JetBrains Mono\", monospace"
@@ -69,7 +87,16 @@
           "code": "#2B2620",
           "codeBg": "#F1EADC",
           "muted": "#6B5F50",
-          "border": "#E2D8C6"
+          "border": "#E2D8C6",
+          "codeComment": "#616972",
+          "codeKeyword": "#7C47DD",
+          "codeString": "#0A783B",
+          "codeNumber": "#A45100",
+          "codeTitle": "#0550AE",
+          "codeAttr": "#953800",
+          "codeBuiltIn": "#116329",
+          "codeMeta": "#57606A",
+          "codeDeletion": "#82071E"
         },
         "dark": {
           "bg": "#1E1B17",
@@ -79,12 +106,21 @@
           "code": "#E9E1D3",
           "codeBg": "#2A2620",
           "muted": "#B3A795",
-          "border": "#3D372F"
+          "border": "#3D372F",
+          "codeComment": "#8B949E",
+          "codeKeyword": "#D2A8FF",
+          "codeString": "#7EE787",
+          "codeNumber": "#FFA657",
+          "codeTitle": "#79C0FF",
+          "codeAttr": "#FFA198",
+          "codeBuiltIn": "#7EE787",
+          "codeMeta": "#8B949E",
+          "codeDeletion": "#FFA198"
         },
         "css": ""
       },
       "fonts": {
-        "faces": "@font-face { font-family: \"Literata\"; src: url(\"/assets/fonts/bundled/literata.ttf\") format(\"truetype\"); font-style: normal; font-weight: 200 900; font-display: swap; }\n@font-face { font-family: \"Literata\"; src: url(\"/assets/fonts/bundled/literata-italic.ttf\") format(\"truetype\"); font-style: italic; font-weight: 200 900; font-display: swap; }\n@font-face { font-family: \"JetBrains Mono\"; src: url(\"/assets/fonts/bundled/jetbrains-mono.ttf\") format(\"truetype\"); font-style: normal; font-weight: 100 800; font-display: swap; }\n@font-face { font-family: \"JetBrains Mono\"; src: url(\"/assets/fonts/bundled/jetbrains-mono-italic.ttf\") format(\"truetype\"); font-style: italic; font-weight: 100 800; font-display: swap; }\n",
+        "faces": "@font-face { font-family: \"Literata\"; src: url(\"\/assets\/fonts\/bundled\/literata.ttf\") format(\"truetype\"); font-style: normal; font-weight: 200 900; font-display: swap; }\n@font-face { font-family: \"Literata\"; src: url(\"\/assets\/fonts\/bundled\/literata-italic.ttf\") format(\"truetype\"); font-style: italic; font-weight: 200 900; font-display: swap; }\n@font-face { font-family: \"JetBrains Mono\"; src: url(\"\/assets\/fonts\/bundled\/jetbrains-mono.ttf\") format(\"truetype\"); font-style: normal; font-weight: 100 800; font-display: swap; }\n@font-face { font-family: \"JetBrains Mono\"; src: url(\"\/assets\/fonts\/bundled\/jetbrains-mono-italic.ttf\") format(\"truetype\"); font-style: italic; font-weight: 100 800; font-display: swap; }\n",
         "body": "\"Literata\", serif",
         "heading": "\"Literata\", serif",
         "code": "\"JetBrains Mono\", monospace"
@@ -114,7 +150,16 @@
           "code": "#24292F",
           "codeBg": "#F2F3F5",
           "muted": "#57606A",
-          "border": "#D0D7DE"
+          "border": "#D0D7DE",
+          "codeComment": "#616972",
+          "codeKeyword": "#7C47DD",
+          "codeString": "#0A783B",
+          "codeNumber": "#A45100",
+          "codeTitle": "#0550AE",
+          "codeAttr": "#953800",
+          "codeBuiltIn": "#116329",
+          "codeMeta": "#57606A",
+          "codeDeletion": "#82071E"
         },
         "dark": {
           "bg": "#0F1115",
@@ -124,12 +169,21 @@
           "code": "#E3E6EA",
           "codeBg": "#1C1F25",
           "muted": "#9AA3AD",
-          "border": "#30363D"
+          "border": "#30363D",
+          "codeComment": "#8B949E",
+          "codeKeyword": "#D2A8FF",
+          "codeString": "#7EE787",
+          "codeNumber": "#FFA657",
+          "codeTitle": "#79C0FF",
+          "codeAttr": "#FFA198",
+          "codeBuiltIn": "#7EE787",
+          "codeMeta": "#8B949E",
+          "codeDeletion": "#FFA198"
         },
         "css": ""
       },
       "fonts": {
-        "faces": "@font-face { font-family: \"IBM Plex Sans\"; src: url(\"/assets/fonts/bundled/inter.ttf\") format(\"truetype\"); font-style: normal; font-weight: 100 900; font-display: swap; }\n@font-face { font-family: \"IBM Plex Sans\"; src: url(\"/assets/fonts/bundled/inter-italic.ttf\") format(\"truetype\"); font-style: italic; font-weight: 100 900; font-display: swap; }\n@font-face { font-family: \"JetBrains Mono\"; src: url(\"/assets/fonts/bundled/jetbrains-mono.ttf\") format(\"truetype\"); font-style: normal; font-weight: 100 800; font-display: swap; }\n@font-face { font-family: \"JetBrains Mono\"; src: url(\"/assets/fonts/bundled/jetbrains-mono-italic.ttf\") format(\"truetype\"); font-style: italic; font-weight: 100 800; font-display: swap; }\n",
+        "faces": "@font-face { font-family: \"IBM Plex Sans\"; src: url(\"\/assets\/fonts\/bundled\/inter.ttf\") format(\"truetype\"); font-style: normal; font-weight: 100 900; font-display: swap; }\n@font-face { font-family: \"IBM Plex Sans\"; src: url(\"\/assets\/fonts\/bundled\/inter-italic.ttf\") format(\"truetype\"); font-style: italic; font-weight: 100 900; font-display: swap; }\n@font-face { font-family: \"JetBrains Mono\"; src: url(\"\/assets\/fonts\/bundled\/jetbrains-mono.ttf\") format(\"truetype\"); font-style: normal; font-weight: 100 800; font-display: swap; }\n@font-face { font-family: \"JetBrains Mono\"; src: url(\"\/assets\/fonts\/bundled\/jetbrains-mono-italic.ttf\") format(\"truetype\"); font-style: italic; font-weight: 100 800; font-display: swap; }\n",
         "body": "\"IBM Plex Sans\", sans-serif",
         "heading": "\"IBM Plex Sans\", sans-serif",
         "code": "\"JetBrains Mono\", monospace"
@@ -159,7 +213,16 @@
           "code": "#000000",
           "codeBg": "#F0F0F0",
           "muted": "#2E2E2E",
-          "border": "#000000"
+          "border": "#000000",
+          "codeComment": "#494F56",
+          "codeKeyword": "#5E25C8",
+          "codeString": "#075B2D",
+          "codeNumber": "#7D3E00",
+          "codeTitle": "#054BA4",
+          "codeAttr": "#8B3400",
+          "codeBuiltIn": "#105C26",
+          "codeMeta": "#485058",
+          "codeDeletion": "#82071E"
         },
         "dark": {
           "bg": "#000000",
@@ -169,12 +232,21 @@
           "code": "#FFFFFF",
           "codeBg": "#1A1A1A",
           "muted": "#D9D9D9",
-          "border": "#FFFFFF"
+          "border": "#FFFFFF",
+          "codeComment": "#A0A7AF",
+          "codeKeyword": "#D2A8FF",
+          "codeString": "#7EE787",
+          "codeNumber": "#FFA657",
+          "codeTitle": "#79C0FF",
+          "codeAttr": "#FFA198",
+          "codeBuiltIn": "#7EE787",
+          "codeMeta": "#A0A7AF",
+          "codeDeletion": "#FFA198"
         },
         "css": ""
       },
       "fonts": {
-        "faces": "@font-face { font-family: \"Atkinson Hyperlegible Next\"; src: url(\"/assets/fonts/bundled/atkinson-hyperlegible-next.ttf\") format(\"truetype\"); font-style: normal; font-weight: 200 800; font-display: swap; }\n@font-face { font-family: \"Atkinson Hyperlegible Next\"; src: url(\"/assets/fonts/bundled/atkinson-hyperlegible-next-italic.ttf\") format(\"truetype\"); font-style: italic; font-weight: 200 800; font-display: swap; }\n@font-face { font-family: \"JetBrains Mono\"; src: url(\"/assets/fonts/bundled/jetbrains-mono.ttf\") format(\"truetype\"); font-style: normal; font-weight: 100 800; font-display: swap; }\n@font-face { font-family: \"JetBrains Mono\"; src: url(\"/assets/fonts/bundled/jetbrains-mono-italic.ttf\") format(\"truetype\"); font-style: italic; font-weight: 100 800; font-display: swap; }\n",
+        "faces": "@font-face { font-family: \"Atkinson Hyperlegible Next\"; src: url(\"\/assets\/fonts\/bundled\/atkinson-hyperlegible-next.ttf\") format(\"truetype\"); font-style: normal; font-weight: 200 800; font-display: swap; }\n@font-face { font-family: \"Atkinson Hyperlegible Next\"; src: url(\"\/assets\/fonts\/bundled\/atkinson-hyperlegible-next-italic.ttf\") format(\"truetype\"); font-style: italic; font-weight: 200 800; font-display: swap; }\n@font-face { font-family: \"JetBrains Mono\"; src: url(\"\/assets\/fonts\/bundled\/jetbrains-mono.ttf\") format(\"truetype\"); font-style: normal; font-weight: 100 800; font-display: swap; }\n@font-face { font-family: \"JetBrains Mono\"; src: url(\"\/assets\/fonts\/bundled\/jetbrains-mono-italic.ttf\") format(\"truetype\"); font-style: italic; font-weight: 100 800; font-display: swap; }\n",
         "body": "\"Atkinson Hyperlegible Next\", sans-serif",
         "heading": "\"Atkinson Hyperlegible Next\", sans-serif",
         "code": "\"JetBrains Mono\", monospace"

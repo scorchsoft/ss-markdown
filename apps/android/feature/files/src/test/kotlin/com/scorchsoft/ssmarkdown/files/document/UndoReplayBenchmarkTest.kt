@@ -23,8 +23,9 @@ import kotlin.random.Random
  * open budget of docs/quality-bar.md §4: 20 MB in under 3 s on a phone).
  *
  * The measured case is the worst the format allows: a 20 MB document
- * whose journal holds a full 8 MB undo tail, reopened after a death. Three
- * journals: a clean one (a save, then the death: History only), a dirty
+ * whose journal holds a full 8 MB undo tail, reopened after a death. Four
+ * journals: a clean one (Save as, then the death: History only), one a
+ * save left (the ops and a Rebase, FORMAT.md "Saves"), a dirty
  * one after a compaction or a save typed through (Snapshot + History), and
  * one with the tail as plain ops after the base. Each is timed against a
  * plain open of the same file with no journal.
@@ -125,14 +126,14 @@ class UndoReplayBenchmarkTest {
         }
         when (kind) {
             // A save, without the fake provider's byte-by-byte write: the file becomes the text and
-            // the journal turns clean on it, exactly as SaveCoordinator.applySaved does.
+            // the journal turns clean on it, as Save as and a clean reopen do (History only)...
             Kind.Clean -> {
-                val bytes =
-                    doc.document.text
-                        .toString()
-                        .toByteArray()
-                provider.put(doc.uri, bytes)
-                doc.journal.resumeClean(BaseFingerprint.of(bytes, 0))
+                doc.journal.resumeClean(savedOver(doc, provider))
+            }
+
+            // ...and as SaveCoordinator.applySaved does: the ops stay, a Rebase names the saved file.
+            Kind.Rebased -> {
+                doc.journal.saved(savedOver(doc, provider))
             }
 
             Kind.Snapshot -> {
@@ -143,6 +144,19 @@ class UndoReplayBenchmarkTest {
                 Unit
             }
         }
+    }
+
+    /** Writes the document's text over its file, as a save does, and returns the file's fingerprint. */
+    private fun savedOver(
+        doc: OpenDocument,
+        provider: FakeDocumentProvider,
+    ): BaseFingerprint {
+        val bytes =
+            doc.document.text
+                .toString()
+                .toByteArray()
+        provider.put(doc.uri, bytes)
+        return BaseFingerprint.of(bytes, 0)
     }
 
     private fun TestScope.fixture(
@@ -159,7 +173,8 @@ class UndoReplayBenchmarkTest {
         val label: String,
     ) {
         Plain("plain open, no journal"),
-        Clean("clean journal (saved, then killed): History only"),
+        Clean("clean journal (Save as, then killed): History only"),
+        Rebased("clean journal (saved, then killed): the ops and a Rebase"),
         Snapshot("dirty journal after compaction: Snapshot + History"),
         Ops("dirty journal: the tail as ops after the base"),
     }

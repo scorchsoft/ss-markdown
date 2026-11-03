@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SS Markdown icon. Copyright 2026 Scorchsoft Ltd. Not covered by the Apache License: see TRADEMARKS.md. -->
+<resources>
+    <!-- The logo's red, sampled from the master (docs/brand/ssmd-logo.svg). The launcher tile only. -->
+    <color name="ic_launcher_background">#FFAD0E0D</color>
+</resources>

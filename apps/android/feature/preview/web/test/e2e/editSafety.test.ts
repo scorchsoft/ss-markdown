@@ -34,8 +34,8 @@ beforeAll(async () => {
 });
 afterAll(async () => h.close());
 
-type Action = "type" | "backspace" | "ime" | "imeStray" | "imeDelete";
-const ACTIONS: readonly Action[] = ["type", "backspace", "ime", "imeStray", "imeDelete"];
+type Action = "type" | "backspace" | "ime" | "imeStray" | "imeDelete" | "typePaste";
+const ACTIONS: readonly Action[] = ["type", "backspace", "ime", "imeStray", "imeDelete", "typePaste"];
 
 /** Kotlin's copy: every edit the page sent, applied in order. */
 async function kotlinText(source: string): Promise<string> {
@@ -123,15 +123,36 @@ async function injectIme(p: Page, kind: "ime" | "imeStray" | "imeDelete"): Promi
     );
 }
 
+/** A paste, as Chrome reports it: a cancelable `beforeinput` the session turns into a source edit. */
+async function paste(p: Page, text: string): Promise<void> {
+    await p.evaluate((text) => {
+        const data = new DataTransfer();
+        data.setData("text/plain", text);
+        const init = { inputType: "insertFromPaste", dataTransfer: data, bubbles: true, cancelable: true };
+        document.querySelector(".editing")?.dispatchEvent(new InputEvent("beforeinput", init));
+    }, text);
+}
+
+/** Rows of every table on screen: typing into a cell must never add, lose or break one. */
+async function tableRows(p: Page): Promise<number> {
+    return p.evaluate(() => document.querySelectorAll("#doc table tr").length);
+}
+
 async function act(action: Action): Promise<void> {
     if (action === "type") await page.keyboard.type(MARK);
-    else if (action === "backspace") await page.keyboard.press("Backspace");
+    else if (action === "typePaste") {
+        // Typing first, written back, then a paste: in a padded table the typing widens a cell.
+        await page.keyboard.type(MARK);
+        await page.waitForTimeout(200);
+        await paste(page, MARK);
+    } else if (action === "backspace") await page.keyboard.press("Backspace");
     else await injectIme(page, action);
 }
 
 async function runCase(source: string, at: { x: number; y: number }, action: Action, label: string): Promise<void> {
     await loadMarkdown(page, source);
     await clearReceived(page);
+    const rows = await tableRows(page);
     await page.mouse.click(at.x, at.y);
     await page.waitForTimeout(30);
     await act(action);
@@ -147,6 +168,9 @@ async function runCase(source: string, at: { x: number; y: number }, action: Act
         expect(after.includes(MARK), `${label}: typed text on screen but not in the source`).toBe(true);
     }
     if (refused) expect(screen.includes(MARK), `${label}: refused but still shown`).toBe(false);
+    if (action !== "backspace" && action !== "imeDelete") {
+        expect(await tableRows(page), `${label}: a table gained or lost rows`).toBe(rows);
+    }
 }
 
 describe("no keystroke is ever silently discarded", () => {
@@ -155,7 +179,7 @@ describe("no keystroke is ever silently discarded", () => {
         ["basics.md", 8],
         ["extended.md", 8],
         ["unicode.md", 6],
-        ["tables.md", 4],
+        ["tables.md", 12],
     ] as const) {
         it(`${file}: every change on screen reaches the source or is undone`, async () => {
             const source = corpus(file);
@@ -184,6 +208,39 @@ describe("no keystroke is ever silently discarded", () => {
         }, MARK);
         await page.waitForTimeout(300);
         expect(await kotlinText(source)).toBe(`Go :rocket:${MARK} now`);
+    });
+
+    it("writes typing in a run once when the same pause also has text beside an emoji", async () => {
+        const source = "Go :rocket: now";
+        await loadMarkdown(page, source);
+        await clearReceived(page);
+        await page.locator("span", { hasText: "now" }).first().click();
+        await page.keyboard.press("End");
+        await page.keyboard.type("X");
+        await page.evaluate((mark) => {
+            const emoji = document.querySelector(".emoji");
+            const text = document.createTextNode(mark);
+            emoji?.after(text);
+            text.parentElement?.dispatchEvent(new InputEvent("input", { bubbles: true }));
+        }, MARK);
+        await page.waitForTimeout(400);
+        expect(await kotlinText(source)).toBe(`Go :rocket:${MARK} nowX`);
+    });
+
+    it("writes typing in a run once when the same pause also deleted unmapped text", async () => {
+        const source = "Go :rocket: now";
+        await loadMarkdown(page, source);
+        await clearReceived(page);
+        await page.locator("span", { hasText: "now" }).first().click();
+        await page.keyboard.press("End");
+        await page.keyboard.type("X");
+        await page.evaluate(() => {
+            const emoji = document.querySelector(".emoji");
+            emoji?.parentElement?.removeChild(emoji);
+            document.querySelector(".editing")?.dispatchEvent(new InputEvent("input", { bubbles: true }));
+        });
+        await page.waitForTimeout(400);
+        expect(await kotlinText(source)).toBe(`${source}X`);
     });
 
     it("undoes and reports a deletion inside unmapped text", async () => {

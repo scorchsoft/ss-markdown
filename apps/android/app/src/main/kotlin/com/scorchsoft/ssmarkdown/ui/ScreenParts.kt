@@ -196,7 +196,7 @@ fun InfoNote(
 }
 
 /**
- * The − and + pills that step a zoom, the same on the Display sheet and in
+ * The − and + pills that step a zoom, the same on the View sheet and in
  * Settings (UX2-8): chevrons read as expand and collapse, these read as
  * less and more. Each pill carries its own TalkBack name.
  */

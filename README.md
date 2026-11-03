@@ -140,6 +140,11 @@ Copyright 2026 [Scorchsoft Ltd](https://www.scorchsoft.com). Licensed
 under the [Apache License 2.0](LICENSE). Third-party attributions are
 in [NOTICE](NOTICE).
 
+The licence covers the code only. **Scorchsoft** is a trademark of
+Scorchsoft Ltd. The Scorchsoft name and logos, and the SS Markdown name,
+logo and app icon, are not open source. A fork must use its own
+name and icon: see [TRADEMARKS.md](TRADEMARKS.md).
+
 ---
 
 <p align="center">

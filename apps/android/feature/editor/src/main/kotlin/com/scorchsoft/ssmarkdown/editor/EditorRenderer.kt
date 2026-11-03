@@ -38,12 +38,28 @@ internal class EditorRenderer(
     /** Line identities for the drawing cache; the view keeps them in step with edits. */
     val versions = LineVersions()
 
-    private val nodes = LineDrawCache<RenderNode>(NODE_CAPACITY) { it.discardDisplayList() }
+    // hasDisplayList: the platform discards a node's display list once nothing draws it (a line
+    // scrolled off screen), and the docs ask for it to be checked before every draw.
+    private val nodes =
+        LineDrawCache<RenderNode>(NODE_CAPACITY, isLive = { it.hasDisplayList() }) { it.discardDisplayList() }
     private var epoch = 0
     private val outline = Paint().apply { style = Paint.Style.STROKE }
 
     /** Lines whose text was recorded into a display list; tests and the benchmark read it. */
     val recordedLines: Int get() = nodes.recordings
+
+    /** Lines recorded again because the platform had emptied their display list; tests read it. */
+    val revivedLines: Int get() = nodes.revived
+
+    /** Empties every cached display list, as the platform does to nodes nothing draws; tests use it. */
+    fun discardDisplayListsForTest() = nodes.forEachDrawing { it.discardDisplayList() }
+
+    /** Cached lines whose display list has content; tests read it. */
+    fun liveLinesForTest(): Int {
+        var live = 0
+        nodes.forEachDrawing { if (it.hasDisplayList()) live++ }
+        return live
+    }
 
     /** Rows drawn in visual (bidi) order; stays 0 while every line is left to right. Tests read it. */
     var bidiRowsDrawn: Int = 0
@@ -101,7 +117,14 @@ internal class EditorRenderer(
         for (line in visible) drawLine(canvas, line, frame)
         drawCaret(canvas, frame)
         canvas.restore()
-        gutter.draw(canvas, visible, frame, styles.theme, geometry.heights)
+        if (frame.gutterWidth > 0) {
+            // Clipped to the view like the text column: a number whose row is half off the top
+            // otherwise drew above the view, over the header (edge-cases "Gutter number over the top bar").
+            canvas.save()
+            canvas.clipRect(0, 0, frame.gutterWidth, frame.height)
+            gutter.draw(canvas, visible, frame, styles.theme, geometry.heights)
+            canvas.restore()
+        }
         row.canvas = null
     }
 

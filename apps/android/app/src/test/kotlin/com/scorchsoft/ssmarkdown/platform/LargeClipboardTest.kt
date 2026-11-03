@@ -12,6 +12,7 @@ import com.scorchsoft.ssmarkdown.editor.EditorEvent
 import com.scorchsoft.ssmarkdown.editor.MenuItem
 import com.scorchsoft.ssmarkdown.fixtures.EditorFixture
 import com.scorchsoft.ssmarkdown.fixtures.FileProviderCache
+import com.scorchsoft.ssmarkdown.settings.CopyFormat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
@@ -51,19 +52,18 @@ class LargeClipboardTest {
     @Test
     fun `Copy and Share of a 5 MB document go as a file, never as text`() {
         val f = editorWith(FIVE_MB_TEXT)
-        f.vm.onAction(EditorAction.CopyTapped)
+        f.vm.onAction(EditorAction.CopyAs(CopyFormat.Markdown))
         f.vm.onAction(EditorAction.ChooseMenuItem(MenuItem.Share))
-        f.vm.onAction(EditorAction.ChooseMenuItem(MenuItem.CopyRichText))
 
-        assertEquals(3, f.events.count { it is EditorEvent.ShareAsFile })
+        // Formatted text of a large document is shortened by the page instead (CopyFormattedTest).
+        assertEquals(2, f.events.count { it is EditorEvent.ShareAsFile })
         assertTrue(f.events.none { it is EditorEvent.CopyText || it is EditorEvent.ShareText })
-        assertTrue(f.events.none { it is EditorEvent.CopyRichText })
     }
 
     @Test
     fun `a small document still copies and shares as text`() {
         val f = editorWith("# Small\n")
-        f.vm.onAction(EditorAction.CopyTapped)
+        f.vm.onAction(EditorAction.CopyAs(CopyFormat.Markdown))
         f.vm.onAction(EditorAction.ChooseMenuItem(MenuItem.Share))
 
         assertTrue(f.events.any { it is EditorEvent.CopyText })

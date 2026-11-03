@@ -2,6 +2,7 @@ package com.scorchsoft.ssmarkdown.document
 
 import com.scorchsoft.ssmarkdown.markdown.IncrementalTokenizer
 import com.scorchsoft.ssmarkdown.markdown.LineSource
+import com.scorchsoft.ssmarkdown.markdown.LineTokenizer
 import com.scorchsoft.ssmarkdown.markdown.Outline
 import com.scorchsoft.ssmarkdown.markdown.asLineSource
 import com.scorchsoft.ssmarkdown.text.Snapshot
@@ -40,7 +41,7 @@ internal class OutlineWorker(
     private val publish: (copy: Outline, upTo: Long) -> Unit,
 ) {
     private val source = SnapshotSource(initial)
-    private val tokenizer = IncrementalTokenizer(source, tokenCacheLines = 0)
+    private val tokenizer = IncrementalTokenizer(source, LineTokenizer(highlightCode = false), tokenCacheLines = 0)
     private var appliedSequence = 0L
     private var lastPublishNanos = 0L
     private var dirty = false

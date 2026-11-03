@@ -1,5 +1,7 @@
 package com.scorchsoft.ssmarkdown.markdown
 
+import com.scorchsoft.ssmarkdown.markdown.code.CodeLanguages
+
 /**
  * Everything the tokenizer must remember from one line to the next: the
  * end-of-line state of docs/robustness.md ("Editor view").
@@ -47,6 +49,20 @@ public class LineState internal constructor(
     public val fenceLanguage: String?
         get() = fenceInfo?.substringBefore(' ')?.takeIf { it.isNotEmpty() }
 
+    /**
+     * The canonical name of the language the open fence is highlighted in
+     * (`"python"` for ```` ```py ````), or null for none, an unknown name or
+     * highlighting turned off. See [CodeLanguages].
+     */
+    public val codeLanguage: String?
+        get() = codeLanguageId.takeIf { it != 0 }?.let { CodeLanguages.byId(it).name }
+
+    /** [codeLanguage]'s id, 0 for none. */
+    internal val codeLanguageId: Int get() = ((bits ushr CODE_LANGUAGE_SHIFT) and BYTE).toInt()
+
+    /** What the code lexer carried from the previous line: an open comment, string or template. 0 for nothing. */
+    internal val codeState: Int get() = ((bits ushr CODE_STATE_SHIFT) and CODE_STATE_MASK).toInt()
+
     /** The CommonMark HTML block type, 1 to 7, while [mode] is [BlockMode.HTML]; otherwise 0. */
     public val htmlBlockType: Int get() = ((bits ushr HTML_TYPE_SHIFT) and HTML_TYPE_MASK).toInt()
 
@@ -92,6 +108,7 @@ public class LineState internal constructor(
             append("LineState(").append(mode)
             if (mode == BlockMode.FENCED_CODE) append(" fence=").append(fenceChar).append('x').append(fenceLength)
             if (fenceInfo != null) append(" info=").append(fenceInfo)
+            if (codeLanguageId != 0) append(" code=").append(codeLanguage).append('/').append(codeState)
             if (htmlBlockType != 0) append(" html=").append(htmlBlockType)
             if (isParagraphOpen) append(" paragraph")
             if (pipeCells != 0) append(" cells=").append(pipeCells)
@@ -145,6 +162,9 @@ public class LineState internal constructor(
         internal const val PIPE_CELLS_MASK = 0x3FL
         internal const val TABLE = 1L shl 23
         internal const val TOML = 1L shl 24
+        internal const val CODE_LANGUAGE_SHIFT = 32
+        internal const val CODE_STATE_SHIFT = 40
+        internal const val CODE_STATE_MASK = 0xFFFFL
 
         /** Container byte for a block quote; list items store their content column, 1..254. */
         internal const val QUOTE = 0xFF

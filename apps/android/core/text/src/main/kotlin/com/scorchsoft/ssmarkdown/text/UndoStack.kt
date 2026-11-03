@@ -208,6 +208,17 @@ public class UndoStack(
     }
 
     /**
+     * True when [exportTail] with [maxBytes] would keep at least one step:
+     * the newest undo step or the next redo step fits on its own. Costs
+     * the ops of those two steps only, so a save can ask it on the main
+     * thread however long the history (a step larger than the cap, such
+     * as one huge paste, is not kept across a death; review r3 M2).
+     */
+    public fun hasTail(maxBytes: Long = HISTORY_TAIL_MAX_BYTES): Boolean =
+        undoGroups.lastOrNull()?.let { it.tailBytes() <= maxBytes } == true ||
+            redoGroups.lastOrNull()?.let { it.tailBytes() <= maxBytes } == true
+
+    /**
      * Replaces both stacks with [history]: what [exportTail] kept before a
      * process death, rebuilt by the journal. Every step comes back sealed,
      * as a trailing open step is after a restart: the next keystroke

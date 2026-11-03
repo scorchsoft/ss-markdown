@@ -22,6 +22,12 @@ import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -60,6 +66,10 @@ fun TitleBlock(
     compact: Boolean = false,
 ) {
     val title = state.title.ifEmpty { stringResource(R.string.untitled) }
+    val navigatorOpen = state.navigator != null
+    val navigatorState =
+        stringResource(if (navigatorOpen) R.string.navigator_expanded else R.string.navigator_collapsed)
+    val clickLabel = stringResource(if (navigatorOpen) R.string.close_navigator else R.string.open_navigator)
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         BoxWithConstraints(
             contentAlignment = Alignment.CenterStart,
@@ -67,7 +77,10 @@ fun TitleBlock(
                 Modifier
                     .weight(1f)
                     .heightIn(min = SS.dimens.pillHitArea)
-                    .clickable(onClickLabel = stringResource(R.string.open_navigator), role = Role.Button) {
+                    // The title toggles the Navigator: it stays above the sheet, so the control
+                    // that opened it closes it, and TalkBack hears which way it is.
+                    .semantics { stateDescription = navigatorState }
+                    .clickable(onClickLabel = clickLabel, role = Role.Button) {
                         onAction(EditorAction.TitleTapped)
                     }.padding(horizontal = SS.dimens.grid * 2, vertical = SS.dimens.grid),
         ) {
@@ -243,9 +256,12 @@ private fun ReadOnlyBadge() {
 /**
  * The Big-file chip: a small caution badge drawn inside a full 48 dp
  * target (UX2-5), so a slightly-off tap lands on it rather than on the title.
+ * It reads "Big file" to leave the title room on a phone; TalkBack hears
+ * the full term, "Big-file mode", and a tap explains it.
  */
 @Composable
 private fun BigFileChip(onTap: () -> Unit) {
+    val label = stringResource(R.string.big_file_mode)
     Box(
         contentAlignment = Alignment.Center,
         modifier =
@@ -253,10 +269,17 @@ private fun BigFileChip(onTap: () -> Unit) {
                 .testTag(BIG_FILE_CHIP_TAG)
                 .sizeIn(minWidth = SS.dimens.pillHitArea, minHeight = SS.dimens.pillHitArea)
                 .clickable(role = Role.Button, onClick = onTap)
-                .padding(horizontal = 4.dp),
+                .clearAndSetSemantics {
+                    contentDescription = label
+                    role = Role.Button
+                    onClick {
+                        onTap()
+                        true
+                    }
+                }.padding(horizontal = 4.dp),
     ) {
         Text(
-            stringResource(R.string.big_file_mode),
+            stringResource(R.string.big_file_chip),
             style = SS.type.caption,
             color = SS.colors.caution,
             maxLines = 1,

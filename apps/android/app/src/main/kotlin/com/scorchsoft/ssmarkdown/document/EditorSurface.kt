@@ -1,9 +1,9 @@
 package com.scorchsoft.ssmarkdown.document
 
 import com.scorchsoft.ssmarkdown.editor.MarkdownCodeView
-import com.scorchsoft.ssmarkdown.editor.redo
-import com.scorchsoft.ssmarkdown.editor.undo
+import com.scorchsoft.ssmarkdown.editor.fenceStates
 import com.scorchsoft.ssmarkdown.files.document.OpenDocument
+import com.scorchsoft.ssmarkdown.markdown.edit.FenceStates
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.text.EditOp
 import com.scorchsoft.ssmarkdown.text.Snapshot
@@ -25,6 +25,13 @@ interface EditorSurface {
     /** Commits the keyboard's in-progress word (research R6; robustness §5a.4). */
     fun flushComposing()
 
+    /**
+     * Puts the rest of a large paste still going in by slices in now, and
+     * reports it like any edit, so an edit from elsewhere (the Preview page)
+     * can be placed on the whole text. Nothing to do when none is running.
+     */
+    fun completePending() = Unit
+
     /** Applies [ops] (highest offset first) as one undo step, then selects [after]. */
     fun apply(
         ops: List<EditOp>,
@@ -37,15 +44,30 @@ interface EditorSurface {
     /** Redoes one step; false when there was none. */
     fun redo(): Boolean
 
-    /** Selects `[start, end)` and scrolls it into view. */
+    /**
+     * Selects `[start, end)` and scrolls the least distance that shows it
+     * (its start, when it is taller than the pane). Callers that want a line
+     * at the top follow it with [scrollToLine].
+     */
     fun select(
         start: Int,
         end: Int,
     )
 
+    /** Which lines are fenced code, for the ¶ menu's tick; [FenceStates.NONE] when nothing tracks it cheaply. */
+    val fences: FenceStates get() = FenceStates.NONE
+
     /** Scrolls so [line] is at the top. */
     fun scrollToLine(line: Int)
 }
+
+/**
+ * Fence state for an edit command over [text]: the Code view's tokenizer
+ * when there is one, which already knows (a fresh scan reads the text from
+ * the top, every tap, on the main thread), else a scan.
+ */
+fun EditorSurface.fencesFor(text: CharSequence): FenceStates =
+    fences.takeUnless { it === FenceStates.NONE } ?: FenceStates.scan(text)
 
 /** Edits through a live [MarkdownCodeView]; its listener journals them. */
 class CodeViewSurface(
@@ -56,6 +78,8 @@ class CodeViewSurface(
 
     override fun flushComposing() = view.requestFlushComposing()
 
+    override fun completePending() = view.completePaste()
+
     override fun apply(
         ops: List<EditOp>,
         after: TextSelection,
@@ -64,33 +88,27 @@ class CodeViewSurface(
             select(after.start, after.end)
             return
         }
-        val document = view.session.document
-        document.beginEditGroup()
-        try {
-            ops.forEach { view.session.applyEdit(it.offset, it.offset + it.deleted.length, it.inserted) }
-        } finally {
-            document.endEditGroup()
-        }
-        view.session.setSelection(after.start, after.end)
+        view.applyEdits(ops, after.start, after.end)
     }
 
-    override fun undo(): Boolean = view.session.undo()
+    override fun undo(): Boolean = view.undo()
 
-    override fun redo(): Boolean = view.session.redo()
+    override fun redo(): Boolean = view.redo()
 
     override fun select(
         start: Int,
         end: Int,
     ) {
         view.session.setSelection(start, end)
-        view.scrollToLine(
-            view.session.document.text
-                .positionAt(start)
-                .line,
-        )
+        // The least scroll that shows the range, wrapped rows included. Putting its *line* at the top
+        // left a find match deep in a long paragraph below the pane (edge-cases "Find next does not move").
+        view.revealRange(start, end)
     }
 
     override fun scrollToLine(line: Int) = view.scrollToLine(line)
+
+    /** From the view's own tokenizer, so reading it costs nothing per caret move. */
+    override val fences: FenceStates get() = view.fenceStates()
 }
 
 /**

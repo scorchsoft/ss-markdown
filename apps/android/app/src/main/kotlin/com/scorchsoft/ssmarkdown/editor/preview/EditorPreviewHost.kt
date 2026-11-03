@@ -18,6 +18,7 @@ import com.scorchsoft.ssmarkdown.preview.bridge.LinkTarget
  * path, so Preview and Code share one section menu, one viewer, one undo
  * history and one message bar.
  */
+@Suppress("TooManyFunctions") // One small function per kind of preview report.
 class EditorPreviewHost(
     private val vm: EditorViewModel,
 ) : PreviewHost {
@@ -29,6 +30,11 @@ class EditorPreviewHost(
         // Drawing an export scrolls the page to the diagram; that is not the reader moving.
         if (vm.preview.exports.busy) return
         vm.onPaneTopLine(Pane.Preview, line)
+    }
+
+    override fun onPreviewScrollFraction(fraction: Float) {
+        if (vm.preview.exports.busy) return
+        vm.onPaneScrollFraction(Pane.Preview, fraction)
     }
 
     @Suppress("CyclomaticComplexMethod") // One branch per event.
@@ -66,10 +72,16 @@ class EditorPreviewHost(
 
             is PreviewEvent.Editing -> {
                 vm.update { it.copy(preview = it.preview.copy(editing = event.editing)) }
+                // Editing the page with the keyboard up in Split: the page is the pane being typed in.
+                if (event.editing) vm.typingIn(Pane.Preview)
             }
 
             is PreviewEvent.Format -> {
                 onFormat(event)
+            }
+
+            is PreviewEvent.LinkPrompt -> {
+                vm.strip.links.open(event.selection)
             }
 
             is PreviewEvent.EditRefused -> {
@@ -78,6 +90,18 @@ class EditorPreviewHost(
 
             is PreviewEvent.History -> {
                 onHistory(event.redo)
+            }
+
+            is PreviewEvent.InsertImage -> {
+                vm.pictures.insert(event.selection)
+            }
+
+            PreviewEvent.AllowFolder -> {
+                vm.pictures.askForFolder()
+            }
+
+            is PreviewEvent.PictureStatuses -> {
+                vm.pictures.onStatuses(event.needFolder)
             }
 
             PreviewEvent.EditedWhilePaused -> {
@@ -151,7 +175,9 @@ class EditorPreviewHost(
     }
 
     private fun onRenderer(state: RendererState) {
-        vm.update { it.copy(preview = it.preview.copy(renderer = state)) }
+        // A page that died took its editing session with it, and never says editing stopped.
+        val editing = vm.state.preview.editing && state == RendererState.RUNNING
+        vm.update { it.copy(preview = it.preview.copy(renderer = state, editing = editing)) }
         if (state == RendererState.RESTARTED) vm.message(MessageKind.PreviewRestarted)
     }
 
@@ -159,7 +185,13 @@ class EditorPreviewHost(
         val pressed = StripController.pressedKeys(event.state)
         vm.update {
             it.copy(
-                strip = it.strip.copy(pressed = pressed, inTable = event.inTable),
+                strip =
+                    it.strip.copy(
+                        pressed = pressed,
+                        disabled = StripController.disabledKeys(event.state),
+                        inTable = event.inTable,
+                        block = PreviewStripKeys.choiceFor(event.state.block),
+                    ),
                 preview = it.preview.copy(inHeading = event.state.headingLevel > 0),
             )
         }

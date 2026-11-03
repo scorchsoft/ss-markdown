@@ -62,16 +62,32 @@ const INLINE_SYNTAX = /[\\`*_[\]<]/g;
 export function escapeTyped(text: string, ctx: EscapeContext): string {
     let out = text.replace(INLINE_SYNTAX, (c) => `\\${c}`);
     if (ctx.inTable) out = out.replace(/\|/g, "\\|");
-    if (ctx.atLineStart) out = out.replace(/^([#>+-]|\d+[.)])/, "\\$1");
-    return out;
+    return ctx.atLineStart ? escapeLineStart(out) : out;
 }
+
+/**
+ * Block syntax at a line start: `# `, `- `, `+ `, `> ` and a `---` rule get a
+ * backslash, and a number's `.` or `)` does (`1\. `): a backslash before a
+ * digit is no escape, and `\1. x` showed its backslash.
+ */
+export function escapeLineStart(text: string): string {
+    return text
+        .replace(/^(?:[#+-](?=\s|$)|>|-(?=(?:\s*-){2,}\s*$))/, "\\$&")
+        .replace(/^(\d{1,9})(?=[.)](?:\s|$))/, "$1\\");
+}
+
+/** A no-break space, as Chrome shows a space at a text run's edge. */
+const NBSP = "\u00a0";
 
 /**
  * The source edit for a run whose rendered text became [newText], or null if
  * nothing changed. Only the changed characters of the run are replaced.
  */
 export function runEdit(run: MappedRun, newText: string, ctx: EscapeContext): SourceEdit | null {
-    const diff = diffText(run.text, newText);
+    // Chrome shows a space at a run's edge as a no-break space while text is typed beside it; that is
+    // display, not a change. Only a run that already held one keeps what the browser gives back.
+    const typed = run.text.includes(NBSP) ? newText : newText.split(NBSP).join(" ");
+    const diff = diffText(run.text, typed);
     if (!diff) return null;
     const atLineStart = ctx.atLineStart && diff.start === 0;
     return {

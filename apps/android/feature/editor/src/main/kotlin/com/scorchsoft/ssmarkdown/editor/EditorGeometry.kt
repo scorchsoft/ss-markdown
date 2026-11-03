@@ -138,11 +138,12 @@ internal class EditorGeometry(
         return y.toInt()
     }
 
-    /** The document offset at content point ([x], [y]). */
+    /** The document offset at content point ([x], [y]); below the last line, the end of the document. */
     fun offsetAt(
         x: Float,
         y: Long,
     ): Int {
+        if (y >= heights.contentHeight) return text.length
         val line = heights.lineAt(y)
         val layout = layoutFor(line)
         val row = ((y - heights.lineTop(line)) / heights.rowHeight).toInt().coerceIn(0, layout.rowCount - 1)

@@ -10,27 +10,21 @@ import com.scorchsoft.ssmarkdown.AppGraph
 import com.scorchsoft.ssmarkdown.editor.EditorAction
 import com.scorchsoft.ssmarkdown.editor.EditorEvent
 import com.scorchsoft.ssmarkdown.editor.MessageKind
-import com.scorchsoft.ssmarkdown.platform.PlatformActions
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withTimeoutOrNull
-
-private const val VIEW_WAIT_MILLIS = 2_000L
-private const val VIEW_POLL_MILLIS = 50L
 
 /**
- * The Preview's one-shot effects: rich text from the renderer, links,
- * image exports, PDF and the theme editor. Kept apart from
+ * The Preview's one-shot effects: formatted text from the renderer, links,
+ * image exports and the theme editor. PDF is not here: it prints through
+ * the page itself (`PreviewSession.print`), bound to its document. Kept apart from
  * [EditorEffectsHost] so each file reads as one area.
  */
 internal suspend fun onPreviewEvent(
     event: EditorEvent,
     graph: AppGraph,
-    platform: PlatformActions,
 ) {
     val vm = graph.editor
     when (event) {
-        is EditorEvent.CopyRichText -> {
-            copyRich(graph, platform, event)
+        is EditorEvent.CopyFormatted -> {
+            graph.media.copyFormatted(event.copy)
         }
 
         is EditorEvent.OpenLink -> {
@@ -49,10 +43,6 @@ internal suspend fun onPreviewEvent(
             saved(graph, event.folder, graph.media.saveToDownloads(event.folder, event.files))
         }
 
-        is EditorEvent.Print -> {
-            previewView(graph)?.print(event.jobName)
-        }
-
         is EditorEvent.EditTheme -> {
             graph.themeEditor.open(event.themeId)
             vm.onAction(EditorAction.DismissOverlay)
@@ -63,18 +53,6 @@ internal suspend fun onPreviewEvent(
             Unit
         }
     }
-}
-
-/** HTML from the preview when it can give it; the plain Markdown always goes along. */
-private suspend fun copyRich(
-    graph: AppGraph,
-    platform: PlatformActions,
-    event: EditorEvent.CopyRichText,
-) {
-    val html =
-        graph.editor.preview.view
-            ?.exportHtml(event.fromLine, event.toLine)
-    if (html != null) graph.media.copyHtml(event.text, html) else platform.copy(event.text)
 }
 
 private fun saved(
@@ -100,13 +78,6 @@ internal fun onZipWritten(
     graph.editor.message(MessageKind.ImageSaved, uri.lastPathSegment?.substringAfterLast('/').orEmpty())
 }
 
-/** Print needs the page on screen; a switch to Preview attaches it within a frame or two. */
-private suspend fun previewView(graph: AppGraph) =
-    withTimeoutOrNull(VIEW_WAIT_MILLIS) {
-        while (graph.editor.preview.view == null) delay(VIEW_POLL_MILLIS)
-        graph.editor.preview.view
-    }
-
 /**
  * "Create document" that starts in the folder the last ZIP went to, so
  * the folder picker is a confirmation the second time, not a hunt.
@@ -127,6 +98,28 @@ internal class ZipWithStartFolder : ActivityResultContract<ZipWithStartFolder.Re
             .setType("application/zip")
             .putExtra(Intent.EXTRA_TITLE, input.name)
             .apply { input.startIn?.let { putExtra(DocumentsContract.EXTRA_INITIAL_URI, it.toUri()) } }
+
+    override fun parseResult(
+        resultCode: Int,
+        intent: Intent?,
+    ): Uri? = intent?.data
+}
+
+/**
+ * Insert image's picker: one picture (any image type), opened in the document's
+ * folder when [String] names one (`EXTRA_INITIAL_URI`), so the user starts
+ * next to the file. The answer is a one-off read grant; the app copies or
+ * links the picture, never the URI (docs/ux-spec.md, "Pictures").
+ */
+internal class OpenImage : ActivityResultContract<String?, Uri?>() {
+    override fun createIntent(
+        context: Context,
+        input: String?,
+    ): Intent =
+        Intent(Intent.ACTION_OPEN_DOCUMENT)
+            .addCategory(Intent.CATEGORY_OPENABLE)
+            .setType("image/*")
+            .apply { input?.let { putExtra(DocumentsContract.EXTRA_INITIAL_URI, it.toUri()) } }
 
     override fun parseResult(
         resultCode: Int,

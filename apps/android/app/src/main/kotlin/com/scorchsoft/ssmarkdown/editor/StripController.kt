@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.editor
 
+import com.scorchsoft.ssmarkdown.document.fencesFor
 import com.scorchsoft.ssmarkdown.editor.preview.PreviewStripKeys
 import com.scorchsoft.ssmarkdown.markdown.edit.EditCommand
 import com.scorchsoft.ssmarkdown.markdown.edit.FormatState
@@ -7,6 +8,7 @@ import com.scorchsoft.ssmarkdown.markdown.edit.InlineFormat
 import com.scorchsoft.ssmarkdown.markdown.edit.ListKind
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.preview.bridge.HostMessage
+import com.scorchsoft.ssmarkdown.ui.strip.BlockChoice
 import com.scorchsoft.ssmarkdown.ui.strip.CursorStep
 import com.scorchsoft.ssmarkdown.ui.strip.StripKey
 import com.scorchsoft.ssmarkdown.ui.strip.StripPage
@@ -20,6 +22,9 @@ import com.scorchsoft.ssmarkdown.ui.strip.StripPaging
 class StripController(
     private val host: EditorHost,
 ) {
+    /** The Link key's prompt, in both views. */
+    val links: LinkController = LinkController(host)
+
     /** A strip key was tapped. Paging was applied by the reducer already. */
     fun onKey(key: StripKey) {
         val doc = host.active ?: return
@@ -30,9 +35,19 @@ class StripController(
         val surface = doc.surface
         when (key) {
             StripKey.Undo -> surface.undo()
+
             StripKey.Redo -> surface.redo()
+
             StripKey.Done -> host.emit(EditorEvent.HideKeyboard)
+
             StripKey.Symbols -> Unit
+
+            // Where the link goes is part of the tap: ask first (LinkController).
+            StripKey.Link -> links.open(surface.selection)
+
+            // The picker opens first; the picture goes where the selection was (PictureController).
+            StripKey.Image -> host.pictures.insert(surface.selection)
+
             else -> commandFor(key)?.let(::run)
         }
         host.refresh()
@@ -57,6 +72,22 @@ class StripController(
         host.refresh()
     }
 
+    /**
+     * A ¶ menu choice: every block in the selection becomes [choice]. Code
+     * runs the command here; in Preview the page sends its selection and
+     * Kotlin runs the same command on it ([PreviewStripKeys.blockAction]).
+     */
+    fun onBlock(choice: BlockChoice) {
+        if (host.active == null) return
+        if (host.state.previewTyping) {
+            host.preview.format(PreviewStripKeys.blockAction(choice))
+        } else {
+            run(EditCommand.SetBlockType(PreviewStripKeys.blockType(choice)))
+            refreshPressed()
+        }
+        host.refresh()
+    }
+
     /** A symbols-page key: types [text] over the selection. The page stays (no hidden lock). */
     fun onSymbol(text: String) = run(EditCommand.Type(text))
 
@@ -66,8 +97,13 @@ class StripController(
         val surface = doc.surface
         surface.flushComposing()
         val caret = surface.selection.end
-        val length = doc.text.text.length
-        val target = if (step == CursorStep.Left) (caret - 1).coerceAtLeast(0) else (caret + 1).coerceAtMost(length)
+        val text = doc.text.text
+        val length = text.length
+        var target = if (step == CursorStep.Left) (caret - 1).coerceAtLeast(0) else (caret + 1).coerceAtMost(length)
+        // Never between the halves of a surrogate pair (an emoji): what is typed there splits it for good.
+        if (target in 1 until length && text[target].isLowSurrogate() && text[target - 1].isHighSurrogate()) {
+            target += if (step == CursorStep.Left) -1 else 1
+        }
         surface.select(target, target)
     }
 
@@ -97,12 +133,14 @@ class StripController(
         val sel = selection ?: return
         val snapshot = doc.text.snapshot()
         if (sel.end > snapshot.length) return
-        val format = FormatState.at(snapshot, sel)
+        val format = FormatState.at(snapshot, sel, doc.surface.fences)
         host.update {
             it.copy(
                 strip =
                     it.strip.copy(
                         pressed = pressedKeys(format),
+                        disabled = disabledKeys(format),
+                        block = PreviewStripKeys.choiceFor(format.block),
                         canUndo = doc.text.canUndo,
                         canRedo = doc.text.canRedo,
                     ),
@@ -117,7 +155,7 @@ class StripController(
         val snapshot = doc.text.snapshot()
         val selection = surface.selection
         if (selection.end > snapshot.length) return
-        val result = command.apply(snapshot, selection, doc.style)
+        val result = command.apply(snapshot, selection, doc.style, surface.fencesFor(snapshot))
         surface.apply(result.ops, result.selection)
     }
 
@@ -130,6 +168,7 @@ class StripController(
                 StripKey.Italic -> EditCommand.ToggleInline(InlineFormat.Italic)
                 StripKey.Code -> EditCommand.ToggleInline(InlineFormat.Code)
                 StripKey.BulletList -> EditCommand.ToggleList(ListKind.Bullet)
+                StripKey.NumberedList -> EditCommand.ToggleList(ListKind.Numbered)
                 StripKey.Task -> EditCommand.ToggleList(ListKind.Task)
                 StripKey.Link -> EditCommand.InsertLink
                 StripKey.Indent -> EditCommand.Indent
@@ -137,6 +176,16 @@ class StripController(
                 StripKey.Table -> EditCommand.InsertTable()
                 StripKey.Quote -> EditCommand.ToggleBlockquote
                 else -> null
+            }
+
+        /**
+         * The keys shown but disabled for [format]: Indent where it can do
+         * nothing (a paragraph, heading or quote line), ¶ in a table.
+         */
+        fun disabledKeys(format: FormatState): Set<StripKey> =
+            buildSet {
+                if (!format.canIndent) add(StripKey.Indent)
+                if (format.inTable) add(StripKey.BlockStyle)
             }
 
         /** The keys shown pressed for [format]. */
@@ -147,6 +196,7 @@ class StripController(
                 if (InlineFormat.Code in format.inline) add(StripKey.Code)
                 if (format.headingLevel > 0) add(StripKey.Heading)
                 if (format.list == ListKind.Bullet) add(StripKey.BulletList)
+                if (format.list == ListKind.Numbered) add(StripKey.NumberedList)
                 if (format.list == ListKind.Task) add(StripKey.Task)
                 if (format.quote) add(StripKey.Quote)
             }

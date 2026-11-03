@@ -25,6 +25,18 @@ internal object StripIcons {
             dot(4.5f, 18f),
         )
     }
+
+    /** The bullet icon's three lines, with 1 2 3 drawn in the same stroke where its dots are. */
+    val numberedList by lazy {
+        icon(
+            "M10 6h10",
+            "M10 12h10",
+            "M10 18h10",
+            "M4 4.5l1.5-1v5",
+            "M3.5 10.5a1.5 1.5 0 0 1 3 0c0 1-3 2.2-3 3.5h3",
+            "M3.5 16.2h3l-1.6 1.6a1.3 1.3 0 1 1-1.4 2",
+        )
+    }
     val task by lazy { icon(ROUNDED_SQUARE, "M8 12l3 3 5-6") }
     val code by lazy { icon("M8 7l-5 5 5 5", "M16 7l5 5-5 5") }
     val link by lazy {
@@ -34,6 +46,13 @@ internal object StripIcons {
     val outdent by lazy { icon("M4 6h16", "M10 12h10", "M10 18h10", "M7 10l-3 2 3 2") }
     val table by lazy {
         icon("M6 5h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z", "M4 10h16", "M10 5v14")
+    }
+    val image by lazy {
+        icon(
+            "M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z",
+            "M4 16l5-5 4 4 3-3 4 4",
+            dot(15.5f, 8.5f),
+        )
     }
     val quote by lazy { icon("M6 7h4v4H6z", "M10 11c0 3-1.5 5-4 6", "M14 7h4v4h-4z", "M18 11c0 3-1.5 5-4 6") }
     val undo by lazy { icon("M9 14L4 9l5-5", "M4 9h10a6 6 0 0 1 0 12h-3") }

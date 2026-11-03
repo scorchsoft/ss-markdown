@@ -85,6 +85,14 @@ a TypeScript half that must change together
 - By contributing you agree your work is licensed under the
   [Apache License 2.0](LICENSE).
 
+## Name and logo
+
+Contributions are made under the Apache License 2.0. The SS Markdown
+name, logo and app icon are not open source. Don't change the brand
+files (`docs/brand/`, `docs/store/`, the launcher icon) in a pull
+request without asking first. If you publish a fork, it needs its own
+name and icon: see [TRADEMARKS.md](TRADEMARKS.md).
+
 ## A note on internal tooling
 
 Some of this repository is shaped by how Scorchsoft builds it: CI also runs on

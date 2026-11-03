@@ -83,6 +83,11 @@ interface Line extends Box {
     end: number;
     /** Every grapheme boundary on the line: its source offset and x. */
     stops: { at: number; x: number }[];
+    /**
+     * The last offset whose caret the page draws on this line. At a soft wrap Chromium may draw the
+     * offset just after the last letter on the next line (it did in CI); then this is one less.
+     */
+    caretEnd: number;
 }
 
 interface Block {
@@ -131,7 +136,7 @@ beforeAll(async () => {
                     const mid = (rect.top + rect.bottom) / 2;
                     let line = lines.find((l) => mid > l.top && mid < l.bottom);
                     if (!line) {
-                        line = { ...rect.toJSON(), start: from, end: from, stops: [] } as Line;
+                        line = { ...rect.toJSON(), start: from, end: from, caretEnd: from, stops: [] } as Line;
                         lines.push(line);
                     }
                     line.top = Math.min(line.top, rect.top);
@@ -139,7 +144,14 @@ beforeAll(async () => {
                     line.left = Math.min(line.left, rect.left);
                     line.right = Math.max(line.right, rect.right);
                     line.start = Math.min(line.start, from);
-                    if (!/^\s$/.test(g.segment)) line.end = Math.max(line.end, to);
+                    if (!/^\s$/.test(g.segment)) {
+                        line.end = Math.max(line.end, to);
+                        const caret = document.createRange();
+                        caret.setStart(node, g.index + g.segment.length);
+                        const c = caret.getClientRects()[0];
+                        if (c && (c.top + c.bottom) / 2 > line.top - 1 && (c.top + c.bottom) / 2 < line.bottom + 1)
+                            line.caretEnd = Math.max(line.caretEnd, to);
+                    }
                     line.stops.push({ at: from, x: rect.left }, { at: to, x: rect.right });
                 }
             }
@@ -266,7 +278,8 @@ describe("a tap puts the caret on the visual line it hit", () => {
                         if (block.name === "task item") return;
                         return expectCaret(farLeft, mid(first(b)), first(b), first(b).start);
                     case "in a wrapped line's trailing space":
-                        return expectCaret(farRight, mid(first(b)), first(b), first(b).end);
+                        // The wrap point, as far along as the page can draw the caret on that line.
+                        return expectCaret(farRight, mid(first(b)), first(b), first(b).caretEnd);
                     case "below the last line": {
                         const l = last(b);
                         const y = b.box.bottom - l.bottom >= 4 ? (l.bottom + b.box.bottom) / 2 : l.bottom + 2;

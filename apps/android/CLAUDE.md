@@ -227,6 +227,11 @@ Traps:
 - **CI runs all of it** (`preview-web` job): typecheck, lint, unit, a
   fresh build that must match the committed assets byte for byte, the
   size budget, then Playwright e2e on Chromium.
-- **Bundle budget**: 3.5 MiB for the whole `assets/preview` folder, as
-  `build.mjs` reports it (3.43 MiB on 2026-11-01), enforced in CI; `cytoscape` is stubbed (mindmap and
+- **Bundle budget**: 3.75 MiB for the whole `assets/preview` folder, as
+  `build.mjs` reports it (3.43 MiB on 2026-11-01, 3.50 MiB on 2026-11-03),
+  enforced in CI. Raised from 3.5 MiB on 2026-11-03: tap-to-caret, the list
+  and paste rules and the coming plain-text paste had used the last of the
+  old headroom, and the features earn their bytes. Size is not the user's
+  problem at this scale (the APK is about 7 MB); the budget exists to catch
+  an accidental dependency, so keep raising it only with a reason here. `cytoscape` is stubbed (mindmap and
   architecture diagrams show a named "not supported" box with Show source).

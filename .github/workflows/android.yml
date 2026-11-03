@@ -170,10 +170,10 @@ jobs:
       # LICENSES.txt), as build.mjs reports it. ~3.43 MiB when set.
       - name: Bundle size budget
         run: |
-          budget=$((3584 * 1024))
+          budget=$((3840 * 1024))
           size=$(du -sb ../src/main/assets/preview | cut -f1)
           echo "Preview bundle: $size bytes (budget $budget)" | tee -a "$GITHUB_STEP_SUMMARY"
-          if [ "$size" -gt "$budget" ]; then echo "::error::preview bundle is over its 3.5 MiB budget"; exit 1; fi
+          if [ "$size" -gt "$budget" ]; then echo "::error::preview bundle is over its 3.75 MiB budget"; exit 1; fi
 
       # The e2e tests drive the BUILT bundle in Chromium: rendering, the
       # security corpus, editing, print and virtualisation.

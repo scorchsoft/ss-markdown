@@ -7,6 +7,11 @@ release may change behaviour.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-03
+
+Features from the 0.2.1 phone test, then a robustness pass over the
+editor, Preview and files.
+
 ### Added
 
 - Pictures that cannot be shown get a calm placeholder saying why (not
@@ -40,11 +45,56 @@ release may change behaviour.
   Appearance, Text size and Preview theme. Long-press Code, Split or Preview
   in the bottom bar to open it for that mode (its row is briefly emphasised);
   a tap still switches mode.
+- Code, Split and Preview in the bottom bar each have a small icon.
+- Find's up and down arrows move between matches in Code, Split and
+  Preview alike, and scroll the match into view.
+- PDF export and the A4 page view use Word-like A4 typography: white
+  pages with 20 mm margins, an 11 pt body set to the full text width,
+  so more words fit on a page.
 
 ### Fixed
 
 - `../` picture paths now show in Preview (the address lost its `..` on
   the way to the app).
+- The strip's ¶ menu and Bold no longer flash the keyboard away; headings
+  and other block types apply where the cursor is.
+
+**Editor**
+
+- Undo during a large paste no longer crashes; dead keys (accents) no longer
+  crash.
+- Enter no longer drops the word being composed, and continues lists in
+  Code as well as Preview.
+- Gboard's undo and its edit panel (select all, copy, cut, paste) work, and
+  Gboard undo takes back a word, not a letter.
+- Replace all on a big file no longer freezes the app (8 s → 0.7 s).
+- The Link prompt closes when another file opens; the symbol arrows step
+  over an emoji whole.
+- A leak of the closed screen through the keyboard is fixed.
+
+**Preview**
+
+- Table edits (add or delete a row, paste, Enter, Bold) after typing has
+  widened a padded table no longer break the table.
+- Typing could be written twice, or lost during a slow re-render; both fixed.
+- In Split, editing Preview during a large Code paste keeps both views in
+  step, and tapping back into Code hands the strip back to Code.
+- Pictures always come from the open document's folder, even when another
+  document with the same picture path was open just before, or a picture
+  was still loading during the switch.
+- Another file opens at its own reading position, not the previous file's.
+- Ticking a task in a read-only file no longer looks ticked.
+- A formatted copy waiting on a document that was replaced no longer hangs.
+
+**Files and sharing**
+
+- Share-in after the screen was recreated no longer shows an empty sheet or
+  writes the wrong text.
+- Undo discard and a conflict merge always apply to the file they were
+  shown for; Insert image stops, and says so, if another file opens first.
+- Reopening after Android closed the app restores the right file.
+- Renaming the open file and folder listings stay up to date.
+- Drafts are created and deleted off the main thread.
 
 ## [0.2.1] - 2026-11-02
 

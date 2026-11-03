@@ -7,6 +7,16 @@ release may change behaviour.
 
 ## [Unreleased]
 
+### Added
+
+- Sharing text that is already at the end (or top) of the chosen file no
+  longer adds it twice: the share sheet says "This text is already at the
+  end of <file>." and offers Open, Add again and Cancel.
+- If Android closes SS Markdown while a share is still being added, the
+  share sheet checks the file when it comes back: it shows "Added to …"
+  if the text got there, or says "The last Append didn't finish. Nothing
+  was added." and offers Append again.
+
 ### Fixed
 
 - An edit made while a large paste was finishing (Find's Replace) could

@@ -2,7 +2,9 @@ package com.scorchsoft.ssmarkdown.share
 
 import android.app.ActivityManager
 import android.content.Intent
+import android.os.Bundle
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -72,5 +74,41 @@ class ShareRecreateTest {
         controller.get().viewModel.onAction(ShareAction.Confirm)
         ShadowLooper.idleMainLooper()
         assertEquals(done, controller.get().sheetState.phase)
+    }
+
+    /**
+     * A process death while the append is still writing: the rebuilt sheet
+     * offered Append again, and if the first write had landed, a second tap
+     * added the text twice. The sheet now saves that an append to its target
+     * is in flight, and the rebuilt sheet checks the file before offering
+     * Append (ShareDuplicateTest has the landed and not-landed cases).
+     */
+    @Test
+    fun `a sheet rebuilt while its append was writing remembers it and says it didn't finish`() {
+        val am = RuntimeEnvironment.getApplication().getSystemService(ActivityManager::class.java)
+        shadowOf(am).setMemoryClass(Int.MAX_VALUE / (1 shl 20))
+        val controller = Robolectric.buildActivity(ShareActivity::class.java, send("Quote to keep")).setup()
+        ShadowLooper.idleMainLooper()
+        controller.get().viewModel.onAction(ShareAction.ChooseTarget(null))
+        controller.get().viewModel.onAction(ShareAction.Confirm)
+        assertEquals(SharePhase.Working, controller.get().sheetState.phase)
+        val saved = Bundle()
+        controller.saveInstanceState(saved)
+        assertTrue("an append in flight is saved", saved.getBoolean(ShareActivity.KEY_PENDING))
+        assertNull("to a new note", saved.getString(ShareActivity.KEY_PENDING_TARGET))
+
+        val rebuilt = Robolectric.buildActivity(ShareActivity::class.java, send("Quote to keep")).setup(saved)
+        ShadowLooper.idleMainLooper()
+
+        val state = rebuilt.get().sheetState
+        assertEquals(SharePhase.Choosing, state.phase)
+        assertTrue("the rebuilt sheet says the last Append didn't finish", state.interrupted)
+        assertEquals("Quote to keep", state.text)
+        // Let the first sheet's write finish, so nothing outlives the test.
+        val deadline = System.currentTimeMillis() + 10_000
+        while (controller.get().sheetState.phase == SharePhase.Working && System.currentTimeMillis() < deadline) {
+            ShadowLooper.idleMainLooper()
+            Thread.sleep(10)
+        }
     }
 }

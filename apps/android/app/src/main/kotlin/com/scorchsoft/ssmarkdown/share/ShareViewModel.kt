@@ -13,6 +13,7 @@ import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.files.save.SaveOutcome
 import com.scorchsoft.ssmarkdown.history.versions.VersionKind
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
+import com.scorchsoft.ssmarkdown.settings.AppendPosition
 import com.scorchsoft.ssmarkdown.settings.RecentFile
 import com.scorchsoft.ssmarkdown.settings.SettingsRepository
 import com.scorchsoft.ssmarkdown.text.EditOp
@@ -45,6 +46,15 @@ class ShareViewModel(
     private val dateHeading: () -> String,
 ) {
     private val ui = MutableStateFlow(ShareUiState())
+
+    /** An append that was writing when the sheet was last saved, checked once the text is read again. */
+    private var inFlight: InFlight? = null
+
+    private data class InFlight(
+        val target: String?,
+        val name: String,
+        val position: AppendPosition,
+    )
 
     /** The sheet's state. */
     val state: StateFlow<ShareUiState> = ui.asStateFlow()
@@ -85,6 +95,66 @@ class ShareViewModel(
                 position = s.share.position,
                 prefix = s.share.prefix,
             )
+        inFlight?.let {
+            inFlight = null
+            resume(it)
+        }
+    }
+
+    /**
+     * A rebuilt sheet whose append to [target] (null: a new note) was still writing when Android closed the
+     * app. Once the text is read again ([begin]), the file is checked: if the text is there, the append had
+     * landed and the sheet shows it added; if not, Append is offered again with a note that nothing was added.
+     */
+    fun restoreInterrupted(
+        target: String?,
+        name: String,
+        position: AppendPosition,
+    ) {
+        inFlight = InFlight(target, name, position)
+    }
+
+    private fun resume(was: InFlight) {
+        val target = was.target
+        if (target == null) {
+            // A new note that was being written: drafts are not searched, so it is offered again.
+            ui.update { it.copy(target = null, phase = SharePhase.Choosing, interrupted = true) }
+            return
+        }
+        val known = ui.value.targets.any { it.uri == target }
+        ui.update { state ->
+            state.copy(
+                targets = if (known) state.targets else listOf(RecentFile(target, was.name, "", 0)) + state.targets,
+                target = target,
+                position = was.position,
+                phase = SharePhase.Working,
+            )
+        }
+        val state = ui.value
+        scope.launch {
+            val landed = landed(DocumentUri(target), state)
+            ui.update {
+                if (landed) {
+                    it.copy(phase = SharePhase.Done(nameOf(target, it), target))
+                } else {
+                    it.copy(phase = SharePhase.Choosing, interrupted = true)
+                }
+            }
+        }
+    }
+
+    /** True when [state]'s text already sits where its append would put it in [uri]. */
+    private suspend fun landed(
+        uri: DocumentUri,
+        state: ShareUiState,
+    ): Boolean {
+        store[uri]?.let { return alreadyThere(it, state) }
+        val opened = (store.open(uri) as? OpenOutcome.Opened)?.document ?: return false
+        return try {
+            alreadyThere(opened, state)
+        } finally {
+            store.close(uri)
+        }
     }
 
     /** A rebuilt sheet whose append had already finished: it shows [done] and can't append again. */
@@ -106,13 +176,20 @@ class ShareViewModel(
 
     /** The single entry point for the sheet's actions (Cancel and Open are the Activity's). */
     fun onAction(action: ShareAction) {
-        // Append is offered only while choosing: never a second time once it is working or done.
+        // Append is offered only while choosing: never a second time once it is working or done. Add again
+        // only answers "already there".
         if (action == ShareAction.Confirm && ui.value.phase != SharePhase.Choosing) return
+        if (action == ShareAction.AddAgain && ui.value.phase !is SharePhase.AlreadyThere) return
         ui.update { ShareReducer.reduce(it, action) }
-        if (action == ShareAction.Confirm) confirm()
+        when (action) {
+            ShareAction.Confirm -> confirm(force = false)
+            ShareAction.AddAgain -> confirm(force = true)
+            else -> Unit
+        }
     }
 
-    private fun confirm() {
+    /** Appends or creates the note; [force] skips the duplicate check (Add again). */
+    private fun confirm(force: Boolean) {
         val state = ui.value
         // Nothing was shared into this sheet (it never began): Append would write only a heading or blank lines.
         if (state.text.isEmpty()) {
@@ -122,10 +199,10 @@ class ShareViewModel(
         settings.update {
             it.copy(share = it.share.copy(lastTarget = state.target, position = state.position, prefix = state.prefix))
         }
-        ui.update { it.copy(phase = SharePhase.Working) }
+        ui.update { it.copy(phase = SharePhase.Working, interrupted = false) }
         scope.launch {
             val target = state.target
-            if (target == null) newNote(state) else append(target, state)
+            if (target == null) newNote(state) else append(target, state, force)
         }
     }
 
@@ -144,16 +221,22 @@ class ShareViewModel(
     private suspend fun append(
         target: String,
         state: ShareUiState,
+        force: Boolean,
     ) {
         val uri = DocumentUri(target)
-        val name = state.targets.firstOrNull { it.uri == target }?.name ?: target.substringAfterLast('/')
+        val name = nameOf(target, state)
         val alreadyOpen = store[uri]
         val doc =
             if (alreadyOpen != null) {
-                readyOpen(alreadyOpen, uri, name, target, state)
+                readyOpen(alreadyOpen, uri, name, target, state, force)
             } else {
-                readyClosed(uri, name, target, state)
+                readyClosed(uri, name, target, state, force)
             } ?: return
+        if (!force && alreadyThere(doc, state)) {
+            if (alreadyOpen == null) store.close(uri)
+            ui.update { it.copy(phase = SharePhase.AlreadyThere(name, target, state.position)) }
+            return
+        }
         insert(doc, state)
         // Recorded before the save, so "Appended from <source>" is the version History shows:
         // the save's own record of the same text adds nothing after it.
@@ -180,17 +263,23 @@ class ShareViewModel(
      * buffer another app changed is reloaded first and the append lands on
      * that version, not on a stale copy. Null when this ended the flow.
      */
+    @Suppress("LongParameterList") // The append's context, passed down rather than kept as mutable state.
     private suspend fun readyOpen(
         open: OpenDocument,
         uri: DocumentUri,
         name: String,
         target: String,
         state: ShareUiState,
+        force: Boolean,
     ): OpenDocument? {
         val phase =
             when {
                 open.readOnly != null || open.conflict != null -> {
                     SharePhase.Blocked(name, conflict = open.conflict != null)
+                }
+
+                open.isDirty && !force && alreadyThere(open, state) -> {
+                    SharePhase.AlreadyThere(name, target, state.position)
                 }
 
                 open.isDirty -> {
@@ -220,13 +309,14 @@ class ShareViewModel(
         name: String,
         target: String,
         state: ShareUiState,
+        force: Boolean,
     ): OpenDocument? {
         val opened = store.open(uri) as? OpenOutcome.Opened
         if (opened == null) {
             ui.update { it.copy(phase = SharePhase.Failed(name)) }
             return null
         }
-        if (recovered(opened, uri, name, target, state)) return null
+        if (recovered(opened, uri, name, target, state, force)) return null
         val doc = opened.document
         if (doc.readOnly != null || doc.conflict != null) {
             store.close(uri)
@@ -244,18 +334,22 @@ class ShareViewModel(
      * applied stay held, untouched, since appending would set them aside.
      * Returns true when this ended the flow.
      */
+    @Suppress("LongParameterList") // The append's context, passed down rather than kept as mutable state.
     private suspend fun recovered(
         opened: OpenOutcome.Opened,
         uri: DocumentUri,
         name: String,
         target: String,
         state: ShareUiState,
+        force: Boolean,
     ): Boolean =
         when (opened.recovery) {
             is Recovery.Restored -> {
-                insert(opened.document, state)
+                val there = !force && alreadyThere(opened.document, state)
+                if (!there) insert(opened.document, state)
                 store.close(uri) // Dirty, so it stays in memory: KeptUnsaved.
-                ui.update { it.copy(phase = appended(name, target)) }
+                val phase = if (there) SharePhase.AlreadyThere(name, target, state.position) else appended(name, target)
+                ui.update { it.copy(phase = phase) }
                 true
             }
 
@@ -269,6 +363,18 @@ class ShareViewModel(
                 false
             }
         }
+
+    /** The name the sheet shows for [target]: its recent-file name, else the last part of its URI. */
+    private fun nameOf(
+        target: String,
+        state: ShareUiState,
+    ): String = state.targets.firstOrNull { it.uri == target }?.name ?: target.substringAfterLast('/')
+
+    /** True when [state]'s text already sits where its append would go in [doc] (blank text never does). */
+    private fun alreadyThere(
+        doc: OpenDocument,
+        state: ShareUiState,
+    ): Boolean = AppendPlanner.alreadyThere(doc.document.snapshot(), state.text, state.position)
 
     /** The text reached [target]: Done, and [onAppended] is told. */
     private fun appended(

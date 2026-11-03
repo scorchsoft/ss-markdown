@@ -15,7 +15,9 @@ import com.scorchsoft.ssmarkdown.history.versions.VersionInfo
 import com.scorchsoft.ssmarkdown.history.versions.VersionKind
 import com.scorchsoft.ssmarkdown.navigator.NavigatorUiState
 import com.scorchsoft.ssmarkdown.navigator.OutlineRow
+import com.scorchsoft.ssmarkdown.settings.AppendPosition
 import com.scorchsoft.ssmarkdown.settings.RecentFile
+import com.scorchsoft.ssmarkdown.share.SharePhase
 import com.scorchsoft.ssmarkdown.share.ShareUiState
 import java.time.ZoneOffset
 
@@ -115,4 +117,10 @@ object ScreenSamples {
             listOf(RecentFile("u", "reading-notes.md", "", 0), RecentFile("v", "ideas.md", "", 0)),
             target = "u",
         )
+
+    /** The shared text is already at the end of the chosen file: Open, Add again or Cancel. */
+    val shareAlreadyThere = share.copy(phase = SharePhase.AlreadyThere("reading-notes.md", "u", AppendPosition.Bottom))
+
+    /** Rebuilt after an Append that was cut off before it landed. */
+    val shareInterrupted = share.copy(interrupted = true)
 }

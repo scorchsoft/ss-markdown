@@ -618,6 +618,26 @@ app:
 - Once done, the **sheet itself** shows "Added to <file> · Open" for
   about 1.5 s, then closes, leaving you in the app you shared from.
   (Toasts on Android 12+ can't carry actions.)
+- **Already there.** Before any append to an existing file (open with
+  or without unsaved edits, or opened from closed), the sheet checks
+  whether the shared text is already where Append would put it: within
+  its own length plus about 512 characters of the end (Bottom), or of
+  the insertion point (Top). Line endings (CRLF/LF) and blank space
+  around the text don't count, and the text must sit on lines of its
+  own, so the same words inside a longer sentence are not a match. Only
+  that window is read, never the whole file. If it is there, nothing is
+  written and the sheet says "This text is already at the end of
+  <file>." (or "…at the top of…") with **Open <file>**, **Add again**
+  (appends it anyway, once) and **Cancel**; TalkBack reads the message
+  as it appears. Blank text is never checked, and New note never
+  checks.
+- **An append cut off.** If Android closes the app while an append is
+  still writing, the rebuilt sheet checks the file the same way before
+  offering Append again: if the text landed, it shows "Added to <file>"
+  and closes; if not, it is choosing again, with one quiet line above
+  Append, "The last Append didn't finish. Nothing was added." An
+  interrupted New note comes back choosing with the same line (drafts
+  are not searched).
 - The sheet also offers **Cancel** and an **Another file…** row (the
   system picker) for targets that aren't recent.
 - Prefix options are *none* (default) or *a date heading*.

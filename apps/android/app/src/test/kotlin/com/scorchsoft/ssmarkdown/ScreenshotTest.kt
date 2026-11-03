@@ -186,6 +186,14 @@ open class ScreenshotTest(
 
     @Test fun share() = shot("share-sheet") { ShareSheet(ScreenSamples.share) {} }
 
+    @Test fun shareAlreadyThere() = shot("share-sheet-already-there") { ShareSheet(ScreenSamples.shareAlreadyThere) {} }
+
+    @Test fun shareInterrupted() = shot("share-sheet-interrupted") { ShareSheet(ScreenSamples.shareInterrupted) {} }
+
+    @Test
+    fun shareAlreadyThereLargeFont() =
+        shot("share-sheet-already-there-font-200", fontScale = 2f) { ShareSheet(ScreenSamples.shareAlreadyThere) {} }
+
     @Test fun strip() = keyboard("formatting-strip", Samples.unsaved)
 
     @Test fun stripLargeFont() = keyboard("formatting-strip-font-200", Samples.unsaved, fontScale = 2f)

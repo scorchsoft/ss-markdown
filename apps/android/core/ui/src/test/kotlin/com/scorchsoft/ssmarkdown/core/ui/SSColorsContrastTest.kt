@@ -67,6 +67,20 @@ class SSColorsContrastTest {
         }
     }
 
+    @Test
+    fun `the fast-scroll thumb and its bubble read in both themes`() {
+        // docs/ux-spec.md "Fast scroll": a graphic (3:1) on the page and the chrome, at rest and held;
+        // the bubble's text on its fill (4.5:1) and its outline on the page (3:1).
+        for (c in listOf(SSLightColors, SSDarkColors)) {
+            val theme = if (c.isDark) "dark" else "light"
+            assertContrast("$theme thumb on bg", c.gutter, c.bg, AA_GRAPHIC)
+            assertContrast("$theme thumb on chrome", c.gutter, c.chrome, AA_GRAPHIC)
+            assertContrast("$theme held thumb on bg", c.inkMuted, c.bg, AA_GRAPHIC)
+            assertContrast("$theme bubble text", c.ink, c.chrome, AA_TEXT)
+            assertContrast("$theme bubble outline on bg", c.inputOutline, c.bg, AA_GRAPHIC)
+        }
+    }
+
     private fun assertContrast(
         name: String,
         fg: Color,

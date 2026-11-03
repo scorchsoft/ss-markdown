@@ -593,6 +593,46 @@ people that history exists.
 - **About → Open-source licences.** Every bundled library and font
   (Apache-2.0, MIT, OFL), generated at build time.
 
+## Fast scroll
+
+A thumb for long documents, like the draggable pill in Contacts, Files and
+Gmail: it saves flicking through a 20 MB file. It is chrome that appears
+only when it applies.
+
+- **When it shows.** As soon as the user scrolls a pane (Code, Preview, or
+  either Split pane) whose document is longer than about four screens. A
+  pane moved by something else (Split following its twin, a Navigator
+  jump, find) does not show it. It fades about 1.5 s after scrolling
+  stops, unless held. It never shows while selection handles or the text
+  toolbar are in use.
+- **Look.** A pill 6 dp wide and 44 dp tall, 3 dp from the right edge, in
+  the gutter grey; 10 dp and `inkMuted` while held. Its touch target is
+  48 × 48 dp. No track: the reading line under the header already shows
+  progress.
+- **Drag.** The pill's position is a fraction of the document and the pane
+  jumps there live. Code maps it by line index through the height map,
+  so a file with estimated heights stays steady and only moves forwards
+  as the finger does; Preview maps it by fraction of the page height,
+  one message to the page a frame. Letting go leaves the pane there: the
+  caret does not move and nothing is edited.
+- **Section bubble.** While held, a bubble left of the pill names the
+  heading of the section at the pane's top (the Navigator's outline).
+  Before any heading, Code shows "Line N" and Preview shows nothing. A
+  light haptic tick marks each change of section, as the system's
+  haptics setting allows.
+- **Gestures.** The right edge is Back under gesture navigation, so only
+  the thumb's 48 dp target is excluded from the back gesture, only while
+  it shows (Android caps exclusion at 200 dp per edge). Hidden, it takes
+  no input: a tap there reaches the text. Only vertical scrolling shows
+  it, so No wrap's sideways pans are untouched.
+- **Split.** Each pane has its own thumb. Dragging one moves that pane,
+  which then leads, and the ordinary scroll sync moves the other.
+- **Accessibility.** It is a pointer convenience, hidden from TalkBack
+  (which has the Navigator and page scrolling). With "Remove animations"
+  on it shows and hides without a fade.
+- **Keyboard.** It stays inside the pane, which sits above the keyboard
+  and the formatting strip.
+
 ## Navigator (tap the title)
 
 One sheet answers "where am I, and where can I go?". It replaces the

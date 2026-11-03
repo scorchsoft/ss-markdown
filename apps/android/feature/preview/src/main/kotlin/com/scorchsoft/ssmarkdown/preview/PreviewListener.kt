@@ -28,6 +28,9 @@ interface PreviewListener :
      */
     fun onScrollFraction(fraction: Float) = Unit
 
+    /** How much of the page the viewport shows, 0 to 1, for the fast-scroll thumb (long pages only). */
+    fun onVisibleFraction(visible: Float) = Unit
+
     fun onRendererStateChanged(state: RendererState) = Unit
 
     /** A non-fatal problem reported by the page, for logs. */

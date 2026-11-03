@@ -4,16 +4,25 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.View
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.snapshots.Snapshot
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performTouchInput
 import androidx.core.graphics.Insets
 import androidx.core.graphics.withTranslation
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.scorchsoft.ssmarkdown.about.AboutScreen
+import com.scorchsoft.ssmarkdown.core.ui.components.FastScrollDefaults
+import com.scorchsoft.ssmarkdown.core.ui.components.FastScrollState
+import com.scorchsoft.ssmarkdown.core.ui.components.FastScrollThumb
 import com.scorchsoft.ssmarkdown.editor.EditorOverlay
 import com.scorchsoft.ssmarkdown.editor.EditorUiState
 import com.scorchsoft.ssmarkdown.editor.Pane
@@ -136,6 +145,34 @@ open class ScreenshotTest(
     @Test fun recoveredLargeFont() = shot("editor-font-200-recovered", fontScale = 2f) { EditorShot(Samples.recovered) }
 
     @Test fun bigFile() = editor("editor-big-file", Samples.bigFile)
+
+    // ux-spec "Fast scroll": the thumb held part-way down the Code pane, its section bubble beside it.
+    @Test
+    fun fastScroll() {
+        val thumb = FastScrollState()
+        render {
+            EditorWith(Samples.saved, codePane = { m ->
+                Box(m) {
+                    RealCodePane(Samples.saved, Modifier.fillMaxSize())
+                    FastScrollThumb(thumb, onDrag = {}, animate = false)
+                }
+            })
+        }
+        // The clock stands still from here, so the thumb cannot fade between being shown and being taken.
+        rule.mainClock.autoAdvance = false
+        rule.runOnIdle {
+            thumb.onTouch(true)
+            thumb.onScrolled(FAST_SCROLL_AT, FAST_SCROLL_VISIBLE)
+            thumb.onTouch(false)
+            thumb.setSection(1, "Saving and safety")
+            Snapshot.sendApplyNotifications()
+        }
+        rule.mainClock.advanceTimeByFrame()
+        rule.onNodeWithTag(FastScrollDefaults.THUMB_TAG, useUnmergedTree = true).performTouchInput { down(center) }
+        rule.mainClock.advanceTimeByFrame()
+        rule.waitForIdle()
+        capture("fast-scroll-dragging")
+    }
 
     // UX2-13: the rubric's widths (#8).
     @Test
@@ -395,6 +432,8 @@ open class ScreenshotTest(
     companion object {
         private const val PNG_QUALITY = 100
         private const val KEYBOARD_DP = 300
+        private const val FAST_SCROLL_AT = 0.42f
+        private const val FAST_SCROLL_VISIBLE = 0.05f
         private const val SCREENSHOTS = "build/screenshots"
 
         @JvmStatic

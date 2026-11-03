@@ -279,6 +279,21 @@ sealed interface HostMessage {
         }
     }
 
+    /**
+     * The fast-scroll thumb: scroll to [fraction] (0 to 1) of the page's
+     * scrollable range, the inverse of [PageMessage.TopLine.fraction]. The
+     * host sends at most one a frame (docs/ux-spec.md, "Fast scroll").
+     */
+    data class ScrollToFraction(
+        val fraction: Float,
+    ) : HostMessage {
+        override val type = "scrollToFraction"
+
+        override fun writeTo(json: JSONObject) {
+            json.put("fraction", fraction.coerceIn(0f, 1f).toDouble())
+        }
+    }
+
     /** The strip's Prev / Next cell keys. */
     data class TableNav(
         val next: Boolean,

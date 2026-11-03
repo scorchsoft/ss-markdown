@@ -47,6 +47,9 @@ class PreviewSession(
     val exports =
         DiagramExports(::send, onFinished = { scrollTo(host.anchorLine) }, owner = { bound }, awaitPage = ::awaitPage)
 
+    /** The Preview pane's fast-scroll thumb (ux-spec "Fast scroll"). */
+    val fastScroll = PreviewFastScroll(::send) { bound?.outline }
+
     /** The view on screen, if any. */
     var view: PreviewView? = null
         private set
@@ -301,9 +304,17 @@ class PreviewSession(
     override fun onTopLine(
         line: Int,
         crumbs: List<Crumb>,
-    ) = host.onPreviewTopLine(line)
+    ) {
+        fastScroll.onTopLine(line)
+        host.onPreviewTopLine(line)
+    }
 
-    override fun onScrollFraction(fraction: Float) = host.onPreviewScrollFraction(fraction)
+    override fun onScrollFraction(fraction: Float) {
+        fastScroll.onScrollFraction(fraction)
+        host.onPreviewScrollFraction(fraction)
+    }
+
+    override fun onVisibleFraction(visible: Float) = fastScroll.onVisibleFraction(visible)
 
     override fun onRendererStateChanged(state: RendererState) = host.onPreviewEvent(PreviewEvent.Renderer(state))
 
@@ -329,7 +340,10 @@ class PreviewSession(
         if (paused && target === editor) host.onPreviewEvent(PreviewEvent.EditedWhilePaused)
     }
 
-    override fun onEditingChanged(editing: Boolean) = host.onPreviewEvent(PreviewEvent.Editing(editing))
+    override fun onEditingChanged(editing: Boolean) {
+        if (!editing) fastScroll.onSelection(false)
+        host.onPreviewEvent(PreviewEvent.Editing(editing))
+    }
 
     override fun onSelection(
         from: Int,
@@ -338,6 +352,7 @@ class PreviewSession(
         inTable: Boolean,
         baseRev: Int,
     ) {
+        fastScroll.onSelection(from != to)
         editor?.formatState(from, to, baseRev)?.let { host.onPreviewEvent(PreviewEvent.Format(it, inTable)) }
     }
 

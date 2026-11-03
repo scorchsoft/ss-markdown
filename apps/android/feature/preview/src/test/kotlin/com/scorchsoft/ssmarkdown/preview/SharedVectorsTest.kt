@@ -135,6 +135,7 @@ class SharedVectorsTest {
                 ),
             "settings" to HostMessage.Settings(PreviewSettings(zoom = 1.5f, readOnly = true, noWrap = true)),
             "scrollToLine" to HostMessage.ScrollToLine(40, smooth = true),
+            "scrollToFraction" to HostMessage.ScrollToFraction(0.5f),
             "tableNav" to HostMessage.TableNav(next = true),
             "tableOp" to HostMessage.Table(TableOp.Align(TableAlign.CENTER)),
             "endEditing" to HostMessage.EndEditing,

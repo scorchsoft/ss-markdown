@@ -103,6 +103,8 @@ export type HostMessage =
     | { readonly type: "theme"; readonly theme: ThemeSpec; readonly dark: boolean; readonly fonts?: ThemeFonts }
     | { readonly type: "settings"; readonly settings: PreviewSettings }
     | { readonly type: "scrollToLine"; readonly line: number; readonly smooth?: boolean }
+    /** The fast-scroll thumb: scroll to [fraction] (0 to 1) of the scrollable range; at most one a frame. */
+    | { readonly type: "scrollToFraction"; readonly fraction: number }
     | { readonly type: "tableNav"; readonly direction: "prev" | "next" }
     | { readonly type: "tableOp"; readonly op: TableOp }
     | { readonly type: "endEditing" }
@@ -237,6 +239,8 @@ export type PageMessage =
           readonly crumbs: readonly Crumb[];
           /** Scroll position over the scrollable range, 0 to 1, for the reading line. */
           readonly fraction?: number;
+          /** How much of the page the viewport shows, 0 to 1: the fast-scroll thumb shows only on long pages. */
+          readonly visible?: number;
       }
     | {
           readonly type: "sourceEdit";

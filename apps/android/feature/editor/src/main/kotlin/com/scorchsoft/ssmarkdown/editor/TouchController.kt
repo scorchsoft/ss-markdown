@@ -42,6 +42,9 @@ internal class TouchController(
     /** Vertical gap between the finger and the handle's point, so the finger never hides the text it moves. */
     private var grabOffsetY = 0f
 
+    /** True while a handle is dragged or a long-press is extending a selection. */
+    val isSelecting: Boolean get() = dragging != null || selectingByLongPress
+
     /** True once after a tap placed the caret; the view answers it with `performClick`. */
     fun takeTap(): Boolean = tapped.also { tapped = false }
 

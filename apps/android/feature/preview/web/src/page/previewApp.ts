@@ -3,7 +3,7 @@
  * gestures together and answers Kotlin's messages.
  */
 import { nextLoad } from "../core/imagePaths";
-import { readingFraction } from "../core/readingFraction";
+import { readingFraction, scrollForFraction, visibleFraction } from "../core/readingFraction";
 import type { HostMessage, PageMessage, PreviewSettings } from "../protocol";
 import { Bridge } from "./bridge";
 import { RenderController } from "./controller";
@@ -155,6 +155,15 @@ export class PreviewApp {
                 // Split following the Code pane must not scroll a find match just revealed out of view.
                 this.find.afterHostScroll();
                 break;
+            case "scrollToFraction":
+                // The fast-scroll thumb: the reader is moving, so nothing pinned may pull the page back.
+                this.pinned = null;
+                this.anchorLine = null;
+                window.scrollTo({
+                    top: scrollForFraction(m.fraction, document.documentElement.scrollHeight, window.innerHeight),
+                    behavior: "auto",
+                });
+                break;
             case "tableNav":
                 this.editor.moveCell(m.direction);
                 break;
@@ -285,7 +294,14 @@ export class PreviewApp {
             if (line === this.lastTop && step === this.lastFractionStep && !force) return;
             this.lastTop = line;
             this.lastFractionStep = step;
-            this.bridge.post({ type: "topLine", line, crumbs: breadcrumb(this.controller.outline(), line), fraction });
+            const visible = visibleFraction(document.documentElement.scrollHeight, window.innerHeight);
+            this.bridge.post({
+                type: "topLine",
+                line,
+                crumbs: breadcrumb(this.controller.outline(), line),
+                fraction,
+                visible,
+            });
         });
     }
 

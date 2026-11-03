@@ -91,6 +91,12 @@ class OutlineTracker(
     /** The headings containing [line], outermost first. */
     fun breadcrumbAt(line: Int): List<Heading> = shown.breadcrumbAt(line)
 
+    /** Index of the heading whose section holds [line], or -1: a binary search that allocates nothing. */
+    fun sectionIndexAt(line: Int): Int = shown.indexAt(line)
+
+    /** The heading at [index] (from [sectionIndexAt]). */
+    fun headingAt(index: Int): Heading = shown.heading(index)
+
     /** The line range of the section headed on [headingLine], or null. */
     fun sectionRange(headingLine: Int): IntRange? = shown.sectionRange(headingLine)
 

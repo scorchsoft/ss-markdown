@@ -310,6 +310,12 @@ class MarkdownCodeView
         val isSelectionHandleShown: Boolean
             get() = HandleKind.entries.any { selectionUi.handlePoint(it) != null }
 
+        /** True while a selection handle is dragged or the text toolbar shows: the fast-scroll thumb keeps away. */
+        val isSelectionInUse: Boolean get() = touch.isSelecting || selectionUi.isToolbarShown
+
+        /** The fast-scroll thumb's view of this pane: its line-index position, and drags ([CodeFastScroll]). */
+        val fastScroll: CodeFastScroll by lazy { CodeFastScroll(this, geometry, viewport) }
+
         /** Starts a vertical fling, as a finger would; the benchmark uses this for scripted scrolling. */
         fun fling(velocityY: Int) = viewport.startFling(0, velocityY)
 

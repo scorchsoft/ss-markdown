@@ -84,6 +84,7 @@ export const HOST_TYPES: ReadonlySet<string> = new Set<string>([
     "theme",
     "settings",
     "scrollToLine",
+    "scrollToFraction",
     "tableNav",
     "tableOp",
     "endEditing",

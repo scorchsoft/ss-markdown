@@ -123,6 +123,15 @@ class BridgeCodecTest {
             PageMessage.TopLine(0, emptyList(), null),
             BridgeCodec.decode("""{"type":"topLine","line":0,"crumbs":[],"fraction":"x"}"""),
         )
+        // The fast-scroll thumb's page size rides along too, clamped the same way.
+        assertEquals(
+            PageMessage.TopLine(3, emptyList(), 0.5f, 0.1f),
+            BridgeCodec.decode("""{"type":"topLine","line":3,"crumbs":[],"fraction":0.5,"visible":0.1}"""),
+        )
+        assertEquals(
+            PageMessage.TopLine(3, emptyList(), 0.5f, 1f),
+            BridgeCodec.decode("""{"type":"topLine","line":3,"crumbs":[],"fraction":0.5,"visible":9}"""),
+        )
         assertEquals(
             PageMessage.Selection(1, 5, setOf("bold", "link"), false, 7),
             BridgeCodec.decode(

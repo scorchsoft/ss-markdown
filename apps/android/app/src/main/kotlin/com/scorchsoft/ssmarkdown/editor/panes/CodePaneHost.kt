@@ -1,12 +1,20 @@
 package com.scorchsoft.ssmarkdown.editor.panes
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.scorchsoft.ssmarkdown.core.ui.SS
+import com.scorchsoft.ssmarkdown.core.ui.components.FastScrollState
+import com.scorchsoft.ssmarkdown.core.ui.components.fastScrollTouches
 import com.scorchsoft.ssmarkdown.document.ActiveDocument
 import com.scorchsoft.ssmarkdown.editor.EditorListener
 import com.scorchsoft.ssmarkdown.editor.EditorTheme
@@ -47,20 +55,28 @@ fun CodePaneHost(
 ) {
     val doc = document ?: return
     val holder = remember { ViewHolder() }
-    CodePane(
-        text = doc.text,
-        wrap = wrap,
-        zoomPercent = zoomPercent,
-        lineNumbers = lineNumbers,
-        listener = doc,
-        background = background,
-        modifier = modifier,
-        codeTheme = codeTheme,
-        onViewReady = { view ->
-            holder.view = view
-            onAttach(view)
-        },
-    )
+    // The fast-scroll thumb (ux-spec "Fast scroll"): shown by a scroll that follows a touch on this pane.
+    val thumb = remember { FastScrollState() }
+    var shown by remember { mutableStateOf<MarkdownCodeView?>(null) }
+    val current = rememberUpdatedState(doc)
+    Box(modifier.fastScrollTouches(thumb)) {
+        CodePane(
+            text = doc.text,
+            wrap = wrap,
+            zoomPercent = zoomPercent,
+            lineNumbers = lineNumbers,
+            listener = doc,
+            background = background,
+            modifier = Modifier.fillMaxSize(),
+            codeTheme = codeTheme,
+            onViewReady = { view ->
+                holder.view = view
+                shown = view
+                onAttach(view)
+            },
+        )
+        shown?.let { view -> CodeScrollThumb(view, { current.value.outline }, thumb) }
+    }
     LaunchedEffect(doc) { holder.view?.let(onAttach) }
     DisposableEffect(Unit) {
         onDispose { holder.view?.let(onDetach) }

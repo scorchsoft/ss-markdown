@@ -28,6 +28,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
+import com.scorchsoft.ssmarkdown.core.ui.components.FastScrollThumb
+import com.scorchsoft.ssmarkdown.core.ui.components.fastScrollTouches
 import com.scorchsoft.ssmarkdown.editor.EditorReducer
 import com.scorchsoft.ssmarkdown.editor.preview.PreviewSession
 import com.scorchsoft.ssmarkdown.preview.MarkdownPreview
@@ -80,11 +82,20 @@ fun PreviewPaneHost(
     }
     val current = rememberUpdatedState(state)
     val background = state.look?.background?.let(::Color) ?: SS.colors.bg
-    Box(modifier.fillMaxSize().background(background).observePinch(current)) {
+    val fast = session.fastScroll
+    Box(
+        modifier
+            .fillMaxSize()
+            .background(background)
+            .observePinch(current)
+            .fastScrollTouches(fast.state),
+    ) {
         if (state.renderer == RendererState.PAUSED) {
             PausedPreview(state.onRetry, state.onShowCode)
         } else {
             MarkdownPreview(view, Modifier.fillMaxSize())
+            // The fast-scroll thumb (ux-spec "Fast scroll"): it moves this page only; Split's sync does the rest.
+            FastScrollThumb(fast.state, fast::dragTo, onDragStart = fast::begin, onDragEnd = fast::end)
         }
     }
 }

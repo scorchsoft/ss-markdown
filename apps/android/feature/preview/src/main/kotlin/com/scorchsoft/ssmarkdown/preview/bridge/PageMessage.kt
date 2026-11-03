@@ -79,14 +79,18 @@ sealed interface PageMessage {
      * The source line at the top of the viewport, for anchors and the
      * breadcrumb, and [fraction], the scroll position over the scrollable
      * range (0 to 1, exactly 1 at the bottom) for the reading line; null
-     * from a page that does not report it.
+     * from a page that does not report it. [visible] is how much of the page
+     * the viewport shows (0 to 1), for the fast-scroll thumb.
      */
     data class TopLine(
         val line: Int,
         val crumbs: List<Crumb>,
         val fraction: Float? = null,
+        val visible: Float? = null,
     ) : PageMessage {
         override fun deliverTo(listener: PreviewListener) {
+            // The page's size first: the fraction is what shows the fast-scroll thumb, on a long page only.
+            visible?.let(listener::onVisibleFraction)
             listener.onTopLine(line, crumbs)
             fraction?.let(listener::onScrollFraction)
         }

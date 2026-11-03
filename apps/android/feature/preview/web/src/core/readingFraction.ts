@@ -18,3 +18,20 @@ export function readingFraction(scrollY: number, scrollHeight: number, viewport:
     if (scrollY >= range - 1) return 1;
     return Math.min(1, Math.max(0, scrollY / range));
 }
+
+/**
+ * The scroll offset for the fast-scroll thumb at [fraction] of the page:
+ * the inverse of [readingFraction], clamped to the scrollable range, 0 for
+ * a page that fits (docs/ux-spec.md, "Fast scroll").
+ */
+export function scrollForFraction(fraction: number, scrollHeight: number, viewport: number): number {
+    const range = Math.max(0, scrollHeight - viewport);
+    const f = Number.isFinite(fraction) ? Math.min(1, Math.max(0, fraction)) : 0;
+    return f * range;
+}
+
+/** How much of the page the viewport shows at once, 0 to 1: the thumb shows only on long pages. */
+export function visibleFraction(scrollHeight: number, viewport: number): number {
+    if (scrollHeight <= 0) return 1;
+    return Math.min(1, Math.max(0, viewport / scrollHeight));
+}

@@ -38,6 +38,12 @@ release may change behaviour.
 - Text copied in Preview and pasted back keeps its formatting: the copy
   carries the Markdown source, so bold stays bold and a copied list
   pastes as a list.
+- Fast scroll in Code and Preview (and each Split pane): scroll a long
+  document and a slim thumb appears at the right edge. Drag it to jump
+  through the file; a bubble beside it names the section you're in, with
+  a light tick as each new section passes. It fades a moment after you
+  stop, never shows on short documents, and doesn't get in the way of
+  Back, selection handles or the keyboard.
 - Sharing text that is already at the end (or top) of the chosen file no
   longer adds it twice: the share sheet says "This text is already at the
   end of <file>." and offers Open, Add again and Cancel.

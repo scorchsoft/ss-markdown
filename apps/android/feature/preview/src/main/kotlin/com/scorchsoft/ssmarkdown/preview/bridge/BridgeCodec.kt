@@ -72,11 +72,20 @@ object BridgeCodec {
         return if (value.isNaN()) null else value.toFloat().coerceIn(0f, 1f)
     }
 
+    /** How much of the page shows, clamped to 0..1; null when absent or junk. */
+    private fun visible(j: JSONObject): Float? {
+        if (!j.has("visible")) return null
+        val value = j.optDouble("visible", Double.NaN)
+        return if (value.isNaN()) null else value.toFloat().coerceIn(0f, 1f)
+    }
+
     private val decoders: Map<String, (JSONObject) -> PageMessage> =
         mapOf(
             "ready" to { j -> PageMessage.Ready(j.getInt("version")) },
             "rendered" to { j -> PageMessage.Rendered(j.getInt("rev"), j.getInt("sections"), j.getInt("millis")) },
-            "topLine" to { j -> PageMessage.TopLine(j.getInt("line"), crumbs(j.getJSONArray("crumbs")), fraction(j)) },
+            "topLine" to { j ->
+                PageMessage.TopLine(j.getInt("line"), crumbs(j.getJSONArray("crumbs")), fraction(j), visible(j))
+            },
             "sourceEdit" to
                 { j -> PageMessage.SourceEdit(j.getInt("baseRev"), edits(j.getJSONArray("edits")), epoch(j)) },
             "selection" to { j ->

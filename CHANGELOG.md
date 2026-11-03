@@ -7,6 +7,12 @@ release may change behaviour.
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-11-03
+
+From the 0.2.2 phone test: lists, paste, tapping, Split and the keyboard
+in Preview, plus code highlighting, fast scroll, new settings and a new
+icon.
+
 ### Added
 
 - Code view colours fenced code by language, in the same colours Preview

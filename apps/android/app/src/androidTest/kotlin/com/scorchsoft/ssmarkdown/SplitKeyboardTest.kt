@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown
 
 import android.content.pm.ActivityInfo
+import android.os.ParcelFileDescriptor
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
@@ -42,7 +43,11 @@ import java.util.concurrent.TimeUnit
  *
  * Then Split while typing (ux-spec "Split while typing"): by default the
  * tapped pane fills the page and the other leaves the screen until the
- * keyboard closes; with "Keep both panes" both stay.
+ * keyboard closes; with "Keep both panes" both stay. Those two run in a
+ * phone-sized window (412 x 914 dp): on the CI emulator's own small screen
+ * the keyboard leaves Split under 280 dp, too short to stack, where Preview
+ * folds into its strip whatever the setting (edge-cases "Tiny split-screen
+ * window").
  */
 @RunWith(AndroidJUnit4::class)
 class SplitKeyboardTest {
@@ -58,10 +63,44 @@ class SplitKeyboardTest {
 
     @After
     fun reset() {
+        shell("wm size reset")
+        shell("wm density reset")
         instrumentation.runOnMainSync {
             rule.activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
         graph().settings.update { it.copy(splitTyping = SplitTyping.EditedPane) }
+    }
+
+    private fun shell(command: String) {
+        val out = instrumentation.uiAutomation.executeShellCommand(command)
+        ParcelFileDescriptor.AutoCloseInputStream(out).use { it.readBytes() }
+    }
+
+    /** A 412 x 914 dp phone (1080 x 2400 at 420 dpi), so Split has room to stack with the keyboard up. */
+    private fun phoneSizedWindow() {
+        shell("wm size 1080x2400")
+        shell("wm density 420")
+        rule.waitUntil(TIMEOUT_MILLIS) {
+            var heightDp = 0f
+            instrumentation.runOnMainSync {
+                val decor = rule.activity.window.decorView
+                heightDp = decor.height / decor.resources.displayMetrics.density
+            }
+            heightDp > PHONE_MIN_HEIGHT_DP
+        }
+        rule.waitForIdle()
+    }
+
+    /** Both panes on screen, waited for with a bounded poll; the failure says how tall Split was. */
+    private fun assertBothPanesOnScreen() {
+        val both = runCatching { rule.waitUntil(TIMEOUT_MILLIS) { onScreen(codeView()) && onScreen(webView()) } }
+        val area = rule.onNodeWithTag(SPLIT_PANES_TAG).fetchSemanticsNode().boundsInWindow
+        val heightDp = area.height / rule.activity.resources.displayMetrics.density
+        assertTrue(
+            "both panes should be on screen while typing: Code ${onScreen(codeView())}, " +
+                "page ${onScreen(webView())}, Split $heightDp dp high",
+            both.isSuccess,
+        )
     }
 
     @Test
@@ -83,15 +122,17 @@ class SplitKeyboardTest {
     @Test
     fun keepBothPanesKeepsTheKeyboardAndBothPanesForCode() {
         graph().settings.update { it.copy(splitTyping = SplitTyping.BothPanes) }
-        val view = tapCode()
-        assertTrue(onScreen(view) && onScreen(webView()))
+        phoneSizedWindow()
+        tapCode()
+        assertBothPanesOnScreen()
     }
 
     @Test
     fun keepBothPanesKeepsTheKeyboardAndBothPanesForPreview() {
         graph().settings.update { it.copy(splitTyping = SplitTyping.BothPanes) }
-        val web = tapPreview()
-        assertTrue(onScreen(web) && onScreen(codeView()))
+        phoneSizedWindow()
+        tapPreview()
+        assertBothPanesOnScreen()
     }
 
     /** Opens Split, taps the Code pane and checks the keyboard stayed, with the Code view focused. */
@@ -277,6 +318,7 @@ class SplitKeyboardTest {
 
     private companion object {
         const val TIMEOUT_MILLIS = 5_000L
+        const val PHONE_MIN_HEIGHT_DP = 850f
         const val PAGE_LOAD_MILLIS = 2_000L
         const val SETTLE_MILLIS = 2_500L
         const val TEXT = "A first paragraph to tap in.\n\nA second one below it.\n"

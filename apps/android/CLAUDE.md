@@ -167,6 +167,26 @@ deliberate change, run the script with `--write-baseline` on the job's
 nearest app frame is ours; its allowlist (WebView/Chromium internals only)
 says why for each entry.
 
+- **Open problem (2026-11-03): the perf job stalls on every run.** Since
+  2026-11-02 the device finishes each stage in about 8 minutes, but Gradle
+  hears about the results minutes late or never. UTP's
+  `AndroidAdditionalTestOutputPlugin` runs adb shell commands
+  (`am get-current-user`, `ls`) after every test on the thread that reads
+  the results, and on GitHub's 2-vCPU, 8 GB runners they hang until a
+  6-minute timeout (UTP thread dump and `utp.0.log`, run 41623253135). GPU
+  mode, emulator cores, AVD RAM, the Gradle heap and vsock were ruled out;
+  adb itself moves 32 MiB in under a second. The next thing to try is
+  running each stage with `am instrument` detached on the device and
+  pulling `additional_test_output` (tried on `ccr-perf-experiment`, commit
+  9d366fb, `benchmark/ci/instrument.sh`: the Macrobenchmarks passed 8/8 that
+  way; the generator still failed with "Unable to select a directory",
+  and the APK must be rebuilt with the new profile before measuring).
+- **A stage that overruns** (20 minutes, retried once, inside a 62-minute
+  script budget so the job always uploads) saves `stall-<stage>-<n>/` in
+  the `emulator-evidence` artifact: screencap and view tree, `dumpsys`,
+  `ps`/`top`, logcat, `/data/anr` thread dumps, adb throughput, and the
+  host's memory, sockets, JVM thread dumps (Gradle and UTP, taken before
+  the stage is stopped) and UTP logs. Read those before guessing.
 - **The app's side**: core/ui's `PerfTrace` sections (`SSM:open`,
   `SSM:commit`, `SSM:previewRefresh`), and MainActivity reports drawn when a
   document is bound (`timeToFullDisplayMs`). Renaming a section breaks the

@@ -335,7 +335,9 @@ jobs:
       (github.event_name == 'workflow_dispatch' && inputs.perf == true) ||
       (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'perf'))
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # The emulator step stops itself well inside this, so the reports and
+    # the evidence upload below always run.
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@v4
       - name: Enable KVM
@@ -363,6 +365,11 @@ jobs:
 
       - name: Baseline Profile, Macrobenchmarks and monkey on the emulator
         uses: reactivecircus/android-emulator-runner@v2
+        # The script's own budget (EVIDENCE_BUDGET_MIN) is shorter; this is
+        # the backstop that keeps the job's last steps from being cancelled.
+        timeout-minutes: 72
+        env:
+          EVIDENCE_BUDGET_MIN: 62
         with:
           api-level: 34
           arch: x86_64
@@ -422,4 +429,5 @@ jobs:
             apps/android/app/src/main/generated/baselineProfiles/
             apps/android/app/build/outputs/apk/debug/*.apk
             apps/android/app/build/outputs/mapping/debug/mapping.txt
+            apps/android/*/build/outputs/androidTest-results/
           retention-days: 14

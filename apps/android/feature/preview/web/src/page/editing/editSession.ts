@@ -258,6 +258,12 @@ export class EditSession {
      * A list item, an empty quote line and code take Code's own Enter from
      * Kotlin; a paragraph, heading or quote line gets a new paragraph here.
      */
+    /** Enter, for keystrokes the keyboard keeper held while the block re-rendered. */
+    pressEnter(): void {
+        if (this.inTable) this.host.nextCell();
+        else this.enter(false);
+    }
+
     private enter(hard: boolean): void {
         this.flush();
         const r = this.selectionRange();

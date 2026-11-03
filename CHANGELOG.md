@@ -109,6 +109,8 @@ release may change behaviour.
   one joins it.
 - Indent is disabled on a paragraph, where four spaces would have made
   it a code block.
+- Typing fast right after Enter in a Preview list could lose letters, or
+  an Enter typed in that moment; every key now lands, in order.
 - Paste in Preview now fits the block it lands in: several lines become
   paragraphs (quoted ones in a quote), continuation lines or list items in
   a list (numbers after them counted on), `<br>`-joined text in a table

@@ -220,3 +220,65 @@ describe("block-editing matrix in Preview", () => {
         });
     }
 });
+
+/**
+ * Typing fast around Enter in a list, on a CPU six times slower: every
+ * keystroke reaches the source, in order (edge-cases "Typing straight after
+ * Enter in a list lost letters"). Kotlin's Enter is played as `\n- ` at the
+ * request, which is what Code's command gives at the end of these items.
+ */
+describe("no keystroke is lost around Enter in a list", () => {
+    for (let round = 1; round <= Number(process.env.BE_ROUNDS ?? 4); round++) {
+        it(`types, presses Enter and types on, round ${round}`, async () => {
+            const cdp = await page.context().newCDPSession(page);
+            await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 });
+            rev += 10;
+            const start = "- one\n- two";
+            await loadMarkdown(page, start, rev);
+            await page.bringToFront();
+            await page.evaluate(() => ((window as unknown as { __autoAck: boolean }).__autoAck = false));
+            await send(page, { type: "select", rev, from: start.length, to: start.length });
+            await page.waitForFunction(() => document.querySelector(".editing") !== null, undefined, {
+                timeout: 10_000,
+            });
+            await waitForMessage(page, (m) => m.type === "selection", 10_000).catch(() => undefined);
+            await clearReceived(page);
+            // No pause anywhere: keys queue up while the page is busy.
+            let keysDone = false;
+            const keys = (async () => {
+                await page.keyboard.type("abc");
+                await page.keyboard.press("Enter");
+                await page.keyboard.type("def");
+                await page.keyboard.press("Enter");
+                await page.keyboard.type("gh");
+                keysDone = true;
+            })();
+            let source = start;
+            let quietSince = Date.now();
+            const deadline = Date.now() + 30_000;
+            while (Date.now() < deadline && !(keysDone && Date.now() - quietSince > 2500)) {
+                for (const m of await takeReceived(page)) {
+                    if (process.env.BE_DEBUG) console.log("STRESS", JSON.stringify(m));
+                    if (m.type === "sourceEdit") {
+                        for (const e of [...m.edits].sort((a, b) => b.from - a.from)) source = applyEdit(source, e);
+                        rev++;
+                        await send(page, { type: "ack", rev });
+                        quietSince = Date.now();
+                    } else if (m.type === "formatRequest") {
+                        expect(m.action).toBe("enter");
+                        const op = { from: m.from, to: m.to, insert: "\n- " };
+                        const after = applyEdit(source, op);
+                        rev++;
+                        await send(page, { type: "edit", rev, changes: [lineChange(source, after)], ops: [op] });
+                        source = after;
+                        await send(page, { type: "select", rev, from: m.from + 3, to: m.from + 3 });
+                        quietSince = Date.now();
+                    }
+                }
+                await page.waitForTimeout(50);
+            }
+            await keys;
+            expect(source).toBe("- one\n- twoabc\n- def\n- gh");
+        });
+    }
+});

@@ -12,7 +12,7 @@ import { escapeTyped } from "../../core/minimalEdit";
 import { codeExit } from "../../core/newline";
 import { EditSession, type SessionHost } from "./editSession";
 import { KeyboardKeeper } from "./keyboardKeeper";
-import { emptyRun, placeCaret, placeholderRun, sectionOf, setCaretInRun } from "./runs";
+import { emptyRun, placeCaret, placeholderRun, pointToSource, sectionOf, setCaretInRun } from "./runs";
 import {
     cellAddress,
     cellAtOffset,
@@ -42,6 +42,10 @@ export class Editor implements SessionHost {
     private carryPadding = false;
     /** Holds the keyboard while a block is re-rendered under the caret. */
     private readonly keeper = new KeyboardKeeper();
+    /** Kept typing still to write after a kept Enter has run (see [afterStart]). */
+    private carried = "";
+    /** A kept Enter waits for the session that starts after the text before it was written. */
+    private enterNext = false;
     /** What Kotlin was last told by `editingChanged`. */
     private announced = false;
 
@@ -89,11 +93,12 @@ export class Editor implements SessionHost {
         this.end();
         const view = this.viewOf(block);
         if (!view) return;
-        this.startSession(block, view);
+        const typed = this.startSession(block, view);
         caretAt(block, x, y);
         this.ensureCellRun(block);
         this.updateToolbar();
         this.announce(true);
+        this.afterStart(typed, null);
     }
 
     /**
@@ -172,16 +177,23 @@ export class Editor implements SessionHost {
                 sel.setBaseAndExtent(startNode, startOffset, far.startContainer, far.startOffset);
             }
         }
-        const anchor = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
-        this.startSession(block, view);
+        const anchor = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
+        const typed = this.startSession(block, view);
         if (anchor) {
             sel?.removeAllRanges();
             sel?.addRange(anchor);
         }
         this.updateToolbar();
+        // Only now, with the caret back where it belongs: focusing the block moved it to the block's start.
+        this.afterStart(typed, offset);
     }
 
-    private startSession(block: HTMLElement, view: SectionView): void {
+    /**
+     * Starts editing [block] and returns what was typed while the keeper held
+     * the keyboard. The caller writes it with [insertKept] once the caret is
+     * where it belongs: focusing the block moves the selection to its start.
+     */
+    private startSession(block: HTMLElement, view: SectionView): string {
         this.controller.pinned = view;
         const session = new EditSession(block, view, this);
         this.session = session;
@@ -191,15 +203,58 @@ export class Editor implements SessionHost {
         this.paddedTable = addr ? this.carryPadding || isPadded(this.controller.doc, addr) : false;
         this.carryPadding = false;
         this.announce(true);
-        if (typed.length > 0) this.insertKept(session, typed);
+        return typed;
     }
 
-    /** Text typed while the keeper held the keyboard: written at the restored caret, never dropped. */
-    private insertKept(session: EditSession, typed: string): void {
-        const range = session.selectionRange();
-        if (!range) return;
-        const insert = escapeTyped(typed, { inTable: session.inTable, atLineStart: this.isLineStart(range.from) });
-        this.commitAndRerender([{ from: range.from, to: range.to, insert }], range.from + insert.length);
+    /**
+     * What the keeper held, in order, once a session has its caret: a kept
+     * Enter runs as Enter (its own edit and re-render), and what was typed
+     * after it waits for the session that follows (edge-cases "Typing
+     * straight after Enter in a list lost letters").
+     */
+    private afterStart(typed: string, fallback: number | null): void {
+        const all = this.carried + typed;
+        this.carried = "";
+        if (this.enterNext) {
+            this.enterNext = false;
+            this.carried = all;
+            this.session?.pressEnter();
+            return;
+        }
+        const nl = all.indexOf("\n");
+        if (nl < 0) {
+            this.insertKept(all, fallback);
+            return;
+        }
+        this.carried = all.slice(nl + 1);
+        if (nl === 0) {
+            this.session?.pressEnter();
+        } else {
+            this.enterNext = true;
+            this.insertKept(all.slice(0, nl), fallback);
+        }
+    }
+
+    /**
+     * Text typed while the keeper held the keyboard: written at the caret, or
+     * at [fallback] (where the caret was being restored to) when the selection
+     * is not in the block. Never dropped (edge-cases "Typing straight after
+     * Enter in a list lost letters").
+     */
+    private insertKept(typed: string, fallback: number | null): void {
+        const session = this.session;
+        if (typed.length === 0 || !session) return;
+        const range = session.selectionRange() ?? (fallback === null ? null : { from: fallback, to: fallback });
+        const from = range?.from ?? this.firstRunOffset(session.block);
+        const to = range?.to ?? from;
+        const insert = escapeTyped(typed, { inTable: session.inTable, atLineStart: this.isLineStart(from) });
+        this.commitAndRerender([{ from, to, insert }], from + insert.length);
+    }
+
+    /** The source offset where [block]'s first run starts: the last resort for kept typing. */
+    private firstRunOffset(block: HTMLElement): number {
+        const run = block.matches("[data-s]") ? block : block.querySelector<HTMLElement>("[data-s]");
+        return run ? (pointToSource(block, run, 0) ?? 0) : 0;
     }
 
     /** Kotlin's Prev / Next cell keys. "Next" on the last cell adds a row. */
@@ -403,8 +458,9 @@ export class Editor implements SessionHost {
         const run = emptyRun(section, cellOffset(this.controller.doc, addr, addr.row, addr.col));
         block.appendChild(run);
         this.session?.stop();
-        this.startSession(block, view);
+        const typed = this.startSession(block, view);
         setCaretInRun(run, 0);
+        this.afterStart(typed, null);
     }
 
     private updateToolbar(): void {

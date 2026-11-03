@@ -11,8 +11,12 @@
  * here: a 1 px, invisible, editable box outside the document.
  *
  * Anything typed into it during the gap is handed back by [release], so it
- * reaches the source instead of vanishing.
+ * reaches the source instead of vanishing; an Enter comes back as `\n`, for
+ * the editor to run as Enter in its turn.
  */
+/** Stands for an Enter typed into the keeper (a private-use character, never in typed text). */
+const ENTER_MARK = "\ue000";
+
 export class KeyboardKeeper {
     private el: HTMLElement | null = null;
     private timer: ReturnType<typeof setTimeout> | null = null;
@@ -54,7 +58,7 @@ export class KeyboardKeeper {
         this.clearTimer();
         const el = this.el;
         if (!el) return "";
-        const typed = el.textContent ?? "";
+        const typed = (el.textContent ?? "").split(ENTER_MARK).join("\n");
         el.textContent = "";
         return typed;
     }
@@ -90,6 +94,16 @@ export class KeyboardKeeper {
             pointerEvents: "none",
             caretColor: "transparent",
             whiteSpace: "pre",
+        });
+        // Enter in a contenteditable box makes a <div> or <br>, which textContent drops: keep it as "\n".
+        el.addEventListener("beforeinput", (e) => {
+            if (e.inputType !== "insertParagraph" && e.inputType !== "insertLineBreak") return;
+            e.preventDefault();
+            // A visible stand-in, not a newline: Chrome puts the caret before a trailing newline, so what
+            // was typed next landed ahead of the Enter. The caret goes after it; [release] maps it back.
+            const breakText = document.createTextNode(ENTER_MARK);
+            el.append(breakText);
+            window.getSelection()?.collapse(breakText, 1);
         });
         document.body.appendChild(el);
         this.el = el;

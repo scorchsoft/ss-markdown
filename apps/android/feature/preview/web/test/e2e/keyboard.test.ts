@@ -51,6 +51,11 @@ beforeEach(async () => {
     await page?.close();
     page = await openPreview(h, { width: WIDTH, height: FULL }, { hasTouch: true });
     await loadMarkdown(page, SOURCE);
+    // THROTTLE=5 npx vitest run --project e2e test/e2e/keyboard.test.ts: a CI-slow CPU, for timing bugs.
+    if (process.env.THROTTLE) {
+        const cdp = await page.context().newCDPSession(page);
+        await cdp.send("Emulation.setCPUThrottlingRate", { rate: Number(process.env.THROTTLE) });
+    }
 });
 
 /** The caret's line in the block being edited; fails the test if there is none. */
@@ -109,6 +114,17 @@ async function tapParagraphNear(y: number): Promise<void> {
     });
 }
 
+/** The source line of the block being edited. */
+async function editingLine(): Promise<number> {
+    const line = await page.evaluate(() => {
+        const node = window.getSelection()?.focusNode;
+        const el = node instanceof Element ? node : node?.parentElement;
+        return Number(el?.closest<HTMLElement>(".editing")?.dataset.line ?? NaN);
+    });
+    if (Number.isNaN(line)) throw new Error("no block being edited");
+    return line;
+}
+
 /** Scrolls to the very end, waiting out the 500 ms fling guard so a tap edits. */
 async function scrollToEnd(): Promise<void> {
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
@@ -157,16 +173,20 @@ describe("the keyboard opens over the caret", () => {
     it("typing new lines at the bottom keeps the caret above the strip", async () => {
         await tapParagraphNear(FULL - 40);
         await slide(OPEN);
-        await page.keyboard.press("End");
+        // The end of the block, not of the visual line: End on a wrapped paragraph's first line would
+        // make Enter split it, and where the tap lands on a wrapped line depends on the fonts.
+        await page.keyboard.press("Control+End");
         for (let i = 0; i < 8; i++) {
+            const line = await editingLine();
             await clearReceived(page);
             await page.keyboard.press("Enter");
-            // The new paragraph has taken the caret before typing goes on (Enter re-renders the block).
-            await page.waitForFunction(() => {
+            // The block below has taken the caret before typing goes on (Enter re-renders the block).
+            await page.waitForFunction((before) => {
                 const node = window.getSelection()?.focusNode;
                 const el = node instanceof Element ? node : node?.parentElement;
-                return el?.closest(".editing.placeholder") != null;
-            });
+                const block = el?.closest<HTMLElement>(".editing");
+                return block != null && Number(block.dataset.line) > before;
+            }, line);
             await page.keyboard.type(`Line ${i}`);
             // Settled: the line is on the page and the caret is in the block being edited.
             await page.waitForFunction((text) => {

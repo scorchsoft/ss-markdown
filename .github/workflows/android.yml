@@ -8,9 +8,11 @@ name: android
 #   runs only on main (or on a ccr-** branch that has no pull request yet,
 #   via workflow_dispatch). A newer commit cancels the older run.
 # - "[skip ci]" in the commit message: nothing runs (GitHub's own rule).
-# - "[ci lean]" in the head commit message: Checks, plus Preview bundle when
-#   the page changed; the emulator jobs are skipped. For small, low-risk
-#   changes. A release always needs a full run first.
+# - A pull request commit runs LEAN by default: Checks and Preview bundle
+#   only. The emulator job runs when the pull request carries the "full-ci"
+#   label, when the head commit says "[ci full]", on main, and on a manual
+#   dispatch. "[ci lean]" forces lean anywhere. A hand-over build always
+#   needs a full green run of its commit first.
 # - The perf job (emulator perf, Baseline Profile) runs nightly, on demand
 #   (workflow_dispatch with perf: true) or on a pull request labelled "perf".
 on:
@@ -54,7 +56,15 @@ jobs:
           fetch-depth: 1
       - id: lean
         run: |
-          if [ "${{ inputs.lean }}" = "true" ] || git log -1 --format=%B | grep -qF '[ci lean]'; then
+          msg="$(git log -1 --format=%B)"
+          # Pull requests are lean unless labelled full-ci or the head commit
+          # says [ci full]; main, the nightly run and a plain dispatch are full.
+          lean=false
+          if [ "${{ github.event_name }}" = "pull_request" ] &&
+             [ "${{ contains(github.event.pull_request.labels.*.name, 'full-ci') }}" != "true" ] &&
+             ! grep -qF '[ci full]' <<<"$msg"; then lean=true; fi
+          if [ "${{ inputs.lean }}" = "true" ] || grep -qF '[ci lean]' <<<"$msg"; then lean=true; fi
+          if [ "$lean" = "true" ]; then
             echo "lean=true" >> "$GITHUB_OUTPUT"
             echo "Lean run: the emulator jobs are skipped ([ci lean])." >> "$GITHUB_STEP_SUMMARY"
           else

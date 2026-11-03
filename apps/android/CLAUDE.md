@@ -131,8 +131,14 @@ older run. A full run takes about 22 minutes: Checks takes 19, Instrumented
   through `GRADLE_ARGS`. The emulator jobs need KVM, so they stay in CI.
 - **`[skip ci]`** in the commit message runs nothing. Use it for commits
   that only touch docs or comments.
-- **`[ci lean]`** in the head commit message runs Checks and Preview bundle
-  and skips the emulator job. Use it for small changes that cannot affect
+- **A pull request commit runs lean by default**: Checks and Preview bundle
+  only (CI minutes are free for this public repo; the cost is waiting). The
+  emulator job runs when the pull request has the **`full-ci`** label, when
+  the head commit says **`[ci full]`**, on `main`, nightly and on a manual
+  dispatch. Use `[ci full]` for any change to the editor, IME, focus, files,
+  saving or the WebView bridge.
+- **`[ci lean]`** in the head commit message forces a lean run anywhere
+  (Checks and Preview bundle, no emulator job). Use it for small changes that cannot affect
   device behaviour: copy, docs inside the app, tests only, CI scripts. A
   change to the editor, IME, focus, files, saving or the WebView bridge needs
   a full run.

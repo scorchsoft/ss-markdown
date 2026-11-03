@@ -44,7 +44,7 @@ import java.util.concurrent.TimeUnit
  * Then Split while typing (ux-spec "Split while typing"): by default the
  * tapped pane fills the page and the other leaves the screen until the
  * keyboard closes; with "Keep both panes" both stay. Those two run in a
- * phone-sized window (412 x 914 dp): on the CI emulator's own small screen
+ * taller window (480 x 1200 dp): on the CI emulator's own small screen
  * the keyboard leaves Split under 280 dp, too short to stack, where Preview
  * folds into its strip whatever the setting (edge-cases "Tiny split-screen
  * window").
@@ -64,7 +64,6 @@ class SplitKeyboardTest {
     @After
     fun reset() {
         shell("wm size reset")
-        shell("wm density reset")
         instrumentation.runOnMainSync {
             rule.activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
@@ -76,19 +75,29 @@ class SplitKeyboardTest {
         ParcelFileDescriptor.AutoCloseInputStream(out).use { it.readBytes() }
     }
 
-    /** A 412 x 914 dp phone (1080 x 2400 at 420 dpi), so Split has room to stack with the keyboard up. */
+    /**
+     * A taller window (`wm size`, the emulator's own 160 dpi kept): 480 x
+     * 1200 dp, so stacked Split keeps its two panes with the keyboard up.
+     * The failure says what the window became.
+     */
     private fun phoneSizedWindow() {
-        shell("wm size 1080x2400")
-        shell("wm density 420")
-        rule.waitUntil(TIMEOUT_MILLIS) {
-            var heightDp = 0f
-            instrumentation.runOnMainSync {
-                val decor = rule.activity.window.decorView
-                heightDp = decor.height / decor.resources.displayMetrics.density
+        shell("wm size ${TALL_WIDTH_PX}x$TALL_HEIGHT_PX")
+        val tall =
+            runCatching {
+                rule.waitUntil(RESIZE_TIMEOUT_MILLIS) { windowFacts().second >= TALL_HEIGHT_PX * 9 / 10 }
             }
-            heightDp > PHONE_MIN_HEIGHT_DP
-        }
+        assertTrue("the window did not grow: ${windowFacts()}", tall.isSuccess)
         rule.waitForIdle()
+    }
+
+    /** The decor view's width and height in px, and the density. */
+    private fun windowFacts(): Triple<Int, Int, Float> {
+        var facts = Triple(0, 0, 0f)
+        instrumentation.runOnMainSync {
+            val decor = rule.activity.window.decorView
+            facts = Triple(decor.width, decor.height, decor.resources.displayMetrics.density)
+        }
+        return facts
     }
 
     /** Both panes on screen, waited for with a bounded poll; the failure says how tall Split was. */
@@ -318,7 +327,9 @@ class SplitKeyboardTest {
 
     private companion object {
         const val TIMEOUT_MILLIS = 5_000L
-        const val PHONE_MIN_HEIGHT_DP = 850f
+        const val TALL_WIDTH_PX = 480
+        const val TALL_HEIGHT_PX = 1200
+        const val RESIZE_TIMEOUT_MILLIS = 15_000L
         const val PAGE_LOAD_MILLIS = 2_000L
         const val SETTLE_MILLIS = 2_500L
         const val TEXT = "A first paragraph to tap in.\n\nA second one below it.\n"

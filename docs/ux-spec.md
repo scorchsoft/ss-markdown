@@ -120,6 +120,20 @@ mockups agreed with Andrew win, and this file gets updated.
     resize and inset change. The editor's pane is laid out above the
     strip's measured height, and a caret that was on screen stays on
     screen when the strip grows (as it does when the keyboard opens).
+  - **Keyboard: the line being edited stays in view, in Code and
+    Preview alike** (Split's Preview pane included). When the keyboard
+    opens over the caret, the text moves up with it, frame by frame, and
+    the caret's line ends about two lines above the strip at its real
+    one- or two-row height; Code keeps it just above. A caret already
+    clear of the keyboard and strip moves nothing: a tap near the top
+    never scrolls. A taller keyboard (the emoji panel, a suggestion bar)
+    checks again; a floating or one-handed keyboard takes no room, so
+    nothing scrolls. Each new line typed at the bottom, Enter, Undo and
+    Redo, a strip key and Find or Navigator jumps keep the caret or the
+    target above the strip, and a rotation or resize with the keyboard
+    up keeps the caret on screen. While editing, Preview leaves room
+    below the last line so it can sit above the strip too. Closing the
+    keyboard never jumps the view back.
   - **The strip never puts the keyboard away.** Its keys never take
     focus, the ¶ and table ⋯ menus open above the strip without taking
     focus (the editor keeps its caret and the keyboard while they are

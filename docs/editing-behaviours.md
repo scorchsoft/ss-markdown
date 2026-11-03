@@ -472,7 +472,7 @@ The rules every row inherits, so they are not repeated in each one:
 | EB-CARET-05 | Left of a list item's text (on the marker) | Tap | Caret before or after the marker by the nearest edge | Caret at the item text's start | brainstorm | P2 | `tapCaret.test.ts` (left of the start), `TapCaretTest` |
 | EB-CARET-06 | Caret at a wrap point | Type | Typed letter appears where the caret was drawn | same | brainstorm | P2 | untested |
 | EB-CARET-07 | Arrow up/down across lines of different length | Arrow keys | Keeps the goal column (x) across short lines | same | [AND-KB] | P2 | untested |
-| EB-CARET-08 | Typing at the bottom of the screen | Type | The caret stays above the keyboard and the strip | same | [SSM] R8 | P1 | untested |
+| EB-CARET-08 | Typing at the bottom of the screen; or a tap near the bottom as the keyboard opens | Type; tap | The caret stays above the keyboard and the strip | same, about two lines above the strip; a tap near the top scrolls nothing (ux-spec "Keyboard") | [SSM] R8; Andrew | P1 | `keyboard.test.ts`, `KeyboardCaretTest` (Code and Preview, device) |
 | EB-CARET-09 | Tap while a fling is moving | Tap | Stops the fling only | Stops scrolling; does not start editing (reading guard) | [SSM] edge-cases, ux-spec | P1 | untested |
 | EB-CARET-10 | Tap in Preview on read-only content | Tap | n/a | No keyboard; the chip offers "Edit in Code" | [SSM] ux-spec | P2 | untested |
 | EB-CARET-11 | Drag the caret handle | Drag | Moves by character, with a magnifier | same | [AND-SEL] | P2 | untested |

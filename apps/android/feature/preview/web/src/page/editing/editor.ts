@@ -11,6 +11,7 @@ import type { SectionView } from "../sectionView";
 import { escapeTyped } from "../../core/minimalEdit";
 import { codeExit } from "../../core/newline";
 import { EditSession, type SessionHost } from "./editSession";
+import { CaretKeeper } from "./caretKeeper";
 import { KeyboardKeeper } from "./keyboardKeeper";
 import { emptyRun, placeCaret, placeholderRun, pointToSource, sectionOf, setCaretInRun } from "./runs";
 import {
@@ -46,6 +47,8 @@ export class Editor implements SessionHost {
     private carried = "";
     /** A kept Enter waits for the session that starts after the text before it was written. */
     private enterNext = false;
+    /** Keeps the caret above the keyboard and the strip (ux-spec "Keyboard"). */
+    private readonly caretKeeper = new CaretKeeper(() => this.session !== null);
     /** What Kotlin was last told by `editingChanged`. */
     private announced = false;
 
@@ -143,6 +146,7 @@ export class Editor implements SessionHost {
     private announce(editing: boolean): void {
         if (this.announced === editing) return;
         this.announced = editing;
+        if (editing) this.caretKeeper.begin();
         this.post({ type: "editingChanged", editing });
     }
 
@@ -186,6 +190,8 @@ export class Editor implements SessionHost {
         this.updateToolbar();
         // Only now, with the caret back where it belongs: focusing the block moved it to the block's start.
         this.afterStart(typed, offset);
+        // Enter, a strip key, Undo or Kotlin's select may have put the caret under the keyboard.
+        this.caretKeeper.reveal();
     }
 
     /**

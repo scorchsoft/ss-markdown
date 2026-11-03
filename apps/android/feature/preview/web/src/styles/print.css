@@ -54,7 +54,7 @@
         content-visibility: visible;
         height: auto !important;
     }
-    :root :is(.edit-in-code, .table-toolbar, .keyboard-keeper) {
+    :root :is(.edit-in-code, .table-toolbar, .keyboard-keeper, .keyboard-room) {
         display: none !important;
     }
     :root a {

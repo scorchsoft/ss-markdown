@@ -74,6 +74,13 @@ release may change behaviour.
 
 ### Fixed
 
+- Preview: tapping a line near the bottom no longer leaves it under the
+  keyboard. The line moves up with the keyboard as it opens and stops
+  about two lines above the formatting strip, as in Code; a tap near the
+  top moves nothing. Typing, Enter, Undo and a taller keyboard (the emoji
+  panel) keep it there, the last line of the document can reach it, and
+  closing the keyboard leaves the view where it is. Split's Preview pane
+  too.
 - In the Code view, the line number of a row partly scrolled off the top
   could be drawn over the top bar, across the file's title. The numbers
   are now clipped to the Code view, like the text.

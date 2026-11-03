@@ -1053,7 +1053,16 @@ code-font setting.
   after Android ended it in the background is not a launch: it comes
   back to the file you were in either way.
 - Text: default zoom for each pane (− / + steppers, as on the View
-  sheet), and line numbers. The code font and preview font rows point to
+  sheet), and **Show line numbers** (a switch, on by default; "In the Code
+  view."). Off, the Code view draws no number gutter: the text column
+  starts the usual small inset (8 dp) from the left edge and widens, so
+  wrapped lines break again. It applies to the open file at once, with no
+  reopen; the caret's row stays where it is on screen (as near as the new
+  wrapping allows), or, with the caret off screen, the top line stays put,
+  so Preview's anchor does not move. Split's Code pane always shows its
+  numbers, and the Navigator and Preview are unaffected. The numbers are
+  clipped to the Code view: a row half scrolled off the top never draws
+  its number over the top bar. The code font and preview font rows point to
   the theme, where both are set (see "Where each font lives" under Themes).
   Formatting bar: **One row** (default) | **Two rows**, "Two rows shows
   more keys at once. Landscape always uses one row." A set-once

@@ -67,14 +67,15 @@ fun EditorWith(
 /**
  * The app's real Code pane ([CodePane]: the view, the core/ui colours and
  * the bundled code font) over [Samples.codeSample], at [state]'s wrap and
- * zoom. The screenshots use it, so they show the colouring the app draws;
+ * zoom, with or without [lineNumbers]. The screenshots use it, so they show the colouring the app draws;
  * the stand-in pane was plain `Text` and showed none.
  */
 @Composable
 fun RealCodePane(
     state: EditorUiState,
     modifier: Modifier = Modifier,
+    lineNumbers: Boolean = true,
 ) {
     val text = remember { TextDocument(PieceTree.of(Samples.codeSample)) }
-    CodePane(text, wrap = state.codeWrap, zoomPercent = state.codeZoom, modifier = modifier)
+    CodePane(text, wrap = state.codeWrap, zoomPercent = state.codeZoom, modifier = modifier, lineNumbers = lineNumbers)
 }

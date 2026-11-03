@@ -22,9 +22,17 @@ release may change behaviour.
   right. Landscape, and any window that would leave the editor under about
   200 dp, always uses one row, and the caret stays on screen above the
   taller strip.
+- Settings → Text → Show line numbers ("In the Code view."), on by
+  default. Off, the Code view drops its number gutter and the text uses
+  the full width, starting a small inset from the edge. It applies to the
+  open file at once, and the line you are typing on stays where it is on
+  screen. Split's Code pane keeps its numbers.
 
 ### Fixed
 
+- In the Code view, the line number of a row partly scrolled off the top
+  could be drawn over the top bar, across the file's title. The numbers
+  are now clipped to the Code view, like the text.
 - An edit made while a large paste was finishing (Find's Replace) could
   land a few characters off when you had typed during the paste; it now
   lands where it was aimed, and an edit whose text has moved is refused

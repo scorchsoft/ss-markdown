@@ -195,14 +195,7 @@ internal class EditorViewport(
     ) {
         if (view.height == 0) return
         stopFling()
-        val firstLine = geometry.locate(start).line
-        var line = firstLine
-        var above = 0L
-        while (line > 0 && above < view.height) {
-            line--
-            geometry.layoutFor(line)
-            above += geometry.heights.heightOf(line)
-        }
+        measureAbove(geometry.locate(start).line, view.height)
         val first = geometry.locate(start)
         val last = geometry.locate(maxOf(start, end))
         val gap = margin.coerceIn(0, ((view.height - rowHeight) / 2).coerceAtLeast(0)).toLong()
@@ -231,6 +224,24 @@ internal class EditorViewport(
         geometry.takeScrollShift()
         view.scrollTo(x, y)
         view.invalidate()
+    }
+
+    /**
+     * Lays out the lines above [line] until [px] of them are measured, so a
+     * position computed from [line]'s top is exact rather than an estimate
+     * that measuring corrects a frame later (around the top line, not [line]).
+     */
+    fun measureAbove(
+        line: Int,
+        px: Int,
+    ) {
+        var current = line
+        var above = 0L
+        while (current > 0 && above < px) {
+            current--
+            geometry.layoutFor(current)
+            above += geometry.heights.heightOf(current)
+        }
     }
 
     /** Scrolls the least distance that shows [caret] with its row. */

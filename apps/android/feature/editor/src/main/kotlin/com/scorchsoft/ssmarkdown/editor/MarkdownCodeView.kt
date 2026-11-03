@@ -164,6 +164,22 @@ class MarkdownCodeView
             }
 
         /**
+         * Whether the line-number gutter is drawn (Settings → Show line
+         * numbers). Off, the gutter is 0 px wide and the text column starts
+         * a small inset from the left edge, so it widens and wrapped rows
+         * break again. Switching keeps the caret's row where it is on screen
+         * (or as near as the new wrapping allows), else the top line where
+         * it is ([ViewSizing.onGutterChanged]).
+         */
+        var showLineNumbers: Boolean
+            get() = frame.showGutter
+            set(value) {
+                if (frame.showGutter == value) return
+                frame.showGutter = value
+                sizing.onGutterChanged()
+            }
+
+        /**
          * Left and Right follow visual order on lines with right-to-left text
          * ([BidiCaret]), the order the renderer draws them in ([BidiText]).
          * On by default; off moves logically, char by char in memory order.
@@ -211,7 +227,7 @@ class MarkdownCodeView
         /** Width of one monospace cell, in px. */
         val charWidth: Float get() = font.measurer.charWidth
 
-        /** Left edge of the text column, in view px (gutter plus its gap). */
+        /** Left edge of the text column, in view px (gutter plus its gap; the gap alone with no line numbers). */
         val textLeft: Int get() = frame.textLeft
 
         /** Scrolls so [line] is at the top of the pane. */

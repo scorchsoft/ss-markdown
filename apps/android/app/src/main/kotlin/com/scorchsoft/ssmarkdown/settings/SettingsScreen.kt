@@ -136,9 +136,12 @@ private fun TextSection(
     }
     SettingRow(stringResource(R.string.settings_code_font), stringResource(R.string.settings_font_pending))
     SettingRow(stringResource(R.string.settings_preview_font), stringResource(R.string.settings_font_pending))
-    SwitchRow(stringResource(R.string.settings_line_numbers), settings.lineNumbers, {
-        onAction(SettingsAction.ToggleLineNumbers)
-    })
+    SwitchRow(
+        stringResource(R.string.settings_line_numbers),
+        settings.lineNumbers,
+        { onAction(SettingsAction.SetLineNumbers(!settings.lineNumbers)) },
+        stringResource(R.string.settings_line_numbers_hint),
+    )
     // Set once, so it lives here and not on the View sheet.
     SettingRow(stringResource(R.string.settings_formatting_bar))
     Segments(listOf(R.string.formatting_bar_one, R.string.formatting_bar_two), settings.formattingBar.ordinal) {

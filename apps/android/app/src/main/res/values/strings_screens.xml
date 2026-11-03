@@ -23,7 +23,8 @@
     <string name="settings_code_font">Code font</string>
     <string name="settings_preview_font">Preview font</string>
     <string name="settings_font_pending">Part of each theme: ⋮ → View → Edit theme…</string>
-    <string name="settings_line_numbers">Line numbers</string>
+    <string name="settings_line_numbers">Show line numbers</string>
+    <string name="settings_line_numbers_hint">In the Code view.</string>
     <string name="settings_formatting_bar">Formatting bar</string>
     <string name="formatting_bar_one">One row</string>
     <string name="formatting_bar_two">Two rows</string>

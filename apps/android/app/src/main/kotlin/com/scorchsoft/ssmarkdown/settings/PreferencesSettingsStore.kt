@@ -67,6 +67,7 @@ internal object SettingsJson {
             onLaunch = enumOr(o.optString("onLaunch"), d.onLaunch),
             defaultZoomCode = o.optInt("zoomCode", d.defaultZoomCode),
             defaultZoomPreview = o.optInt("zoomPreview", d.defaultZoomPreview),
+            // Absent in settings saved before it was wired: those installs keep their numbers.
             lineNumbers = o.optBoolean("lineNumbers", d.lineNumbers),
             codeWrap = o.optBoolean("codeWrap", d.codeWrap),
             saveMode = enumOr(o.optString("saveMode"), d.saveMode),

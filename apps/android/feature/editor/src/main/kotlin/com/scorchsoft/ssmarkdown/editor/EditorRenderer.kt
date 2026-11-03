@@ -117,7 +117,14 @@ internal class EditorRenderer(
         for (line in visible) drawLine(canvas, line, frame)
         drawCaret(canvas, frame)
         canvas.restore()
-        gutter.draw(canvas, visible, frame, styles.theme, geometry.heights)
+        if (frame.gutterWidth > 0) {
+            // Clipped to the view like the text column: a number whose row is half off the top
+            // otherwise drew above the view, over the header (edge-cases "Gutter number over the top bar").
+            canvas.save()
+            canvas.clipRect(0, 0, frame.gutterWidth, frame.height)
+            gutter.draw(canvas, visible, frame, styles.theme, geometry.heights)
+            canvas.restore()
+        }
         row.canvas = null
     }
 

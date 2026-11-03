@@ -18,6 +18,13 @@ internal class FrameMetrics(
     var scrollY = 0
     var gutterWidth = 0
     var gap = 0
+
+    /**
+     * Whether the line-number gutter is drawn. Off, [gutterWidth] is 0 and
+     * the text column starts [gap] in from the left edge, the same inset the
+     * text keeps from the gutter when it is on.
+     */
+    var showGutter = true
     var baseline = 0f
     var focused = false
     var caretVisible = false
@@ -27,7 +34,8 @@ internal class FrameMetrics(
 
     /**
      * Recomputes the baseline, gutter and gap from [paint] for a document
-     * of [lineCount] lines in cells [charWidth] px wide; returns the row
+     * of [lineCount] lines in cells [charWidth] px wide (a gutter of 0 when
+     * [showGutter] is off); returns the row
      * height (glyph height × [LINE_SPACING], quality-bar's 1.6).
      */
     fun update(
@@ -41,7 +49,7 @@ internal class FrameMetrics(
         baseline = (rowHeight - glyphHeight) / 2f - metrics.ascent
         gap = (GAP_DP * density).roundToInt()
         val digits = lineCount.toString().length.coerceAtLeast(MIN_GUTTER_DIGITS)
-        gutterWidth = (digits * charWidth).roundToInt() + 2 * gap
+        gutterWidth = if (showGutter) (digits * charWidth).roundToInt() + 2 * gap else 0
         return rowHeight
     }
 

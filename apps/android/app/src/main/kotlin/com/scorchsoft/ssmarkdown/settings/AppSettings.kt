@@ -30,6 +30,7 @@ enum class Appearance { System, Light, Dark }
  * @property previewWrap Display → Preview wrapping: Fluid, the A4 page, or No wrap.
  * @property export Export images' remembered choices.
  * @property copyFormat what Copy put on the clipboard last; the Copy chooser lists it first.
+ * @property lineNumbers Text → Show line numbers: the Code view draws its gutter (default on).
  * @property formattingBar Text → Formatting bar: the strip above the keyboard in one row (default) or two.
  */
 data class AppSettings(

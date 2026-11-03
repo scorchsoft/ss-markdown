@@ -44,6 +44,40 @@ class PaintBoundsTest {
         assertEquals("the page itself", view.theme.background, bitmap.getPixel(WIDTH - 1, HEIGHT * 3 / 2))
     }
 
+    @Test
+    fun `a gutter number whose row is half off the top is clipped to the view`() {
+        // Found on a phone: scrolled to about line 235, the "234" of the row half above the pane
+        // was drawn over the top bar. The text column was clipped; the gutter was not.
+        val view =
+            MarkdownCodeView(ApplicationProvider.getApplicationContext()).apply {
+                measure(
+                    View.MeasureSpec.makeMeasureSpec(WIDTH, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(HEIGHT, View.MeasureSpec.EXACTLY),
+                )
+                layout(0, 0, WIDTH, HEIGHT)
+                document = TextDocument(PieceTree.of((1..400).joinToString("\n") { "line $it" }))
+            }
+        view.scrollTo(0, view.lineHeight * 233 + view.lineHeight / 2)
+        val bitmap = Bitmap.createBitmap(WIDTH, HEIGHT * 3, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        // As a parent draws a scrolled child: translated by its scroll, with no clip.
+        canvas.translate(0f, (HEIGHT - view.scrollY).toFloat())
+        view.draw(canvas)
+
+        assertEquals("the row half off the top", 233, view.anchorLine)
+        for (y in 0 until HEIGHT) {
+            for (x in 0 until WIDTH) {
+                assertEquals("ink above the view at ($x, $y)", Color.TRANSPARENT, bitmap.getPixel(x, y))
+                assertEquals(
+                    "ink below the view at ($x, ${y + 2 * HEIGHT})",
+                    Color.TRANSPARENT,
+                    bitmap.getPixel(x, y + 2 * HEIGHT),
+                )
+            }
+        }
+        assertEquals("the gutter itself", view.theme.gutterBackground, bitmap.getPixel(1, HEIGHT + 1))
+    }
+
     private companion object {
         const val WIDTH = 400
         const val HEIGHT = 300

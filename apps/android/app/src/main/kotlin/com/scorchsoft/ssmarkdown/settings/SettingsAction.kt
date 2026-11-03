@@ -21,7 +21,10 @@ sealed interface SettingsAction {
         val steps: Int,
     ) : SettingsAction
 
-    data object ToggleLineNumbers : SettingsAction
+    /** Text → Show line numbers: the Code view's gutter on or off. */
+    data class SetLineNumbers(
+        val show: Boolean,
+    ) : SettingsAction
 
     /** Text → Formatting bar: one row or two above the keyboard. */
     data class SetFormattingBar(
@@ -74,8 +77,8 @@ object SettingsReducer {
                 )
             }
 
-            SettingsAction.ToggleLineNumbers -> {
-                settings.copy(lineNumbers = !settings.lineNumbers)
+            is SettingsAction.SetLineNumbers -> {
+                settings.copy(lineNumbers = action.show)
             }
 
             is SettingsAction.SetFormattingBar -> {

@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -70,6 +71,19 @@ class OtherScreensRenderTest(
         rule.onNodeWithText("One row").assertIsSelected()
         rule.onNodeWithText("Two rows").performScrollTo().performClick()
         assertEquals(listOf<SettingsAction>(SettingsAction.SetFormattingBar(StripRows.Two)), actions)
+    }
+
+    @Test
+    fun `show line numbers is a switch, on by default, that says it is for the Code view`() {
+        val actions = ArrayList<SettingsAction>()
+        rule.setContent { Themed(dark) { SettingsScreen(AppSettings(), "48.2 MB", onAction = { actions += it }) } }
+        rule.onNodeWithText("In the Code view.").performScrollTo().assertIsDisplayed()
+        rule
+            .onNodeWithText("Show line numbers")
+            .performScrollTo()
+            .assertIsOn()
+            .performClick()
+        assertEquals(listOf<SettingsAction>(SettingsAction.SetLineNumbers(false)), actions)
     }
 
     @Test

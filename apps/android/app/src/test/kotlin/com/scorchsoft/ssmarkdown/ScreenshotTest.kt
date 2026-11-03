@@ -76,6 +76,9 @@ open class ScreenshotTest(
 
     @Test fun editorRecovered() = editor("editor-recovered", Samples.recovered)
 
+    // Settings → Show line numbers off: the Code view with no gutter, the text a small inset from the edge.
+    @Test fun codeNoLineNumbers() = shot("code-no-line-numbers") { EditorShot(Samples.saved, lineNumbers = false) }
+
     @Test fun editorSplit() = editor("editor-split", Samples.zoomed.copy(mode = ViewMode.Split))
 
     @Test fun editorLargeFont() = shot("editor-font-200", fontScale = 2f) { EditorShot(Samples.unsaved) }
@@ -353,7 +356,8 @@ open class ScreenshotTest(
     private fun EditorShot(
         state: EditorUiState,
         rows: StripRows = StripRows.One,
-    ) = EditorWith(state, codePane = { RealCodePane(state, it) }, stripRows = rows)
+        lineNumbers: Boolean = true,
+    ) = EditorWith(state, codePane = { RealCodePane(state, it, lineNumbers) }, stripRows = rows)
 
     companion object {
         private const val PNG_QUALITY = 100

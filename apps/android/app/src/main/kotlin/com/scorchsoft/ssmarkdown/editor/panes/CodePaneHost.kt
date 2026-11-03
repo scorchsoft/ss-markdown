@@ -11,6 +11,7 @@ import com.scorchsoft.ssmarkdown.document.ActiveDocument
 import com.scorchsoft.ssmarkdown.editor.EditorListener
 import com.scorchsoft.ssmarkdown.editor.EditorTheme
 import com.scorchsoft.ssmarkdown.editor.MarkdownCodeView
+import com.scorchsoft.ssmarkdown.editor.ViewMode
 import com.scorchsoft.ssmarkdown.editor.compose.MarkdownEditor
 import com.scorchsoft.ssmarkdown.text.TextDocument
 import com.scorchsoft.ssmarkdown.ui.ChromeFonts
@@ -24,7 +25,8 @@ import java.util.concurrent.Executor
  *
  * [onAttach] / [onDetach] tell the session which view programmatic edits
  * must go through; a new [document] (a reload, a resolved conflict, a
- * different file) re-attaches the same view.
+ * different file) re-attaches the same view. [lineNumbers] is whether
+ * the gutter shows ([showsLineNumbers]); it changes in place.
  */
 @Composable
 fun CodePaneHost(
@@ -36,6 +38,7 @@ fun CodePaneHost(
     /** Where large pastes are prepared: AppGraph's paste thread. */
     background: Executor,
     modifier: Modifier = Modifier,
+    lineNumbers: Boolean = true,
 ) {
     val doc = document ?: return
     val holder = remember { ViewHolder() }
@@ -43,6 +46,7 @@ fun CodePaneHost(
         text = doc.text,
         wrap = wrap,
         zoomPercent = zoomPercent,
+        lineNumbers = lineNumbers,
         listener = doc,
         background = background,
         modifier = modifier,
@@ -70,6 +74,7 @@ internal fun CodePane(
     wrap: Boolean,
     zoomPercent: Int,
     modifier: Modifier = Modifier,
+    lineNumbers: Boolean = true,
     listener: EditorListener? = null,
     background: Executor? = null,
     onViewReady: (MarkdownCodeView) -> Unit = {},
@@ -85,11 +90,22 @@ internal fun CodePane(
         wrap = wrap,
         zoomPercent = zoomPercent,
         typeface = typeface,
+        lineNumbers = lineNumbers,
         listener = listener,
         background = background,
         onViewReady = onViewReady,
     )
 }
+
+/**
+ * Whether the Code view draws its line numbers: Settings → Show line
+ * numbers ([setting]) applies to the Code view; Split's Code pane always
+ * keeps them (ux-spec "Settings").
+ */
+internal fun showsLineNumbers(
+    setting: Boolean,
+    mode: ViewMode,
+): Boolean = setting || mode == ViewMode.Split
 
 private class ViewHolder {
     var view: MarkdownCodeView? = null

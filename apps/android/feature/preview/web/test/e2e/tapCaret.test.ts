@@ -317,7 +317,9 @@ describe("a tap puts the caret on the visual line it hit", () => {
         await expectCaret(line.right + 12, mid(line), line, at);
         // Already editing, caret elsewhere in the block: the tap still moves it there.
         const top = first(b);
-        await expectCaret(top.left + 10, mid(top), top, top.start + 1);
+        const second = top.stops[1];
+        if (!second) throw new Error("empty first line");
+        await expectCaret(second.x + 0.5, mid(top), top, second.at);
         await expectCaret(line.right + 12, mid(line), line, at, false);
     });
 

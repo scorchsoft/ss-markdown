@@ -69,7 +69,7 @@ export function caretAt(block: HTMLElement, x: number, y: number): void {
     const sel = window.getSelection();
     const hit = rangeAt(x, y);
     if (!sel || (hit && inRun(block, hit.startContainer) && onBand(hit, y))) {
-        if (hit) sel?.collapse(hit.startContainer, hit.startOffset);
+        if (hit) sel?.collapse(hit.startContainer, along(hit.startContainer, hit.startOffset, x));
         return;
     }
     const lines = linesOf(block);
@@ -85,7 +85,40 @@ export function caretAt(block: HTMLElement, x: number, y: number): void {
     let offset = r.startOffset;
     // Past a wrapped line's trailing space is the next line's start: step back so it stays on this one.
     if (!onBand(r, mid) && node instanceof Text && offset > 0 && node.data[offset - 1] === " ") offset--;
-    sel.collapse(node, offset);
+    sel.collapse(node, along(node, offset, x));
+}
+
+const graphemes = new Intl.Segmenter();
+
+/**
+ * Walks [offset] in [node] grapheme by grapheme toward [x] while the caret stays on its line, moves
+ * the same way on screen and does not pass [x]: a hit test can stop a character short of a line's
+ * end (font metrics differ by device), and this lands exactly on the line's edge.
+ */
+function along(node: Node, offset: number, x: number): number {
+    if (!(node instanceof Text)) return offset;
+    const at = (o: number): DOMRect | undefined => {
+        const r = document.createRange();
+        r.setStart(node, o);
+        return r.getClientRects()[0];
+    };
+    const start = at(offset);
+    if (!start) return offset;
+    const right = x > start.left;
+    const segs = graphemes.segment(node.data);
+    for (let prev = start.left; ; ) {
+        const g = right ? segs.containing(offset) : offset > 0 ? segs.containing(offset - 1) : undefined;
+        if (!g || g.segment === "\n") return offset;
+        const o = right ? g.index + g.segment.length : g.index;
+        const r = at(o);
+        if (
+            !r ||
+            Math.abs(r.top - start.top) > 1 ||
+            (right ? r.left < prev || r.left > x : r.left > prev || r.left < x)
+        )
+            return offset;
+        [offset, prev] = [o, r.left];
+    }
 }
 
 function rangeAt(x: number, y: number): Range | null {

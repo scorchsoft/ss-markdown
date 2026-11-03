@@ -57,8 +57,9 @@ class ListContinuationTest {
                 Case("para\n\n- ‸", "para\n\n‸"),
                 // In the middle of a list the rest stays a list after the new paragraph.
                 Case("- a\n- ‸\n- b", "- a\n\n‸\n- b"),
-                // ...and a numbered rest counts from 1 again.
-                Case("1. a\n2. ‸\n3. b\n4. c", "1. a\n\n‸\n1. b\n2. c"),
+                // ...and a numbered rest counts on, after a blank line: only a list that starts
+                // at 1 can follow a paragraph line directly (CommonMark).
+                Case("1. a\n2. ‸\n3. b\n4. c", "1. a\n\n‸\n\n2. b\n3. c"),
                 // A nested empty item steps out one level instead.
                 Case("- one\n  - ‸", "- one\n- ‸"),
                 Case("> - one\n> - ‸", "> - one\n>\n> ‸"),

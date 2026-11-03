@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.scorchsoft.ssmarkdown.core.ui.R
 import com.scorchsoft.ssmarkdown.core.ui.SS
 
 private val EdgePadding = 4.dp
@@ -110,7 +111,7 @@ private class StripCallbacks(
     val onBlock: (BlockChoice) -> Unit,
 )
 
-/** Table keys, Undo, `{ }` or Done, and in landscape the Save pill: the keys that never scroll. */
+/** Table keys, Undo and Redo, `{ }` or Done, and in landscape the Save pill: the keys that never scroll. */
 @Composable
 private fun PinnedGroup(
     state: FormattingStripState,
@@ -120,6 +121,9 @@ private fun PinnedGroup(
     Row(verticalAlignment = Alignment.CenterVertically) {
         TableKeys(StripLayout.tableKeys(state), onKey, callbacks.onTableAction)
         StripKeyButton(StripKey.Undo, pressed = false, enabled = state.canUndo) { onKey(StripKey.Undo) }
+        if (StripKey.Redo in StripLayout.pinnedKeys(state.mode, state.page)) {
+            StripKeyButton(StripKey.Redo, pressed = false, enabled = state.canRedo) { onKey(StripKey.Redo) }
+        }
         if (state.mode == StripMode.Code) {
             SymbolsToggleKey(state.page == StripPage.Symbols) { onKey(StripKey.Symbols) }
         } else {
@@ -169,7 +173,7 @@ private fun TwoRowStrip(
                 .map { it.measure(loose.copy(maxWidth = (width - leadWidth).coerceAtLeast(0))) }
         val pinnedWidth = pinned.sumOf { it.width }
         val topRoom = (width - leadWidth - pinnedWidth).coerceAtLeast(0)
-        val split = StripLayout.splitRows(items.size, topRoom.toDp(), key)
+        val split = StripLayout.splitRows(items, topRoom.toDp(), key)
         val top =
             part(Part.Top) { KeyRun(state, items.subList(0, split.top), topRoom.toDp(), 0.dp, callbacks) }
                 .map { it.measure(row(topRoom)) }
@@ -253,13 +257,15 @@ private fun ItemKey(
         is StripItem.Key -> {
             val key = item.key
             if (key == StripKey.BlockStyle) {
-                BlockMenuKey(state.block, width, callbacks.onBlock)
+                BlockMenuKey(state.block, width, enabled = key !in state.disabled, callbacks.onBlock)
             } else {
+                val off = key in state.disabled
                 StripKeyButton(
                     key,
                     pressed = key.toggles && key in state.pressed,
-                    enabled = key != StripKey.Redo || state.canRedo,
+                    enabled = !off && (key != StripKey.Redo || state.canRedo),
                     width = width,
+                    state = if (off) stringResource(unavailableReason(key)) else null,
                 ) {
                     callbacks.onKey(key)
                 }
@@ -267,6 +273,13 @@ private fun ItemKey(
         }
     }
 }
+
+/** What TalkBack says about a key that is shown but disabled here. */
+private fun unavailableReason(key: StripKey): Int =
+    when (key) {
+        StripKey.Indent -> R.string.strip_indent_unavailable
+        else -> R.string.strip_unavailable_here
+    }
 
 /** Room for the pinned group when the strip is measured without a width bound (never in the app). */
 private const val PINNED_ESTIMATE = 2

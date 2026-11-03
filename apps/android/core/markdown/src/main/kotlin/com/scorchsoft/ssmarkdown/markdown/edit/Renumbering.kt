@@ -63,4 +63,34 @@ internal object Renumbering {
             walked++
         }
     }
+
+    /**
+     * The items after [line] (the ordered item [p], which has just stopped
+     * being one) become a list of their own that continues the count: they
+     * are renumbered from [start], the number [line] had. A list starting
+     * anywhere but 1 cannot interrupt a paragraph (CommonMark), so when the
+     * next item sits right under [line] a blank line goes between them.
+     */
+    fun splitRest(
+        text: CharSequence,
+        builder: EditBuilder,
+        line: LineSpan,
+        p: LinePrefix,
+        start: Long,
+    ) {
+        val next = TextLines.next(text, line)
+        val item = next?.let { LinePrefix.parse(it.content) }
+        val delimiter = (p.marker as? ListMarker.Ordered)?.delimiter
+        val marker = item?.marker as? ListMarker.Ordered
+        val sameLevel = item?.quote == p.quote && item.indentWidth == p.indentWidth
+        val sibling = next?.takeIf { marker?.delimiter == delimiter && sameLevel }
+        if (sibling == null || item == null || start == 1L) {
+            after(text, builder, line, p, start)
+            return
+        }
+        // The first item takes the blank line and its number in one op, so the two never share an offset.
+        val prefix = item.line.substring(0, item.indentEnd)
+        builder.replace(sibling.start, sibling.start + item.markerEnd - 1, p.quote.trimEnd() + "\n" + prefix + start)
+        after(text, builder, sibling, p, start + 1)
+    }
 }

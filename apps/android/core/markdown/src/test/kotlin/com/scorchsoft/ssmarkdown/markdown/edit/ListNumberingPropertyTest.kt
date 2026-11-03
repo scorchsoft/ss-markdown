@@ -142,7 +142,8 @@ class ListNumberingPropertyTest {
 
     /**
      * An independent check of the result: every numbered level counts up by
-     * one, and a level that starts at or below [fromOffset] starts at 1.
+     * one, a level that starts at or below [fromOffset] starts at 1, and a
+     * top-level list split by a paragraph counts on across it.
      */
     private fun assertCanonical(
         message: String,
@@ -171,8 +172,9 @@ class ListNumberingPropertyTest {
                 assertEquals(message, expected, number)
                 stack += width to number?.plus(1)
             } else if (isMarginParagraph(fences, start, end, p)) {
-                // A paragraph at the margin (an item outdented out of the list) ends every list above.
-                stack.clear()
+                // A paragraph at the margin (an item outdented out of the list) splits the list: the
+                // nested levels end, and the top-level list after it continues the count (ux-spec).
+                stack.retainAll { it.first == 0 }
             }
             start = end + 1
         }

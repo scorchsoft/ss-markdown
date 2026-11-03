@@ -70,6 +70,12 @@ object PreviewStripKeys {
 
             StripKey.BulletList -> FormatAction.BULLET
 
+            StripKey.NumberedList -> FormatAction.NUMBERED
+
+            StripKey.Indent -> FormatAction.INDENT
+
+            StripKey.Outdent -> FormatAction.OUTDENT
+
             StripKey.Task -> FormatAction.TASK
 
             StripKey.Quote -> FormatAction.QUOTE

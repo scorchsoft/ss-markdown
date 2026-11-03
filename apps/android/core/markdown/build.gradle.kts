@@ -15,5 +15,7 @@ tasks.test {
     // `-Pssmarkdown.heavyTests=true` runs more property-test seeds and the
     // tokenizer benchmark (a 20 MB corpus), which `check` skips.
     systemProperty("ssmarkdown.heavyTests", providers.gradleProperty("ssmarkdown.heavyTests").getOrElse("false"))
+    // `-Pssmarkdown.updateVectors=true` rewrites Preview's copy of the block-editing matrix.
+    systemProperty("ssmarkdown.updateVectors", providers.gradleProperty("ssmarkdown.updateVectors").getOrElse("false"))
     maxHeapSize = "2g"
 }

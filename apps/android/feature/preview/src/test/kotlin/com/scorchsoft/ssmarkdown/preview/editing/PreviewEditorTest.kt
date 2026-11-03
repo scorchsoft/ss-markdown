@@ -81,7 +81,7 @@ class PreviewEditorTest {
             )
         for ((before, at, after) in cases) {
             val (doc, editor, _) = editor(before)
-            assertTrue(editor.onFormatRequest(PreviewFormatRequest(FormatAction.LIST_EXIT, at, at, editor.rev, false)))
+            assertTrue(editor.onFormatRequest(PreviewFormatRequest(FormatAction.ENTER, at, at, editor.rev, false)))
             assertEquals(before, after, doc.text)
             val code = EditCommand.Newline.apply(before, TextSelection.caret(at), DocumentStyle.detect(before))
             assertEquals("same as Code", code.applyTo(before), doc.text)
@@ -105,6 +105,9 @@ class PreviewEditorTest {
         sent.clear()
         editor.onFormatRequest(PreviewFormatRequest(FormatAction.HEADING_1, 13, 13, editor.rev, true))
         assertEquals("|a|b|\n|-|-|\n|1|2|", doc.text)
+        // The refusal still answers with the selection: a page waiting after Enter or Backspace gets its caret back.
+        assertEquals(listOf(HostMessage.Select(editor.rev, 13, 13)), sent)
+        sent.clear()
         assertFalse(editor.onFormatRequest(PreviewFormatRequest(FormatAction.UNDO, 0, 0, editor.rev, false)))
         assertTrue(sent.isEmpty())
     }
@@ -143,6 +146,8 @@ class PreviewEditorTest {
         val r =
             PreviewFormatter.format("- a\n- b", TextSelection(2, 2), FormatAction.NUMBERED, DocumentStyle.DEFAULT)
                 ?: error("no result")
-        assertEquals("1. a\n- b", TextTransform.apply("- a\n- b", r.edits))
+        // Numbered on a bulleted item switches the whole list; each marker is one minimal edit.
+        assertEquals("1. a\n2. b", TextTransform.apply("- a\n- b", r.edits))
+        assertEquals(listOf(TextEdit(0, 1, "1."), TextEdit(4, 5, "2.")), r.edits)
     }
 }

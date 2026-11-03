@@ -139,6 +139,7 @@ class StripController(
                 strip =
                     it.strip.copy(
                         pressed = pressedKeys(format),
+                        disabled = disabledKeys(format),
                         block = PreviewStripKeys.choiceFor(format.block),
                         canUndo = doc.text.canUndo,
                         canRedo = doc.text.canRedo,
@@ -167,6 +168,7 @@ class StripController(
                 StripKey.Italic -> EditCommand.ToggleInline(InlineFormat.Italic)
                 StripKey.Code -> EditCommand.ToggleInline(InlineFormat.Code)
                 StripKey.BulletList -> EditCommand.ToggleList(ListKind.Bullet)
+                StripKey.NumberedList -> EditCommand.ToggleList(ListKind.Numbered)
                 StripKey.Task -> EditCommand.ToggleList(ListKind.Task)
                 StripKey.Link -> EditCommand.InsertLink
                 StripKey.Indent -> EditCommand.Indent
@@ -174,6 +176,16 @@ class StripController(
                 StripKey.Table -> EditCommand.InsertTable()
                 StripKey.Quote -> EditCommand.ToggleBlockquote
                 else -> null
+            }
+
+        /**
+         * The keys shown but disabled for [format]: Indent where it can do
+         * nothing (a paragraph, heading or quote line), ¶ in a table.
+         */
+        fun disabledKeys(format: FormatState): Set<StripKey> =
+            buildSet {
+                if (!format.canIndent) add(StripKey.Indent)
+                if (format.inTable) add(StripKey.BlockStyle)
             }
 
         /** The keys shown pressed for [format]. */
@@ -184,6 +196,7 @@ class StripController(
                 if (InlineFormat.Code in format.inline) add(StripKey.Code)
                 if (format.headingLevel > 0) add(StripKey.Heading)
                 if (format.list == ListKind.Bullet) add(StripKey.BulletList)
+                if (format.list == ListKind.Numbered) add(StripKey.NumberedList)
                 if (format.list == ListKind.Task) add(StripKey.Task)
                 if (format.quote) add(StripKey.Quote)
             }

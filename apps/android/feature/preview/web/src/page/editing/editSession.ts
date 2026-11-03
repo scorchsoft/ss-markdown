@@ -7,7 +7,14 @@
  */
 import { runEdit } from "../../core/minimalEdit";
 import { mapOffset } from "../../core/ot";
-import { isEmptyListItem, newlineInsert, type BlockKind } from "../../core/newline";
+import {
+    isEmptyQuoteLine,
+    isIndentOnly,
+    isListLine,
+    itemTextStart,
+    newlineInsert,
+    type BlockKind,
+} from "../../core/newline";
 import type { FormatAction } from "../../protocol";
 import { escapeTyped } from "../../core/minimalEdit";
 import type { SourceEdit } from "../../core/sourceDoc";
@@ -20,12 +27,16 @@ export const FLUSH_DELAY_MS = 150;
 /** What the session needs from the editor that owns it. */
 export interface SessionHost {
     lineTextAt(offset: number): string;
+    /** The source offset where the line holding [offset] starts. */
+    lineStartAt(offset: number): number;
     isLineStart(offset: number): boolean;
+    /** D4: the edit that leaves the code block at [offset], or null. */
+    codeExitAt(offset: number): { from: number; to: number; insert: string; caret: number } | null;
     commit(edits: readonly SourceEdit[]): void;
     commitAndRerender(edits: readonly SourceEdit[], caret: number): void;
     /** A browser input type that formats (formatBold…) or steps history. */
     requestFormat(inputType: string): void;
-    /** Asks Kotlin to apply [action] to the selection (Enter on an empty list item). */
+    /** Asks Kotlin to apply [action] to the selection: Code's own Enter, Backspace, Indent… */
     format(action: FormatAction): void;
     nextCell(): void;
     /** A change could not be written back: undo it on screen and say so. */
@@ -38,6 +49,7 @@ export class EditSession {
     private readonly guard: StrayGuard;
     private readonly onInput = (): void => this.schedule();
     private readonly onBeforeInput = (e: InputEvent): void => this.beforeInput(e);
+    private readonly onKeyDown = (e: KeyboardEvent): void => this.keyDown(e);
     readonly startKey: string;
 
     constructor(
@@ -64,6 +76,7 @@ export class EditSession {
         this.block.classList.add("editing");
         this.block.addEventListener("input", this.onInput);
         this.block.addEventListener("beforeinput", this.onBeforeInput);
+        this.block.addEventListener("keydown", this.onKeyDown);
         this.block.focus({ preventScroll: true });
         this.guard.start();
     }
@@ -73,6 +86,7 @@ export class EditSession {
         this.guard.stop();
         this.block.removeEventListener("input", this.onInput);
         this.block.removeEventListener("beforeinput", this.onBeforeInput);
+        this.block.removeEventListener("keydown", this.onKeyDown);
         this.block.removeAttribute("contenteditable");
         this.block.classList.remove("editing");
     }
@@ -178,8 +192,17 @@ export class EditSession {
         if (type === "insertParagraph" || type === "insertLineBreak") {
             e.preventDefault();
             if (this.inTable) this.host.nextCell();
-            else if (type === "insertParagraph" && this.onEmptyListItem()) this.host.format("listExit");
-            else this.structural(this.newline(type === "insertLineBreak"), null);
+            else this.enter(type === "insertLineBreak");
+            return;
+        }
+        if (type === "deleteContentBackward" && this.atItemTextStart()) {
+            e.preventDefault();
+            this.host.format("backspace");
+            return;
+        }
+        if (type === "insertText" && this.closerToDedent(e.data)) {
+            e.preventDefault();
+            this.host.format(`type${e.data}` as FormatAction);
             return;
         }
         if (type === "insertFromPaste" || type === "insertFromDrop") {
@@ -225,16 +248,63 @@ export class EditSession {
         this.host.commitAndRerender([edit], edit.from + insert.length);
     }
 
-    private newline(hard: boolean): string {
+    /**
+     * Enter. Typing waiting for its pause is written back first: until it is,
+     * the caret's offset is ahead of the source, and the rules read the wrong
+     * line (a soft keyboard's composing word made Enter at the end of a list
+     * item read the line below: edge-cases "Enter at the end of a list item").
+     * A list item, an empty quote line and code take Code's own Enter from
+     * Kotlin; a paragraph, heading or quote line gets a new paragraph here.
+     */
+    private enter(hard: boolean): void {
+        this.flush();
         const r = this.selectionRange();
-        const line = this.host.lineTextAt(r?.from ?? 0);
-        return newlineInsert(line, this.blockKind(), hard);
+        if (!r) {
+            this.host.refuse();
+            return;
+        }
+        const line = this.host.lineTextAt(r.from);
+        const kind = this.blockKind();
+        if (kind === "code") {
+            const exit = r.from === r.to ? this.host.codeExitAt(r.from) : null;
+            if (exit) this.host.commitAndRerender([exit], exit.caret);
+            else this.host.format("enter");
+        } else if (!hard && (kind === "listItem" || isListLine(line) || isEmptyQuoteLine(line))) {
+            this.host.format("enter");
+        } else {
+            this.structural(newlineInsert(line, hard), null);
+        }
     }
 
-    private onEmptyListItem(): boolean {
-        if (this.blockKind() !== "listItem") return false;
+    /** True with the caret right at the start of a list item's text, where Backspace takes the marker off. */
+    private atItemTextStart(): boolean {
+        if (this.blockKind() === "code") return false;
+        this.flush();
         const r = this.selectionRange();
-        return r !== null && r.from === r.to && isEmptyListItem(this.host.lineTextAt(r.from));
+        if (!r || r.from !== r.to) return false;
+        const start = itemTextStart(this.host.lineTextAt(r.from));
+        return start >= 0 && r.from - this.host.lineStartAt(r.from) === start;
+    }
+
+    /** A `}`, `]` or `)` typed with only indentation before it on a code line: Kotlin takes a unit off. */
+    private closerToDedent(data: string | null): boolean {
+        if (data === null || !"}])".includes(data) || data.length !== 1 || this.blockKind() !== "code") return false;
+        this.flush();
+        const r = this.selectionRange();
+        if (!r || r.from !== r.to) return false;
+        return isIndentOnly(this.host.lineTextAt(r.from).slice(0, r.from - this.host.lineStartAt(r.from)));
+    }
+
+    /**
+     * Tab and Shift+Tab: Indent and Outdent in a list or code; Shift+Tab
+     * outdents anywhere. Tab in a paragraph does nothing (D3), and never
+     * moves focus out of the text, which would take the keyboard away.
+     */
+    private keyDown(e: KeyboardEvent): void {
+        if (e.key !== "Tab" || e.ctrlKey || e.altKey || e.metaKey || this.inTable) return;
+        e.preventDefault();
+        if (!e.shiftKey && this.blockKind() === "paragraph") return;
+        this.host.format(e.shiftKey ? "outdent" : "indent");
     }
 
     private blockKind(): BlockKind {

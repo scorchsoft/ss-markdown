@@ -87,7 +87,9 @@ class BlockTypeTest {
             SetBlockType(BlockType.Heading1),
             listOf(
                 Case("```\nco‸de\n```", "# co‸de"),
-                Case("para\n\n```\na‸\n- b\n```\nnext", "para\n\n# a‸\n# - b\nnext"),
+                // A caret converts its own line: the block splits around it (BlockEditingMatrix has more).
+                Case("para\n\n```\na‸\n- b\n```\nnext", "para\n\n# a‸\n```\n- b\n```\nnext"),
+                Case("para\n\n```\n«a\n- b»\n```\nnext", "para\n\n«# a\n# - b»\nnext"),
             ),
         )
         assertCases(

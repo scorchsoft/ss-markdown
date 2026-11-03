@@ -98,14 +98,16 @@ mockups agreed with Andrew win, and this file gets updated.
   (One row | Two rows) gives it a second row on a bigger phone.
   - **Two rows** are two 48 dp key rows under one hairline, parted by the
     keys' own air rather than a divider. The top row is the keys that fit
-    before the pinned group (Undo and `{ }` or Done, the table keys in
+    before the pinned group (Undo and Redo, then `{ }` or Done, the table keys in
     table mode, and in landscape the filename and Save), which keeps its
     place at the right end; the bottom row carries on with the rest, in
     the same order, from the left edge. Keys stay 48 dp, so the rows line
-    up as columns. From 384 dp wide every Code key and every symbol shows
-    without scrolling; at 360 dp the last Code key (outdent) is cut at
-    half and a short scroll away, because a key never shrinks below the
-    touch target. A bottom row that does not fit scrolls with the usual
+    up as columns. **Pairs never part**: Undo and Redo sit side by side in
+    the pinned group, and Outdent and Indent stay together, so when the
+    pair would end the top row both move down. From 384 dp wide every
+    Code key and every symbol shows without scrolling; at 360 dp insert
+    image is cut at half and quote a short scroll away, because a key
+    never shrinks below the touch target. A bottom row that does not fit scrolls with the usual
     cut and fade. When every key fits in the top row, the strip stays one
     row. TalkBack reads the top row, then the bottom row, as one
     "Formatting" group.
@@ -127,18 +129,67 @@ mockups agreed with Andrew win, and this file gets updated.
     held by an invisible editable stand-in, so the keyboard never sees
     focus leave text. Only the Link sheet takes the keyboard, for its own
     fields; closing it gives the caret back to the text.
-  - It holds ¶, B, I, list, task, code, link, indent and undo, and
-    scrolls horizontally to reveal table, **insert image** (a picture
-    icon; TalkBack "Insert image"), quote, redo and outdent. Preview's
-    strip has insert image after table too.
-  - **Enter in a list** starts the next item (same bullet, the next
-    number, a fresh `[ ]`). **Enter on an empty item ends the list**: the
-    marker goes and the caret sits on a plain line, after a blank line so
-    what you type is a paragraph and not part of the item above; a nested
-    empty item steps out one level first, and a numbered rest of the list
-    counts from 1 again. **Outdent** on a top-level item does the same
-    with the item's text. Code and Preview behave identically: Preview
-    asks Kotlin to run Code's own Enter on the empty item (`listExit`).
+  - It holds ¶, B, I, bulleted list, **numbered list**, task, code,
+    link, **outdent and indent** (a pair, ← then →, so one is found by
+    the other), and scrolls horizontally to reveal table, **insert image**
+    (a picture icon; TalkBack "Insert image") and quote. **Undo and Redo
+    are pinned together** on the right (2026-11-03; Redo used to be the
+    last scrolling key, far from Undo). Preview's strip is ¶, B, I, code,
+    link, bulleted list, numbered list, outdent, indent, table and insert
+    image, with Undo, Redo and Done pinned.
+  - **The list keys** (Bulleted list, Numbered list) act on the caret's
+    line, or every line in the selection: a plain line becomes that kind
+    of item (with a blank line against a paragraph around it, so it is a
+    list and not a lazy line); an item of the other kind switches its
+    whole list, at its level, to this kind (as Google Docs' list styles
+    do; nested lines move with their item when the marker's width
+    changes); an item of the same kind leaves the list as a paragraph,
+    the rest of the list kept. Each shows pressed for the kind the caret
+    is in. A numbered item continues a numbered list just above it, blank
+    lines between or not.
+  - **Enter in a list item** (Code and Preview alike: Preview asks Kotlin
+    to run Code's own Enter, `enter`): at the end, a new item of the same
+    kind right after it, wherever it is in the list; in the middle of
+    the text, the item splits at the caret. Bullets keep their char
+    (`-`, `*`, `+`), a task gives a new unchecked task, and a numbered
+    list renumbers the items after it, keeping its start number and
+    delimiter (`1. 1. 1.` lists stay that way). A line continuing an
+    item after a hard break counts as the item's end.
+  - **Enter on an empty item** makes it a paragraph: on the last item
+    the paragraph sits below the list, after a blank line; in the middle
+    the list splits into two around it, and a numbered second list
+    continues the count (a list starting anywhere but 1 cannot follow a
+    paragraph line directly in CommonMark, so a blank line goes before
+    it). A nested empty item steps out one level first. **Backspace at
+    the very start of an item's text** takes the marker off and leaves
+    the text in place as a paragraph (a task loses only its box first);
+    the next Backspace joins the line to the one above, as anywhere.
+  - **Outdent** (the key, or Shift+Tab) moves a nested item out one
+    level, and makes a top-level item a paragraph without touching the
+    rest of the list: the items after it become a list of their own,
+    renumbered as above. So there is always a way to the end of a list
+    that keeps the list. **Indent** (the key, or Tab) nests an item under
+    the one above; on the first item of a list it does nothing.
+  - **On a paragraph, Indent is disabled** (shown greyed, TalkBack
+    "Unavailable: only lists and code indent"): four spaces would turn
+    the line into an indented code block. A hardware Tab there still
+    types a tab.
+  - **Code blocks** are edited as code. Indent (or Tab) adds one indent
+    unit at the start of the caret's line or every selected line;
+    Outdent (or Shift+Tab) removes up to one, and never touches list
+    nesting or makes a paragraph. The unit is the block's own: a tab in
+    a tab-indented block, otherwise the commonest step between its lines
+    (2 or 4 spaces), and 4 spaces in a block with none yet. Enter keeps
+    the line's indentation and never adds a list marker, plus one unit
+    after a line ending in `{`, `[` or `(` (or `:` in a `python` or
+    `yaml` block); a `}`, `]` or `)` typed as the first character of a
+    line takes one unit back off. In Preview, Enter on a second empty
+    line at the end of a block leaves it: both empty lines go and the
+    caret sits in a new paragraph below the closing fence.
+  - **Quotes and alerts:** Enter continues `> ` (in Preview a new
+    paragraph of the quote); Enter on an empty `> ` line ends the quote,
+    with a blank line so what is typed next is not swallowed by it, and
+    in a nested quote steps out one level first.
   - **In Code view**, a `{ }` key is pinned at the right end. It flips
     the strip to a **symbols page**: `` ` `` `[` `]` `(` `)` `#` `*` `>`
     `|` `-` `=` `!` and ← → cursor keys (arrows with shafts, hold to
@@ -152,8 +203,8 @@ mockups agreed with Andrew win, and this file gets updated.
   - **Font scale above 1.5×:** the mode switcher goes icon-only (labels
     kept for TalkBack), Copy moves into ⋮, and Save never moves.
   - In Preview the strip shows formatting only, since there is no raw
-    syntax to type. In Preview the strip pins Undo and Done on the
-    right (Code pins Undo and `{ }`).
+    syntax to type. In Preview the strip pins Undo, Redo and Done on the
+    right (Code pins Undo, Redo and `{ }`).
   - Rationale: progressive disclosure keeps the strip calm. Code-heavy
     typing loses the keyboard's two-tap trip to its symbol layer, and
     every key stays ≥ 44 dp.
@@ -325,8 +376,8 @@ it with highlight.js, so the two views look like the same document.
   little (at most a fifth on a phone) rather than leave a gap before the
   pinned group. A 12 dp fade sits at the cut, by the pinned group, so the
   cut key reads as half a key, not as a key faded early. Order: ¶ B I
-  list task code link indent table quote redo outdent. Undo and `{ }`
-  are pinned on the right.
+  bulleted numbered task code link outdent indent table image quote.
+  Undo, Redo and `{ }` are pinned on the right.
 - **Link asks where it goes** (Code and Preview, 2026-11-02; it used to
   write `[text]()` and leave the address to be typed into the syntax).
   One tap opens a small sheet over the strip with two labelled fields,
@@ -355,7 +406,20 @@ it with highlight.js, so the two views look like the same document.
   (with a fence their content cannot close), and a code block's lines
   come out of the fence as the new type, taken literally. A new
   paragraph gets a blank line wherever it would otherwise join the
-  block above or below. Only those lines change. Rows are 48 dp and read
+  block above or below. Only those lines change. **A choice applies to
+  the caret's line, or the selected lines, never the whole block they
+  are in** (2026-11-03): one line of a fenced block splits it, the code
+  above keeping its fence with a closing one added and the code below
+  getting a new opening fence like the block's own (characters, length,
+  info string); on the last line the fence closes before it, which is
+  how you leave a code block with ¶. No empty fenced block is ever left
+  behind, and a selection over every line of a block converts it whole.
+  A quote, alert or multi-line item splits the same way around the
+  line. A line made a code block right next to a fenced block joins
+  that block instead of starting a second one. **In a table ¶ is
+  disabled** (greyed, TalkBack "Unavailable in a table"): one row turned
+  into a heading or a list item would break the table, so the command
+  leaves tables alone too. Rows are 48 dp and read
   as radio buttons ("Heading 2, selected"); the key itself reads "Block
   style, Heading 2". Preview sends the same conversion to Kotlin
   (`blockHeading2`…), so both views give the same text.
@@ -824,7 +888,7 @@ the keyboard opens, and the block under edit gets a faint tint.
 
 - The formatting strip works on rendered text: a block-style picker
   (the ¶ menu: Paragraph, Heading 1–3, the three lists, Quote, Code block), then B, I, inline code,
-  link, list, insert table, and undo. Toggles show their state, so Bold
+  link, bulleted and numbered list, outdent and indent, insert table, and undo. Toggles show their state, so Bold
   is pressed when the cursor is in bold text.
 - **Edits never rewrite bytes you didn't touch, even inside the block.**
   - The renderer emits an **inline source map**: every text run in the

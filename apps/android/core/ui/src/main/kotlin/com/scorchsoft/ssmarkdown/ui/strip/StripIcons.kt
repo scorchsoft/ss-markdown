@@ -25,6 +25,18 @@ internal object StripIcons {
             dot(4.5f, 18f),
         )
     }
+
+    /** The bullet icon's three lines, with 1 2 3 drawn in the same stroke where its dots are. */
+    val numberedList by lazy {
+        icon(
+            "M10 6h10",
+            "M10 12h10",
+            "M10 18h10",
+            "M4 4.5l1.5-1v5",
+            "M3.5 10.5a1.5 1.5 0 0 1 3 0c0 1-3 2.2-3 3.5h3",
+            "M3.5 16.2h3l-1.6 1.6a1.3 1.3 0 1 1-1.4 2",
+        )
+    }
     val task by lazy { icon(ROUNDED_SQUARE, "M8 12l3 3 5-6") }
     val code by lazy { icon("M8 7l-5 5 5 5", "M16 7l5 5-5 5") }
     val link by lazy {

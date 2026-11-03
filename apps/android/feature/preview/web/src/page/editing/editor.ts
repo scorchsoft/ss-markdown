@@ -9,6 +9,7 @@ import type { FormatAction, PageMessage, TableOp } from "../../protocol";
 import type { RenderController } from "../controller";
 import type { SectionView } from "../sectionView";
 import { escapeTyped } from "../../core/minimalEdit";
+import { codeExit } from "../../core/newline";
 import { EditSession, type SessionHost } from "./editSession";
 import { KeyboardKeeper } from "./keyboardKeeper";
 import { emptyRun, placeCaret, placeholderRun, sectionOf, setCaretInRun } from "./runs";
@@ -139,7 +140,8 @@ export class Editor implements SessionHost {
         if (offset === null) return;
         const target = this.controller.viewAtOffset(offset);
         const view = target && views.includes(target) ? target : null;
-        if (!view || !view.mounted) return;
+        // A section whose HTML an edit has outdated (still on screen until its render) never takes the caret.
+        if (!view || !view.mounted || view.needsRender) return;
         this.pendingCaret = null;
         let run = placeCaret(view.el, offset);
         if (!run) {
@@ -249,6 +251,16 @@ export class Editor implements SessionHost {
         return doc.lines[doc.lineAt(offset)] ?? "";
     }
 
+    lineStartAt(offset: number): number {
+        const doc = this.controller.doc;
+        return doc.lineStart(doc.lineAt(offset));
+    }
+
+    codeExitAt(offset: number): { from: number; to: number; insert: string; caret: number } | null {
+        const doc = this.controller.doc;
+        return codeExit(doc.lines, doc.lineAt(offset), (line) => doc.lineStart(line));
+    }
+
     isLineStart(offset: number): boolean {
         const doc = this.controller.doc;
         return doc.lineStart(doc.lineAt(offset)) === offset;
@@ -295,10 +307,16 @@ export class Editor implements SessionHost {
             baseRev: this.controller.rev,
             inTable: session.inTable,
         });
+        // Keys that reshape the text under the caret (Enter, Backspace…): hand over at once, so what is
+        // typed before Kotlin's answer is kept by the keeper and written where the caret lands.
+        if (STRUCTURAL.has(action)) this.end(true);
     }
 
     /** Kotlin's `select`, already mapped into the page's text: restore it after the re-render. */
     select(from: number, to: number): void {
+        // A session the host's edit already restored (its render can land between the edit and this
+        // `select`) hands over, so the caret goes where Kotlin says and not where it was mapped to.
+        if (this.session) this.end(true);
         this.pendingCaret = from;
         this.pendingEnd = to > from ? to : null;
         this.flushPendingCaret();
@@ -351,7 +369,8 @@ export class Editor implements SessionHost {
         const offset = this.pendingCaret;
         if (offset === null) return;
         const view = this.controller.viewAtOffset(offset);
-        if (view?.mounted && view.html !== null && !view.el.querySelector(".editing")) {
+        // Not into HTML the edit has outdated: the caret waits for the section's new render.
+        if (view?.mounted && !view.needsRender && !view.el.querySelector(".editing")) {
             // The section may already be current (e.g. a caret move between cells).
             this.onRendered([view]);
         }
@@ -424,6 +443,9 @@ export class Editor implements SessionHost {
         });
     }
 }
+
+/** Format actions that stand for a key press, answered by an edit and a `select`. */
+const STRUCTURAL: ReadonlySet<FormatAction> = new Set(["enter", "backspace", "type}", "type]", "type)"]);
 
 /** Browser formatting input types and the actions they mean. */
 const INPUT_FORMATS: Readonly<Record<string, FormatAction>> = {

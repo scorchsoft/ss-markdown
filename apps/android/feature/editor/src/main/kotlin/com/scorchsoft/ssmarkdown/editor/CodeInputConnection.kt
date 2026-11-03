@@ -43,6 +43,8 @@ class CodeInputConnection internal constructor(
     private val onKey: (KeyEvent) -> Boolean,
     private val gate: InputGate,
     private val cursor: CursorAnchorReporter?,
+    /** The host's list and code rules for Backspace and typed closers ([EditorListener]). */
+    private val listener: () -> EditorListener? = { null },
 ) : BaseInputConnection(view, true) {
     /** A connection with no paste gate and no cursor reports, as before either existed. */
     constructor(
@@ -65,12 +67,39 @@ class CodeInputConnection internal constructor(
     ): Boolean =
         edit {
             // A keyboard's line break is Enter, so lists continue as they do for the key (ux-spec "Enter in a list").
-            if (isEnter(text, newCursorPosition)) {
-                onKey(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
-            } else {
-                session.commitText(text ?: "", newCursorPosition)
+            when {
+                isEnter(text, newCursorPosition) -> {
+                    onKey(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+                }
+
+                text != null && isWordThenEnter(text, newCursorPosition) -> {
+                    // Some keyboards commit the composing word and the line break together: the word
+                    // goes in as typed, then the break is Enter (edge-cases "Enter at the end of a list item").
+                    session.commitText(text.subSequence(0, text.length - 1), 1)
+                    onKey(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+                }
+
+                isCloser(text, newCursorPosition) && listener()?.onCloser(text.toString()) == true -> {
+                    Unit
+                }
+
+                else -> {
+                    session.commitText(text ?: "", newCursorPosition)
+                }
             }
         }
+
+    /** A word with one line break after it, committed with the caret at the end. */
+    private fun isWordThenEnter(
+        text: CharSequence,
+        newCursorPosition: Int,
+    ): Boolean =
+        text.length > 1 && text.last() == '\n' && newCursorPosition == 1 && text.indexOf('\n') == text.length - 1
+
+    private fun isCloser(
+        text: CharSequence?,
+        newCursorPosition: Int,
+    ): Boolean = text != null && text.toString() in CLOSERS && newCursorPosition == 1 && !session.isComposing
 
     /** A lone line break committed with the caret after it and no word composing: the keyboard's Enter. */
     private fun isEnter(
@@ -93,7 +122,16 @@ class CodeInputConnection internal constructor(
     override fun deleteSurroundingText(
         beforeLength: Int,
         afterLength: Int,
-    ): Boolean = edit { session.deleteSurroundingText(beforeLength, afterLength) }
+    ): Boolean =
+        edit {
+            // A keyboard's Backspace: at the start of a list item's text the host takes the marker off.
+            val backspace = beforeLength == 1 && afterLength == 0 && !session.hasSelection && !session.isComposing
+            if (!backspace ||
+                listener()?.onBackspace() != true
+            ) {
+                session.deleteSurroundingText(beforeLength, afterLength)
+            }
+        }
 
     override fun deleteSurroundingTextInCodePoints(
         beforeLength: Int,

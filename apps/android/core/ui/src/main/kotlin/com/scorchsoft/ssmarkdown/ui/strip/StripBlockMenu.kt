@@ -39,13 +39,16 @@ private val TickSize = 20.dp
 internal fun BlockMenuKey(
     current: BlockChoice?,
     width: Dp,
+    // False in a table, where converting one row would break it (EB-BLOCK-10).
+    enabled: Boolean,
     onBlock: (BlockChoice) -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
     val currentLabel = current?.let { stringResource(it.label) }
     val selectedLabel = stringResource(R.string.block_current)
     Box {
-        StripKeyButton(StripKey.BlockStyle, pressed = false, enabled = true, width = width, state = currentLabel) {
+        val state = if (enabled) currentLabel else stringResource(R.string.strip_block_unavailable_table)
+        StripKeyButton(StripKey.BlockStyle, pressed = false, enabled = enabled, width = width, state = state) {
             open = !open
         }
         StripMenu(open = open, onDismiss = { open = false }) {

@@ -144,7 +144,7 @@ export function placeholderRun(section: HTMLElement, offset: number, line: numbe
     const host = [...section.querySelectorAll<HTMLElement>("[data-line]")]
         .reverse()
         .find((el) => Number(el.dataset.line) === line && !el.querySelector("[data-line]"));
-    if (host) {
+    if (host && !host.matches("blockquote, .markdown-alert")) {
         host.appendChild(run);
         return run;
     }
@@ -153,6 +153,11 @@ export function placeholderRun(section: HTMLElement, offset: number, line: numbe
     p.dataset.line = String(line);
     p.dataset.lineEnd = String(line + 1);
     p.appendChild(run);
+    if (host) {
+        // An empty quote line (`> `): a paragraph inside the quote, where Enter can end it.
+        host.appendChild(p);
+        return run;
+    }
     const after = [...section.children].find((el) => Number((el as HTMLElement).dataset.line) > line);
     section.insertBefore(p, after ?? null);
     return run;

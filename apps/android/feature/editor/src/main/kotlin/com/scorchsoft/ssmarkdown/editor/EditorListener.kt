@@ -84,4 +84,19 @@ interface EditorListener {
      * types a plain line break.
      */
     fun onEnter(): Boolean = false
+
+    /**
+     * Backspace with a caret, from a key or a keyboard's one-char delete,
+     * with no word being composed. Return true when the host made the edit
+     * itself (a list item's marker comes off, docs/ux-spec.md "Enter in a
+     * list"); false deletes as usual.
+     */
+    fun onBackspace(): Boolean = false
+
+    /**
+     * A `}`, `]` or `)` typed with no word being composed. Return true when
+     * the host typed it itself (first on a code line it takes one indent
+     * unit off); false types it as usual.
+     */
+    fun onCloser(text: String): Boolean = false
 }

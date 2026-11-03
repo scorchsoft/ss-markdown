@@ -38,11 +38,27 @@ enum class FormatAction(
     HEADING_6("heading6", EditCommand.SetHeading(level = 6), block = true),
 
     /**
-     * Enter on an empty list item in Preview: Code's own Enter, which ends
-     * the list there (a nested item steps out one level), so both views
-     * leave a list the same way.
+     * Enter in a list item, on an empty quote line or in fenced code in
+     * Preview: Code's own Enter (a new item, the list renumbered, an empty
+     * item ending the list, a code line keeping its indentation), so both
+     * views give the same text. Paragraphs and headings the page splits
+     * itself, since Enter there means a new paragraph in Preview.
      */
-    LIST_EXIT("listExit", EditCommand.Newline, block = true),
+    ENTER("enter", EditCommand.Newline, block = true),
+
+    /** Backspace at the very start of a list item's text: the marker comes off (Code's own command). */
+    BACKSPACE("backspace", EditCommand.BackspaceAtItemStart, block = true),
+
+    /** The strip's Indent key or Tab: list items nest, code lines get one indent unit. */
+    INDENT("indent", EditCommand.Indent, block = true),
+
+    /** The strip's Outdent key or Shift+Tab: one level out; a top-level item becomes a paragraph. */
+    OUTDENT("outdent", EditCommand.Outdent, block = true),
+
+    // A closer typed first on a code line takes one indent unit off it (EditCommand.Type).
+    TYPE_BRACE("type}", EditCommand.Type("}"), block = true),
+    TYPE_BRACKET("type]", EditCommand.Type("]"), block = true),
+    TYPE_PAREN("type)", EditCommand.Type(")"), block = true),
 
     // The ¶ menu: each converts the selected blocks, replacing their old syntax (EditCommand.SetBlockType).
     BLOCK_PARAGRAPH("blockParagraph", EditCommand.SetBlockType(BlockType.Paragraph), block = true),

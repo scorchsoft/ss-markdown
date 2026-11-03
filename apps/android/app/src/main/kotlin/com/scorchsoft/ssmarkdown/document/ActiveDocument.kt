@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.document
 
+import android.view.KeyEvent
 import com.scorchsoft.ssmarkdown.editor.EditorListener
 import com.scorchsoft.ssmarkdown.editor.LineChange
 import com.scorchsoft.ssmarkdown.editor.MarkdownCodeView
@@ -12,6 +13,7 @@ import com.scorchsoft.ssmarkdown.files.document.OpenDocument
 import com.scorchsoft.ssmarkdown.files.memory.ShedStep
 import com.scorchsoft.ssmarkdown.markdown.edit.DocumentStyle
 import com.scorchsoft.ssmarkdown.markdown.edit.EditCommand
+import com.scorchsoft.ssmarkdown.markdown.edit.FormatState
 import com.scorchsoft.ssmarkdown.text.EditObserver
 import com.scorchsoft.ssmarkdown.text.EditOp
 import com.scorchsoft.ssmarkdown.text.Snapshot
@@ -249,7 +251,28 @@ class ActiveDocument(
         keyCode: Int,
         ctrl: Boolean,
         shift: Boolean,
-    ): Boolean = listener.onShortcut(keyCode, ctrl, shift)
+    ): Boolean = (!ctrl && keyCode == KeyEvent.KEYCODE_TAB && onTab(shift)) || listener.onShortcut(keyCode, ctrl, shift)
+
+    /**
+     * Tab and Shift+Tab on a hardware keyboard: Indent and Outdent, as the
+     * strip's keys. Shift+Tab always outdents; Tab indents a list item or a
+     * code line, and elsewhere is left to type a tab (docs/editing-behaviours.md D3).
+     */
+    private fun onTab(shift: Boolean): Boolean {
+        val codeView = codeView() ?: return false
+        val surface = CodeViewSurface(codeView)
+        val snapshot = text.snapshot()
+        val selection = surface.selection
+        if (selection.end > snapshot.length) return false
+        val fences = surface.fences
+        if (!shift && !FormatState.at(snapshot, selection, fences).canIndent) return false
+        val command = if (shift) EditCommand.Outdent else EditCommand.Indent
+        val result = command.apply(snapshot, selection, style, fences)
+        surface.apply(result.ops, result.selection)
+        return true
+    }
+
+    private fun codeView(): MarkdownCodeView? = view?.takeIf { it.session.document === text }
 
     /**
      * Enter in the Code view: Code's own `Newline`, the command Preview runs
@@ -266,6 +289,46 @@ class ActiveDocument(
         val snapshot = text.snapshot()
         if (selection.end > snapshot.length) return false
         val result = EditCommand.Newline.apply(snapshot, selection, style, surface.fences)
+        surface.apply(result.ops, result.selection)
+        return true
+    }
+
+    /**
+     * Backspace in the Code view: at the very start of a list item's text the
+     * marker comes off (Code's `BackspaceAtItemStart`, the command Preview
+     * runs for `backspace`); anywhere else the view deletes as usual.
+     */
+    override fun onBackspace(): Boolean = runIfChanged(EditCommand.BackspaceAtItemStart)
+
+    /** A closer typed first on a code line takes one indent unit off it (`EditCommand.Type`). */
+    override fun onCloser(text: String): Boolean =
+        runIfChanged(EditCommand.Type(text), onlyWhenChangedDifferently = text)
+
+    /**
+     * Runs [command] at the caret and applies it unless it changed nothing,
+     * or (with [onlyWhenChangedDifferently]) did no more than type that text.
+     */
+    private fun runIfChanged(
+        command: EditCommand,
+        onlyWhenChangedDifferently: String? = null,
+    ): Boolean {
+        val codeView = codeView() ?: return false
+        val surface = CodeViewSurface(codeView)
+        val selection = surface.selection
+        if (!selection.isCaret) return false
+        val line = text.text.positionAt(selection.start).line
+        if (text.text.lineLength(line) > MAX_ENTER_LINE) return false
+        val snapshot = text.snapshot()
+        if (selection.end > snapshot.length) return false
+        val result = command.apply(snapshot, selection, style, surface.fences)
+        val plain =
+            onlyWhenChangedDifferently != null &&
+                result.ops.singleOrNull()?.let {
+                    it.deleted.isEmpty() &&
+                        it.inserted.toString() == onlyWhenChangedDifferently
+                } ==
+                true
+        if (result.isNoOp || plain) return false
         surface.apply(result.ops, result.selection)
         return true
     }

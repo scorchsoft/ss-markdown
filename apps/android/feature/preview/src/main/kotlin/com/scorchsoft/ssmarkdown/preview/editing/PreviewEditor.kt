@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.preview.editing
 
 import com.scorchsoft.ssmarkdown.markdown.edit.DocumentStyle
+import com.scorchsoft.ssmarkdown.markdown.edit.FenceStates
 import com.scorchsoft.ssmarkdown.markdown.edit.FormatState
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
 import com.scorchsoft.ssmarkdown.preview.DocumentSnapshot
@@ -139,6 +140,10 @@ class PreviewEditor(
                 sync.onHostEdits(before, result.edits)?.let(send)
             }
             send(HostMessage.Select(sync.rev, result.selection.start, result.selection.end))
+        } else if (selection != null) {
+            // Refused (a line format in a table cell): the page handed its caret over for an Enter or
+            // Backspace and waits for a `select`, so put it back where it was.
+            send(HostMessage.Select(sync.rev, selection.start, selection.end))
         }
         return true
     }
@@ -150,7 +155,10 @@ class PreviewEditor(
         baseRev: Int,
     ): FormatState? {
         val text = document.text()
-        return mappedSelection(from, to, baseRev, text.length)?.let { FormatState.at(text.chars, it) }
+        // Fence-aware, so a caret in a code block reads as one (Indent is enabled there, D3).
+        return mappedSelection(from, to, baseRev, text.length)?.let {
+            FormatState.at(text.chars, it, FenceStates.scan(text.chars))
+        }
     }
 
     /**

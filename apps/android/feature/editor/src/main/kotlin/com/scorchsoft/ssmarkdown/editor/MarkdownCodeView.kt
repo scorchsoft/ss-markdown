@@ -427,7 +427,7 @@ class MarkdownCodeView
 
         override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection {
             ImeConfig.fill(outAttrs, session)
-            return CodeInputConnection(this, session, keys::onKey, gate, cursorAnchors)
+            return CodeInputConnection(this, session, keys::onKey, gate, cursorAnchors) { listener }
         }
 
         override fun onKeyDown(

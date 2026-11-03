@@ -20,10 +20,12 @@ class IndentEditTest {
                 Case("- a\n- [ ] b‸", "- a\n  - [ ] b‸"),
                 Case("> - a\n> - b‸", "> - a\n>   - b‸"),
                 Case("- a\n- b‸", "- a\n\t- b‸", tabs),
-                Case("pl‸ain", "    pl‸ain"),
-                Case("pl‸ain", "\tpl‸ain", tabs),
-                Case("‸x", "    ‸x"),
+                // A plain line is left alone: four spaces would make it an indented code block.
+                Case("pl‸ain", "pl‸ain"),
+                Case("pl‸ain", "pl‸ain", tabs),
+                Case("‸x", "‸x"),
                 Case("«- a\n- b»", "«  - a\n  - b»"),
+                Case("«- a\nb»", "«  - a\nb»"),
             ),
         )
 

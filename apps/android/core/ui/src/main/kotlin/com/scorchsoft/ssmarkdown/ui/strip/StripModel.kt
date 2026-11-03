@@ -35,6 +35,9 @@ enum class StripKey(
     Bold(R.string.strip_bold, toggles = true),
     Italic(R.string.strip_italic, toggles = true),
     BulletList(R.string.strip_bullet_list, toggles = true),
+
+    /** `1.` items; on a bulleted list it switches the whole list (ux-spec "Formatting strip"). */
+    NumberedList(R.string.strip_numbered_list, toggles = true),
     Task(R.string.strip_task, toggles = true),
     Code(R.string.strip_code, toggles = true),
     Link(R.string.strip_link),
@@ -170,6 +173,12 @@ data class FormattingStripState(
     val inTable: Boolean = false,
     /** The caret's block type, ticked in the ¶ menu; null when it is none of [BlockChoice]. */
     val block: BlockChoice? = BlockChoice.Paragraph,
+    /**
+     * Keys shown but greyed out here, each read by TalkBack with why: Indent
+     * on a paragraph (four spaces would make it code) and ¶ in a table
+     * (converting one row would break it). docs/editing-behaviours.md D3.
+     */
+    val disabled: Set<StripKey> = emptySet(),
 )
 
 /**
@@ -177,22 +186,23 @@ data class FormattingStripState(
  * without a UI (docs/ux-spec.md, "More decisions from review 3").
  */
 object StripLayout {
-    /** Code mode's scrolling keys, in the spec's order. Undo and `{ }` are pinned, not listed. */
+    /** Code mode's scrolling keys, in the spec's order. Undo, Redo and `{ }` are pinned, not listed. */
     val codeKeys: List<StripKey> =
         listOf(
             StripKey.BlockStyle,
             StripKey.Bold,
             StripKey.Italic,
             StripKey.BulletList,
+            StripKey.NumberedList,
             StripKey.Task,
             StripKey.Code,
             StripKey.Link,
+            // A pair, ← then →, so one is found by the other (Andrew, 2026-11-03).
+            StripKey.Outdent,
             StripKey.Indent,
             StripKey.Table,
             StripKey.Image,
             StripKey.Quote,
-            StripKey.Redo,
-            StripKey.Outdent,
         )
 
     /** Preview's keys: formatting only, since rendered text has no syntax to type ("Editing in Preview"). */
@@ -204,6 +214,9 @@ object StripLayout {
             StripKey.Code,
             StripKey.Link,
             StripKey.BulletList,
+            StripKey.NumberedList,
+            StripKey.Outdent,
+            StripKey.Indent,
             StripKey.Table,
             StripKey.Image,
         )
@@ -239,9 +252,28 @@ object StripLayout {
             emptyList()
         }
 
-    /** The keys pinned at the right end: Undo, then `{ }` in Code or Done in Preview. */
-    fun pinnedKeys(mode: StripMode): List<StripKey> =
-        listOf(StripKey.Undo, if (mode == StripMode.Code) StripKey.Symbols else StripKey.Done)
+    /**
+     * The keys pinned at the right end: Undo and Redo as a pair (one is found
+     * by the other, Andrew 2026-11-03), then `{ }` in Code or Done in Preview.
+     * The symbols page keeps its room for symbols: Undo and `{ }` only, as
+     * before Redo was pinned.
+     */
+    fun pinnedKeys(
+        mode: StripMode,
+        page: StripPage = StripPage.Formatting,
+    ): List<StripKey> =
+        when {
+            mode == StripMode.Code && page == StripPage.Symbols -> listOf(StripKey.Undo, StripKey.Symbols)
+            mode == StripMode.Code -> listOf(StripKey.Undo, StripKey.Redo, StripKey.Symbols)
+            else -> listOf(StripKey.Undo, StripKey.Redo, StripKey.Done)
+        }
+
+    /** Keys that always sit side by side, first then second: a two-row split never falls between them. */
+    val pairs: List<Pair<StripKey, StripKey>> =
+        listOf(
+            StripKey.Outdent to StripKey.Indent,
+            StripKey.Undo to StripKey.Redo,
+        )
 
     /**
      * The least height the editor keeps above a two-row strip with the
@@ -284,6 +316,25 @@ object StripLayout {
         val fits = if (key.value > 0f) (topRoom / key).toInt().coerceAtLeast(0) else 0
         val top = minOf(count, fits)
         return RowSplit(top, count - top)
+    }
+
+    /**
+     * [splitRows] for these [items], never splitting one of [pairs] across
+     * the rows: a pair that would end the top row moves down whole.
+     */
+    internal fun splitRows(
+        items: List<StripItem>,
+        topRoom: Dp,
+        key: Dp,
+    ): RowSplit {
+        val split = splitRows(items.size, topRoom, key)
+        val last = (items.getOrNull(split.top - 1) as? StripItem.Key)?.key
+        val next = (items.getOrNull(split.top) as? StripItem.Key)?.key
+        return if (last != null && next != null && (last to next) in pairs) {
+            RowSplit(split.top - 1, split.bottom + 1)
+        } else {
+            split
+        }
     }
 
     /**

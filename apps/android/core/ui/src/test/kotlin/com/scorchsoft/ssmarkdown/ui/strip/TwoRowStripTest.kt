@@ -65,15 +65,15 @@ class TwoRowStripTest {
             "Bold",
             "Italic",
             "Bulleted list",
+            "Numbered list",
             "Task",
             "Code",
             "Link",
+            "Outdent",
             "Indent",
             "Table",
             "Insert image",
             "Quote",
-            "Redo",
-            "Outdent",
         )
 
     @Test
@@ -81,15 +81,23 @@ class TwoRowStripTest {
         show(FormattingStripState(canUndo = true))
         assertEquals(96f, dp(node("Formatting").size.height.toFloat()), 0.5f)
         for (label in codeLabels) assertTrue("$label is cut or off screen", node(label).fullyShown())
-        // The top row runs Block style … Code, then Undo and { } at its right end.
-        for (label in listOf("Block style", "Code", "Undo", "Symbols")) assertEquals(label, 0f, top(label), 0.5f)
+        // The top row runs Block style … Numbered list, then Undo, Redo and { } at its right end.
+        for (label in listOf("Block style", "Numbered list", "Undo", "Redo", "Symbols")) {
+            assertEquals(label, 0f, top(label), 0.5f)
+        }
+        assertEquals(node("Undo").positionInRoot.x + node("Undo").size.width, node("Redo").positionInRoot.x, 0.5f)
         assertEquals(rootWidth, node("Symbols").let { it.positionInRoot.x + it.size.width }, 0.5f)
-        // The bottom row carries on in the same order from the left edge.
-        assertEquals(48f, top("Link"), 0.5f)
-        assertEquals(0f, node("Link").positionInRoot.x, 0.5f)
-        assertEquals(48f, top("Outdent"), 0.5f)
+        // The bottom row carries on in the same order from the left edge, Outdent and Indent side by side.
+        assertEquals(48f, top("Task"), 0.5f)
+        assertEquals(0f, node("Task").positionInRoot.x, 0.5f)
+        assertEquals(48f, top("Quote"), 0.5f)
+        assertEquals(
+            node("Outdent").positionInRoot.x + node("Outdent").size.width,
+            node("Indent").positionInRoot.x,
+            0.5f,
+        )
         // Keys stay 48 dp, so the two rows line up as columns.
-        assertEquals(node("Bold").positionInRoot.x, node("Indent").positionInRoot.x, 0.5f)
+        assertEquals(node("Bold").positionInRoot.x, node("Code").positionInRoot.x, 0.5f)
     }
 
     @Test
@@ -115,12 +123,12 @@ class TwoRowStripTest {
     @Config(qualifiers = "w360dp-h780dp")
     fun at360DpTheLastKeyIsCutAndAScrollAway() {
         show(FormattingStripState())
-        for (label in codeLabels.dropLast(1)) assertTrue("$label is cut or off screen", node(label).fullyShown())
-        val outdent = node("Outdent")
-        val shown = (rootWidth - outdent.positionInRoot.x) / outdent.size.width
+        for (label in codeLabels.dropLast(2)) assertTrue("$label is cut or off screen", node(label).fullyShown())
+        val image = node("Insert image")
+        val shown = (rootWidth - image.positionInRoot.x) / image.size.width
         assertEquals(0.5f, shown, 0.02f)
-        rule.onNodeWithContentDescription("Outdent").performScrollTo().performClick()
-        assertEquals(listOf(StripKey.Outdent), keys)
+        rule.onNodeWithContentDescription("Quote").performScrollTo().performClick()
+        assertEquals(listOf(StripKey.Quote), keys)
     }
 
     @Test
@@ -149,9 +157,9 @@ class TwoRowStripTest {
                 .sortedBy { it.config.getOrNull(SemanticsProperties.TraversalIndex) ?: 0f }
                 .map { part -> part.allLabels() }
                 .filter { it.isNotEmpty() }
-        assertEquals(listOf("Block style", "Bold", "Italic", "Bulleted list", "Task", "Code"), order[0])
-        assertEquals(listOf("Undo", "Symbols"), order[1])
-        assertEquals(listOf("Link", "Indent", "Table", "Insert image", "Quote", "Redo", "Outdent"), order[2])
+        assertEquals(listOf("Block style", "Bold", "Italic", "Bulleted list", "Numbered list"), order[0])
+        assertEquals(listOf("Undo", "Redo", "Symbols"), order[1])
+        assertEquals(listOf("Task", "Code", "Link", "Outdent", "Indent", "Table", "Insert image", "Quote"), order[2])
     }
 
     private fun SemanticsNode.allLabels(): List<String> =

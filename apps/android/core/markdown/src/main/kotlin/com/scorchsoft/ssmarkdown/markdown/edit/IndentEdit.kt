@@ -17,15 +17,23 @@ internal object IndentEdit {
         fences: FenceStates = FenceStates.NONE,
     ): EditResult {
         val added = HashMap<Int, String>()
-        for (line in TextLines.targetLines(text, selection)) {
-            val p = LinePrefix.parse(line.content)
-            added[line.start] =
-                when {
-                    style.indentUnit == "\t" -> "\t"
-                    p.isListItem -> " ".repeat(nestingWidth(text, line, p))
-                    else -> style.indentUnit
-                }
+        val targets = TextLines.targetLines(text, selection)
+        val only = targets.singleOrNull()
+        if (only != null) {
+            // The first item of a list has nothing to nest under: indenting it would orphan it (EB-LIST-23).
+            val p = LinePrefix.parse(only.content)
+            if (p.isListItem && itemsAbove(text, only, p).none { it.indentWidth <= p.indentWidth }) {
+                return EditResult.unchanged(selection)
+            }
         }
+        for (line in targets) {
+            val p = LinePrefix.parse(line.content)
+            // Only list items nest. Four spaces before a paragraph line would quietly make it an
+            // indented code block (CommonMark), so Indent leaves plain lines alone (ux-spec).
+            if (!p.isListItem) continue
+            added[line.start] = if (style.indentUnit == "\t") "\t" else " ".repeat(nestingWidth(text, line, p))
+        }
+        if (added.isEmpty()) return EditResult.unchanged(selection)
         return reindent(text, selection, fences) { line, p -> added[line.start]?.let { it + p.indent } }
     }
 

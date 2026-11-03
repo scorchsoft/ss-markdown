@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { collectDefinitions, definitionSignature } from "../../src/core/definitions";
-import { isEmptyListItem, newlineInsert } from "../../src/core/newline";
+import { codeExit, isEmptyQuoteLine, isListLine, itemTextStart, newlineInsert } from "../../src/core/newline";
 import { SourceDoc } from "../../src/core/sourceDoc";
 
 describe("collectDefinitions", () => {
@@ -57,23 +57,41 @@ describe("definitionSignature", () => {
 });
 
 describe("newlineInsert", () => {
-    it("continues lists in the document's own style", () => {
-        expect(newlineInsert("- item", "listItem")).toBe("\n- ");
-        expect(newlineInsert("  + item", "listItem")).toBe("\n  + ");
-        expect(newlineInsert("9) nine", "listItem")).toBe("\n10) ");
-        expect(newlineInsert("- [x] done", "listItem")).toBe("\n- [ ] ");
-        expect(newlineInsert("> quote", "paragraph")).toBe("\n>\n> ");
-        expect(newlineInsert("para", "paragraph")).toBe("\n\n");
-        expect(newlineInsert("x", "code")).toBe("\n");
+    it("starts a new paragraph, in a quote a new paragraph of the quote", () => {
+        expect(newlineInsert("> quote")).toBe("\n>\n> ");
+        expect(newlineInsert("para")).toBe("\n\n");
+        expect(newlineInsert("# Heading")).toBe("\n\n");
+        expect(newlineInsert("para", true)).toBe("\\\n");
     });
 
-    it("knows an empty list item, where Enter leaves the list instead", () => {
-        for (const line of ["- ", "-", "* ", "2. ", "10) ", "- [ ] ", "- [x]", "  - ", "> - ", "> > 1. "]) {
-            expect(isEmptyListItem(line), line).toBe(true);
+    it("knows the lines whose Enter is Kotlin's: list items and empty quote lines", () => {
+        for (const line of ["- ", "-", "* a", "2. x", "10) ", "- [ ] a", "- [x]", "  - a", "> - a", "> > 1. b"]) {
+            expect(isListLine(line), line).toBe(true);
         }
-        for (const line of ["- a", "- [ ] a", "1. x", "", "para", "> quote", "-- ", "1234567890. "]) {
-            expect(isEmptyListItem(line), line).toBe(false);
+        for (const line of ["", "para", "> quote", "-- ", "-x", "1234567890. ", "#1"]) {
+            expect(isListLine(line), line).toBe(false);
         }
+        expect(isEmptyQuoteLine("> ")).toBe(true);
+        expect(isEmptyQuoteLine("> > ")).toBe(true);
+        expect(isEmptyQuoteLine("> a")).toBe(false);
+        expect(isEmptyQuoteLine("> - ")).toBe(false);
+    });
+
+    it("finds where an item's text starts, after any task box", () => {
+        expect(itemTextStart("- a")).toBe(2);
+        expect(itemTextStart("  10) a")).toBe(6);
+        expect(itemTextStart("- [ ] a")).toBe(6);
+        expect(itemTextStart("> 1. a")).toBe(5);
+        expect(itemTextStart("para")).toBe(-1);
+    });
+
+    it("leaves a code block on a second empty last line (D4)", () => {
+        const lines = ["```", "a", "", "", "```", "next"];
+        const starts = [0, 4, 6, 7, 8, 12];
+        const at = (i: number): number => starts[i] ?? 0;
+        expect(codeExit(lines, 3, at)).toEqual({ from: 6, to: 11, insert: "```\n\n", caret: 10 });
+        expect(codeExit(["```", "a", "", "```"], 2, at)).toBeNull();
+        expect(codeExit(["```", "a", "b", "", "```"], 3, at)).toBeNull();
     });
 });
 

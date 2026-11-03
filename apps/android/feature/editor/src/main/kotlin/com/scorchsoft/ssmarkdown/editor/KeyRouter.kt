@@ -32,7 +32,7 @@ internal class KeyRouter(
             }
 
             event.unicodeChar != 0 -> {
-                if (down) deadKeys.typed(event.unicodeChar)?.let(session::typeKey)
+                if (down) deadKeys.typed(event.unicodeChar)?.let(::type)
                 true
             }
 
@@ -40,6 +40,12 @@ internal class KeyRouter(
                 false
             }
         }
+    }
+
+    /** A typed char; a closer is offered to the host first (it may take an indent unit off a code line). */
+    private fun type(text: String) {
+        if (text in CLOSERS && listener()?.onCloser(text) == true) return
+        session.typeKey(text)
     }
 
     /** Offers a shortcut to the host; an unclaimed plain Tab types a tab. */
@@ -53,6 +59,9 @@ internal class KeyRouter(
         return handled || plainTab
     }
 }
+
+/** The chars offered to [EditorListener.onCloser]. */
+internal val CLOSERS = setOf("}", "]", ")")
 
 /**
  * A hardware keyboard's dead keys (´ then e is é on international layouts). The accent arrives as a

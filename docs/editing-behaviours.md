@@ -58,44 +58,44 @@ The rules every row inherits, so they are not repeated in each one:
 
 | ID | Situation | Action | Code | Preview | Source | P | Status |
 |---|---|---|---|---|---|---|---|
-| EB-LIST-01 | `- item‸` | Enter | `- item⏎- ‸` (same bullet char) | A new empty bullet below, caret in it | [CM], [MAIO], [GDOCS] | P1 | untested |
-| EB-LIST-02 | `* item‸` / `+ item‸` | Enter | Continues with the same char (`* `, `+ `) | same | [CM], [MAIO] | P1 | untested |
-| EB-LIST-03 | `- ite‸m` | Enter | Splits: `- ite⏎- ‸m` | Item splits in two at the caret | [CM], [PM] | P1 | untested |
+| EB-LIST-01 | `- item‸` | Enter | `- item⏎- ‸` (same bullet char) | A new empty bullet below, caret in it | [CM], [MAIO], [GDOCS] | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LIST-01 andrew-1 bullet last item` |
+| EB-LIST-02 | `* item‸` / `+ item‸` | Enter | Continues with the same char (`* `, `+ `) | same | [CM], [MAIO] | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LIST-02 bullet star keeps its char`; `EB-LIST-02 bullet plus keeps its char` |
+| EB-LIST-03 | `- ite‸m` | Enter | Splits: `- ite⏎- ‸m` | Item splits in two at the caret | [CM], [PM] | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LIST-03 bullet caret mid-text splits` |
 | EB-LIST-04 | `- ‸item` (caret right after the marker) | Enter | `- ⏎- ‸item`: an empty item above, text moves down with the caret | same | [MAIO], [CM] | P1 | untested |
-| EB-LIST-05 | `- a⏎- ‸` (empty item, top level) | Enter | Marker removed; caret on a plain line, separated from the list by a blank line so typing is a paragraph, not a lazy line of `a` | The empty item disappears, caret in a new paragraph below the list | [CM], [MAIO], [GDOCS], [NOTION], [OB-54358], [BEAR-10240] | P1 | untested |
-| EB-LIST-06 | `- a⏎··- ‸` (empty nested item) | Enter | Outdents one level: `- a⏎- ‸` | same | [MAIO], [PM], [GDOCS] | P1 | untested |
-| EB-LIST-07 | Empty item in the middle: `- a⏎- ‸⏎- c` | Enter | Splits the list: `- a⏎⏎‸⏎⏎- c` (two lists around a paragraph); a numbered tail restarts at 1 | same | [CM], [PM] (liftOutOfList splits) | P1 | untested |
-| EB-LIST-08 | `- a⏎- «b»` | Enter | Selection replaced, then EB-LIST-01/03 applies | same | [PM] (splitListItem deletes the range) | P2 | untested |
+| EB-LIST-05 | `- a⏎- ‸` (empty item, top level) | Enter | Marker removed; caret on a plain line, separated from the list by a blank line so typing is a paragraph, not a lazy line of `a` | The empty item disappears, caret in a new paragraph below the list | [CM], [MAIO], [GDOCS], [NOTION], [OB-54358], [BEAR-10240] | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LIST-05 empty last bullet` |
+| EB-LIST-06 | `- a⏎··- ‸` (empty nested item) | Enter | Outdents one level: `- a⏎- ‸` | same | [MAIO], [PM], [GDOCS] | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LIST-06 empty nested outdents first` |
+| EB-LIST-07 | Empty item in the middle: `- a⏎- ‸⏎- c` | Enter | Splits the list: `- a⏎⏎‸⏎- c` (two lists around a paragraph; a bullet list may follow a paragraph line directly); a numbered tail continues the count after a blank line, see EB-NUM-08 (changed 2026-11-03, Andrew's list brief) | same | [CM], [PM] (liftOutOfList splits) | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LIST-07 empty middle bullet splits the list` |
+| EB-LIST-08 | `- a⏎- «b»` | Enter | Selection replaced, then EB-LIST-01/03 applies | same | [PM] (splitListItem deletes the range) | P2 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LIST-08 selection across items` |
 | EB-LIST-09 | `- item‸` with trailing spaces `- item··‸` | Enter | Trailing spaces on the old line kept (they are a hard break; rule 1); new item below | same | brainstorm, [CMS] §6.7 | P3 | untested |
 | EB-LIST-10 | `-‸` or `- ` typed at line start then nothing | Enter | A line `-` alone is not an item with content; Enter on `- ‸` with no list above removes the marker and leaves an empty line | same (n/a until typed) | [CM] ("deletes the first list marker") | P2 | untested |
-| EB-LIST-11 | `- a⏎··continuation‸` (indented paragraph of an item) | Enter | New line keeps the item's content indent `··‸`, no marker | Enter inside a multi-paragraph item makes a new paragraph in the same item | [CM] ("continues list items") | P2 | untested |
-| EB-LIST-12 | `- a⏎lazy line‸` (lazy continuation, no indent) | Enter | Plain newline, no marker added, no indent | Same paragraph of the item gets a new line (soft break) | [CM] ("continues dedented list items") | P2 | untested |
+| EB-LIST-11 | `- a⏎··continuation‸` (indented paragraph of an item) | Enter | New line keeps the item's content indent `··‸`, no marker | Enter inside a multi-paragraph item makes a new paragraph in the same item | [CM] ("continues list items") | P2 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LIST-11 indented paragraph of an item keeps its indent` |
+| EB-LIST-12 | `- a⏎lazy line‸` (lazy continuation, no indent) | Enter | Plain newline, no marker added, no indent | Same paragraph of the item gets a new line (soft break) | [CM] ("continues dedented list items") | P2 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LIST-12 lazy line of an item is a plain newline` |
 | EB-LIST-13 | `- a⏎‸bc` (caret before the item's content column) | Enter | Plain newline; the list is not continued | same | [CM] ("cursor before the markup depth") | P2 | untested |
 | EB-LIST-14 | `- [link](x)‸` / `- [test]‸` (bracket text that is not a task) | Enter | `- ⏎`: a bullet, never `- [ ]` | same | [MAIO] (#122) | P2 | untested |
 | EB-LIST-15 | Loose list `- a⏎⏎- b‸` | Enter | Keeps looseness: `- a⏎⏎- b⏎⏎- ‸` | same | [CM] ("preserve non-tight list") | P2 | untested |
-| EB-LIST-16 | Tight list `- a⏎- b‸` | Enter | Stays tight: no blank line inserted | same | [CM] | P1 | untested |
+| EB-LIST-16 | Tight list `- a⏎- b‸` | Enter | Stays tight: no blank line inserted | same | [CM] | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LIST-16 bullet middle` |
 | EB-LIST-17 | Tight two-item list, Enter on an empty second item | Enter | Exits (EB-LIST-05). We do **not** follow CodeMirror's default of turning a tight list loose here | same | [CM] (`nonTightLists` option); decision D11 | P2 | untested |
 | EB-LIST-18 | `-   item‸` (marker followed by 3 spaces) | Enter | Keeps the item's text column: `-   ‸` | same | [CM] (" *  one"), [MAIO] ("1.  item1") | P3 | untested |
 | EB-LIST-19 | ` - one‸` (list indented by one space) | Enter | Keeps the leading space: ` - ‸` | same | [CM] | P3 | untested |
 | EB-LIST-20 | Tab-indented nested list `→- two‸` | Enter | Continues with a tab: `→- ‸` | same | [CM] ("handles tab-indentation") | P3 | untested |
 | EB-LIST-21 | `- a⏎  - b‸` (nested) | Enter | `  - ‸` at the same nesting | same | [CM], [MAIO] | P1 | untested |
-| EB-LIST-22 | `- a⏎- b‸` | Indent (strip, Tab) | `- a⏎  - b‸`, indented under `a` by `a`'s content width | Item nests under the one above | [PM] (sinkListItem), [MAIO], [GDOCS] | P1 | untested |
-| EB-LIST-23 | First item of a list `- ‸a` (no item above) | Indent | No change (an item cannot nest without a parent; four spaces at top would make an indented code block). The key gives a short "Can't indent the first item" announcement | same | [PM] (first item cannot sink); [MAIO] indents anyway; decision D3 | P2 | untested |
-| EB-LIST-24 | `- a⏎  - b‸` | Outdent (strip, Shift+Tab) | `- a⏎- b‸` | same | [PM] (liftListItem), [GDOCS] | P1 | untested |
-| EB-LIST-25 | `- a‸` top level | Outdent | The marker goes; `a` becomes a paragraph, separated by blank lines from list items around it; a numbered tail renumbers | same | [PM], [SSM] ux-spec | P1 | untested |
+| EB-LIST-22 | `- a⏎- b‸` | Indent (strip, Tab) | `- a⏎  - b‸`, indented under `a` by `a`'s content width | Item nests under the one above | [PM] (sinkListItem), [MAIO], [GDOCS] | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LIST-22 indent bullet` |
+| EB-LIST-23 | First item of a list `- ‸a` (no item above) | Indent | No change (an item cannot nest without a parent; four spaces at top would make an indented code block). The key gives a short "Can't indent the first item" announcement | same | [PM] (first item cannot sink); [MAIO] indents anyway; decision D3 | P2 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LIST-23 indent first item does nothing` |
+| EB-LIST-24 | `- a⏎  - b‸` | Outdent (strip, Shift+Tab) | `- a⏎- b‸` | same | [PM] (liftListItem), [GDOCS] | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LIST-24 outdent nested` |
+| EB-LIST-25 | `- a‸` top level | Outdent | The marker goes; `a` becomes a paragraph, separated by blank lines from list items around it; a numbered tail renumbers | same | [PM], [SSM] ux-spec | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LIST-25 outdent top-level middle bullet` |
 | EB-LIST-26 | Item with children `- a⏎- b‸⏎  - c` | Indent `b` | `b` and its child `c` move together: `  - b⏎    - c` | same | [PM] (sinks the range with its content), [GDOCS] | P1 | untested |
 | EB-LIST-27 | `- a⏎  - b‸⏎  - c` (b has a following sibling) | Outdent `b` | `- a⏎- b⏎  - c`: following siblings become `b`'s children (they stay below it, at their depth) | same | [PM] (liftToOuterList) | P2 | untested |
 | EB-LIST-28 | Selection over three items `«- a⏎- b⏎- c»` | Indent / Outdent | Every selected item moves one level; the selection grows to keep the same text selected | same | [PM], [MAIO] | P2 | untested |
 | EB-LIST-29 | Item whose continuation lines are indented `- a⏎  more‸` | Indent | Continuation lines move with the item (the whole item, not only its first line) | same | brainstorm, [CMS] §5.2 | P2 | untested |
-| EB-LIST-30 | `- ‸item` | Backspace | Marker removed. First item of a list, or the only item: `‸item` as a paragraph (blank line kept/added against the list). A later item: marker becomes indentation, so the text joins the item above as its continuation paragraph; a second Backspace removes the indent | The bullet goes; the text stays where it was | [CM] (deleteMarkupBackward), [MAIO], [GDOCS]; decision D2 | P1 | untested |
-| EB-LIST-31 | `··- ‸item` (nested) | Backspace | Removes the marker only (`··‸item` as continuation of the parent item); never the whole indent in one go | same | [CM] ("one level"), [OB-104451] | P1 | untested |
-| EB-LIST-32 | `- a⏎- ‸` (empty item) | Backspace | Removes the marker; a second Backspace joins the line to `a`'s end | same | [CM], [PM] (joinBackward) | P1 | untested |
+| EB-LIST-30 | `- ‸item` | Backspace | Marker removed. First item of a list, or the only item: `‸item` as a paragraph (blank line kept/added against the list). A later item: marker becomes indentation, so the text joins the item above as its continuation paragraph; a second Backspace removes the indent | The bullet goes; the text stays where it was | [CM] (deleteMarkupBackward), [MAIO], [GDOCS]; decision D2 | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LIST-30 backspace first bullet` |
+| EB-LIST-31 | `··- ‸item` (nested) | Backspace | Removes the marker and the indent: `‸item` is a plain paragraph (D2, decided 2026-11-03; the continuation step is not used) | same | [CM] ("one level"), [OB-104451] | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LIST-31 backspace nested makes a paragraph` |
+| EB-LIST-32 | `- a⏎- ‸` (empty item) | Backspace | Removes the marker; a second Backspace joins the line to `a`'s end | same | [CM], [PM] (joinBackward) | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LIST-32 backspace empty item` |
 | EB-LIST-33 | Paragraph `‸text` right after a list `- a⏎‸text` (lazy line) | Backspace | Joins to `a`: `- a‸text` | Paragraph joins into the last item | [PM] (joinBackward) | P2 | untested |
 | EB-LIST-34 | `- a‸⏎- b` | Delete (forward) | Joins: `- a‸b` (the second marker goes) | same | [PM] (joinForward) | P2 | untested |
 | EB-LIST-35 | `«- a⏎- b»` | Bullet key | Removes the bullets (toggle off): `a⏎b` | same | [MTE] ("toggle off, multiple lines") | P1 | untested |
-| EB-LIST-36 | Two plain paragraphs selected `«One⏎Two»` | Bullet key | `- One⏎- Two`; partly selected lines are included whole | same | [MTE] | P1 | untested |
-| EB-LIST-37 | Plain line between paragraphs `One⏎Two‸⏎Three` | Bullet key | Only that line: `One⏎⏎- Two‸⏎⏎Three` (blank lines added so it is a list, not a lazy line) | same | [MTE] | P1 | untested |
-| EB-LIST-38 | `«1. a⏎2. b»` | Bullet key | Switches type in place: `- a⏎- b` (no stacking `- 1. a`) | same | [MTE] ("switching styles replaces the prefix") | P1 | untested |
+| EB-LIST-36 | Two plain paragraphs selected `«One⏎Two»` | Bullet key | `- One⏎- Two`; partly selected lines are included whole | same | [MTE] | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LIST-36 bullet key on selected lines` |
+| EB-LIST-37 | Plain line between paragraphs `One⏎Two‸⏎Three` | Bullet key | Only that line: `One⏎⏎- Two‸⏎⏎Three` (blank lines added so it is a list, not a lazy line) | same | [MTE] | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LIST-37 bullet key between paragraphs` |
+| EB-LIST-38 | `«1. a⏎2. b»` | Bullet key | Switches type in place: `- a⏎- b` (no stacking `- 1. a`) | same | [MTE] ("switching styles replaces the prefix") | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LIST-38 bullet key converts a numbered list` |
 | EB-LIST-39 | Mixed selection: some lines bullets, some plain | Bullet key | All become bullets (toggle on wins when not all are on) | same | [PM] (wrapInList); brainstorm | P2 | untested |
 | EB-LIST-40 | Blank lines inside the selection `«a⏎⏎b»` | Bullet key | Blank lines stay blank, never `- ` empty items; the list becomes loose | same | [MTE] (blank lines in quote case); brainstorm | P2 | untested |
 | EB-LIST-41 | Bullet key on a heading line `## Title‸` | Bullet key | Heading syntax replaced: `- Title` | same | [SSM] ux-spec (¶ replaces syntax) | P2 | untested |
@@ -113,19 +113,19 @@ The rules every row inherits, so they are not repeated in each one:
 
 | ID | Situation | Action | Code | Preview | Source | P | Status |
 |---|---|---|---|---|---|---|---|
-| EB-NUM-01 | `1. one‸` | Enter | `1. one⏎2. ‸` | same | [CM], [MAIO] | P1 | untested |
+| EB-NUM-01 | `1. one‸` | Enter | `1. one⏎2. ‸` | same | [CM], [MAIO] | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-NUM-01 numbered last` |
 | EB-NUM-02 | `2) one‸` (paren delimiter) | Enter | `2) one⏎3) ‸` | same | [CM], [CMS] §5.2 | P2 | untested |
-| EB-NUM-03 | `1. one‸⏎2. two` (insert in middle) | Enter | Following items renumber: `1. one⏎2. ‸⏎3. two` | same | [CM] ("renumbers following ordered list items") | P1 | untested |
+| EB-NUM-03 | `1. one‸⏎2. two` (insert in middle) | Enter | Following items renumber: `1. one⏎2. ‸⏎3. two` | same | [CM] ("renumbers following ordered list items") | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-NUM-03 numbered first` |
 | EB-NUM-04 | `9.  nine‸` | Enter | `10. ‸`: the text column is kept where possible (one space less after a wider number) | same | [MAIO] ("9.  item9") | P3 | untested |
-| EB-NUM-05 | List starting at 5: `5. a‸` | Enter | `6. ‸`; the start number is kept (it is meaningful) | Renders from 5 and continues | [CMS] §5.3 (start number) | P2 | untested |
+| EB-NUM-05 | List starting at 5: `5. a‸` | Enter | `6. ‸`; the start number is kept (it is meaningful) | Renders from 5 and continues | [CMS] §5.3 (start number) | P2 | BlockEditingMatrixTest, e2e/blockEditing: `EB-NUM-05 numbered keeps start and paren` |
 | EB-NUM-06 | All-ones list `1. a⏎1. b‸` | Enter | `1. ‸` (the style "every item is 1." is kept; nothing renumbered) | same | [SSM] edge-cases (renumbering) | P2 | untested |
 | EB-NUM-07 | Run with a discontinuity `1. a‸⏎2. b⏎3. c⏎1. d` | Enter | Renumbering stops at the discontinuity: `…4. c⏎1. d` | same | [CM] ("stops renumbering on discontinuities") | P3 | untested |
-| EB-NUM-08 | `1. a⏎2. ‸⏎3. c` empty middle item | Enter | Splits the list; the tail restarts: `1. a⏎⏎‸⏎⏎1. c` | same | [CM] ("renumbers after removed markers"), [SSM] | P2 | untested |
+| EB-NUM-08 | `1. a⏎2. ‸⏎3. c` empty middle item | Enter | Splits the list; the tail continues the count: `1. a⏎⏎‸⏎⏎2. c` (a list starting at 2 cannot follow a paragraph line directly, hence the blank line; changed 2026-11-03 from "restarts at 1", Andrew's list brief) | same | [CM] ("renumbers after removed markers"), [SSM] | P2 | BlockEditingMatrixTest, e2e/blockEditing: `EB-NUM-08 empty middle numbered continues numbering` |
 | EB-NUM-09 | Delete a whole item line `1. a⏎«2. b⏎»3. c` | Cut / Backspace | Remaining items renumber: `1. a⏎2. c` | Deleting an item renumbers | brainstorm, [SSM] edge-cases | P2 | untested |
-| EB-NUM-10 | Nested numbered `1. a⏎   1. b⏎   2. ‸` | Enter | Outdents one level and continues the outer count: `2. ‸` | same | [CM] ("lift out of one list level and renumber") | P2 | untested |
-| EB-NUM-11 | `1. a⏎2. b‸` | Indent | `b` becomes `1.` of a new sublist under `a`; outer list closes the gap | same | [SSM] edge-cases, [PM] | P1 | untested |
-| EB-NUM-12 | `«- a⏎- b⏎- c»` | Numbered key | `1. a⏎2. b⏎3. c` | same | [MTE] ("numbers increment across lines") | P1 | untested |
-| EB-NUM-13 | `1. a⏎2. b‸` | Numbered key | Toggles off (removes the numbers) for the caret's item or the selection | same | [MTE] | P2 | untested |
+| EB-NUM-10 | Nested numbered `1. a⏎   1. b⏎   2. ‸` | Enter | Outdents one level and continues the outer count: `2. ‸` | same | [CM] ("lift out of one list level and renumber") | P2 | BlockEditingMatrixTest, e2e/blockEditing: `EB-NUM-10 empty nested numbered outdents first` |
+| EB-NUM-11 | `1. a⏎2. b‸` | Indent | `b` becomes `1.` of a new sublist under `a`; outer list closes the gap | same | [SSM] edge-cases, [PM] | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-NUM-11 indent numbered` |
+| EB-NUM-12 | `«- a⏎- b⏎- c»` | Numbered key | `1. a⏎2. b⏎3. c` | same | [MTE] ("numbers increment across lines") | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-NUM-12 numbered key converts a bullet list` |
+| EB-NUM-13 | `1. a⏎2. b‸` | Numbered key | Toggles off (removes the numbers) for the caret's item or the selection | same | [MTE] | P2 | BlockEditingMatrixTest, e2e/blockEditing: `EB-NUM-13 numbered key toggles off mid-list` |
 | EB-NUM-14 | `1. ‸` | Backspace | Removes the whole number marker in one go (not digit by digit) | same | [CM] ("clears number markers in one go") | P1 | untested |
 | EB-NUM-15 | A paragraph `2024. was a year` | Enter at end | Not treated as a list continuation (number over 9 digits or a paragraph that cannot interrupt) only when the line really parses as a list item | same | [CMS] §5.2 (max 9 digits; only `1` interrupts a paragraph) | P3 | untested |
 | EB-NUM-16 | User manually renumbers a list badly (`1. 3. 7.`) | Save / switch view | Numbers are never rewritten on save or view switch; only an edit to the list renumbers the run it touched | same | [MT2479], [GH39057] | P1 | untested |
@@ -135,17 +135,17 @@ The rules every row inherits, so they are not repeated in each one:
 | ID | Situation | Action | Code | Preview | Source | P | Status |
 |---|---|---|---|---|---|---|---|
 | EB-TASK-01 | `- [ ] buy milk‸` | Enter | `- [ ] ‸` | New unchecked task | [MAIO], [CM] | P1 | untested |
-| EB-TASK-02 | `- [x] done‸` | Enter | The new task is unchecked: `- [ ] ‸` | same | [MAIO] | P1 | untested |
+| EB-TASK-02 | `- [x] done‸` | Enter | The new task is unchecked: `- [ ] ‸` | same | [MAIO] | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-TASK-02 task makes an unchecked task` |
 | EB-TASK-03 | `- [x] ‸done` (caret at text start) | Enter | Empty unchecked task above; `done` keeps its `[x]` | same | [MAIO] | P2 | untested |
-| EB-TASK-04 | `- [ ] ‸` (empty task) | Enter | Exits the list like EB-LIST-05 | same | [MAIO], brainstorm | P1 | untested |
-| EB-TASK-05 | `- [ ] ‸item` | Backspace | Removes the checkbox only: `- ‸item` (a second Backspace removes the bullet) | The checkbox goes, the bullet stays | [MAIO] | P1 | untested |
+| EB-TASK-04 | `- [ ] ‸` (empty task) | Enter | Exits the list like EB-LIST-05 | same | [MAIO], brainstorm | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-TASK-04 empty task` |
+| EB-TASK-05 | `- [ ] ‸item` | Backspace | Removes the checkbox only: `- ‸item` (a second Backspace removes the bullet) | The checkbox goes, the bullet stays | [MAIO] | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-TASK-05 backspace task loses its box first` |
 | EB-TASK-06 | `··- [ ] ‸item` (nested) | Backspace | `··- ‸item` | same | [MAIO] | P2 | untested |
 | EB-TASK-07 | Nested task `- [ ] a⏎  - [ ] b‸` | Enter | `  - [ ] ‸` at the same depth | same | [CM] ("nested task lists at the right level") | P1 | untested |
 | EB-TASK-08 | `- [ ] item` | Tap the checkbox | n/a | Toggles to `[x]`, one character changed, no keyboard, no caret move | [SSM] R12 | P1 | untested |
 | EB-TASK-09 | Caret in `- [ ] item‸` | Task key | Removes the task box, leaving `- item‸` (the key toggles "is a task", it does not tick). Ticking is a tap in Preview or Ctrl+Enter | same | [MTE], [MAIO]; brainstorm | P2 | untested |
 | EB-TASK-10 | Selection over tasks with mixed state | Toggle done (Ctrl+Enter) | If any is unchecked, all become checked; else all unchecked. Only lines touched by the selection | same | [MAIO] ("check multiple lines", "only touch lines that have selections") | P3 | untested |
 | EB-TASK-11 | `* [X] Done` (capital X, `*` bullet) | Tap / toggle | Unchecks to `* [ ] Done`; checking writes `x` unless the file uses `X` | same | [GFM] §5.3; [SSM] rule 1 | P3 | untested |
-| EB-TASK-12 | `1. [ ] numbered task` | Enter | `2. [ ] ‸` | same | [GFM] §5.3, brainstorm | P3 | untested |
+| EB-TASK-12 | `1. [ ] numbered task` | Enter | `2. [ ] ‸` | same | [GFM] §5.3, brainstorm | P3 | BlockEditingMatrixTest, e2e/blockEditing: `EB-TASK-12 numbered task` |
 | EB-TASK-13 | Plain paragraph `buy milk‸` | Task key | `- [ ] buy milk` | same | [SSM] ux-spec | P1 | untested |
 | EB-TASK-14 | Bullet `- buy milk‸` | Task key | `- [ ] buy milk` (bullet kept, box added) | same | [SSM] ux-spec, brainstorm | P1 | untested |
 | EB-TASK-15 | `- [ ] item` with a link `- [ ] see [doc](x)` | Tap the link text in Preview | n/a | Opens the link chip; never toggles the box | [SSM] ux-spec (gestures) | P2 | untested |
@@ -154,11 +154,11 @@ The rules every row inherits, so they are not repeated in each one:
 
 | ID | Situation | Action | Code | Preview | Source | P | Status |
 |---|---|---|---|---|---|---|---|
-| EB-LISTQ-01 | `> - one‸` | Enter | `> - one⏎> - ‸` | same | [CM] ("lists inside blockquotes") | P2 | untested |
-| EB-LISTQ-02 | `> - one⏎> - ‸` | Enter | Exits the list but stays in the quote: `> - one⏎>⏎> ‸` | same | [CM] ("move list markup inside a blockquote") | P2 | untested |
+| EB-LISTQ-01 | `> - one‸` | Enter | `> - one⏎> - ‸` | same | [CM] ("lists inside blockquotes") | P2 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LISTQ-01 bullet in quote` |
+| EB-LISTQ-02 | `> - one⏎> - ‸` | Enter | Exits the list but stays in the quote: `> - one⏎>⏎> ‸` | same | [CM] ("move list markup inside a blockquote") | P2 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LISTQ-02 empty item in quote` |
 | EB-LISTQ-03 | `> - ‸` | Backspace | Removes the list marker, keeps the quote: `> ‸` | same | [CM] ("deletes nested list markers") | P2 | untested |
 | EB-LISTQ-04 | `- one⏎   > quoted‸` (quote inside an item) | Enter | `   > ‸` (keeps both the item indent and the quote) | same | [CM] ("leave space before nested blockquotes") | P3 | untested |
-| EB-LISTQ-05 | `- a⏎  1. b‸` (numbered inside bullets) | Enter | `  2. ‸` | same | [CM] ("continue nested lists") | P2 | untested |
+| EB-LISTQ-05 | `- a⏎  1. b‸` (numbered inside bullets) | Enter | `  2. ‸` | same | [CM] ("continue nested lists") | P2 | BlockEditingMatrixTest, e2e/blockEditing: `EB-LISTQ-05 nested numbered in bullet` |
 | EB-LISTQ-06 | `> 1. one⏎>⏎> 2. two‸` (loose list in quote) | Enter | `>⏎> 3. ‸` | same | [CM] ("preserve list tightness inside a blockquote") | P3 | untested |
 
 ## Block type (¶ menu) and conversions
@@ -166,15 +166,15 @@ The rules every row inherits, so they are not repeated in each one:
 | ID | Situation | Action | Code | Preview | Source | P | Status |
 |---|---|---|---|---|---|---|---|
 | EB-BLOCK-01 | Caret in one line of a three-line paragraph | ¶ → Heading 2 | Only the caret's line becomes `## line`; the lines above and below stay paragraphs, separated by blank lines where they would otherwise join | same | [SSM] ux-spec; known case | P1 | untested |
-| EB-BLOCK-02 | Caret on one line inside a fenced code block | ¶ → Paragraph | Splits the fence: the code above and below stays fenced (fences closed and reopened with the same info string), the line comes out as a paragraph | same | known case | P1 | untested |
-| EB-BLOCK-03 | Caret on one line of a multi-line quote | ¶ → Paragraph | Splits the quote around that line | same | known case | P1 | untested |
+| EB-BLOCK-02 | Caret on one line inside a fenced code block | ¶ → Paragraph | Splits the fence: the code above and below stays fenced (fences closed and reopened with the same info string), the line comes out as a paragraph | same | known case | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-BLOCK-02 block paragraph code middle line` |
+| EB-BLOCK-03 | Caret on one line of a multi-line quote | ¶ → Paragraph | Splits the quote around that line | same | known case | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-BLOCK-03 block paragraph one quote line` |
 | EB-BLOCK-04 | `- [x] done` | ¶ → Heading 1 | `# done` (task state dropped, text kept) | same | [SSM] ux-spec | P2 | untested |
 | EB-BLOCK-05 | `## Title` | ¶ → Task | `- [ ] Title` | same | [SSM] ux-spec | P2 | untested |
 | EB-BLOCK-06 | Selection over a heading, a list and a paragraph | ¶ → Quote | Every selected block is quoted, each line `> `; blank lines between them become `>` so it is one quote | same | [MTE] (multi-line quote), [SSM] | P2 | untested |
 | EB-BLOCK-07 | Selection of three lines | ¶ → Code block | One fenced block around them; the fence is longer than any backtick run inside | same | [SSM] ux-spec, [CMS] §4.5 | P1 | untested |
 | EB-BLOCK-08 | Caret in a fenced block | ¶ → Code block (already ticked) | No change; never nests fences | same | [SSM] ux-spec | P2 | untested |
 | EB-BLOCK-09 | Setext heading `Title⏎=====` | ¶ → Paragraph | Both lines handled: underline removed, `Title` stays | same | [CMS] §4.3 | P2 | untested |
-| EB-BLOCK-10 | Caret in a table row | ¶ | ¶ is disabled in a table: converting one row would break it | same | brainstorm | P2 | untested |
+| EB-BLOCK-10 | Caret in a table row | ¶ | ¶ is disabled in a table: converting one row would break it | same | brainstorm | P2 | BlockEditingMatrixTest, e2e/blockEditing: `EB-BLOCK-10 block heading leaves a table alone` |
 | EB-BLOCK-11 | ¶ menu opened | Look at it | The caret's current type is ticked (a nested item ticks its list type) | same | [SSM] ux-spec | P2 | untested |
 | EB-BLOCK-12 | `# Title #` (closing sequence) | ¶ → Heading 2 | `## Title` (closing hashes dropped), never `## Title #` with a stray mark | same | [CMS] §4.2 | P3 | untested |
 | EB-BLOCK-13 | Line `#hashtag` or `1. 5 litres` | ¶ → Paragraph | Text that would still parse as syntax after a conversion is escaped (`\#hashtag`, `1\. 5`); text the user typed is never escaped behind their back | same | [CMS] §4.2, §5.2 | P3 | untested |
@@ -184,11 +184,11 @@ The rules every row inherits, so they are not repeated in each one:
 
 | ID | Situation | Action | Code | Preview | Source | P | Status |
 |---|---|---|---|---|---|---|---|
-| EB-CODE-01 | Inside a fence `····foo()‸` | Enter | New line keeps the current line's leading whitespace; never adds a list marker or `> ` | Enter is a newline in the block, never a new paragraph | [CM], [PM] (newlineInCode), [OB-96116] | P1 | untested |
-| EB-CODE-02 | Inside a fence, line `- not a list‸` | Enter | Plain newline (no list continuation) | same | [SSM] edge-cases (FenceAwareEdit) | P1 | untested |
-| EB-CODE-03 | Inside a fence | Tab (hardware) or Indent key | Inserts indentation at the caret, or indents every selected line, in the block's own style (tab or spaces) | same | [TY-CF], [TT] (`enableTabIndentation`); decision D3 | P2 | untested |
-| EB-CODE-04 | Inside a fence | Shift+Tab or Outdent | Removes one indent level from the line(s) | same | [TY-CF] | P2 | untested |
-| EB-CODE-05 | Last line of a fenced block, nothing after it | Leave the block | Arrow down passes the closing fence naturally (it is visible text) | Three ways out: Enter on an empty last line when the line before is also empty (both removed, new paragraph below); Shift+Enter or Ctrl+Enter at once; a tap below the block makes a paragraph there | [TT] (exitOnTripleEnter, exitOnArrowDown), [PM] (exitCode); decision D4 | P1 | untested |
+| EB-CODE-01 | Inside a fence `····foo()‸` | Enter | New line keeps the current line's leading whitespace; never adds a list marker or `> ` | Enter is a newline in the block, never a new paragraph | [CM], [PM] (newlineInCode), [OB-96116] | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-CODE-01 code keeps indentation` |
+| EB-CODE-02 | Inside a fence, line `- not a list‸` | Enter | Plain newline (no list continuation) | same | [SSM] edge-cases (FenceAwareEdit) | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-CODE-02 code never continues a list` |
+| EB-CODE-03 | Inside a fence | Tab (hardware) or Indent key | Inserts indentation at the caret, or indents every selected line, in the block's own style (tab or spaces) | same | [TY-CF], [TT] (`enableTabIndentation`); decision D3 | P2 | BlockEditingMatrixTest, e2e/blockEditing: `EB-CODE-03 indent code line` |
+| EB-CODE-04 | Inside a fence | Shift+Tab or Outdent | Removes one indent level from the line(s) | same | [TY-CF] | P2 | BlockEditingMatrixTest, e2e/blockEditing: `EB-CODE-04 outdent code line` |
+| EB-CODE-05 | Last line of a fenced block, nothing after it | Leave the block | Arrow down passes the closing fence naturally (it is visible text) | Three ways out: Enter on an empty last line when the line before is also empty (both removed, new paragraph below); Shift+Enter or Ctrl+Enter at once; a tap below the block makes a paragraph there | [TT] (exitOnTripleEnter, exitOnArrowDown), [PM] (exitCode); decision D4 | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-CODE-05 code exit on a second empty last line` |
 | EB-CODE-06 | A code block is the first block of the document | Put a paragraph above it | Type above the opening fence | Arrow up or a tap above the block makes a paragraph before it | [TT] (exitOnArrowUp) | P3 | untested |
 | EB-CODE-07 | Empty fenced block, caret inside | Backspace | Deletes characters normally; the fence lines are text | The empty block becomes an empty paragraph (both fences removed) | [TT] (Backspace clears an empty block) | P2 | untested |
 | EB-CODE-08 | Empty line, type ```` ``` ```` | Enter | A closing fence is added and the caret sits between: ```` ```⏎‸⏎``` ```` — only when no fence below would pair with it | Typing ```` ``` ```` then space or Enter in an empty paragraph makes a code block | [TY-CF], [TT] (input rule) | P1 | untested |
@@ -213,10 +213,10 @@ The rules every row inherits, so they are not repeated in each one:
 
 | ID | Situation | Action | Code | Preview | Source | P | Status |
 |---|---|---|---|---|---|---|---|
-| EB-QUOTE-01 | `> one‸` | Enter | `> one⏎> ‸` | New line in the same quote | [CM], [MAIO] | P1 | untested |
-| EB-QUOTE-02 | `> one⏎> ‸` (empty quoted line) | Enter | Ends the quote: the empty `> ` line is removed and the caret sits on a plain line after a blank line | The empty line leaves the quote as a paragraph | [CM] (two empty lines), [NOTION]; decision D5 | P1 | untested |
+| EB-QUOTE-01 | `> one‸` | Enter | `> one⏎> ‸` | New line in the same quote | [CM], [MAIO] | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-QUOTE-01 quote continues` |
+| EB-QUOTE-02 | `> one⏎> ‸` (empty quoted line) | Enter | Ends the quote: the empty `> ` line is removed and the caret sits on a plain line after a blank line | The empty line leaves the quote as a paragraph | [CM] (two empty lines), [NOTION]; decision D5 | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-QUOTE-02 empty quote line ends the quote` |
 | EB-QUOTE-03 | `> > one‸` | Enter | `> > one⏎> > ‸` | same | [CM] | P2 | untested |
-| EB-QUOTE-04 | `> > ‸` (empty nested line) | Enter | Steps out one level: `> ‸` | same | [CM] | P2 | untested |
+| EB-QUOTE-04 | `> > ‸` (empty nested line) | Enter | Steps out one level: `> ‸` | same | [CM] | P2 | BlockEditingMatrixTest, e2e/blockEditing: `EB-QUOTE-04 empty nested quote steps out one level` |
 | EB-QUOTE-05 | `>>one‸` (no-space style) | Enter | `>>‸`: the file's spacing is kept | same | [CM] | P3 | untested |
 | EB-QUOTE-06 | `> ‸` | Backspace | Removes one quote level (`> > ‸` → `> ‸`; `> ‸` → `‸`) | The line leaves the quote | [CM] | P1 | untested |
 | EB-QUOTE-07 | `>···‸` (extra spaces) | Backspace | Deletes the trailing spaces back to `> ‸` first | same | [CM] ("deletes trailing whitespace") | P3 | untested |
@@ -225,7 +225,7 @@ The rules every row inherits, so they are not repeated in each one:
 | EB-QUOTE-10 | Quote with caret or selection in it | Quote key | Toggles off: markers removed from every line of the block | same | [MTE] | P1 | untested |
 | EB-QUOTE-11 | `dog‸` at the end of a paragraph line | Quote key | Quotes only that line, separated from the paragraph by a blank line | same | [MTE] | P2 | untested |
 | EB-QUOTE-12 | Lazy line `> one⏎two‸` | Enter | Plain newline; `> ` is not added to a lazy line | Same paragraph of the quote | [CMS] §5.1 | P3 | untested |
-| EB-QUOTE-13 | Alert `> [!NOTE]⏎> text‸` | Enter | `> ‸`; the `[!NOTE]` line is never duplicated | The alert keeps its icon and title; Enter adds a body line | [GFM-ALERT] | P2 | untested |
+| EB-QUOTE-13 | Alert `> [!NOTE]⏎> text‸` | Enter | `> ‸`; the `[!NOTE]` line is never duplicated | The alert keeps its icon and title; Enter adds a body line | [GFM-ALERT] | P2 | BlockEditingMatrixTest, e2e/blockEditing: `EB-QUOTE-13 alert continues` |
 | EB-QUOTE-14 | Alert in Preview | Tap the "Note" title | n/a | The type line is not editable text; the caret goes to the body | [GFM-ALERT]; brainstorm | P2 | untested |
 | EB-QUOTE-15 | `> [!WARNING]‸` | Enter | `> ‸` (first body line) | same | [GFM-ALERT] | P3 | untested |
 | EB-QUOTE-16 | `> ## Title‸` | Enter | `> ‸`: a paragraph line in the quote, not another heading | same | brainstorm | P3 | untested |
@@ -235,8 +235,8 @@ The rules every row inherits, so they are not repeated in each one:
 
 | ID | Situation | Action | Code | Preview | Source | P | Status |
 |---|---|---|---|---|---|---|---|
-| EB-HEAD-01 | `## Title‸` | Enter | A plain paragraph line, never a second heading | New paragraph below the heading | [GDOCS], [NOTION], [PM] (splitBlock) | P1 | untested |
-| EB-HEAD-02 | `## Ti‸tle` | Enter | `## Ti⏎‸tle`; the second half is a paragraph | same | [PM] (splitBlock) | P2 | untested |
+| EB-HEAD-01 | `## Title‸` | Enter | A plain paragraph line, never a second heading | New paragraph below the heading | [GDOCS], [NOTION], [PM] (splitBlock) | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-HEAD-01 heading end` |
+| EB-HEAD-02 | `## Ti‸tle` | Enter | `## Ti⏎‸tle`; the second half is a paragraph | same | [PM] (splitBlock) | P2 | BlockEditingMatrixTest, e2e/blockEditing: `EB-HEAD-02 heading middle splits` |
 | EB-HEAD-03 | `## ‸Title` | Enter | An empty line above; the heading is unchanged and moves down with the caret | same | [PM], [GDOCS] | P2 | untested |
 | EB-HEAD-04 | `## ‸Title` | Backspace | Deletes one character of the marker (it is text) | The heading becomes a paragraph `Title` | [GDOCS], [NOTION], [PM] | P2 | untested |
 | EB-HEAD-05 | Empty paragraph | Type `# ` | It is a heading as typed | `# ` at the start of an empty paragraph makes Heading 1; Backspace straight after (or Undo) gives back the literal `# ` | [TT] (input rules), [NOTION] | P2 | untested |

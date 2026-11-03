@@ -8,6 +8,10 @@
     <string name="strip_bold">Bold</string>
     <string name="strip_italic">Italic</string>
     <string name="strip_bullet_list">Bulleted list</string>
+    <string name="strip_numbered_list">Numbered list</string>
+    <string name="strip_indent_unavailable">Unavailable: only lists and code indent</string>
+    <string name="strip_block_unavailable_table">Unavailable in a table</string>
+    <string name="strip_unavailable_here">Unavailable here</string>
     <string name="strip_task">Task</string>
     <string name="strip_code">Code</string>
     <string name="strip_link">Link</string>

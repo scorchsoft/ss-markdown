@@ -188,6 +188,7 @@ class EditorPreviewHost(
                 strip =
                     it.strip.copy(
                         pressed = pressed,
+                        disabled = StripController.disabledKeys(event.state),
                         inTable = event.inTable,
                         block = PreviewStripKeys.choiceFor(event.state.block),
                     ),

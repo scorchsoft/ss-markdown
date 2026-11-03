@@ -87,18 +87,31 @@ class FormattingStripTest {
         // Andrew, 2026-11-02: a gap before Undo made the pinned group look too wide.
         show(FormattingStripState(mode = StripMode.Preview, canUndo = true))
         val undo = node("Undo").fetchSemanticsNode().boundsInRoot
+        val redo = node("Redo").fetchSemanticsNode().boundsInRoot
         val done = node("Done").fetchSemanticsNode().boundsInRoot
         val root = rule.onRoot().fetchSemanticsNode().boundsInRoot
         val density = rule.density.density
         assertEquals(48f, undo.width / density, 0.5f)
         assertEquals(48f, done.width / density, 0.5f)
-        assertEquals(undo.right, done.left, 0.5f)
+        // Undo and Redo are a pair, then Done.
+        assertEquals(undo.right, redo.left, 0.5f)
+        assertEquals(redo.right, done.left, 0.5f)
         assertEquals(root.right, done.right, 0.5f)
         // The last visible scrolling key is cut at Undo's left edge, about half of it showing.
         // Unclipped bounds: the key cut by the edge is wider than what shows of it.
         val cut =
-            listOf("Block style", "Bold", "Italic", "Code", "Link", "Bulleted list", "Table")
-                .map { node(it).fetchSemanticsNode() }
+            listOf(
+                "Block style",
+                "Bold",
+                "Italic",
+                "Code",
+                "Link",
+                "Bulleted list",
+                "Numbered list",
+                "Outdent",
+                "Indent",
+                "Table",
+            ).map { node(it).fetchSemanticsNode() }
                 .map { it.positionInRoot.x to it.size.width.toFloat() }
                 .first { (left, width) -> left + width > undo.left + 0.5f }
         val shown = (undo.left - cut.first) / cut.second
@@ -118,7 +131,7 @@ class FormattingStripTest {
     fun undoAndRedoFollowTheHistory() {
         show(FormattingStripState(canUndo = false, canRedo = false))
         node("Undo").assertIsNotEnabled()
-        node("Redo").performScrollTo().assertIsNotEnabled()
+        node("Redo").assertIsNotEnabled()
         node("Undo").performClick()
         assertTrue(keys.isEmpty())
     }
@@ -127,7 +140,7 @@ class FormattingStripTest {
     fun undoIsEnabledWhenThereIsHistory() {
         show(FormattingStripState(canUndo = true, canRedo = true))
         node("Undo").assertIsEnabled()
-        node("Redo").performScrollTo().assertIsEnabled()
+        node("Redo").assertIsEnabled()
     }
 
     @Test

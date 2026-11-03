@@ -18,7 +18,20 @@ release may change behaviour.
   usual short names (`py`, `ts`, `rs`, `sh`, …). A fence with no language
   or an unknown one stays plain. Themes gained nine code colours (Colours
   → Code colours), contrast-checked like the rest.
-
+- A **Numbered list** key next to Bulleted list in the formatting strip
+  (Code and Preview). On a bulleted item it switches the whole list to
+  numbers, and the Bulleted key does the reverse; on its own kind each
+  key makes that item a paragraph and keeps the rest of the list.
+- Outdent and Indent now sit side by side (← →) in both strips, and
+  Preview's strip has them too. Shift+Tab and Tab do the same on a
+  hardware keyboard. Redo is pinned next to Undo. With two rows, neither
+  pair is ever split across the rows.
+- Code blocks indent like code: Indent and Outdent add or remove one of
+  the block's own indent units (a tab, 2 or 4 spaces), Enter keeps the
+  indentation and adds a unit after `{`, `[` or `(` (or `:` in Python and
+  YAML), and a `}`, `]` or `)` typed first on a line takes one off.
+- In Preview, Enter on a second empty line at the end of a code block
+  leaves the block.
 - Sharing text that is already at the end (or top) of the chosen file no
   longer adds it twice: the share sheet says "This text is already at the
   end of <file>." and offers Open, Add again and Cancel.
@@ -65,6 +78,25 @@ release may change behaviour.
   and then take it away again. Opening the keyboard rebuilt the Split
   layout, which took the pane you tapped off the screen for a moment and
   lost its focus. The panes now stay put while the layout changes.
+- Enter at the end of a list item in Preview could make a plain paragraph,
+  or an item with the wrong number, when the last word had just been
+  typed. Enter in a list now behaves the same in Code and Preview: a new
+  item of the same kind right after the caret's item, an item split at
+  the caret, the numbers after it counted on.
+- Enter on an empty item in the middle of a numbered list, Outdent on a
+  top-level item and the list keys now split the list and the second
+  part continues its numbering, instead of restarting at 1 or becoming
+  part of the new paragraph.
+- Backspace at the start of an item's text removes the bullet or number
+  and leaves the text in place as a paragraph; the next Backspace joins
+  it to the line above.
+- Enter on an empty quote line ends the quote in both views.
+- ¶ on one line of a code block, quote or alert converts that line only,
+  splitting the block around it, instead of unwrapping the whole block.
+  ¶ is disabled in a table, and a line turned into a code block next to
+  one joins it.
+- Indent is disabled on a paragraph, where four spaces would have made
+  it a code block.
 - An edit made while a large paste was finishing (Find's Replace) could
   land a few characters off when you had typed during the paste; it now
   lands where it was aimed, and an edit whose text has moved is refused

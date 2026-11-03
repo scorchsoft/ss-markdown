@@ -168,6 +168,7 @@ private fun KeyGlyph(
 private val keyIcons: Map<StripKey, () -> ImageVector> =
     mapOf(
         StripKey.BulletList to { StripIcons.bulletList },
+        StripKey.NumberedList to { StripIcons.numberedList },
         StripKey.Task to { StripIcons.task },
         StripKey.Code to { StripIcons.code },
         StripKey.Link to { StripIcons.link },

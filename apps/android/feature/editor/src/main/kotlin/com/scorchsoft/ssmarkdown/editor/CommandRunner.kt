@@ -43,16 +43,51 @@ internal class CommandRunner(
     private fun edit(command: EditorCommand): Boolean? {
         val session = view.session
         return when (command) {
-            EditorCommand.UNDO -> view.undo()
-            EditorCommand.REDO -> view.redo()
-            EditorCommand.CUT -> copy(cut = true)
-            EditorCommand.COPY -> copy(cut = false)
-            EditorCommand.PASTE -> paste()
-            EditorCommand.SELECT_ALL -> applied { session.selectAll() }
-            EditorCommand.BACKSPACE -> applied { session.pressBackspace() }
-            EditorCommand.FORWARD_DELETE -> applied { session.pressForwardDelete() }
-            EditorCommand.ENTER -> applied { if (view.listener?.onEnter() != true) session.pressEnter() }
-            else -> null
+            EditorCommand.UNDO -> {
+                view.undo()
+            }
+
+            EditorCommand.REDO -> {
+                view.redo()
+            }
+
+            EditorCommand.CUT -> {
+                copy(cut = true)
+            }
+
+            EditorCommand.COPY -> {
+                copy(cut = false)
+            }
+
+            EditorCommand.PASTE -> {
+                paste()
+            }
+
+            EditorCommand.SELECT_ALL -> {
+                applied { session.selectAll() }
+            }
+
+            EditorCommand.BACKSPACE -> {
+                applied {
+                    if (session.hasSelection ||
+                        view.listener?.onBackspace() != true
+                    ) {
+                        session.pressBackspace()
+                    }
+                }
+            }
+
+            EditorCommand.FORWARD_DELETE -> {
+                applied { session.pressForwardDelete() }
+            }
+
+            EditorCommand.ENTER -> {
+                applied { if (view.listener?.onEnter() != true) session.pressEnter() }
+            }
+
+            else -> {
+                null
+            }
         }
     }
 

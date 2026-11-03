@@ -10,14 +10,15 @@ class StripLayoutTest {
     @Test
     fun codeKeysFollowTheSpecOrder() =
         assertEquals(
-            "BlockStyle Bold Italic BulletList Task Code Link Indent Table Image Quote Redo Outdent",
+            "BlockStyle Bold Italic BulletList NumberedList Task Code Link Outdent Indent Table Image Quote",
             StripLayout.codeKeys.joinToString(" "),
         )
 
     @Test
     fun pinnedKeysDependOnTheMode() {
-        assertEquals(listOf(StripKey.Undo, StripKey.Symbols), StripLayout.pinnedKeys(StripMode.Code))
-        assertEquals(listOf(StripKey.Undo, StripKey.Done), StripLayout.pinnedKeys(StripMode.Preview))
+        assertEquals(listOf(StripKey.Undo, StripKey.Redo, StripKey.Symbols), StripLayout.pinnedKeys(StripMode.Code))
+        assertEquals(listOf(StripKey.Undo, StripKey.Redo, StripKey.Done), StripLayout.pinnedKeys(StripMode.Preview))
+        assertEquals(listOf(StripKey.Undo, StripKey.Symbols), StripLayout.pinnedKeys(StripMode.Code, StripPage.Symbols))
     }
 
     @Test
@@ -97,8 +98,8 @@ class StripLayoutTest {
         state: FormattingStripState,
         width: Int,
     ): RowSplit {
-        val pinned = (StripLayout.pinnedKeys(state.mode).size + StripLayout.tableKeys(state).size) * 48
-        return StripLayout.splitRows(StripLayout.items(state).size, (width - pinned).dp, 48.dp)
+        val pinned = (StripLayout.pinnedKeys(state.mode, state.page).size + StripLayout.tableKeys(state).size) * 48
+        return StripLayout.splitRows(StripLayout.items(state), (width - pinned).dp, 48.dp)
     }
 
     private fun allVisible(
@@ -109,7 +110,7 @@ class StripLayoutTest {
     @Test
     fun twoRowsShowEveryFormattingKeyOnA412DpPhone() {
         val code = FormattingStripState()
-        assertEquals(RowSplit(top = 6, bottom = 7), split(code, 412))
+        assertEquals(RowSplit(top = 5, bottom = 8), split(code, 412))
         assertTrue(allVisible(code, 412))
         assertTrue(allVisible(FormattingStripState(page = StripPage.Symbols), 412))
         assertTrue(allVisible(FormattingStripState(mode = StripMode.Preview), 412))
@@ -118,11 +119,11 @@ class StripLayoutTest {
     @Test
     fun twoRowsAt360DpShowEveryPreviewKeyAndAllButOneCodeKey() {
         assertTrue(allVisible(FormattingStripState(mode = StripMode.Preview), 360))
-        // 15 keys of 48 dp (13 scrolling, Undo and { }) need 720 dp, all of two 360 dp rows; whole
-        // keys leave 24 dp over in each row, so Outdent is cut at half and a short scroll away.
-        // Keys never shrink under 48 dp (the touch target), so this is the narrowest honest answer.
+        // 16 keys of 48 dp (13 scrolling, Undo, Redo and { }) need 768 dp, more than two 360 dp
+        // rows, so Insert image is cut at half and Quote a short scroll away. Keys never shrink
+        // under 48 dp (the touch target), so this is the narrowest honest answer.
         val code = FormattingStripState()
-        assertEquals(RowSplit(top = 5, bottom = 8), split(code, 360))
+        assertEquals(RowSplit(top = 4, bottom = 9), split(code, 360))
         assertFalse(allVisible(code, 360))
         assertEquals(48f, PeekLayout.keyWidth(360.dp, 48.dp, 8).value, 0.01f)
         // From 384 dp (the next common phone width) every Code key and every symbol shows.
@@ -137,7 +138,7 @@ class StripLayoutTest {
         // Display size "Largest" turns a 412 dp phone into about 320 dp. Keys stay 48 dp, so the
         // bottom row scrolls, its last visible key cut at about half.
         val split = split(FormattingStripState(), 320)
-        assertEquals(RowSplit(top = 4, bottom = 9), split)
+        assertEquals(RowSplit(top = 3, bottom = 10), split)
         assertFalse(split.allVisible(320.dp, 48.dp))
         val key = PeekLayout.keyWidth(320.dp, 48.dp, split.bottom)
         val shown = 320f / key.value
@@ -148,13 +149,32 @@ class StripLayoutTest {
     fun tableKeysTakeTopRowRoomAndTheRestCarriesOn() {
         // ⋯, Prev and Next sit before Undo in the top row, so fewer formatting keys fit beside them.
         val table = FormattingStripState(inTable = true)
-        assertEquals(RowSplit(top = 3, bottom = 10), split(table, 412))
+        assertEquals(RowSplit(top = 2, bottom = 11), split(table, 412))
         assertEquals(13, split(table, 412).let { it.top + it.bottom })
     }
 
     @Test
     fun everythingInTheTopRowNeedsNoSecondRow() =
-        assertEquals(RowSplit(top = 8, bottom = 0), split(FormattingStripState(mode = StripMode.Preview), 800))
+        assertEquals(RowSplit(top = 11, bottom = 0), split(FormattingStripState(mode = StripMode.Preview), 800))
+
+    @Test
+    fun pairsAreNeverSplitAcrossTheRows() {
+        // Outdent and Indent end the top row together or start the bottom row together, at any width.
+        for (mode in StripMode.entries) {
+            for (width in 200..1000) {
+                val state = FormattingStripState(mode = mode)
+                val keys = StripLayout.scrollingKeys(mode)
+                val top = split(state, width).top
+                val last = keys.getOrNull(top - 1)
+                assertFalse("$mode at $width", last == StripKey.Outdent && keys.getOrNull(top) == StripKey.Indent)
+            }
+        }
+        // Undo and Redo are pinned side by side, so they never part either.
+        for (mode in StripMode.entries) {
+            val pinned = StripLayout.pinnedKeys(mode)
+            assertEquals(pinned.indexOf(StripKey.Undo) + 1, pinned.indexOf(StripKey.Redo))
+        }
+    }
 
     @Test
     fun twoRowsFallBackInLandscapeAndAboveAShortEditor() {

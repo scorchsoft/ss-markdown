@@ -31,6 +31,39 @@ async function applySent(page: Page, source: string): Promise<string> {
     return text;
 }
 
+/**
+ * Plays Kotlin's answer to the page's `enter` request: Code's own Enter, which
+ * the harness cannot run, is the [insert] at the request's caret (core:markdown's
+ * BlockEditingMatrixTest proves the command gives it); then the caret goes after it.
+ */
+async function answerEnter(page: Page, source: string, insert: string): Promise<string> {
+    const request = (await waitForMessage(page, (m) => m.type === "formatRequest")) as Extract<
+        PageMessage,
+        { type: "formatRequest" }
+    >;
+    expect(request.action).toBe("enter");
+    const before = await applySent(page, source);
+    const edit = { from: request.from, to: request.to, insert };
+    const after = applyEdit(before, edit);
+    const rev = await page.evaluate(() => ++(window as unknown as { __rev: number }).__rev);
+    // The caret's line becomes the lines the insert makes of it.
+    const line = before.slice(0, request.from).split("\n").length - 1;
+    const lines = after.split("\n").slice(line, line + insert.split("\n").length);
+    await send(page, { type: "edit", rev, changes: [{ fromLine: line, toLine: line + 1, lines }], ops: [edit] });
+    await send(page, { type: "select", rev, from: request.from + insert.length, to: request.from + insert.length });
+    return after;
+}
+
+/** [kotlin] with the page's typing since the last clear applied, as Kotlin would. */
+async function typedOver(page: Page, kotlin: string): Promise<string> {
+    let text = kotlin;
+    for (const m of await received(page)) {
+        if (m.type !== "sourceEdit") continue;
+        for (const e of [...m.edits].sort((a, b) => b.from - a.from)) text = applyEdit(text, e);
+    }
+    return text;
+}
+
 async function tapText(page: Page, text: string, at = 0.5): Promise<void> {
     const box = await page.getByText(text, { exact: false }).first().boundingBox();
     if (!box) throw new Error(`no ${text}`);
@@ -84,10 +117,12 @@ describe("tap to edit", () => {
         await tapText(page, "two", 0.99);
         await page.keyboard.press("End");
         await page.keyboard.press("Enter");
-        await waitForMessage(page, (x) => x.type === "sourceEdit");
+        // Code's own Enter, from Kotlin: Preview and Code continue a list identically.
+        const kotlin = await answerEnter(page, source, "\n+ ");
         await page.keyboard.type("three");
         await page.waitForTimeout(400);
-        expect(await applySent(page, source)).toBe("+ one\n+ two\n+ three\n");
+        expect(kotlin).toBe("+ one\n+ two\n+ \n");
+        expect(await typedOver(page, kotlin)).toBe("+ one\n+ two\n+ three\n");
     });
 
     it("ignores a tap that stops a fling", async () => {
@@ -462,8 +497,9 @@ describe("formatting from the strip", () => {
         });
         await page.keyboard.press("Enter");
         await page.keyboard.type("two");
+        const kotlin = await answerEnter(page, source, "\n- ");
         await page.waitForTimeout(4000);
-        expect(await applySent(page, source)).toBe("- one\n- two\n\nNext.");
+        expect(await typedOver(page, kotlin)).toBe("- one\n- two\n\nNext.");
     });
 
     it("Enter continues a list, and Enter on the new empty item asks Kotlin to end the list", async () => {
@@ -475,14 +511,13 @@ describe("formatting from the strip", () => {
         await page.keyboard.press("End");
         await clearReceived(page);
         await page.keyboard.press("Enter");
-        await waitForMessage(page, (m) => m.type === "sourceEdit");
-        expect(await applySent(page, source)).toBe("- one\n- ");
+        expect(await answerEnter(page, source, "\n- ")).toBe("- one\n- ");
         await page.waitForTimeout(300);
         await clearReceived(page);
         await page.keyboard.press("Enter");
         // The same command as Enter in Code (EditCommand.Newline), run by Kotlin on the empty item.
         expect(await waitForMessage(page, (m) => m.type === "formatRequest")).toMatchObject({
-            action: "listExit",
+            action: "enter",
             from: 8,
             to: 8,
         });

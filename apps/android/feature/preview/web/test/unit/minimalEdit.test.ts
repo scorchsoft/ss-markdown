@@ -15,6 +15,23 @@ describe("diffText", () => {
 });
 
 describe("runEdit", () => {
+    it("does not write back the no-break space Chrome shows beside typed text", () => {
+        // edge-cases "Typing at the start of a task item's text wrote a no-break space": the run held " cd".
+        const nbsp = String.fromCharCode(0xa0);
+        const ctx = { inTable: false, atLineStart: false };
+        expect(runEdit({ from: 14, to: 17, text: " cd" }, `${nbsp}Zcd`, ctx)).toEqual({
+            from: 15,
+            to: 15,
+            insert: "Z",
+        });
+        // A run that already held one keeps what the browser gives back.
+        expect(runEdit({ from: 0, to: 2, text: `a${nbsp}` }, `a${nbsp}b`, ctx)).toEqual({
+            from: 2,
+            to: 2,
+            insert: "b",
+        });
+    });
+
     it("fixing a typo changes only those characters", () => {
         const source = "Some **bold tetx** here.";
         const from = source.indexOf("bold");

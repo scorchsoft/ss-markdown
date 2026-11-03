@@ -292,6 +292,8 @@ export class RenderController {
         if (view.key === key) return;
         this.unindex(view);
         view.key = key;
+        // Its HTML is for the old key: shown until the new render, but nothing (a caret) may be put into it.
+        if (view.html !== null) view.stale = true;
         this.index(view);
     }
 

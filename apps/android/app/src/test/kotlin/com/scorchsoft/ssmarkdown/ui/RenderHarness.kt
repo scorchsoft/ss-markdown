@@ -18,6 +18,7 @@ import com.scorchsoft.ssmarkdown.fixtures.Samples
 import com.scorchsoft.ssmarkdown.settings.Appearance
 import com.scorchsoft.ssmarkdown.text.PieceTree
 import com.scorchsoft.ssmarkdown.text.TextDocument
+import com.scorchsoft.ssmarkdown.ui.strip.StripRows
 
 /** [content] in the app theme (with the app's bundled fonts), at [fontScale], with a fixed clock. */
 @Composable
@@ -41,12 +42,16 @@ fun EditorFor(
     onAction: (EditorAction) -> Unit = {},
 ) = EditorWith(state, codePane = { FakeCodePane(it) }, onAction = onAction)
 
-/** The editor screen in [state] with [codePane] as the Code pane (the screenshots pass [RealCodePane]). */
+/**
+ * The editor screen in [state] with [codePane] as the Code pane (the screenshots pass [RealCodePane]),
+ * and [stripRows] as Settings → Formatting bar.
+ */
 @Composable
 fun EditorWith(
     state: EditorUiState,
     codePane: @Composable (Modifier) -> Unit,
     onAction: (EditorAction) -> Unit = {},
+    stripRows: StripRows = StripRows.One,
 ) {
     EditorScreen(
         state = state,
@@ -55,6 +60,7 @@ fun EditorWith(
         previewPane = { PreviewPlaceholder(it) },
         previewState = Samples.previewState,
         appearance = Appearance.System,
+        stripRows = stripRows,
     )
 }
 

@@ -2,6 +2,8 @@ package com.scorchsoft.ssmarkdown.ui.strip
 
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.core.ui.R
 
 /** Which editor the strip serves: Code has raw syntax to type, Preview does not. */
@@ -9,6 +11,13 @@ enum class StripMode { Code, Preview }
 
 /** The strip's two pages. Only Code has symbols (docs/ux-spec.md, "Bottom bar"). */
 enum class StripPage { Formatting, Symbols }
+
+/**
+ * How many rows the strip may use (Settings → Formatting bar). One is the
+ * default. Two is a preference, not a promise: [StripLayout.rowsFor] falls
+ * back to one row in landscape and when the editor would be left too short.
+ */
+enum class StripRows { One, Two }
 
 /** A cursor key on the symbols page; held down, it repeats. */
 enum class CursorStep { Left, Right }
@@ -233,6 +242,92 @@ object StripLayout {
     /** The keys pinned at the right end: Undo, then `{ }` in Code or Done in Preview. */
     fun pinnedKeys(mode: StripMode): List<StripKey> =
         listOf(StripKey.Undo, if (mode == StripMode.Code) StripKey.Symbols else StripKey.Done)
+
+    /**
+     * The least height the editor keeps above a two-row strip with the
+     * keyboard up. Below it (a fold, split screen, a small window) the strip
+     * uses one row: a second row of keys is not worth a pane too short to read.
+     */
+    val minEditorAboveTwoRows: Dp = 200.dp
+
+    /**
+     * The rows the strip uses: [preference], unless the window is
+     * [landscape] or the editor would be left under [minEditorAboveTwoRows].
+     * [roomAboveOneRow] is the editor's height with the keyboard up and a
+     * one-row strip, so the answer does not depend on the rows it chooses
+     * and cannot flip back and forth. [key] is one row's height.
+     */
+    fun rowsFor(
+        preference: StripRows,
+        landscape: Boolean,
+        roomAboveOneRow: Dp,
+        key: Dp = 48.dp,
+    ): StripRows =
+        if (preference == StripRows.Two && !landscape && roomAboveOneRow - key >= minEditorAboveTwoRows) {
+            StripRows.Two
+        } else {
+            StripRows.One
+        }
+
+    /**
+     * How a two-row strip shares out [count] keys: the top row takes as
+     * many whole [key]-wide keys as fit in [topRoom] (the room left of the
+     * pinned group), and the bottom row continues the same list across
+     * the full width. Nothing is reordered, so the second row reads on
+     * from where the first stopped.
+     */
+    fun splitRows(
+        count: Int,
+        topRoom: Dp,
+        key: Dp,
+    ): RowSplit {
+        val fits = if (key.value > 0f) (topRoom / key).toInt().coerceAtLeast(0) else 0
+        val top = minOf(count, fits)
+        return RowSplit(top, count - top)
+    }
+
+    /**
+     * The scrolling part's keys in order: the formatting keys, or on the
+     * symbols page the symbols then the cursor keys.
+     */
+    internal fun items(state: FormattingStripState): List<StripItem> =
+        if (state.mode == StripMode.Code && state.page == StripPage.Symbols) {
+            symbols.map(StripItem::Symbol) + CursorStep.entries.map(StripItem::Cursor)
+        } else {
+            scrollingKeys(state.mode).map(StripItem::Key)
+        }
+}
+
+/**
+ * A two-row strip's share of its keys: the first [top] go in the top row,
+ * the next [bottom] in the bottom row. With nothing left for the bottom
+ * row the strip draws one row.
+ */
+@Immutable
+data class RowSplit(
+    val top: Int,
+    val bottom: Int,
+) {
+    /** Whether every key shows without scrolling, given the bottom row's [room]. */
+    fun allVisible(
+        room: Dp,
+        key: Dp,
+    ): Boolean = key * bottom <= room
+}
+
+/** One key in the strip's scrolling part. */
+internal sealed interface StripItem {
+    data class Key(
+        val key: StripKey,
+    ) : StripItem
+
+    data class Symbol(
+        val symbol: SymbolKey,
+    ) : StripItem
+
+    data class Cursor(
+        val step: CursorStep,
+    ) : StripItem
 }
 
 /**

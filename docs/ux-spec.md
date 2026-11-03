@@ -94,7 +94,30 @@ mockups agreed with Andrew win, and this file gets updated.
   in the bottom bar, which has no room for it. Tapping it resets the
   zoom.
 - While the keyboard is up, the bar is replaced by the formatting strip.
-  It is **always one row**.
+  It is **one row by default**; Settings → Text → **Formatting bar**
+  (One row | Two rows) gives it a second row on a bigger phone.
+  - **Two rows** are two 48 dp key rows under one hairline, parted by the
+    keys' own air rather than a divider. The top row is the keys that fit
+    before the pinned group (Undo and `{ }` or Done, the table keys in
+    table mode, and in landscape the filename and Save), which keeps its
+    place at the right end; the bottom row carries on with the rest, in
+    the same order, from the left edge. Keys stay 48 dp, so the rows line
+    up as columns. From 384 dp wide every Code key and every symbol shows
+    without scrolling; at 360 dp the last Code key (outdent) is cut at
+    half and a short scroll away, because a key never shrinks below the
+    touch target. A bottom row that does not fit scrolls with the usual
+    cut and fade. When every key fits in the top row, the strip stays one
+    row. TalkBack reads the top row, then the bottom row, as one
+    "Formatting" group.
+  - **Two rows is a preference, not a promise.** The strip uses one row
+    whenever the window is landscape (wider than tall), or when the
+    editor left above the strip with the keyboard up would be under
+    about 200 dp (a fold, split screen, a small window). The choice is
+    made from the keyboard's final height, so it never changes rows
+    while the keyboard slides, and it is re-made on every rotation,
+    resize and inset change. The editor's pane is laid out above the
+    strip's measured height, and a caret that was on screen stays on
+    screen when the strip grows (as it does when the keyboard opens).
   - **The strip never puts the keyboard away.** Its keys never take
     focus, the ¶ and table ⋯ menus open above the strip without taking
     focus (the editor keeps its caret and the keyboard while they are
@@ -446,7 +469,7 @@ people that history exists.
 - **Changed in another app** — the file on disk differs from what we
   loaded.
 - **Navigator** — the sheet opened by tapping the title.
-- **Formatting strip** — the one-row bar above the keyboard.
+- **Formatting strip** — the bar above the keyboard: one row, or two if Settings asks and there is room.
 
 ## Specified, mockup to follow
 
@@ -1032,6 +1055,9 @@ code-font setting.
 - Text: default zoom for each pane (− / + steppers, as on the View
   sheet), and line numbers. The code font and preview font rows point to
   the theme, where both are set (see "Where each font lives" under Themes).
+  Formatting bar: **One row** (default) | **Two rows**, "Two rows shows
+  more keys at once. Landscape always uses one row." A set-once
+  preference, so it is not on the View sheet (see "Bottom bar").
 - Saving: write to the file "When I tap Save" (default) or "Autosave"
   (see `robustness.md` §3a), version history (on, storage cap, clear).
 - Split view: scroll panes together.
@@ -1073,8 +1099,9 @@ Full evidence is in `research-findings.md`.
   folder, in folder mode and for a single file once its folder is
   allowed (see "Pictures").
 - The theme editor warns when a custom theme's contrast is below AA.
-- The formatting strip is always one row and always sits above the
-  keyboard, edge-to-edge-safe on Android 15+.
+- The formatting strip is one row (two if Settings → Formatting bar
+  asks and there is room) and always sits above the keyboard,
+  edge-to-edge-safe on Android 15+.
 
 ## File changed outside the app
 

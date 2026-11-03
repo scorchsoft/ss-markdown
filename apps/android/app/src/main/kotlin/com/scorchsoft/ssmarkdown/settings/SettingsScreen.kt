@@ -26,6 +26,7 @@ import com.scorchsoft.ssmarkdown.ui.SectionLabel
 import com.scorchsoft.ssmarkdown.ui.SettingRow
 import com.scorchsoft.ssmarkdown.ui.StepperButtons
 import com.scorchsoft.ssmarkdown.ui.SwitchRow
+import com.scorchsoft.ssmarkdown.ui.strip.StripRows
 import java.util.Locale
 
 /** Code's 100 % in sp and Preview's in px (ux-spec "Text size: one model"). */
@@ -138,6 +139,12 @@ private fun TextSection(
     SwitchRow(stringResource(R.string.settings_line_numbers), settings.lineNumbers, {
         onAction(SettingsAction.ToggleLineNumbers)
     })
+    // Set once, so it lives here and not on the View sheet.
+    SettingRow(stringResource(R.string.settings_formatting_bar))
+    Segments(listOf(R.string.formatting_bar_one, R.string.formatting_bar_two), settings.formattingBar.ordinal) {
+        onAction(SettingsAction.SetFormattingBar(StripRows.entries[it]))
+    }
+    NoteText(stringResource(R.string.settings_formatting_bar_note))
 }
 
 /**

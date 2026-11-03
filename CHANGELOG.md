@@ -16,6 +16,12 @@ release may change behaviour.
   share sheet checks the file when it comes back: it shows "Added to …"
   if the text got there, or says "The last Append didn't finish. Nothing
   was added." and offers Append again.
+- Settings → Text → Formatting bar: One row (the default) or Two rows.
+  Two rows shows the whole formatting strip at once on most phones (every
+  Code key from 384 dp wide), with Undo and `{ }` or Done still at the top
+  right. Landscape, and any window that would leave the editor under about
+  200 dp, always uses one row, and the caret stays on screen above the
+  taller strip.
 
 ### Fixed
 

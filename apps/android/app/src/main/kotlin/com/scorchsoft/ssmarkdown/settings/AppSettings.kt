@@ -3,6 +3,7 @@ package com.scorchsoft.ssmarkdown.settings
 import com.scorchsoft.ssmarkdown.editor.ViewMode
 import com.scorchsoft.ssmarkdown.history.versions.HistoryPolicy
 import com.scorchsoft.ssmarkdown.history.versions.StorageLimit
+import com.scorchsoft.ssmarkdown.ui.strip.StripRows
 
 /** "When a file opens, show": Code, Preview or the view each file last used. */
 enum class OpenWith { Code, Preview, LastUsed }
@@ -29,6 +30,7 @@ enum class Appearance { System, Light, Dark }
  * @property previewWrap Display → Preview wrapping: Fluid, the A4 page, or No wrap.
  * @property export Export images' remembered choices.
  * @property copyFormat what Copy put on the clipboard last; the Copy chooser lists it first.
+ * @property formattingBar Text → Formatting bar: the strip above the keyboard in one row (default) or two.
  */
 data class AppSettings(
     val openWith: OpenWith = OpenWith.LastUsed,
@@ -50,6 +52,7 @@ data class AppSettings(
     val previewWrap: PreviewWrap = PreviewWrap.Fluid,
     val export: ExportDefaults = ExportDefaults(),
     val copyFormat: CopyFormat = CopyFormat.Markdown,
+    val formattingBar: StripRows = StripRows.One,
 ) {
     /** Whether [uri] autosaves: drafts always do; otherwise its override, else the global mode. */
     fun autosaves(

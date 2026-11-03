@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.scorchsoft.ssmarkdown.editor.ViewMode
 import com.scorchsoft.ssmarkdown.history.versions.StorageLimit
+import com.scorchsoft.ssmarkdown.ui.strip.StripRows
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -26,6 +27,7 @@ class SettingsTest {
                 autosaveOverrides = mapOf("content://a" to false),
                 share = ShareDefaults("content://a", AppendPosition.Top, AppendPrefix.DateHeading),
                 copyFormat = CopyFormat.Formatted,
+                formattingBar = StripRows.Two,
             ).withRecent(RecentFile("content://a", "a.md", "Documents", 5, pinned = true))
         assertEquals(settings, SettingsJson.decode(JSONObject(SettingsJson.encode(settings).toString())))
     }
@@ -65,6 +67,27 @@ class SettingsTest {
             PreferencesSettingsStore(prefs),
         ).update { it.copy(copyFormat = CopyFormat.Formatted) }
         assertEquals(CopyFormat.Formatted, PreferencesSettingsStore(prefs).read().copyFormat)
+    }
+
+    @Test
+    fun `the formatting bar is one row by default, also for settings saved before it existed`() {
+        assertEquals(StripRows.One, AppSettings().formattingBar)
+        assertEquals(StripRows.One, SettingsJson.decode(JSONObject("{\"copyFormat\":\"Formatted\"}")).formattingBar)
+        assertEquals(StripRows.One, SettingsJson.decode(JSONObject("{\"formattingBar\":\"Three\"}")).formattingBar)
+    }
+
+    @Test
+    fun `choosing two rows persists, and one row goes back`() {
+        val prefs =
+            ApplicationProvider
+                .getApplicationContext<Context>()
+                .getSharedPreferences("settings-strip-test", Context.MODE_PRIVATE)
+        val repository = PersistedSettingsRepository(PreferencesSettingsStore(prefs))
+        repository.update { SettingsReducer.reduce(it, SettingsAction.SetFormattingBar(StripRows.Two)) }
+        assertEquals(StripRows.Two, repository.settings.value.formattingBar)
+        assertEquals(StripRows.Two, PreferencesSettingsStore(prefs).read().formattingBar)
+        repository.update { SettingsReducer.reduce(it, SettingsAction.SetFormattingBar(StripRows.One)) }
+        assertEquals(StripRows.One, PreferencesSettingsStore(prefs).read().formattingBar)
     }
 
     @Test

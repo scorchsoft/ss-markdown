@@ -24,6 +24,10 @@
     <string name="settings_preview_font">Preview font</string>
     <string name="settings_font_pending">Part of each theme: ⋮ → View → Edit theme…</string>
     <string name="settings_line_numbers">Line numbers</string>
+    <string name="settings_formatting_bar">Formatting bar</string>
+    <string name="formatting_bar_one">One row</string>
+    <string name="formatting_bar_two">Two rows</string>
+    <string name="settings_formatting_bar_note">Two rows shows more keys at once. Landscape always uses one row.</string>
     <string name="settings_saving">Saving</string>
     <string name="settings_write">Write to the file</string>
     <string name="save_mode_tap">When I tap Save</string>

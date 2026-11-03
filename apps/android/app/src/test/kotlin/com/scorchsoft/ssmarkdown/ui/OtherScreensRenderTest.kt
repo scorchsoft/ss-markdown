@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -30,6 +31,7 @@ import com.scorchsoft.ssmarkdown.storage.ClearKind
 import com.scorchsoft.ssmarkdown.storage.StorageReducer
 import com.scorchsoft.ssmarkdown.storage.StorageScreen
 import com.scorchsoft.ssmarkdown.storage.StorageUiState
+import com.scorchsoft.ssmarkdown.ui.strip.StripRows
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -54,6 +56,20 @@ class OtherScreensRenderTest(
         rule.onNodeWithText("Storage and history").performScrollTo().performClick()
         rule.onNodeWithText("Tap to edit in Preview").performScrollTo().assertIsDisplayed()
         assertTrue(SettingsAction.OpenStorage in actions)
+    }
+
+    @Test
+    fun `the formatting bar toggle offers one row or two`() {
+        val actions = ArrayList<SettingsAction>()
+        rule.setContent { Themed(dark) { SettingsScreen(AppSettings(), "48.2 MB", onAction = { actions += it }) } }
+        rule.onNodeWithText("Formatting bar").performScrollTo().assertIsDisplayed()
+        rule
+            .onNodeWithText("Two rows shows more keys at once. Landscape always uses one row.")
+            .performScrollTo()
+            .assertIsDisplayed()
+        rule.onNodeWithText("One row").assertIsSelected()
+        rule.onNodeWithText("Two rows").performScrollTo().performClick()
+        assertEquals(listOf<SettingsAction>(SettingsAction.SetFormattingBar(StripRows.Two)), actions)
     }
 
     @Test

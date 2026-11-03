@@ -2,6 +2,7 @@ package com.scorchsoft.ssmarkdown.ui.strip
 
 import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -87,5 +88,81 @@ class StripLayoutTest {
         assertEquals(StripPage.Symbols, StripPaging.afterTyped(StripPage.Symbols, "[]()1"))
         assertEquals(StripPage.Formatting, StripPaging.afterTyped(StripPage.Symbols, "a"))
         assertEquals(StripPage.Formatting, StripPaging.afterTyped(StripPage.Formatting, "!"))
+    }
+
+    // ---- Two rows (Settings → Formatting bar)
+
+    /** The two-row split of [state] on a [width] dp window: the top row is left of the pinned keys. */
+    private fun split(
+        state: FormattingStripState,
+        width: Int,
+    ): RowSplit {
+        val pinned = (StripLayout.pinnedKeys(state.mode).size + StripLayout.tableKeys(state).size) * 48
+        return StripLayout.splitRows(StripLayout.items(state).size, (width - pinned).dp, 48.dp)
+    }
+
+    private fun allVisible(
+        state: FormattingStripState,
+        width: Int,
+    ) = split(state, width).allVisible(width.dp, 48.dp)
+
+    @Test
+    fun twoRowsShowEveryFormattingKeyOnA412DpPhone() {
+        val code = FormattingStripState()
+        assertEquals(RowSplit(top = 6, bottom = 7), split(code, 412))
+        assertTrue(allVisible(code, 412))
+        assertTrue(allVisible(FormattingStripState(page = StripPage.Symbols), 412))
+        assertTrue(allVisible(FormattingStripState(mode = StripMode.Preview), 412))
+    }
+
+    @Test
+    fun twoRowsAt360DpShowEveryPreviewKeyAndAllButOneCodeKey() {
+        assertTrue(allVisible(FormattingStripState(mode = StripMode.Preview), 360))
+        // 15 keys of 48 dp (13 scrolling, Undo and { }) need 720 dp, all of two 360 dp rows; whole
+        // keys leave 24 dp over in each row, so Outdent is cut at half and a short scroll away.
+        // Keys never shrink under 48 dp (the touch target), so this is the narrowest honest answer.
+        val code = FormattingStripState()
+        assertEquals(RowSplit(top = 5, bottom = 8), split(code, 360))
+        assertFalse(allVisible(code, 360))
+        assertEquals(48f, PeekLayout.keyWidth(360.dp, 48.dp, 8).value, 0.01f)
+        // From 384 dp (the next common phone width) every Code key and every symbol shows.
+        for (width in 384..480) {
+            assertTrue("code at $width", allVisible(code, width))
+            assertTrue("symbols at $width", allVisible(FormattingStripState(page = StripPage.Symbols), width))
+        }
+    }
+
+    @Test
+    fun aNarrowOrZoomedWindowScrollsTheBottomRow() {
+        // Display size "Largest" turns a 412 dp phone into about 320 dp. Keys stay 48 dp, so the
+        // bottom row scrolls, its last visible key cut at about half.
+        val split = split(FormattingStripState(), 320)
+        assertEquals(RowSplit(top = 4, bottom = 9), split)
+        assertFalse(split.allVisible(320.dp, 48.dp))
+        val key = PeekLayout.keyWidth(320.dp, 48.dp, split.bottom)
+        val shown = 320f / key.value
+        assertEquals(0.5f, shown - shown.toInt(), 0.151f)
+    }
+
+    @Test
+    fun tableKeysTakeTopRowRoomAndTheRestCarriesOn() {
+        // ⋯, Prev and Next sit before Undo in the top row, so fewer formatting keys fit beside them.
+        val table = FormattingStripState(inTable = true)
+        assertEquals(RowSplit(top = 3, bottom = 10), split(table, 412))
+        assertEquals(13, split(table, 412).let { it.top + it.bottom })
+    }
+
+    @Test
+    fun everythingInTheTopRowNeedsNoSecondRow() =
+        assertEquals(RowSplit(top = 8, bottom = 0), split(FormattingStripState(mode = StripMode.Preview), 800))
+
+    @Test
+    fun twoRowsFallBackInLandscapeAndAboveAShortEditor() {
+        assertEquals(StripRows.Two, StripLayout.rowsFor(StripRows.Two, landscape = false, roomAboveOneRow = 500.dp))
+        assertEquals(StripRows.One, StripLayout.rowsFor(StripRows.Two, landscape = true, roomAboveOneRow = 500.dp))
+        // About 200 dp must be left above two rows: 248 dp above one row is just enough.
+        assertEquals(StripRows.Two, StripLayout.rowsFor(StripRows.Two, landscape = false, roomAboveOneRow = 248.dp))
+        assertEquals(StripRows.One, StripLayout.rowsFor(StripRows.Two, landscape = false, roomAboveOneRow = 247.dp))
+        assertEquals(StripRows.One, StripLayout.rowsFor(StripRows.One, landscape = false, roomAboveOneRow = 900.dp))
     }
 }

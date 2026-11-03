@@ -58,6 +58,7 @@ internal object SettingsJson {
             .put("previewWrap", s.previewWrap.name)
             .put("export", encodeExport(s.export))
             .put("copyFormat", s.copyFormat.name)
+            .put("formattingBar", s.formattingBar.name)
 
     fun decode(o: JSONObject): AppSettings {
         val d = AppSettings()
@@ -86,6 +87,8 @@ internal object SettingsJson {
                 ),
             export = o.optJSONObject("export")?.let(::decodeExport) ?: d.export,
             copyFormat = enumOr(o.optString("copyFormat"), d.copyFormat),
+            // Absent before the setting existed: those installs stay on one row.
+            formattingBar = enumOr(o.optString("formattingBar"), d.formattingBar),
         )
     }
 

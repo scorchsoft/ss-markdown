@@ -99,6 +99,7 @@ internal fun EditorRoute(
                     .size.base,
                 settings.previewWrap,
             ),
+        stripRows = settings.formattingBar,
     )
 }
 

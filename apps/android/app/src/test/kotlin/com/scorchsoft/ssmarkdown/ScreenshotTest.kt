@@ -32,6 +32,8 @@ import com.scorchsoft.ssmarkdown.themes.ThemeEditorScreen
 import com.scorchsoft.ssmarkdown.ui.EditorWith
 import com.scorchsoft.ssmarkdown.ui.RealCodePane
 import com.scorchsoft.ssmarkdown.ui.Themed
+import com.scorchsoft.ssmarkdown.ui.strip.StripPage
+import com.scorchsoft.ssmarkdown.ui.strip.StripRows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -198,6 +200,25 @@ open class ScreenshotTest(
 
     @Test fun stripLargeFont() = keyboard("formatting-strip-font-200", Samples.unsaved, fontScale = 2f)
 
+    // Settings → Formatting bar → Two rows: the formatting page and the symbols page at 412 dp.
+    @Test fun stripTwoRows() = keyboard("formatting-strip-two-rows", Samples.unsaved, rows = StripRows.Two)
+
+    @Test
+    fun stripTwoRowsSymbols() =
+        keyboard(
+            "formatting-strip-two-rows-symbols",
+            Samples.unsaved.copy(strip = Samples.unsaved.strip.copy(page = StripPage.Symbols)),
+            rows = StripRows.Two,
+        )
+
+    @Test
+    @Config(qualifiers = "w360dp-h780dp-420dpi")
+    fun stripTwoRows360() = keyboard("formatting-strip-two-rows-360", Samples.unsaved, rows = StripRows.Two)
+
+    @Test
+    fun stripTwoRowsLargeFont() =
+        keyboard("formatting-strip-two-rows-font-200", Samples.unsaved, fontScale = 2f, rows = StripRows.Two)
+
     @Test fun preview() = editor("preview", Samples.saved.copy(mode = ViewMode.Preview))
 
     @Test fun splitPortrait() = editor("split-portrait", Samples.saved.copy(mode = ViewMode.Split))
@@ -251,11 +272,12 @@ open class ScreenshotTest(
         name: String,
         state: EditorUiState,
         fontScale: Float = 1f,
+        rows: StripRows = StripRows.One,
     ) {
         lateinit var view: View
         render(fontScale) {
             view = LocalView.current
-            EditorShot(state)
+            EditorShot(state, rows)
         }
         rule.runOnIdle {
             val ime = (KEYBOARD_DP * view.resources.displayMetrics.density).toInt()
@@ -328,7 +350,10 @@ open class ScreenshotTest(
 
     /** The editor in [state] with the real Code pane, so shots show the app's syntax colouring. */
     @Composable
-    private fun EditorShot(state: EditorUiState) = EditorWith(state, codePane = { RealCodePane(state, it) })
+    private fun EditorShot(
+        state: EditorUiState,
+        rows: StripRows = StripRows.One,
+    ) = EditorWith(state, codePane = { RealCodePane(state, it) }, stripRows = rows)
 
     companion object {
         private const val PNG_QUALITY = 100

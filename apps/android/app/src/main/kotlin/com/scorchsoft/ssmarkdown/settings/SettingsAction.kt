@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.settings
 
 import com.scorchsoft.ssmarkdown.editor.EditorReducer
+import com.scorchsoft.ssmarkdown.ui.strip.StripRows
 
 /** What the Settings screen can do. */
 sealed interface SettingsAction {
@@ -21,6 +22,11 @@ sealed interface SettingsAction {
     ) : SettingsAction
 
     data object ToggleLineNumbers : SettingsAction
+
+    /** Text → Formatting bar: one row or two above the keyboard. */
+    data class SetFormattingBar(
+        val value: StripRows,
+    ) : SettingsAction
 
     data class SetSaveMode(
         val value: SaveMode,
@@ -70,6 +76,10 @@ object SettingsReducer {
 
             SettingsAction.ToggleLineNumbers -> {
                 settings.copy(lineNumbers = !settings.lineNumbers)
+            }
+
+            is SettingsAction.SetFormattingBar -> {
+                settings.copy(formattingBar = action.value)
             }
 
             is SettingsAction.SetSaveMode -> {

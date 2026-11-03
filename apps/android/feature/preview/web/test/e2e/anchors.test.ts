@@ -210,4 +210,28 @@ describe("Code ↔ Preview anchor mapping over the corpus", () => {
         const top = await fractionAfter(() => page.evaluate(() => window.scrollTo(0, 0)));
         expect(top).toBe(0);
     });
+
+    /** The fast-scroll thumb (ux-spec "Fast scroll"): the page goes to the fraction it is sent and says so. */
+    it("scrolls to the fraction the thumb sends and reports it back with the page's visible share", async () => {
+        const page = await openPreview(h);
+        await loadMarkdown(page, corpusDocument());
+        await diagramsSettled(page);
+        const reportAfter = async (fraction: number) => {
+            await clearReceived(page);
+            await send(page, { type: "scrollToFraction", fraction });
+            await page.waitForTimeout(100);
+            await frames(page);
+            const tops = (await received(page)).filter((m) => m.type === "topLine");
+            const last = tops[tops.length - 1];
+            return last && last.type === "topLine" ? last : undefined;
+        };
+        const half = await reportAfter(0.5);
+        expect(half?.fraction).toBeCloseTo(0.5, 2);
+        expect(half?.visible).toBeGreaterThan(0);
+        expect(half?.visible).toBeLessThan(1);
+        const end = await reportAfter(1);
+        expect(end?.fraction).toBe(1);
+        expect((half?.line ?? 0) < (end?.line ?? 0)).toBe(true);
+        expect(pageErrors(page)).toEqual([]);
+    });
 });

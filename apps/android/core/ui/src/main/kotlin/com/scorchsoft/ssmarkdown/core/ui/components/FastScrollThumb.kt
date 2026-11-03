@@ -20,6 +20,7 @@ import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -46,36 +47,6 @@ import androidx.compose.ui.unit.dp
 import com.scorchsoft.ssmarkdown.core.ui.SS
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
-
-/** Sizes and timings of the fast-scroll thumb (docs/ux-spec.md, "Fast scroll"). */
-object FastScrollDefaults {
-    /** The pill at rest, and while a finger holds it. */
-    val PillWidth = 6.dp
-    val PillWidthHeld = 10.dp
-    val PillHeight = 44.dp
-
-    /** The touch target around the pill: the platform's 48 dp minimum, and well inside the 200 dp exclusion cap. */
-    val Touch = 48.dp
-
-    /** Gap between the pill and the pane's right edge. */
-    val EdgeGap = 3.dp
-
-    /** Gap between the bubble and the touch target. */
-    val BubbleGap = 4.dp
-
-    /** The bubble never takes more than this of the pane's width. */
-    const val BUBBLE_MAX_WIDTH_FRACTION = 0.7f
-
-    /** How often a shown thumb checks whether scrolling has stopped. */
-    const val TICK_MILLIS = 100L
-
-    /** The fade in and out, when animations are on. */
-    const val FADE_MILLIS = 150
-
-    /** Test tags: the touch target and the bubble. */
-    const val THUMB_TAG = "fastScrollThumb"
-    const val BUBBLE_TAG = "fastScrollBubble"
-}
 
 /**
  * The fast-scroll thumb, laid over a pane (fill the pane with [modifier]):
@@ -107,22 +78,9 @@ fun FastScrollThumb(
     onDragEnd: () -> Unit = {},
     animate: Boolean = animationsEnabled(),
 ) {
-    val haptics = LocalHapticFeedback.current
-    LaunchedEffect(state) {
-        // A change of section while held is felt; the first value (and any while not held) is not.
-        snapshotFlow { state.sectionKey }.collect {
-            if (state.isDragging) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
-        }
-    }
+    SectionTicks(state)
     val shown = state.isShown
-    val held = state.isDragging
-    // Counts quiet time only while shown and not held, so nothing runs while it is hidden or dragged.
-    LaunchedEffect(state, shown, held) {
-        while (shown && !held && state.isShown) {
-            delay(FastScrollDefaults.TICK_MILLIS)
-            state.tick(FastScrollDefaults.TICK_MILLIS)
-        }
-    }
+    HideWhenQuiet(state, shown, state.isDragging)
     val fade =
         animateFloatAsState(if (shown) 1f else 0f, if (animate) tween(FastScrollDefaults.FADE_MILLIS) else snap())
     // "Remove animations": on and off on the frame it changes, never a frame of fade.
@@ -148,39 +106,7 @@ fun FastScrollThumb(
                 Bubble(label, placeAt, Modifier.widthIn(max = maxWidth * FastScrollDefaults.BUBBLE_MAX_WIDTH_FRACTION))
             }
         }
-        val input =
-            if (!shown) {
-                Modifier
-            } else {
-                Modifier
-                    .then(if (state.isDragging) Modifier else Modifier.systemGestureExclusion())
-                    .pointerInput(state, track) {
-                        awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                            down.consume()
-                            // Window-independent finger y: the target moves under the finger as it drags.
-                            val grabbedAt = state.placedTop + down.position.y
-                            val grabbedTop = state.placedTop
-                            state.startDrag()
-                            start.value()
-                            do {
-                                val event = awaitPointerEvent(PointerEventPass.Initial)
-                                val change = event.changes[0]
-                                if (change.pressed) {
-                                    val fingerY = state.placedTop + change.position.y
-                                    val fraction = ((grabbedTop + fingerY - grabbedAt) / track).coerceIn(0f, 1f)
-                                    if (fraction != state.fraction) {
-                                        state.dragTo(fraction)
-                                        drag.value(fraction)
-                                    }
-                                }
-                                change.consume()
-                            } while (change.pressed)
-                            state.endDrag()
-                            end.value()
-                        }
-                    }
-            }
+        val input = if (shown) Modifier.thumbInput(state, track, drag, start, end) else Modifier
         Box(
             Modifier
                 .align(Alignment.TopEnd)
@@ -196,6 +122,71 @@ fun FastScrollThumb(
         )
     }
 }
+
+/** A change of section while held is a light tick; the first value, and any while not held, is not. */
+@Composable
+private fun SectionTicks(state: FastScrollState) {
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(state) {
+        snapshotFlow { state.sectionKey }.collect {
+            if (state.isDragging) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+        }
+    }
+}
+
+/** Counts quiet time only while shown and not held, so nothing runs while the thumb is hidden or dragged. */
+@Composable
+private fun HideWhenQuiet(
+    state: FastScrollState,
+    shown: Boolean,
+    held: Boolean,
+) {
+    LaunchedEffect(state, shown, held) {
+        while (shown && !held && state.isShown) {
+            delay(FastScrollDefaults.TICK_MILLIS)
+            state.tick(FastScrollDefaults.TICK_MILLIS)
+        }
+    }
+}
+
+/**
+ * The shown thumb's input: excluded from the back gesture until held (the
+ * system decides at touch-down), and a drag that reports the fraction the
+ * pill's top is at over [track] px. The finger's y is taken against where
+ * the target was last placed, because the target moves under the finger.
+ */
+private fun Modifier.thumbInput(
+    state: FastScrollState,
+    track: Float,
+    drag: State<(Float) -> Unit>,
+    start: State<() -> Unit>,
+    end: State<() -> Unit>,
+): Modifier =
+    then(if (state.isDragging) Modifier else Modifier.systemGestureExclusion())
+        .pointerInput(state, track) {
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                down.consume()
+                val grabbedAt = state.placedTop + down.position.y
+                val grabbedTop = state.placedTop
+                state.startDrag()
+                start.value()
+                do {
+                    val change = awaitPointerEvent(PointerEventPass.Initial).changes[0]
+                    if (change.pressed) {
+                        val fingerY = state.placedTop + change.position.y
+                        val fraction = ((grabbedTop + fingerY - grabbedAt) / track).coerceIn(0f, 1f)
+                        if (fraction != state.fraction) {
+                            state.dragTo(fraction)
+                            drag.value(fraction)
+                        }
+                    }
+                    change.consume()
+                } while (change.pressed)
+                state.endDrag()
+                end.value()
+            }
+        }
 
 /** Draws the pill at the target's right edge, wider while held. */
 @Composable

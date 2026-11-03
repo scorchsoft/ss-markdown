@@ -156,7 +156,7 @@ def derive(benchmarks):
             cpu = frames(b, "frameDurationCpuMs")
             put(name + ".frameCpuP50Ms", percentile(cpu, 50))
             put(name + ".frameCpuP99Ms", percentile(cpu, 99))
-    for name in ("fling20Mb", "flingUp1Mb"):
+    for name in ("fling20Mb", "flingUp1Mb", "fastScroll20Mb"):
         b = benchmarks.get(name)
         if not b:
             continue

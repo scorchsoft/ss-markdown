@@ -123,15 +123,6 @@ class BridgeCodecTest {
             PageMessage.TopLine(0, emptyList(), null),
             BridgeCodec.decode("""{"type":"topLine","line":0,"crumbs":[],"fraction":"x"}"""),
         )
-        // The fast-scroll thumb's page size rides along too, clamped the same way.
-        assertEquals(
-            PageMessage.TopLine(3, emptyList(), 0.5f, 0.1f),
-            BridgeCodec.decode("""{"type":"topLine","line":3,"crumbs":[],"fraction":0.5,"visible":0.1}"""),
-        )
-        assertEquals(
-            PageMessage.TopLine(3, emptyList(), 0.5f, 1f),
-            BridgeCodec.decode("""{"type":"topLine","line":3,"crumbs":[],"fraction":0.5,"visible":9}"""),
-        )
         assertEquals(
             PageMessage.Selection(1, 5, setOf("bold", "link"), false, 7),
             BridgeCodec.decode(
@@ -184,6 +175,22 @@ class BridgeCodecTest {
         assertNull(BridgeCodec.decode("""{"type":"openViewer","kind":"video","index":0,"line":1}"""))
         assertNull(
             BridgeCodec.decode("""{"type":"formatRequest","action":"blink","from":0,"to":1,"baseRev":1}"""),
+        )
+    }
+
+    @Test
+    fun `the fast-scroll thumb's page size rides on the top line, clamped like the fraction`() {
+        assertEquals(
+            PageMessage.TopLine(3, emptyList(), 0.5f, 0.1f),
+            BridgeCodec.decode("""{"type":"topLine","line":3,"crumbs":[],"fraction":0.5,"visible":0.1}"""),
+        )
+        assertEquals(
+            PageMessage.TopLine(3, emptyList(), 0.5f, 1f),
+            BridgeCodec.decode("""{"type":"topLine","line":3,"crumbs":[],"fraction":0.5,"visible":9}"""),
+        )
+        assertEquals(
+            PageMessage.TopLine(3, emptyList(), 0.5f, null),
+            BridgeCodec.decode("""{"type":"topLine","line":3,"crumbs":[],"fraction":0.5,"visible":"x"}"""),
         )
     }
 }

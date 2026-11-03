@@ -65,17 +65,16 @@ object BridgeCodec {
             null // An export whose base64 does not decode: dropped here, never thrown on the main thread.
         }
 
-    /** The reading fraction, clamped to 0..1; null when the page did not send one or sent junk. */
-    private fun fraction(j: JSONObject): Float? {
-        if (!j.has("fraction")) return null
-        val value = j.optDouble("fraction", Double.NaN)
-        return if (value.isNaN()) null else value.toFloat().coerceIn(0f, 1f)
-    }
-
-    /** How much of the page shows, clamped to 0..1; null when absent or junk. */
-    private fun visible(j: JSONObject): Float? {
-        if (!j.has("visible")) return null
-        val value = j.optDouble("visible", Double.NaN)
+    /**
+     * A 0..1 field, clamped: the reading fraction, or how much of the page
+     * shows. Null when the page did not send one or sent junk.
+     */
+    private fun unit(
+        j: JSONObject,
+        key: String,
+    ): Float? {
+        if (!j.has(key)) return null
+        val value = j.optDouble(key, Double.NaN)
         return if (value.isNaN()) null else value.toFloat().coerceIn(0f, 1f)
     }
 
@@ -84,7 +83,12 @@ object BridgeCodec {
             "ready" to { j -> PageMessage.Ready(j.getInt("version")) },
             "rendered" to { j -> PageMessage.Rendered(j.getInt("rev"), j.getInt("sections"), j.getInt("millis")) },
             "topLine" to { j ->
-                PageMessage.TopLine(j.getInt("line"), crumbs(j.getJSONArray("crumbs")), fraction(j), visible(j))
+                PageMessage.TopLine(
+                    j.getInt("line"),
+                    crumbs(j.getJSONArray("crumbs")),
+                    unit(j, "fraction"),
+                    unit(j, "visible"),
+                )
             },
             "sourceEdit" to
                 { j -> PageMessage.SourceEdit(j.getInt("baseRev"), edits(j.getJSONArray("edits")), epoch(j)) },

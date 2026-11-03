@@ -229,9 +229,18 @@ async function tapAt(x: number, y: number, fresh = true): Promise<{ offset: numb
     return { offset, caretY };
 }
 
-async function expectCaret(x: number, y: number, line: Line | null, offset: number | null, fresh = true) {
+/** Taps and checks the offset (or one of [offset]'s) and that the caret is drawn on [line]. */
+async function expectCaret(
+    x: number,
+    y: number,
+    line: Line | null,
+    offset: number | null | readonly number[],
+    fresh = true,
+) {
     const got = await tapAt(x, y, fresh);
-    expect(got.offset, `tap at ${x.toFixed(1)},${y.toFixed(1)}`).toBe(offset);
+    const why = `tap at ${x.toFixed(1)},${y.toFixed(1)}`;
+    if (Array.isArray(offset)) expect(offset, `${why}: got ${got.offset}`).toContain(got.offset);
+    else expect(got.offset, why).toBe(offset);
     if (!line) return;
     expect(got.caretY, "caret drawn on the tapped line").toBeGreaterThanOrEqual(line.top - 1);
     expect(got.caretY, "caret drawn on the tapped line").toBeLessThanOrEqual(line.bottom + 1);
@@ -273,13 +282,17 @@ describe("a tap puts the caret on the visual line it hit", () => {
                 const farLeft = block.name === "task item" ? farRight : first(b).left - 6;
                 switch (spot) {
                     case "right of the end":
-                        return expectCaret(farRight, mid(last(b)), last(b), last(b).end);
+                        return expectCaret(Math.max(farRight, last(b).right + 1), mid(last(b)), last(b), last(b).end);
                     case "left of the start":
                         if (block.name === "task item") return;
                         return expectCaret(farLeft, mid(first(b)), first(b), first(b).start);
-                    case "in a wrapped line's trailing space":
-                        // The wrap point, as far along as the page can draw the caret on that line.
-                        return expectCaret(farRight, mid(first(b)), first(b), first(b).caretEnd);
+                    case "in a wrapped line's trailing space": {
+                        // Right of the line's last glyph, wherever the fonts put it (a line can fill the
+                        // box). The caret goes to the wrap point, as far along as the page can draw it on
+                        // that line: Chromium's soft-wrap boundary may sit either side of the last letter.
+                        const l = first(b);
+                        return expectCaret(Math.max(farRight, l.right + 1), mid(l), l, [l.caretEnd - 1, l.caretEnd]);
+                    }
                     case "below the last line": {
                         const l = last(b);
                         const y = b.box.bottom - l.bottom >= 4 ? (l.bottom + b.box.bottom) / 2 : l.bottom + 2;

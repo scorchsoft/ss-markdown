@@ -225,17 +225,25 @@ internal class CommandRunner(
     }
 
     /**
-     * Pastes the clipboard. Plain text the clip already holds is measured
-     * first; a URI or a large text goes through the sliced paste, which
-     * reads it off the main thread (docs/edge-cases.md, "Paste of 50 MB").
+     * Pastes the clipboard (docs/ux-spec.md, "Paste"). Plain text the clip
+     * already holds is measured first; a URI, an HTML-only clip or a large
+     * text goes through the sliced paste, which reads it off the main
+     * thread (docs/edge-cases.md, "Paste of 50 MB"). What goes in is the
+     * clip's plain text ([PastedText.clean]); a bare web address over
+     * selected text outside code links it instead ([PastedText.linkOver]).
      */
     private fun paste(): Boolean {
         val item = clipboard?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)
         val plain = item?.text
+        // HTML-only clips enter here (a copy from a browser that set no plain text): their text, never tags.
+        val html = if (plain == null) item?.htmlText else null
         val pasteable = item != null && (plain == null || plain.isNotEmpty())
+        if (pasteable && plain != null && PastedText.pasteLink(view, plain)) return true
         if (pasteable) {
             val context = view.context
-            view.pasteText(plain?.length ?: UNKNOWN_LENGTH) { plain ?: item.coerceToText(context) }
+            view.pasteText(plain?.length ?: UNKNOWN_LENGTH) {
+                PastedText.clean(plain ?: html?.let(PastedText::fromHtml) ?: item.coerceToText(context))
+            }
         }
         return pasteable
     }

@@ -190,4 +190,32 @@ class PreviewSyncTest {
         f.vm.onAction(EditorAction.StripKeyTapped(com.scorchsoft.ssmarkdown.ui.strip.StripKey.Undo))
         assertEquals(listOf(TextEdit(0, 1, "")), page.filterIsInstance<HostMessage.Edit>().single().ops)
     }
+
+    @Test
+    fun `a paste in Preview during Split reaches Code as one undo step, a pasted link as two`() {
+        val f = fixture()
+        f.vm.onAction(EditorAction.SelectMode(ViewMode.Split))
+        val text = {
+            f.vm.active
+                ?.text
+                ?.text
+                ?.toString()
+                .orEmpty()
+        }
+        val before = text()
+        // A list pasted into an item: the paste and the renumbering after it arrive as one sourceEdit.
+        f.vm.preview.onSourceEdits(f.vm.preview.rev, listOf(TextEdit(0, 6, "1. a\n2. b"), TextEdit(7, 13, "3. line 2")))
+        assertTrue(text().startsWith("1. a\n2. b\n3. line 2\nline 3\n"))
+        f.vm.onAction(EditorAction.StripKeyTapped(com.scorchsoft.ssmarkdown.ui.strip.StripKey.Undo))
+        assertEquals(before, text())
+
+        // EB-UNDO-07: the page sends a link paste as the plain paste, then the link.
+        f.vm.preview.onSourceEdits(f.vm.preview.rev, listOf(TextEdit(0, 4, "https://e.com")))
+        f.vm.preview.onSourceEdits(f.vm.preview.rev, listOf(TextEdit(0, 13, "[line](https://e.com)")))
+        assertTrue(text().startsWith("[line](https://e.com) 1\n"))
+        f.vm.onAction(EditorAction.StripKeyTapped(com.scorchsoft.ssmarkdown.ui.strip.StripKey.Undo))
+        assertTrue(text().startsWith("https://e.com 1\n"))
+        f.vm.onAction(EditorAction.StripKeyTapped(com.scorchsoft.ssmarkdown.ui.strip.StripKey.Undo))
+        assertEquals(before, text())
+    }
 }

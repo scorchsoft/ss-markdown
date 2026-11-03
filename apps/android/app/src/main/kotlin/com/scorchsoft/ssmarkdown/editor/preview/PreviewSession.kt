@@ -315,6 +315,9 @@ class PreviewSession(
         epoch: Int,
     ) {
         val target = editorOf(epoch) ?: return
+        // A paste still going into Code goes in now and reaches the page as a host edit first; put in
+        // while this edit is applied, it would be taken for the page's own and never sent.
+        if (target === editor) bound?.surface?.completePending()
         if (target === editor && host.readOnly) {
             // The file refuses edits: acking would leave the page showing a change (a task tick) the
             // text never took. Reloading puts the page back as the text is.
@@ -340,6 +343,7 @@ class PreviewSession(
 
     override fun onFormatRequest(request: PreviewFormatRequest) {
         if (request.epoch != PageMessage.UNSTAMPED && request.epoch != editor?.epoch) return
+        bound?.surface?.completePending()
         if (request.action == FormatAction.IMAGE) {
             // Insert image opens the picker first; the picture goes at the page's selection.
             editor?.selectionOf(request)?.let { host.onPreviewEvent(PreviewEvent.InsertImage(it)) }

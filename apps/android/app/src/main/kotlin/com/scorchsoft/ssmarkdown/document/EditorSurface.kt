@@ -27,6 +27,13 @@ interface EditorSurface {
     /** Commits the keyboard's in-progress word (research R6; robustness §5a.4). */
     fun flushComposing()
 
+    /**
+     * Puts the rest of a large paste still going in by slices in now, and
+     * reports it like any edit, so an edit from elsewhere (the Preview page)
+     * can be placed on the whole text. Nothing to do when none is running.
+     */
+    fun completePending() = Unit
+
     /** Applies [ops] (highest offset first) as one undo step, then selects [after]. */
     fun apply(
         ops: List<EditOp>,
@@ -72,6 +79,8 @@ class CodeViewSurface(
         get() = TextSelection(view.session.selectionStart, view.session.selectionEnd)
 
     override fun flushComposing() = view.requestFlushComposing()
+
+    override fun completePending() = view.completePaste()
 
     override fun apply(
         ops: List<EditOp>,

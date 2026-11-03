@@ -120,9 +120,12 @@ describe("tap to edit", () => {
         // Code's own Enter, from Kotlin: Preview and Code continue a list identically.
         const kotlin = await answerEnter(page, source, "\n+ ");
         await page.keyboard.type("three");
-        await page.waitForTimeout(400);
         expect(kotlin).toBe("+ one\n+ two\n+ \n");
-        expect(await typedOver(page, kotlin)).toBe("+ one\n+ two\n+ three\n");
+        // Typed while the new item renders: kept, then written once the pause after the last key passes.
+        const want = "+ one\n+ two\n+ three\n";
+        const end = Date.now() + 4000;
+        while ((await typedOver(page, kotlin)) !== want && Date.now() < end) await page.waitForTimeout(100);
+        expect(await typedOver(page, kotlin)).toBe(want);
     });
 
     it("ignores a tap that stops a fling", async () => {

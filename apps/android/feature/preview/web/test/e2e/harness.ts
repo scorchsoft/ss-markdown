@@ -108,6 +108,20 @@ export async function send(page: Page, message: HostMessage): Promise<void> {
     }, message);
 }
 
+/**
+ * The messages received so far, and clears them in the same step. Reading
+ * with [received] and then calling [clearReceived] loses any message that
+ * arrives between the two calls.
+ */
+export async function takeReceived(page: Page): Promise<PageMessage[]> {
+    return page.evaluate(() => {
+        const w = window as unknown as { __received: PageMessage[] };
+        const taken = w.__received;
+        w.__received = [];
+        return taken;
+    });
+}
+
 export async function received(page: Page): Promise<PageMessage[]> {
     return page.evaluate(() => (window as unknown as { __received: PageMessage[] }).__received);
 }

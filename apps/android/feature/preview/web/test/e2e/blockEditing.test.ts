@@ -16,7 +16,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { Page } from "playwright";
-import type { HostMessage, PageMessage } from "../../src/protocol";
+import type { HostMessage } from "../../src/protocol";
 import { applyEdit } from "../../src/core/minimalEdit";
 import {
     clearReceived,
@@ -25,6 +25,7 @@ import {
     received,
     send,
     startHarness,
+    takeReceived,
     waitForMessage,
     type Harness,
 } from "./harness";
@@ -90,6 +91,9 @@ afterAll(async () => h.close());
 // Pages per row: one page loaded a hundred times over crashed Chromium.
 beforeEach(async () => {
     page = await openPreview(h);
+    // BE_THROTTLE=4 runs the page on a CPU four times slower, as a busy CI runner or a phone is.
+    const rate = Number(process.env.BE_THROTTLE ?? 0);
+    if (rate > 1) await (await page.context().newCDPSession(page)).send("Emulation.setCPUThrottlingRate", { rate });
 }, 60_000);
 afterEach(async () => {
     await page.close();
@@ -143,8 +147,8 @@ async function run(row: Row): Promise<{ source: string; problems: string[] }> {
     let deadline = Date.now() + quiet;
     let answered = false;
     while (Date.now() < deadline) {
-        const messages = await received(page);
-        await clearReceived(page);
+        // Read and clear in one step: a message arriving between the two was lost (the page "sent nothing").
+        const messages = await takeReceived(page);
         if (process.env.BE_DEBUG) for (const m of messages) console.log("MSG", JSON.stringify(m));
         for (const m of messages) {
             if ((m.type === "sourceEdit" || m.type === "formatRequest") && !answered) {
@@ -169,6 +173,16 @@ async function run(row: Row): Promise<{ source: string; problems: string[] }> {
         }
         await page.waitForTimeout(50);
     }
+    if (!answered && before.text !== after.text) {
+        // Say where the caret was, so a dropped key or strip action is diagnosable from CI's log.
+        const where = await page.evaluate(() => {
+            const sel = window.getSelection();
+            const node = sel?.anchorNode;
+            const el = node instanceof Element ? node : node?.parentElement;
+            return `active=${document.activeElement?.tagName}.${document.activeElement?.className} hasFocus=${document.hasFocus()} editing=${document.querySelectorAll(".editing").length} anchor=${el?.outerHTML.slice(0, 80) ?? "none"}`;
+        });
+        problems.push(`the page sent nothing (${where})`);
+    }
     return { source, problems };
 }
 
@@ -191,11 +205,10 @@ describe("block-editing matrix in Preview", () => {
             expect(await settle(() => screenText(page), want)).toBe(want);
             // The caret is where the row puts it: typing lands there.
             if (after.from === after.to) {
-                const seen = await received(page);
                 await page.keyboard.type("Z");
                 const typed = async (): Promise<string> => {
                     let text = source;
-                    for (const m of [...seen, ...(await received(page))] as PageMessage[]) {
+                    for (const m of await received(page)) {
                         if (m.type !== "sourceEdit") continue;
                         for (const e of [...m.edits].sort((a, b) => b.from - a.from)) text = applyEdit(text, e);
                     }

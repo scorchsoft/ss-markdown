@@ -196,6 +196,22 @@ const CLIPS: readonly {
             })[b],
     },
     {
+        name: "EB-CLIP-13 HTML only (plain text until HTML is converted)",
+        plain: null,
+        html: '<p>Hi <b>there</b><img src="https://example.com/x.png" onerror="bad()"></p><p>Two</p><script>bad()</script>',
+        want: (b) =>
+            ({
+                paragraph: "Hi there\n\nTwo",
+                heading: "Hi there\n\nTwo",
+                bullet: "Hi there\n  Two",
+                numbered: "Hi there\n   Two",
+                task: "Hi there\n  Two",
+                quote: "Hi there\n>\n> Two",
+                cell: "Hi there<br>Two",
+                code: "Hi there\nTwo\n",
+            })[b],
+    },
+    {
         name: "EB-CLIP-13 HTML and plain text from another app",
         plain: "Hi *there*",
         html: "<p>Hi <b>there</b></p>",
@@ -264,22 +280,13 @@ describe("paste: selections and edges", () => {
         expect((await received(other)).filter((m) => m.type === "sourceEdit")).toHaveLength(1);
     });
 
-    it("EB-CLIP-07: a Markdown list pasted into a numbered item becomes its items", async () => {
+    it("EB-CLIP-07: a Markdown list pasted into a numbered item becomes its items, the rest renumbered", async () => {
         const page = await open();
         await caretAfter(page, "first");
         const after = await paste(page, "- **a**\n- b\n");
-        // The items after keep their numbers in the source; the list still shows 1 to 5.
-        expect(after).toBe(SOURCE.replace("1. first\n2. second", "1. first\n2. **a**\n3. b\n2. second"));
-        await page.waitForFunction(() => document.querySelectorAll("ol > li").length === 5);
-    });
-
-    it("EB-CLIP-13: a clip with only HTML pastes nothing in Preview yet, and nothing breaks", async () => {
-        const page = await open();
-        await caretAfter(page, "alpha");
-        await writeClip(page, null, "<p>Hi <b>there</b></p><script>bad()</script>");
-        await page.keyboard.press("Control+V");
-        await page.waitForTimeout(400);
-        expect(await applySent(page, SOURCE)).toBe(SOURCE);
+        expect(after).toBe(
+            SOURCE.replace("1. first\n2. second\n3. third", "1. first\n2. **a**\n3. b\n4. second\n5. third"),
+        );
     });
 
     it("EB-CLIP-07: splits the item at the caret", async () => {
@@ -402,7 +409,7 @@ describe("copy from Preview", () => {
         expect(code.text).toBe('if (a < b && c) { x = "q" }');
     });
 
-    it("cut while editing removes the selection's source; the clipboard gets Chromium's own copy", async () => {
+    it("cuts the selection's source in one edit while editing", async () => {
         const source = "Keep **this** and that.";
         const page = await open(source);
         await caretAfter(page, "and that", 8);

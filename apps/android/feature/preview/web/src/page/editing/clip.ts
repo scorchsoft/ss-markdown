@@ -1,5 +1,5 @@
 /**
- * Copy of a selection in Preview (docs/ux-spec.md, "Paste"): the
+ * Copy and cut of a selection in Preview (docs/ux-spec.md, "Paste"): the
  * plain text is the Markdown source the selection covers, and the HTML its
  * rendering, marked [OWN_HTML] so a paste back into Preview takes the plain
  * text as Markdown and keeps bold, links and lists. An end at the start (or

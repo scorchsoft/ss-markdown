@@ -55,6 +55,11 @@ export class Editor implements SessionHost {
         });
         document.addEventListener("selectionchange", () => this.onSelectionChange());
         document.addEventListener("copy", (e) => copySelection(e, this.controller.doc));
+        document.addEventListener("cut", (e) => {
+            const session = this.session;
+            const inBlock = session?.block.contains(window.getSelection()?.anchorNode ?? null);
+            if (copySelection(e, this.controller.doc) && inBlock) session?.cut();
+        });
     }
 
     get editing(): boolean {

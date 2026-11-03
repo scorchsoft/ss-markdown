@@ -18,7 +18,7 @@ import {
 import type { FormatAction } from "../../protocol";
 import { escapeTyped } from "../../core/minimalEdit";
 import type { SourceDoc, SourceEdit } from "../../core/sourceDoc";
-import { atBlockStart, linkFor, pasteMarkdown, pastePlain } from "../../core/paste";
+import { atBlockStart, linkFor, pasteMarkdown, pastePlain, renumberAfter } from "../../core/paste";
 import { OWN_HTML } from "./clip";
 import type { SectionView } from "../sectionView";
 import { pointToSource, runText, sectionOffset, shiftRuns, snapshotRuns, type RunRecord } from "./runs";
@@ -315,6 +315,11 @@ export class EditSession {
         return "paragraph";
     }
 
+    /** Cut: the selection's source goes, as one edit (the clipboard was filled by `clip.ts`). */
+    cut(): void {
+        this.structural("", null);
+    }
+
     /**
      * A paste or a drop (docs/ux-spec.md, "Paste"). Every paste in Preview
      * enters here, plain text or HTML, from the menu, the keyboard or
@@ -324,7 +329,7 @@ export class EditSession {
      */
     private paste(data: DataTransfer | null): void {
         const html = data?.getData("text/html") ?? "";
-        const plain = data?.getData("text/plain") ?? "";
+        const plain = data?.getData("text/plain") || htmlText(html);
         this.flush();
         const sel = window.getSelection();
         const ends = [sel?.anchorNode, sel?.focusNode].map((n) => (n instanceof Element ? n : n?.parentElement));
@@ -359,7 +364,19 @@ export class EditSession {
             this.host.commit(edits);
             edits[0] = { from: r.from, to: r.from + insert.length, insert: link };
             insert = link;
+        } else if (kind === "listItem") {
+            const added = insert.match(/\n\s*(?:>\s?)*\s*\d{1,9}[.)]\s/g)?.length ?? 0;
+            edits.push(...renumberAfter(doc.lines, (l) => doc.lineStart(l), line, lastLine, added));
         }
         this.host.commitAndRerender(edits, r.from + insert.length);
     }
+}
+
+/** The words of an HTML-only clip, one line per block; parsed inert, so nothing runs or loads. */
+function htmlText(html: string): string {
+    if (!html) return "";
+    const body = new DOMParser().parseFromString(html, "text/html").body;
+    body.querySelectorAll("script, style, template").forEach((e) => e.remove());
+    body.querySelectorAll("br, p, div, li, tr, h1, h2, h3, h4, h5, h6, pre, blockquote").forEach((e) => e.after("\n"));
+    return body.textContent ?? "";
 }

@@ -6,8 +6,10 @@ import {
     linkFor,
     pasteMarkdown,
     pastePlain,
+    renumberAfter,
     type PasteTarget,
 } from "../../src/core/paste";
+import { applyEdit } from "../../src/core/minimalEdit";
 
 const para: PasteTarget = {
     kind: "paragraph",
@@ -136,6 +138,32 @@ describe("linkFor", () => {
         // EB-LINK-07: never a link of an address to an address.
         expect(linkFor("https://old.com", "https://e.com")).toBeNull();
         expect(linkFor("www.old.com", "https://e.com")).toBeNull();
+    });
+});
+
+describe("renumberAfter", () => {
+    const lines = ["1. one", "2. two", "   more", "3. three", "  1. nested", "4. four", "", "5. other"];
+    const starts = (l: number): number => lines.slice(0, l).reduce((n, s) => n + s.length + 1, 0);
+
+    it("renumbers the rest of the list after added items, nested items and other lists left alone", () => {
+        const edits = renumberAfter(lines, starts, 1, 2, 2);
+        let text = lines.join("\n");
+        for (const e of [...edits].reverse()) text = applyEdit(text, e);
+        expect(text.split("\n")).toEqual([
+            "1. one",
+            "2. two",
+            "   more",
+            "5. three",
+            "  1. nested",
+            "6. four",
+            "",
+            "5. other",
+        ]);
+    });
+
+    it("leaves a list numbered 1. throughout, and bullets", () => {
+        expect(renumberAfter(["1. a", "1. b"], starts, 0, 0, 3)).toEqual([]);
+        expect(renumberAfter(["- a", "- b"], starts, 0, 0, 3)).toEqual([]);
     });
 });
 

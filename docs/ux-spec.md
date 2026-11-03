@@ -671,16 +671,15 @@ exactly the selected source; with nothing selected they do nothing.
 - **Several lines** join the way Enter would there: paragraphs in a
   paragraph, paragraphs after it in a heading, `>` paragraphs in a quote.
   In a **list item** (decision D10), a Markdown list on the clipboard
-  becomes items of the same list, the item split at the caret (the items
-  after keep their numbers in the source; the list still shows them in
-  order); other lines join the item as continuation lines indented to its
-  text. In a **table cell** the lines are joined by
+  becomes items of the same list, the item split at the caret and the
+  numbers after it counted on; other lines join the item as continuation
+  lines indented to its text. In a **table cell** the lines are joined by
   `<br>` and pipes become `\|`, so the table never breaks. In a **code
   block** the text goes in verbatim. Blank lines and a trailing line
   break add nothing.
 - **Copy** of a selection puts its Markdown source on the clipboard as
-  plain text and its rendering as HTML (Cut is still the browser's own:
-  the rendered text). An end at the start or end of a
+  plain text and its rendering as HTML; Cut does the same and removes the
+  selection's source as one edit. An end at the start or end of a
   block takes the block's whole line, so a copied list is `- a` lines.
   A selection with one end inside bold, a link or code and the other
   outside it is copied by the browser as rendered text instead, so it
@@ -688,8 +687,9 @@ exactly the selected source; with nothing selected they do nothing.
   into Preview goes in as Markdown: bold stays bold, a link stays a link,
   and a copied list pasted after a paragraph is a list.
 - **HTML from another app** pastes its plain text, escaped as above; a
-  clip with only HTML pastes nothing yet. Converting HTML to Markdown, and
-  a "Paste as plain text" item, are planned (EB-CLIP-13, -14). Chromium's own "Paste as plain text" already
+  clip with only HTML pastes its words (an inert parse: nothing runs or
+  loads). Converting HTML to Markdown, and a "Paste as plain text" item,
+  are planned (EB-CLIP-13, -14). Chromium's own "Paste as plain text" already
   reaches the same path.
 - A paste aimed at text Preview cannot edit (maths, an autolink, raw
   HTML) is refused with the usual message and never lands elsewhere.

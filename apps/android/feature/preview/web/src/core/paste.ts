@@ -6,6 +6,7 @@
  */
 import { escapeLineStart } from "./minimalEdit";
 import { newlineInsert, type BlockKind } from "./newline";
+import type { SourceEdit } from "./sourceDoc";
 
 export interface PasteTarget {
     readonly kind: BlockKind;
@@ -156,4 +157,39 @@ export function linkFor(label: string, clip: string): string | null {
     // Unbalanced parentheses would end the address early: `<>` holds it whole.
     const dest = url.split("(").length === url.split(")").length ? url : `<${url.replace(/[<>]/g, encodeURI)}>`;
     return `[${label.replace(/(^|[^\\])(?=[[\]])/g, "$1\\")}](${dest})`;
+}
+
+const ORDERED = /^(\s*(?:>\s?)*\s*)(\d{1,9})([.)])\s/;
+
+/**
+ * Renumbers the ordered items after line [after] that continue the list of
+ * the item on line [item], once [added] items went in after it: the edits,
+ * in source offsets. A list numbered `1.` throughout is left alone.
+ */
+export function renumberAfter(
+    lines: readonly string[],
+    lineStart: (line: number) => number,
+    item: number,
+    after: number,
+    added: number,
+): SourceEdit[] {
+    const head = ORDERED.exec(lines[item] ?? "");
+    const edits: SourceEdit[] = [];
+    if (!head || added === 0) return edits;
+    const [, prefix = "", num = ""] = head;
+    let next = Number(num) + added;
+    for (let i = after + 1; i < lines.length; i++) {
+        const line = lines[i] ?? "";
+        const m = ORDERED.exec(line);
+        if (m?.[1] === prefix && m[3] === head[3]) {
+            const n = m[2] ?? "";
+            if (n === num && next === Number(num) + added) break;
+            const at = lineStart(i) + prefix.length;
+            const want = String(++next);
+            if (n !== want) edits.push({ from: at, to: at + n.length, insert: want });
+        } else if (!line.trim() || !line.startsWith(prefix + " ")) {
+            break;
+        }
+    }
+    return edits;
 }

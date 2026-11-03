@@ -105,12 +105,12 @@ release may change behaviour.
   it a code block.
 - Paste in Preview now fits the block it lands in: several lines become
   paragraphs (quoted ones in a quote), continuation lines or list items in
-  a list, `<br>`-joined text in a table
+  a list (numbers after them counted on), `<br>`-joined text in a table
   cell, and go in verbatim in code. Only characters that would really
   turn into formatting are escaped, so `snake_case` and `a * b` paste
   clean and stay editable, and `# x` pasted at the start of a block no
   longer becomes a heading.
-- In Code, a clip holding only HTML pasted nothing; it now pastes its text.
+- A clip holding only HTML pasted nothing; it now pastes its text.
 - A pasted NUL character could make the saved file reopen read-only as
   "not text"; paste now drops NUL and a leading byte-order mark.
 - Typing `1.` at the start of a line in Preview showed a stray backslash.

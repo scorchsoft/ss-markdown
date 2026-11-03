@@ -72,6 +72,8 @@ class EditorPreviewHost(
 
             is PreviewEvent.Editing -> {
                 vm.update { it.copy(preview = it.preview.copy(editing = event.editing)) }
+                // Editing the page with the keyboard up in Split: the page is the pane being typed in.
+                if (event.editing) vm.typingIn(Pane.Preview)
             }
 
             is PreviewEvent.Format -> {

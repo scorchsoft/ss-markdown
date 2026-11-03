@@ -16,6 +16,7 @@ import com.scorchsoft.ssmarkdown.editor.panes.PreviewPlaceholder
 import com.scorchsoft.ssmarkdown.fixtures.FakeCodePane
 import com.scorchsoft.ssmarkdown.fixtures.Samples
 import com.scorchsoft.ssmarkdown.settings.Appearance
+import com.scorchsoft.ssmarkdown.settings.SplitTyping
 import com.scorchsoft.ssmarkdown.text.PieceTree
 import com.scorchsoft.ssmarkdown.text.TextDocument
 import com.scorchsoft.ssmarkdown.ui.strip.StripRows
@@ -44,7 +45,7 @@ fun EditorFor(
 
 /**
  * The editor screen in [state] with [codePane] as the Code pane (the screenshots pass [RealCodePane]),
- * and [stripRows] as Settings → Formatting bar.
+ * [stripRows] as Settings → Formatting bar and [splitTyping] as Settings → When typing in Split.
  */
 @Composable
 fun EditorWith(
@@ -52,6 +53,7 @@ fun EditorWith(
     codePane: @Composable (Modifier) -> Unit,
     onAction: (EditorAction) -> Unit = {},
     stripRows: StripRows = StripRows.One,
+    splitTyping: SplitTyping = SplitTyping.EditedPane,
 ) {
     EditorScreen(
         state = state,
@@ -61,6 +63,7 @@ fun EditorWith(
         previewState = Samples.previewState,
         appearance = Appearance.System,
         stripRows = stripRows,
+        splitTyping = splitTyping,
     )
 }
 

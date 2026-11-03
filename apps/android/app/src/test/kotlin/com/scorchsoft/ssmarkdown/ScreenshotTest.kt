@@ -7,6 +7,8 @@ import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import androidx.core.graphics.Insets
 import androidx.core.graphics.withTranslation
 import androidx.core.view.ViewCompat
@@ -247,6 +249,30 @@ open class ScreenshotTest(
     @Test fun fontPicker() = shot("font-picker") { FontPickerScreen(PreviewSamples.fonts, {}) }
 
     @Test fun settings() = shot("settings") { SettingsScreen(AppSettings(), "48.2 MB", {}) }
+
+    // Settings → Text → When typing in Split, scrolled into view under Formatting bar.
+    @Test
+    fun settingsSplitTyping() {
+        render { SettingsScreen(AppSettings(), "48.2 MB", {}) }
+        rule.onNodeWithText("On wide screens both panes stay.", substring = true).performScrollTo()
+        rule.waitForIdle()
+        capture("settings-split-typing")
+    }
+
+    // Split while typing (ux-spec "Split while typing"): the edited pane fills the page above the strip.
+    @Test
+    fun splitTypingCode() =
+        keyboard(
+            "split-typing-code",
+            Samples.unsaved.copy(mode = ViewMode.Split, keyboardUp = true, typingPane = Pane.Code),
+        )
+
+    @Test
+    fun splitTypingPreview() =
+        keyboard(
+            "split-typing-preview",
+            Samples.unsaved.copy(mode = ViewMode.Split, keyboardUp = true, typingPane = Pane.Preview),
+        )
 
     @Test fun storage() = shot("storage") { StorageScreen(StorageUiState(), {}) }
 

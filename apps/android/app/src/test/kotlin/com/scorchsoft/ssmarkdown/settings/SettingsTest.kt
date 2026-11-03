@@ -29,6 +29,7 @@ class SettingsTest {
                 copyFormat = CopyFormat.Formatted,
                 formattingBar = StripRows.Two,
                 lineNumbers = false,
+                splitTyping = SplitTyping.BothPanes,
             ).withRecent(RecentFile("content://a", "a.md", "Documents", 5, pinned = true))
         assertEquals(settings, SettingsJson.decode(JSONObject(SettingsJson.encode(settings).toString())))
     }
@@ -75,6 +76,30 @@ class SettingsTest {
         assertEquals(StripRows.One, AppSettings().formattingBar)
         assertEquals(StripRows.One, SettingsJson.decode(JSONObject("{\"copyFormat\":\"Formatted\"}")).formattingBar)
         assertEquals(StripRows.One, SettingsJson.decode(JSONObject("{\"formattingBar\":\"Three\"}")).formattingBar)
+    }
+
+    @Test
+    fun `typing in Split shows only the edited pane by default, also for settings saved before it existed`() {
+        assertEquals(SplitTyping.EditedPane, AppSettings().splitTyping)
+        assertEquals(SplitTyping.EditedPane, SettingsJson.decode(JSONObject("{\"formattingBar\":\"Two\"}")).splitTyping)
+        assertEquals(
+            SplitTyping.EditedPane,
+            SettingsJson.decode(JSONObject("{\"splitTyping\":\"Neither\"}")).splitTyping,
+        )
+    }
+
+    @Test
+    fun `keeping both panes persists, and the edited pane goes back`() {
+        val prefs =
+            ApplicationProvider
+                .getApplicationContext<Context>()
+                .getSharedPreferences("settings-split-typing-test", Context.MODE_PRIVATE)
+        val repository = PersistedSettingsRepository(PreferencesSettingsStore(prefs))
+        repository.update { SettingsReducer.reduce(it, SettingsAction.SetSplitTyping(SplitTyping.BothPanes)) }
+        assertEquals(SplitTyping.BothPanes, repository.settings.value.splitTyping)
+        assertEquals(SplitTyping.BothPanes, PreferencesSettingsStore(prefs).read().splitTyping)
+        repository.update { SettingsReducer.reduce(it, SettingsAction.SetSplitTyping(SplitTyping.EditedPane)) }
+        assertEquals(SplitTyping.EditedPane, PreferencesSettingsStore(prefs).read().splitTyping)
     }
 
     @Test

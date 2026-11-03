@@ -29,6 +29,10 @@ import com.scorchsoft.ssmarkdown.ui.strip.FormattingStripState
  * @property overlay at most one menu, sheet or dialog.
  * @property message a short confirmation ("Saved to Documents"), or null.
  * @property preview the Preview pane's own state: its renderer, and whether it is being edited.
+ * @property keyboardUp the soft keyboard is on screen.
+ * @property typingPane in Split, the pane the keyboard was opened for, until the keyboard closes, the
+ *   mode changes or another document opens (ux-spec "Split while typing"); null otherwise. Whether the
+ *   other pane hides is the layout's call: the setting, and never side by side.
  */
 @Immutable
 data class EditorUiState(
@@ -61,6 +65,8 @@ data class EditorUiState(
     val historyOn: Boolean = true,
     /** What Copy put on the clipboard last: long-press Copy repeats it, the chooser lists it first. */
     val copyFormat: CopyFormat = CopyFormat.Markdown,
+    val keyboardUp: Boolean = false,
+    val typingPane: Pane? = null,
 ) {
     /** The strip drives the Preview: in Preview, or in Split while the page has the caret. */
     val previewTyping: Boolean

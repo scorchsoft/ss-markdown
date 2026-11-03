@@ -27,7 +27,8 @@ object EditorReducer {
     ): EditorUiState =
         when (action) {
             is EditorAction.SelectMode -> {
-                state.copy(mode = action.mode)
+                // A mode switch ends Split's typing state.
+                state.copy(mode = action.mode, typingPane = null)
             }
 
             EditorAction.OpenMenu -> {
@@ -183,9 +184,26 @@ object EditorReducer {
         visible: Boolean,
     ): EditorUiState =
         if (visible) {
-            state
+            state.copy(keyboardUp = true)
         } else {
-            // The symbols page never outlives the keyboard; it reopens on formatting.
-            state.copy(strip = state.strip.copy(page = StripPage.Formatting))
+            // The symbols page never outlives the keyboard; it reopens on formatting. Closing the keyboard
+            // ends Split's typing state, so both panes come back.
+            state.copy(strip = state.strip.copy(page = StripPage.Formatting), keyboardUp = false, typingPane = null)
+        }
+
+    /**
+     * Split's typing state starts (ux-spec "Split while typing"): with the
+     * keyboard up in Split, [pane] is being edited. It moves to the other
+     * pane only when that one is edited; it ends with the keyboard, a mode
+     * switch or another document. Anything else leaves [state] as it is.
+     */
+    fun typingIn(
+        state: EditorUiState,
+        pane: Pane?,
+    ): EditorUiState =
+        when {
+            pane == null || state.typingPane == pane -> state
+            state.mode != ViewMode.Split || !state.keyboardUp -> state
+            else -> state.copy(typingPane = pane)
         }
 }

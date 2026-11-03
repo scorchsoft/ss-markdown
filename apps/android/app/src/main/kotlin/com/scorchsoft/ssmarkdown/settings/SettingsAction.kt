@@ -31,6 +31,11 @@ sealed interface SettingsAction {
         val value: StripRows,
     ) : SettingsAction
 
+    /** Text → When typing in Split: only the edited pane, or both. */
+    data class SetSplitTyping(
+        val value: SplitTyping,
+    ) : SettingsAction
+
     data class SetSaveMode(
         val value: SaveMode,
     ) : SettingsAction
@@ -83,6 +88,10 @@ object SettingsReducer {
 
             is SettingsAction.SetFormattingBar -> {
                 settings.copy(formattingBar = action.value)
+            }
+
+            is SettingsAction.SetSplitTyping -> {
+                settings.copy(splitTyping = action.value)
             }
 
             is SettingsAction.SetSaveMode -> {

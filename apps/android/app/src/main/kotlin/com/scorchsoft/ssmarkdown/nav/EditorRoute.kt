@@ -102,6 +102,7 @@ internal fun EditorRoute(
                 settings.previewWrap,
             ),
         stripRows = settings.formattingBar,
+        splitTyping = settings.splitTyping,
     )
 }
 

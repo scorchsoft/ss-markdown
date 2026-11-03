@@ -475,9 +475,6 @@ people that history exists.
 
 - **Tablet Navigator.** A 420 dp popover under the title.
 - **Keyboard-shortcut help** (Ctrl+/). A sheet listing every shortcut.
-- **Split with the keyboard up in portrait.** The preview pane collapses
-  to a 1-line breadcrumb strip until the keyboard closes. Editing gets
-  the space.
 - **Export maths blocks toggle.** In Export images → Include, there's a
   "Maths blocks" switch, off by default.
 - **Rename / delete a file.** Long-press a file in the drawer or the
@@ -708,6 +705,34 @@ the keyboard shortens the page but never turns the panes round.
 In Fluid mode, preview text is capped at about 75 characters per line on
 wide windows. The divider position is remembered separately for each
 orientation.
+
+### Split while typing
+
+Settings → Text → **When typing in Split** decides what stacked Split
+shows while the keyboard is up for one of its panes.
+
+- **Show only the pane you're editing** (default). Tapping into a pane
+  opens the keyboard and that pane fills the editor area: it grows in
+  about 160 ms and the other pane slides out of view. Split stays the
+  selected mode. The pane you were not editing cannot be tapped while it
+  is hidden; close the keyboard or use the mode bar to get back.
+- **Keep both panes.** Both panes stay while you type.
+- Typing ends when the keyboard closes (Done, Back, or the system hiding
+  it), when you switch mode, or when another document opens. Split comes
+  back with both panes, each where it was, and with "Scroll panes
+  together" the hidden pane has followed the one you typed in.
+- The caret stays where it was as the pane grows, so it stays visible.
+- **Side by side there is room for both**, so both panes always stay,
+  whatever the setting (a wide window, a tablet, landscape with room).
+- A window too short to stack folds Preview into a one-line strip under
+  Code; if you are typing in Preview there, the page fills the area
+  instead, whatever the setting.
+- The typing state is not saved: a rotation keeps it while the keyboard
+  stays up, and an Activity rebuilt by Android, or a process restart,
+  comes back in ordinary Split.
+- Neither pane is ever rebuilt or moved to another parent for any of
+  this (robustness §5a rule 2): a view that leaves the window takes the
+  keyboard with it (edge-cases "Split: the keyboard showed and went away").
 
 ## Position continuity
 
@@ -1067,6 +1092,9 @@ code-font setting.
   Formatting bar: **One row** (default) | **Two rows**, "Two rows shows
   more keys at once. Landscape always uses one row." A set-once
   preference, so it is not on the View sheet (see "Bottom bar").
+  When typing in Split: **Show only the pane you're editing** (default) |
+  **Keep both panes**, "The other pane comes back when the keyboard
+  closes. On wide screens both panes stay." (see "Split while typing").
 - Saving: write to the file "When I tap Save" (default) or "Autosave"
   (see `robustness.md` §3a), version history (on, storage cap, clear).
 - Split view: scroll panes together.

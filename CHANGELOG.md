@@ -27,6 +27,11 @@ release may change behaviour.
   the full width, starting a small inset from the edge. It applies to the
   open file at once, and the line you are typing on stays where it is on
   screen. It applies to Split's Code pane too.
+- Typing in Split now gives the pane you are editing the whole editor
+  area: the other pane slides away while the keyboard is up and comes back
+  when it closes, you switch mode or open another file. Settings → Text →
+  When typing in Split can keep both panes instead. On wide screens both
+  panes always stay.
 
 ### Changed
 
@@ -46,6 +51,10 @@ release may change behaviour.
   darker box behind each line.
 - Code: a tap below the last line puts the caret at the end of the
   document.
+- In Split, tapping into the Code or Preview pane could show the keyboard
+  and then take it away again. Opening the keyboard rebuilt the Split
+  layout, which took the pane you tapped off the screen for a moment and
+  lost its focus. The panes now stay put while the layout changes.
 - An edit made while a large paste was finishing (Find's Replace) could
   land a few characters off when you had typed during the paste; it now
   lands where it was aimed, and an edit whose text has moved is refused

@@ -14,6 +14,13 @@ enum class OnLaunch { ReopenLast, NewDraft }
 /** "Write to the file" (robustness §3a): only on Save, or after a pause in typing. */
 enum class SaveMode { WhenITapSave, Autosave }
 
+/**
+ * Text → "When typing in Split": while the keyboard is up for one pane of a
+ * stacked Split, show only that pane ([EditedPane], the default) or keep
+ * both. Side by side, both panes always stay (ux-spec "Split while typing").
+ */
+enum class SplitTyping { EditedPane, BothPanes }
+
 /** Display → Appearance. System follows the phone's dark-mode setting. */
 enum class Appearance { System, Light, Dark }
 
@@ -32,6 +39,7 @@ enum class Appearance { System, Light, Dark }
  * @property copyFormat what Copy put on the clipboard last; the Copy chooser lists it first.
  * @property lineNumbers Text → Show line numbers: the Code view draws its gutter (default on).
  * @property formattingBar Text → Formatting bar: the strip above the keyboard in one row (default) or two.
+ * @property splitTyping Text → When typing in Split: only the pane being edited (default), or both.
  */
 data class AppSettings(
     val openWith: OpenWith = OpenWith.LastUsed,
@@ -54,6 +62,7 @@ data class AppSettings(
     val export: ExportDefaults = ExportDefaults(),
     val copyFormat: CopyFormat = CopyFormat.Markdown,
     val formattingBar: StripRows = StripRows.One,
+    val splitTyping: SplitTyping = SplitTyping.EditedPane,
 ) {
     /** Whether [uri] autosaves: drafts always do; otherwise its override, else the global mode. */
     fun autosaves(

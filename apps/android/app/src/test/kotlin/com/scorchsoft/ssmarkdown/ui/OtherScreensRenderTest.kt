@@ -26,6 +26,7 @@ import com.scorchsoft.ssmarkdown.settings.AppSettings
 import com.scorchsoft.ssmarkdown.settings.RecentFile
 import com.scorchsoft.ssmarkdown.settings.SettingsAction
 import com.scorchsoft.ssmarkdown.settings.SettingsScreen
+import com.scorchsoft.ssmarkdown.settings.SplitTyping
 import com.scorchsoft.ssmarkdown.share.ShareSheet
 import com.scorchsoft.ssmarkdown.share.ShareUiState
 import com.scorchsoft.ssmarkdown.storage.ClearKind
@@ -84,6 +85,17 @@ class OtherScreensRenderTest(
             .assertIsOn()
             .performClick()
         assertEquals(listOf<SettingsAction>(SettingsAction.SetLineNumbers(false)), actions)
+    }
+
+    @Test
+    fun `when typing in Split offers the edited pane or both, and says wide screens keep both`() {
+        val actions = ArrayList<SettingsAction>()
+        rule.setContent { Themed(dark) { SettingsScreen(AppSettings(), "48.2 MB", onAction = { actions += it }) } }
+        rule.onNodeWithText("When typing in Split").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("On wide screens both panes stay.", substring = true).performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Show only the pane you're editing").performScrollTo().assertIsSelected()
+        rule.onNodeWithText("Keep both panes").performScrollTo().performClick()
+        assertEquals(listOf<SettingsAction>(SettingsAction.SetSplitTyping(SplitTyping.BothPanes)), actions)
     }
 
     @Test

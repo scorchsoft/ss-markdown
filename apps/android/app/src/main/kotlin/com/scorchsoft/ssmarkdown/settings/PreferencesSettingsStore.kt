@@ -59,6 +59,7 @@ internal object SettingsJson {
             .put("export", encodeExport(s.export))
             .put("copyFormat", s.copyFormat.name)
             .put("formattingBar", s.formattingBar.name)
+            .put("splitTyping", s.splitTyping.name)
 
     fun decode(o: JSONObject): AppSettings {
         val d = AppSettings()
@@ -90,6 +91,8 @@ internal object SettingsJson {
             copyFormat = enumOr(o.optString("copyFormat"), d.copyFormat),
             // Absent before the setting existed: those installs stay on one row.
             formattingBar = enumOr(o.optString("formattingBar"), d.formattingBar),
+            // Absent before the setting existed: those installs get the default, the edited pane only.
+            splitTyping = enumOr(o.optString("splitTyping"), d.splitTyping),
         )
     }
 

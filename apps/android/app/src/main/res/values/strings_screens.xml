@@ -29,6 +29,10 @@
     <string name="formatting_bar_one">One row</string>
     <string name="formatting_bar_two">Two rows</string>
     <string name="settings_formatting_bar_note">Two rows shows more keys at once. Landscape always uses one row.</string>
+    <string name="settings_split_typing">When typing in Split</string>
+    <string name="split_typing_edited">Show only the pane you\'re editing</string>
+    <string name="split_typing_both">Keep both panes</string>
+    <string name="settings_split_typing_note">The other pane comes back when the keyboard closes. On wide screens both panes stay.</string>
     <string name="settings_saving">Saving</string>
     <string name="settings_write">Write to the file</string>
     <string name="save_mode_tap">When I tap Save</string>

@@ -68,6 +68,7 @@ import com.scorchsoft.ssmarkdown.folder.FolderAction
 import com.scorchsoft.ssmarkdown.folder.FolderPanel
 import com.scorchsoft.ssmarkdown.navigator.NavigatorSheet
 import com.scorchsoft.ssmarkdown.settings.Appearance
+import com.scorchsoft.ssmarkdown.settings.SplitTyping
 import com.scorchsoft.ssmarkdown.ui.strip.FormattingStrip
 import com.scorchsoft.ssmarkdown.ui.strip.StripLayout
 import com.scorchsoft.ssmarkdown.ui.strip.StripMode
@@ -91,7 +92,8 @@ private const val LARGE_FONT_SCALE = 1.5f
  * the `feature/preview` host, and [themeControls] the `core/theme`
  * pickers inside Display. Both default to placeholders. [stripRows] is
  * Settings → Formatting bar; the strip falls back to one row in landscape
- * and on a short window ([StripLayout.rowsFor]).
+ * and on a short window ([StripLayout.rowsFor]). [splitTyping] is Settings →
+ * When typing in Split.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -106,6 +108,7 @@ fun EditorScreen(
     themeControls: @Composable () -> Unit = { ThemeControlsPlaceholder() },
     display: DisplayFacts = DisplayFacts(appearance),
     stripRows: StripRows = StripRows.One,
+    splitTyping: SplitTyping = SplitTyping.EditedPane,
 ) {
     val imeVisible = WindowInsets.isImeVisible
     LaunchedEffect(imeVisible) { onAction(EditorAction.ImeVisibilityChanged(imeVisible)) }
@@ -131,7 +134,7 @@ fun EditorScreen(
                 )
                 VerticalDivider(thickness = SS.dimens.hairline, color = SS.colors.border)
             }
-            EditorColumn(state, onAction, layout, codePane, previewPane, previewState, Modifier.weight(1f))
+            EditorColumn(state, onAction, layout, codePane, previewPane, previewState, splitTyping, Modifier.weight(1f))
         }
         if (!docked) Drawer(state, onAction)
     }
@@ -159,6 +162,7 @@ private fun EditorColumn(
     codePane: @Composable (Modifier) -> Unit,
     previewPane: @Composable (PreviewHostState) -> Unit,
     previewState: PreviewHostState,
+    splitTyping: SplitTyping,
     modifier: Modifier,
 ) {
     Column(modifier.fillMaxHeight()) {
@@ -174,7 +178,7 @@ private fun EditorColumn(
                     if (tooLarge != null) {
                         TooLargeMessage(tooLarge)
                     } else {
-                        EditorPanes(state, onAction, codePane, previewPane, previewState, layout.imeVisible)
+                        EditorPanes(state, onAction, codePane, previewPane, previewState, splitTyping)
                     }
                     state.navigator?.let { nav ->
                         // Below the header, so the title, the unsaved dot and Save stay visible.

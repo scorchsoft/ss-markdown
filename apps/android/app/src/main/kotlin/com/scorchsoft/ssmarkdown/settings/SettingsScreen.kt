@@ -148,6 +148,11 @@ private fun TextSection(
         onAction(SettingsAction.SetFormattingBar(StripRows.entries[it]))
     }
     NoteText(stringResource(R.string.settings_formatting_bar_note))
+    SettingRow(stringResource(R.string.settings_split_typing))
+    Segments(listOf(R.string.split_typing_edited, R.string.split_typing_both), settings.splitTyping.ordinal) {
+        onAction(SettingsAction.SetSplitTyping(SplitTyping.entries[it]))
+    }
+    NoteText(stringResource(R.string.settings_split_typing_note))
 }
 
 /**

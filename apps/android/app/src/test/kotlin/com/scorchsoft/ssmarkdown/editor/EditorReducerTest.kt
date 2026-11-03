@@ -130,4 +130,27 @@ class EditorReducerTest {
         val recovered = dirty.copy(banner = EditorBanner.Recovered(0, closedBySwipe = false))
         assertNull(reduce(recovered, EditorAction.RecoveryGotIt).banner)
     }
+
+    @Test
+    fun `typing in Split starts with the keyboard up and ends when it closes or the mode changes`() {
+        val split = reduce(clean, EditorAction.SelectMode(ViewMode.Split))
+        // No keyboard, or not Split: nothing starts.
+        assertNull(EditorReducer.typingIn(split, Pane.Code).typingPane)
+        val up = reduce(split, EditorAction.ImeVisibilityChanged(true))
+        assertTrue(up.keyboardUp)
+        assertNull(EditorReducer.typingIn(up.copy(mode = ViewMode.Code), Pane.Code).typingPane)
+        assertNull("the find bar's field starts nothing", EditorReducer.typingIn(up, null).typingPane)
+        val code = EditorReducer.typingIn(up, Pane.Code)
+        assertEquals(Pane.Code, code.typingPane)
+        assertEquals(
+            "editing the other pane moves it",
+            Pane.Preview,
+            EditorReducer.typingIn(code, Pane.Preview).typingPane,
+        )
+        val closed = reduce(code, EditorAction.ImeVisibilityChanged(false))
+        assertNull(closed.typingPane)
+        assertFalse(closed.keyboardUp)
+        assertEquals(ViewMode.Split, closed.mode)
+        assertNull(reduce(code, EditorAction.SelectMode(ViewMode.Preview)).typingPane)
+    }
 }

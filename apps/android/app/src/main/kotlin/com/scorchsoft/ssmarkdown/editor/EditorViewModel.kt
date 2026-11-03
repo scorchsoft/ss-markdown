@@ -217,7 +217,7 @@ class EditorViewModel(
     fun attach(view: MarkdownCodeView) {
         val doc = active ?: return
         doc.attach(view)
-        view.setOnFocusChangeListener { _, focused -> if (focused) onCodeFocused() }
+        view.setOnFocusChangeListener { _, focused -> onCodeFocusChanged(focused) }
         // A file's remembered position wins once; after that the Code pane lands on the shared anchor.
         if (!views.applyPendingTo(doc)) doc.surface.scrollToLine(anchorFlow.value)
     }
@@ -228,10 +228,39 @@ class EditorViewModel(
      * to the page's old selection: a WebView losing focus never says so.
      */
     fun onCodeFocused() {
-        if (!state.preview.editing) return
-        preview.endEditing()
-        update { it.copy(preview = it.preview.copy(editing = false)) }
+        if (state.preview.editing) {
+            preview.endEditing()
+            update { it.copy(preview = it.preview.copy(editing = false)) }
+        }
+        typingIn(Pane.Code)
     }
+
+    /** Whether the Code view has focus: with the keyboard up in Split, it is the pane being typed in. */
+    private var codeFocused = false
+
+    private fun onCodeFocusChanged(focused: Boolean) {
+        codeFocused = focused
+        if (focused) onCodeFocused()
+    }
+
+    /**
+     * The keyboard came up: in Split, the pane that has the caret is the one
+     * being typed in (ux-spec "Split while typing"). Code has it while its
+     * view has focus; the page while it is editing. Neither (the find bar's
+     * field, a sheet) starts nothing.
+     */
+    fun onKeyboardShown() {
+        typingIn(
+            when {
+                codeFocused -> Pane.Code
+                state.preview.editing -> Pane.Preview
+                else -> null
+            },
+        )
+    }
+
+    /** With the keyboard up in Split, [pane] is being edited (EditorReducer.typingIn). */
+    fun typingIn(pane: Pane?) = update { EditorReducer.typingIn(it, pane) }
 
     /** The Code view left the composition. */
     fun detach(view: MarkdownCodeView) = active?.detach(view)
@@ -475,6 +504,8 @@ class EditorViewModel(
                 overlay = it.overlay.takeUnless { overlay -> overlay is EditorOverlay.LinkPrompt },
                 // The page asks afresh about this document's pictures.
                 preview = it.preview.copy(picturesNeedFolder = false),
+                // Another document ends Split's typing state: both panes come back.
+                typingPane = null,
             )
         }
         if (switching) {

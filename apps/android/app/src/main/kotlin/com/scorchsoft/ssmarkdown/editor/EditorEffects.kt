@@ -247,10 +247,13 @@ internal object EditorEffects {
             EditorAction.DismissBanner,
             EditorAction.AskUseMine,
             EditorAction.KeepEditing,
-            is EditorAction.ImeVisibilityChanged,
             EditorAction.BigFileChipTapped,
             -> {
                 Unit
+            }
+
+            is EditorAction.ImeVisibilityChanged -> {
+                if (action.visible) vm.onKeyboardShown()
             }
 
             EditorAction.MessageShown -> {

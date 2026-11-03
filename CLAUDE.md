@@ -16,6 +16,7 @@ reasons behind every decision so far. Then:
 - `docs/research-findings.md` — what users hate and love in other editors, and the requirements (R1–R13) we took from it.
 - `docs/performance-techniques.md` — the open-source techniques we borrowed, with sources and licences.
 - `docs/edge-cases.md` — every known hostile case, how it's handled, and its test. Add a row for every new bug.
+- `docs/editing-behaviours.md` — the editing behaviours users expect in Code and Preview (EB-* rows), the source of the conformance test matrix.
 - `docs/engineering.md` — open-source code standards (Apache-2.0, showcase quality).
 - `docs/quality-bar.md` — the ten jobs, anti-goals, premium-feel spec, every budget, and how we score. If a feature can't point to a job here, it doesn't ship.
 - `docs/design-review-1.md` … `-4.md` — independent design reviews and how every finding was triaged.

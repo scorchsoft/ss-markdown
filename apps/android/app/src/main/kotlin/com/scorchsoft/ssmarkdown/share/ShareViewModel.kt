@@ -62,6 +62,12 @@ class ShareViewModel(
         source: String?,
         preselect: String? = null,
     ) {
+        // A sheet rebuilt after its append finished keeps "Added to …": reading the text again must not reopen
+        // Choosing, or a second Append writes the same text twice.
+        if (ui.value.phase is SharePhase.Done) {
+            ui.update { it.copy(text = text, source = source) }
+            return
+        }
         val s = settings.settings.value
         val ranked = ShareTargets.ranked(s)
         // A file picked with "Another file…" before the text was read (the sheet rebuilt while the picker
@@ -81,6 +87,9 @@ class ShareViewModel(
             )
     }
 
+    /** A rebuilt sheet whose append had already finished: it shows [done] and can't append again. */
+    fun restoreDone(done: SharePhase.Done) = ui.update { it.copy(phase = done) }
+
     /** The shared content could not be used. */
     fun unusable(tooLargeBytes: Long?) = ui.update { it.copy(phase = SharePhase.Unusable(tooLargeBytes)) }
 
@@ -97,6 +106,8 @@ class ShareViewModel(
 
     /** The single entry point for the sheet's actions (Cancel and Open are the Activity's). */
     fun onAction(action: ShareAction) {
+        // Append is offered only while choosing: never a second time once it is working or done.
+        if (action == ShareAction.Confirm && ui.value.phase != SharePhase.Choosing) return
         ui.update { ShareReducer.reduce(it, action) }
         if (action == ShareAction.Confirm) confirm()
     }

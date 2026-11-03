@@ -19,6 +19,9 @@ release may change behaviour.
   restore the text instead of quietly doing nothing.
 - A paste over a selection no longer deletes the wrong text when the
   document changes while the clip is being prepared.
+- If Android closed SS Markdown just after a share was added to a file,
+  the share sheet came back with Append still on, and a second tap added
+  the text twice. It now comes back showing "Added to …" and closes.
 
 ## [0.2.2] - 2026-11-03
 

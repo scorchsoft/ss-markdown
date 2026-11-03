@@ -42,7 +42,7 @@ import java.util.Date
 class ShareActivity : ComponentActivity() {
     private val graph: AppGraph get() = (application as SSMarkdownApplication).graph
 
-    private val viewModel: ShareViewModel by lazy {
+    internal val viewModel: ShareViewModel by lazy {
         ShareViewModel(
             graph.store,
             graph.drafts,
@@ -81,6 +81,11 @@ class ShareActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        // An append that finished before the rebuild (a process death in the "Added to" window) is not offered
+        // again: the sheet comes back done and closes.
+        savedInstanceState?.getString(KEY_DONE_URI)?.let { uri ->
+            viewModel.restoreDone(SharePhase.Done(savedInstanceState.getString(KEY_DONE_NAME).orEmpty(), uri))
+        }
         // Every create, not only the first: the sheet's state lives in this Activity's own view model, so
         // a recreated sheet (process death, a locale change) must read what was shared again, or it comes
         // back empty with Append enabled.
@@ -110,6 +115,14 @@ class ShareActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        (viewModel.state.value.phase as? SharePhase.Done)?.let { done ->
+            outState.putString(KEY_DONE_NAME, done.name)
+            outState.putString(KEY_DONE_URI, done.uri)
         }
     }
 
@@ -154,6 +167,10 @@ class ShareActivity : ComponentActivity() {
     companion object {
         /** "Added to <file> · Open" stays this long, then the sheet closes (ux-spec). */
         private const val CONFIRMATION_MILLIS = 1_500L
+
+        /** Saved state: the finished append, so a rebuilt sheet cannot append it again. */
+        private const val KEY_DONE_NAME = "share.done.name"
+        private const val KEY_DONE_URI = "share.done.uri"
 
         /**
          * The editor, asked to open [uri] through its launch sequence, so it

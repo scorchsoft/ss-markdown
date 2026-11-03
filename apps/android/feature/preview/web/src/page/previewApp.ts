@@ -3,7 +3,7 @@
  * gestures together and answers Kotlin's messages.
  */
 import { nextLoad } from "../core/imagePaths";
-import { readingFraction, scrollForFraction, visibleFraction } from "../core/readingFraction";
+import { readingFraction } from "../core/readingFraction";
 import type { HostMessage, PageMessage, PreviewSettings } from "../protocol";
 import { Bridge } from "./bridge";
 import { RenderController } from "./controller";
@@ -156,13 +156,10 @@ export class PreviewApp {
                 this.find.afterHostScroll();
                 break;
             case "scrollToFraction":
-                // The fast-scroll thumb: the reader is moving, so nothing pinned may pull the page back.
-                this.pinned = null;
-                this.anchorLine = null;
-                window.scrollTo({
-                    top: scrollForFraction(m.fraction, document.documentElement.scrollHeight, window.innerHeight),
-                    behavior: "auto",
-                });
+                // The fast-scroll thumb (Kotlin clamps it to 0..1; the browser clamps the offset):
+                // the reader is moving, so nothing pinned may pull the page back.
+                this.pinned = this.anchorLine = null;
+                window.scrollTo(0, m.fraction * (document.documentElement.scrollHeight - innerHeight));
                 break;
             case "tableNav":
                 this.editor.moveCell(m.direction);
@@ -294,7 +291,8 @@ export class PreviewApp {
             if (line === this.lastTop && step === this.lastFractionStep && !force) return;
             this.lastTop = line;
             this.lastFractionStep = step;
-            const visible = visibleFraction(document.documentElement.scrollHeight, window.innerHeight);
+            // How much of the page shows, for the fast-scroll thumb (Kotlin clamps it to 0..1).
+            const visible = innerHeight / document.documentElement.scrollHeight;
             this.bridge.post({
                 type: "topLine",
                 line,

@@ -2,19 +2,68 @@ name: android
 
 # Path-filtered so docs-only commits do not spend CI minutes. No job here
 # needs a secret: the app is offline and there is nothing to sign yet.
+#
+# How much runs (apps/android/CLAUDE.md, "CI levels"):
+# - Every commit runs ONCE: pull requests run on their own event, and a push
+#   runs only on main (or on a ccr-** branch that has no pull request yet,
+#   via workflow_dispatch). A newer commit cancels the older run.
+# - "[skip ci]" in the commit message: nothing runs (GitHub's own rule).
+# - "[ci lean]" in the head commit message: Checks, plus Preview bundle when
+#   the page changed; the emulator jobs are skipped. For small, low-risk
+#   changes. A release always needs a full run first.
+# - The perf job (emulator perf, Baseline Profile) runs nightly, on demand
+#   (workflow_dispatch with perf: true) or on a pull request labelled "perf".
 on:
   push:
-    # main, plus Claude Code working branches, so work in progress gets
-    # real CI before a pull request exists.
-    branches: [main, "ccr-**"]
+    branches: [main]
     paths: ["apps/android/**", ".github/workflows/android.yml"]
-  workflow_dispatch:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths: ["apps/android/**", ".github/workflows/android.yml"]
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+    inputs:
+      perf:
+        description: Also run the emulator perf job
+        type: boolean
+        default: false
+      lean:
+        description: Lean run (skip the emulator jobs)
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  # Reads the head commit's message, which a pull_request event does not
+  # carry, to decide whether this is a lean run ("[ci lean]").
+  plan:
+    name: Plan
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      lean: ${{ steps.lean.outputs.lean }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - id: lean
+        run: |
+          if [ "${{ inputs.lean }}" = "true" ] || git log -1 --format=%B | grep -qF '[ci lean]'; then
+            echo "lean=true" >> "$GITHUB_OUTPUT"
+            echo "Lean run: the emulator jobs are skipped ([ci lean])." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "lean=false" >> "$GITHUB_OUTPUT"
+          fi
+
   checks:
     name: Checks, tests & debug builds
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -135,6 +184,7 @@ jobs:
 
   preview-web:
     name: Preview bundle (TypeScript, unit, e2e, freshness, budget)
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -194,6 +244,9 @@ jobs:
 
   device:
     name: Instrumented tests (API 34 emulator)
+    # Skipped on a lean run and on the nightly schedule (the perf job owns it).
+    needs: plan
+    if: github.event_name != 'schedule' && needs.plan.outputs.lean != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -265,6 +318,10 @@ jobs:
   # central metric against docs/perf/emulator-baseline.json.
   perf:
     name: Emulator perf, Baseline Profile, monkey + StrictMode (API 34)
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.perf == true) ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'perf'))
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:

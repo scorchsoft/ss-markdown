@@ -118,6 +118,31 @@ unit-test component). Robolectric is pinned to `sdk=34` in
 `app/src/test/resources/robolectric.properties`; a different `@Config`
 sdk buys a second sandbox and doubles the run time.
 
+## CI levels
+
+Each commit runs CI once: pull requests run on their own event, and a push
+runs only on `main`. A newer commit on the same pull request cancels the
+older run. A full run takes about 22 minutes: Checks takes 19, Instrumented
+22 and Preview bundle 9, all in parallel.
+
+- **Prove it locally first.** `apps/android/tools/local-ci.sh` runs the
+  Checks and Preview bundle jobs here, in parallel. Use `--kotlin` or
+  `--web` to run one of them. Pass any init script and `--max-workers`
+  through `GRADLE_ARGS`. The emulator jobs need KVM, so they stay in CI.
+- **`[skip ci]`** in the commit message runs nothing. Use it for commits
+  that only touch docs or comments.
+- **`[ci lean]`** in the head commit message runs Checks and Preview bundle
+  and skips the emulator job. Use it for small changes that cannot affect
+  device behaviour: copy, docs inside the app, tests only, CI scripts. A
+  change to the editor, IME, focus, files, saving or the WebView bridge needs
+  a full run.
+- **Before any hand-over build**, the head commit must have a full green
+  run.
+- **The perf job** (emulator perf and Baseline Profile) runs nightly, on
+  `workflow_dispatch` with `perf: true`, or on a pull request labelled
+  `perf`. A branch with no pull request (e.g. `ccr-perf-experiment`) runs
+  CI only through `workflow_dispatch`.
+
 ## Emulator evidence (rubric #4, #11)
 
 CI's `perf` job (`.github/workflows/android.yml`) runs

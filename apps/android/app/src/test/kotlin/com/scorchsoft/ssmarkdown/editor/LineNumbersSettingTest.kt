@@ -26,7 +26,7 @@ import org.robolectric.RobolectricTestRunner
 /**
  * Settings → Show line numbers reaches the open document's Code view
  * through the route's own pane ([codePaneFor]): at once, on the same view
- * (no reopen), in Code only; Split's Code pane keeps its numbers.
+ * (no reopen), in Code and in Split's Code pane alike.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -36,7 +36,7 @@ class LineNumbersSettingTest {
     @get:Rule val rule = createAndroidComposeRule<ComponentActivity>()
 
     @Test
-    fun `the Code view follows the setting at once, on the same view, and Split keeps its numbers`() {
+    fun `the Code view follows the setting at once, on the same view, Split included`() {
         val f = EditorFixture(temp.root, UnconfinedTestDispatcher())
         f.vm.openDocument(f.file("notes.md", (1..200).joinToString("\n") { "line $it" }))
         f.vm.onAction(EditorAction.SelectMode(ViewMode.Code))
@@ -55,8 +55,7 @@ class LineNumbersSettingTest {
 
         f.vm.onAction(EditorAction.SelectMode(ViewMode.Split))
         rule.waitForIdle()
-        assertTrue("Split's Code pane keeps its numbers", view.showLineNumbers)
-        assertEquals(withNumbers, view.textLeft)
+        assertFalse("Split's Code pane follows the setting too", view.showLineNumbers)
 
         f.vm.onAction(EditorAction.SelectMode(ViewMode.Code))
         f.settings.update { SettingsReducer.reduce(it, SettingsAction.SetLineNumbers(true)) }
@@ -74,9 +73,9 @@ class LineNumbersSettingTest {
         }
 
     @Test
-    fun `only the Code view hides them`() {
+    fun `the setting applies in Code and Split alike`() {
         assertFalse(showsLineNumbers(setting = false, mode = ViewMode.Code))
-        assertTrue(showsLineNumbers(setting = false, mode = ViewMode.Split))
+        assertFalse(showsLineNumbers(setting = false, mode = ViewMode.Split))
         assertTrue(showsLineNumbers(setting = true, mode = ViewMode.Code))
         assertTrue(showsLineNumbers(setting = true, mode = ViewMode.Split))
     }

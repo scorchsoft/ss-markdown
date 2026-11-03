@@ -99,13 +99,14 @@ internal fun CodePane(
 
 /**
  * Whether the Code view draws its line numbers: Settings → Show line
- * numbers ([setting]) applies to the Code view; Split's Code pane always
- * keeps them (ux-spec "Settings").
+ * numbers ([setting]) applies wherever the Code view shows, Split's Code
+ * pane included (ux-spec "Settings"). [mode] is kept for callers and tests.
  */
+@Suppress("UnusedParameter") // The rule once differed for Split; callers still pass the mode.
 internal fun showsLineNumbers(
     setting: Boolean,
     mode: ViewMode,
-): Boolean = setting || mode == ViewMode.Split
+): Boolean = setting
 
 private class ViewHolder {
     var view: MarkdownCodeView? = null

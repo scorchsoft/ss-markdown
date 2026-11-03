@@ -26,7 +26,7 @@ release may change behaviour.
   default. Off, the Code view drops its number gutter and the text uses
   the full width, starting a small inset from the edge. It applies to the
   open file at once, and the line you are typing on stays where it is on
-  screen. Split's Code pane keeps its numbers.
+  screen. It applies to Split's Code pane too.
 
 ### Changed
 

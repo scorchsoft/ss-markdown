@@ -1059,8 +1059,8 @@ code-font setting.
   wrapped lines break again. It applies to the open file at once, with no
   reopen; the caret's row stays where it is on screen (as near as the new
   wrapping allows), or, with the caret off screen, the top line stays put,
-  so Preview's anchor does not move. Split's Code pane always shows its
-  numbers, and the Navigator and Preview are unaffected. The numbers are
+  so Preview's anchor does not move. The setting applies to Split's Code
+  pane too; the Navigator and Preview are unaffected. The numbers are
   clipped to the Code view: a row half scrolled off the top never draws
   its number over the top bar. The code font and preview font rows point to
   the theme, where both are set (see "Where each font lives" under Themes).

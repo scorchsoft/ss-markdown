@@ -60,8 +60,20 @@ class IncrementalEquivalencePropertyTest {
             "Setext",
             "\$x\$ and \$\$y\$\$",
             "\\# escaped",
+            // Code highlighting: fences in known languages, and fragments that open and close lexer states.
+            "```python",
+            "```js",
+            "~~~c",
+            "/* open",
+            "close */",
+            "x = '''triple",
+            "end''' # c",
+            "s = `tpl \${a",
+            "} done`",
+            "<!-- tag",
+            "key: |",
         )
-    private val alphabet = "#*_`~>-=|\$[]()!<: x\n1."
+    private val alphabet = "#*_`~>-=|\$[]()!<: x\n1./'\"{}"
 
     @Test
     fun `incremental tokens equal a full re-tokenise after random edits`() {

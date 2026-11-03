@@ -281,6 +281,41 @@ syntax markers, checkboxes, toggles, sliders, the caret, the current
 table cell, and pins. Text selection uses the system selection colour.
 Never put a one-sided coloured border on anything.
 
+The one place colour carries syntax is **inside a fenced code block**
+(below): there the theme's code colours apply, as in Preview. A `diff`
+block's deleted lines use the theme's deletion colour, a dark red: that
+is the document's content, not the app asking for anything.
+
+## Code view: highlighting
+
+Fenced code is coloured by language in the Code view, as Preview colours
+it with highlight.js, so the two views look like the same document.
+
+- **Which blocks.** A fence whose info string's first word names a known
+  language, any case: ```` ```Python title="x" ````, ```` ```ts ````,
+  ```` ```js{1,3} ````. Python, JavaScript, TypeScript, Java, Kotlin, C,
+  C++, C#, Go, Rust, PHP, Ruby, Swift, Dart, SQL, Bash/Shell, console
+  sessions (commands after a `$ ` prompt), PowerShell, JSON/JSONC, YAML,
+  TOML, INI, HTML/XML/SVG, CSS/SCSS/Less, Markdown (flat, nothing nested),
+  Dockerfile and diff, with the usual aliases (`py`, `js`, `ts`, `kt`,
+  `cpp`/`h`, `cs`, `golang`, `rs`, `rb`, `sh`/`zsh`, `ps1`, `yml`, `md`, …).
+  No language, an unknown one, and indented code stay plain: no guessing.
+- **What is coloured.** Keywords, built-in types and literals; strings;
+  numbers; comments (italic); function and class names; annotations and
+  preprocessor lines; sigil variables (`$x`); tags and attributes; keys.
+  Punctuation and ordinary names stay plain code text.
+- **Where it stops.** The fence lines keep their Markdown styling.
+  Colouring stops exactly at the closing fence, even inside an open
+  string or comment; an unclosed fence colours to the end of the document.
+- **Colours.** The Preview theme's code colours (Themes → Colours → Code
+  colours), light or dark with the appearance. Contrast uses its AAA set.
+  Every code colour reads at 4.5:1 or more on the code band; a custom
+  colour that would not falls back to the default.
+- **Long lines.** Only the first 2,000 characters of a code line are
+  coloured; the rest is plain code text.
+- Selection, find highlights, the caret and the current line draw over
+  coloured text exactly as over plain text.
+
 ## More decisions from review 3
 
 - **Strip discoverability:** the scrolling part of the strip runs right
@@ -1050,6 +1085,14 @@ Custom themes are JSON with this shape:
   "css": ""
 }
 ```
+
+Each palette may also set the nine code colours (`codeComment`,
+`codeKeyword`, `codeString`, `codeNumber`, `codeTitle`, `codeAttr`,
+`codeBuiltIn`, `codeMeta`, `codeDeletion`); left out, they come from the
+base theme. The Colours tab lists them under "Code colours". The
+built-in values are exactly Preview's highlight.js palette; a custom
+theme's own code colours reach the Code view now and Preview in a later
+change (its stylesheet still has the built-in palette fixed).
 
 These are edited through pickers (Type / Colours / Spacing / JSON tabs)
 and exported or imported through the system file picker. Fonts are Google

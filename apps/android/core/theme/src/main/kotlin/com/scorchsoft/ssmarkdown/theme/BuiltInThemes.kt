@@ -31,6 +31,7 @@ public object BuiltInThemes {
                     codeBg = 0xF4F4F5,
                     muted = 0x5E5E64,
                     border = 0xD9D9DE,
+                    syntax = SyntaxColors.LIGHT,
                 ),
             dark =
                 palette(
@@ -42,6 +43,7 @@ public object BuiltInThemes {
                     codeBg = 0x242428,
                     muted = 0xA1A1A8,
                     border = 0x3A3A3F,
+                    syntax = SyntaxColors.DARK,
                 ),
         )
 
@@ -67,6 +69,7 @@ public object BuiltInThemes {
                     codeBg = 0xF1EADC,
                     muted = 0x6B5F50,
                     border = 0xE2D8C6,
+                    syntax = SyntaxColors.LIGHT,
                 ),
             dark =
                 palette(
@@ -78,6 +81,7 @@ public object BuiltInThemes {
                     codeBg = 0x2A2620,
                     muted = 0xB3A795,
                     border = 0x3D372F,
+                    syntax = SyntaxColors.DARK,
                 ),
         )
 
@@ -99,6 +103,7 @@ public object BuiltInThemes {
                     codeBg = 0xF2F3F5,
                     muted = 0x57606A,
                     border = 0xD0D7DE,
+                    syntax = SyntaxColors.LIGHT,
                 ),
             dark =
                 palette(
@@ -110,6 +115,7 @@ public object BuiltInThemes {
                     codeBg = 0x1C1F25,
                     muted = 0x9AA3AD,
                     border = 0x30363D,
+                    syntax = SyntaxColors.DARK,
                 ),
         )
 
@@ -136,6 +142,7 @@ public object BuiltInThemes {
                     codeBg = 0xF0F0F0,
                     muted = 0x2E2E2E,
                     border = 0x000000,
+                    syntax = SyntaxColors.CONTRAST_LIGHT,
                 ),
             dark =
                 palette(
@@ -147,6 +154,7 @@ public object BuiltInThemes {
                     codeBg = 0x1A1A1A,
                     muted = 0xD9D9D9,
                     border = 0xFFFFFF,
+                    syntax = SyntaxColors.CONTRAST_DARK,
                 ),
         )
 
@@ -169,6 +177,7 @@ public object BuiltInThemes {
         codeBg: Int,
         muted: Int,
         border: Int,
+        syntax: SyntaxColors,
     ): Palette =
         Palette(
             bg = ThemeColor.of(bg),
@@ -179,5 +188,6 @@ public object BuiltInThemes {
             codeBg = ThemeColor.of(codeBg),
             muted = ThemeColor.of(muted),
             border = ThemeColor.of(border),
+            syntax = syntax,
         )
 }

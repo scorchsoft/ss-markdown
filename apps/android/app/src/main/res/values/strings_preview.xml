@@ -130,6 +130,16 @@
     <string name="theme_colour_code_bg">Code background</string>
     <string name="theme_colour_muted">Secondary text</string>
     <string name="theme_colour_border">Borders</string>
+    <string name="theme_code_colours">Code colours</string>
+    <string name="theme_colour_code_comment">Comments</string>
+    <string name="theme_colour_code_keyword">Keywords</string>
+    <string name="theme_colour_code_string">Strings</string>
+    <string name="theme_colour_code_number">Numbers</string>
+    <string name="theme_colour_code_title">Function names</string>
+    <string name="theme_colour_code_attr">Attributes and variables</string>
+    <string name="theme_colour_code_built_in">Built-ins and tags</string>
+    <string name="theme_colour_code_meta">Annotations</string>
+    <string name="theme_colour_code_deletion">Deleted lines</string>
     <string name="theme_step_down">Decrease %1$s</string>
     <string name="theme_step_up">Increase %1$s</string>
     <string name="theme_duplicate">Duplicate</string>

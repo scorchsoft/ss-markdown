@@ -58,6 +58,37 @@ class LineDrawingCacheViewTest {
     }
 
     /**
+     * Highlighted code is cached like any line: typing inside a code line
+     * re-records that line, and opening a block comment re-records the lines
+     * whose colours it changed (their tokens and entry state changed), and
+     * closing it re-records them again.
+     */
+    @Test
+    fun `code lines are re-recorded when their text or entry state changes`() {
+        view.document =
+            TextDocument(
+                PieceTree.of("```c\n" + (1..10).joinToString("\n") { "int x$it = $it;" } + "\n```"),
+            )
+        drawHardware()
+        val first = view.recordedLineCount()
+        assertEquals(12, first)
+
+        view.applyEdit(view.document.text.lineStartOffset(5), view.document.text.lineStartOffset(5), "  ")
+        drawHardware()
+        assertEquals("an edit that keeps the state re-records its own line", first + 1, view.recordedLineCount())
+
+        val open = view.document.text.lineStartOffset(3)
+        view.applyEdit(open, open, "/* ")
+        drawHardware()
+        // Lines 3..10 are now comment; the closing fence keeps its tokens and is replayed.
+        assertEquals("the comment's lines re-record", first + 1 + 8, view.recordedLineCount())
+
+        view.applyEdit(open, open + 3, "")
+        drawHardware()
+        assertEquals("removing it restores them", first + 1 + 16, view.recordedLineCount())
+    }
+
+    /**
      * The platform frees a line's display list once nothing draws it (the
      * line scrolled off screen for a frame). Scrolling back must record it
      * again: replaying the emptied node drew the gutter and no text

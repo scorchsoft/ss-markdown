@@ -9,6 +9,16 @@ release may change behaviour.
 
 ### Added
 
+- Code view colours fenced code by language, in the same colours Preview
+  uses: keywords, types, strings, numbers, comments, function names,
+  annotations, variables, tags and keys. Python, JavaScript, TypeScript,
+  Java, Kotlin, C, C++, C#, Go, Rust, PHP, Ruby, Swift, Dart, SQL,
+  Bash/Shell and console sessions, PowerShell, JSON, YAML, TOML, INI,
+  HTML/XML/SVG, CSS/SCSS/Less, Markdown, Dockerfile and diff, with their
+  usual short names (`py`, `ts`, `rs`, `sh`, …). A fence with no language
+  or an unknown one stays plain. Themes gained nine code colours (Colours
+  → Code colours), contrast-checked like the rest.
+
 - Sharing text that is already at the end (or top) of the chosen file no
   longer adds it twice: the share sheet says "This text is already at the
   end of <file>." and offers Open, Add again and Cancel.

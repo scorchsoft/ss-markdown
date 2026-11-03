@@ -78,7 +78,8 @@ fun RealCodePane(
     state: EditorUiState,
     modifier: Modifier = Modifier,
     lineNumbers: Boolean = true,
+    sample: String = Samples.codeSample,
 ) {
-    val text = remember { TextDocument(PieceTree.of(Samples.codeSample)) }
+    val text = remember(sample) { TextDocument(PieceTree.of(sample)) }
     CodePane(text, wrap = state.codeWrap, zoomPercent = state.codeZoom, modifier = modifier, lineNumbers = lineNumbers)
 }

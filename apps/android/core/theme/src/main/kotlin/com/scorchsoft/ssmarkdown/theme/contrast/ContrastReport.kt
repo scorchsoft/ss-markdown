@@ -38,6 +38,33 @@ public enum class ContrastPair(
 
     /** Quotes and captions on the page. */
     MUTED(PaletteKey.MUTED, PaletteKey.BG, "Quotes and captions are"),
+
+    /** Highlighted code's comments on the code background. */
+    CODE_COMMENT(PaletteKey.CODE_COMMENT, PaletteKey.CODE_BG, "Code comments are"),
+
+    /** Keywords, types and literals in code. */
+    CODE_KEYWORD(PaletteKey.CODE_KEYWORD, PaletteKey.CODE_BG, "Code keywords are"),
+
+    /** Strings in code. */
+    CODE_STRING(PaletteKey.CODE_STRING, PaletteKey.CODE_BG, "Code strings are"),
+
+    /** Numbers in code. */
+    CODE_NUMBER(PaletteKey.CODE_NUMBER, PaletteKey.CODE_BG, "Code numbers are"),
+
+    /** Function and class names in code. */
+    CODE_TITLE(PaletteKey.CODE_TITLE, PaletteKey.CODE_BG, "Function names in code are"),
+
+    /** Attributes, keys and variables in code. */
+    CODE_ATTR(PaletteKey.CODE_ATTR, PaletteKey.CODE_BG, "Attributes in code are"),
+
+    /** Built-ins and tags in code. */
+    CODE_BUILT_IN(PaletteKey.CODE_BUILT_IN, PaletteKey.CODE_BG, "Built-ins in code are"),
+
+    /** Annotations and preprocessor lines in code. */
+    CODE_META(PaletteKey.CODE_META, PaletteKey.CODE_BG, "Annotations in code are"),
+
+    /** Deleted lines in a diff. */
+    CODE_DELETION(PaletteKey.CODE_DELETION, PaletteKey.CODE_BG, "Deleted diff lines are"),
 }
 
 /**

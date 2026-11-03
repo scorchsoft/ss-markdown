@@ -125,6 +125,60 @@ public enum class TokenKind {
 
     /** The `[^1]:` that opens a footnote definition. */
     FOOTNOTE_LABEL,
+
+    // Inside a fenced code block with a known language (code/CodeLanguages.kt). The names follow
+    // highlight.js's token classes, so the Code view and Preview colour the same things the same way.
+
+    /** A language keyword: `def`, `return`, `public`. */
+    CODE_KEYWORD,
+
+    /** A built-in type name: `int`, `string`, `Vec`. Coloured as a keyword, as highlight.js does. */
+    CODE_TYPE,
+
+    /** A literal word: `true`, `None`, `null`. Coloured as a keyword. */
+    CODE_LITERAL,
+
+    /** A built-in function or object: `print`, `console`, `echo`. */
+    CODE_BUILT_IN,
+
+    /** A string or character literal, quotes included. */
+    CODE_STRING,
+
+    /** A regular-expression literal. Coloured as a string. */
+    CODE_REGEXP,
+
+    /** A number, a CSS length or a hex colour. */
+    CODE_NUMBER,
+
+    /** A comment, line or block. */
+    CODE_COMMENT,
+
+    /** A function's name where it is defined or called, and a class's where it is declared. */
+    CODE_FUNCTION,
+
+    /** An annotation, decorator, attribute, preprocessor line or `<?php` tag. */
+    CODE_META,
+
+    /** A sigil variable: PHP and shell `$name`, Ruby `@name`, SCSS `$name`. */
+    CODE_VARIABLE,
+
+    /** A markup tag's name and brackets: `<div`, `/>`. */
+    CODE_TAG,
+
+    /** A markup attribute, a JSON or YAML key, a CSS property, an ini key. */
+    CODE_ATTRIBUTE,
+
+    /** A section header: `[section]` in ini and TOML, a heading in Markdown. */
+    CODE_SECTION,
+
+    /** A symbol: Ruby's `:name`, a Rust lifetime, a YAML or Markdown list bullet. Coloured as a number. */
+    CODE_SYMBOL,
+
+    /** A `+` line of a diff. */
+    CODE_ADDITION,
+
+    /** A `-` line of a diff. */
+    CODE_DELETION,
     ;
 
     internal companion object {

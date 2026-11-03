@@ -87,7 +87,7 @@ public fun interface FenceStates {
 private class ScannedFenceStates(
     private val text: CharSequence,
 ) : FenceStates {
-    private val tokenizer = LineTokenizer()
+    private val tokenizer = LineTokenizer(highlightCode = false)
     private var starts = IntArray(INITIAL)
     private var roles = ByteArray(INITIAL)
     private var count = 0

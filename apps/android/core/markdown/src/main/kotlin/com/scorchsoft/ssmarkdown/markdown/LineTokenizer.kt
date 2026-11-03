@@ -1,6 +1,8 @@
 package com.scorchsoft.ssmarkdown.markdown
 
 import com.scorchsoft.ssmarkdown.markdown.LineState.BlockMode
+import com.scorchsoft.ssmarkdown.markdown.code.CodeHighlighter
+import com.scorchsoft.ssmarkdown.markdown.code.CodeLanguages
 
 /**
  * Tokenises one line of Markdown for the Code pane, given the state the
@@ -19,12 +21,27 @@ import com.scorchsoft.ssmarkdown.markdown.LineState.BlockMode
  * characters are read, and the rest of a longer line is plain text
  * (docs/robustness.md, "Long lines are chunked").
  *
+ * Inside a fenced code block whose info string names a known language
+ * ([CodeLanguages]), each line is also lexed as that language
+ * (`CODE_*` kinds over [TokenKind.CODE_BLOCK_TEXT]), and the lexer's own
+ * line state (an open block comment, a triple-quoted string) rides in the
+ * [LineState], so the incremental pass converges on code exactly as it
+ * does on Markdown. Only the first [MAX_LEXED_CODE_COLUMNS] characters of a
+ * code line are lexed.
+ *
  * Not thread-safe: an instance reuses scratch buffers between calls. Make
  * one per thread; they are cheap.
  */
 @Suppress("TooManyFunctions") // One small function per block rule; together they are the block grammar.
-public class LineTokenizer {
+public class LineTokenizer(
+    /**
+     * True if fenced code in a known language is lexed. The outline and
+     * other readers that never draw pass false and skip the lexing.
+     */
+    public val highlightCode: Boolean = true,
+) {
     private val out = TokenBuilder()
+    private val code = CodeHighlighter()
     private val inline = InlineScanner(out)
     private val marker = BlockSyntax.ListMarker()
     private val definition = BlockSyntax.Definition()
@@ -382,9 +399,11 @@ public class LineTokenizer {
             } else {
                 null
             }
+        val language = if (highlightCode && infoEnd > infoStart) CodeLanguages.idOf(text, infoStart, infoEnd) else 0
         endBits = BlockMode.FENCED_CODE.ordinal.toLong() or
             (minOf(leafLength, MAX_FENCE).toLong() shl LineState.FENCE_LENGTH_SHIFT) or
-            (if (text[leafStart] == '~') LineState.FENCE_TILDE else 0L)
+            (if (text[leafStart] == '~') LineState.FENCE_TILDE else 0L) or
+            (language.toLong() shl LineState.CODE_LANGUAGE_SHIFT)
     }
 
     private fun openMath() {
@@ -500,6 +519,12 @@ public class LineTokenizer {
             kind = LineKind.CODE
             endBits = start.bits
             endInfo = start.fenceInfo
+            val language = start.codeLanguageId
+            if (language != 0) {
+                val lexed = minOf(end, pos + MAX_LEXED_CODE_COLUMNS)
+                val next = code.lex(language, text, pos, lexed, start.codeState, out)
+                endBits = (start.bits and CODE_STATE_BITS.inv()) or (next.toLong() shl LineState.CODE_STATE_SHIFT)
+            }
         }
     }
 
@@ -539,6 +564,16 @@ public class LineTokenizer {
          * a screenful of ordinary ones.
          */
         public const val MAX_TOKENIZED_COLUMNS: Int = 10_000
+
+        /**
+         * Only this many characters of a code line are lexed for highlighting;
+         * the rest stays plain code text. A minified bundle pasted into a fence
+         * costs a few lines' worth, and a comment or string opened past the cap
+         * is not seen.
+         */
+        public const val MAX_LEXED_CODE_COLUMNS: Int = 2_000
+
+        private const val CODE_STATE_BITS = LineState.CODE_STATE_MASK shl LineState.CODE_STATE_SHIFT
 
         private const val FRONT_MATTER_FENCE = 3
         private const val MAX_LIST_GAP = 4

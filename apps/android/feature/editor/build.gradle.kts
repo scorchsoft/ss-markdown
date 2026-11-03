@@ -44,6 +44,8 @@ dependencies {
     api(project(":core:markdown")) // FenceStates is in the view's API (fenceStates()).
 
     api(project(":core:ui"))
+    // `api`: EditorTheme.withSyntax takes the theme's SyntaxColors, so the Code view and Preview share one palette.
+    api(project(":core:theme"))
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

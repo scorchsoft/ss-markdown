@@ -8,7 +8,7 @@ module holds real code; the map below says what each one has.
 ```
 app/              MainActivity, AppGraph, navigation and the screens (editor state machine, history, storage, settings, themes, licences)
 core/text         PURE JVM. Piece table, line index, graphemes, undo.        (piece tree, done: see core/text/NOTICE)
-core/markdown     PURE JVM. Tokenizer, block index, anchor maths, edit commands.  (done: tokenizer, outline, edit commands with fence-aware line commands and list renumbering)
+core/markdown     PURE JVM. Tokenizer, block index, anchor maths, edit commands.  (done: tokenizer, outline, edit commands with fence-aware line commands and list renumbering; code/ holds the fenced-code lexers)
 core/history      PURE JVM. Journal, keyframe+diff history, retention.        (done: journal (FORMAT.md), versions, export/import + export listing (VERSIONS-FORMAT.md))
 core/theme        PURE JVM. Theme schema, CSS generation, contrast checks.    (done: schema, codec, CSS, contrast; see THEME-CSS.md)
 core/ui           Design system: SS.colors, SSType, SSDimens, SS* components  (formatting strip incl. table mode)

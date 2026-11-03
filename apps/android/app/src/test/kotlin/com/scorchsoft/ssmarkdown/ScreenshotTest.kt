@@ -224,6 +224,13 @@ open class ScreenshotTest(
     fun stripTwoRowsLargeFont() =
         keyboard("formatting-strip-two-rows-font-200", Samples.unsaved, fontScale = 2f, rows = StripRows.Two)
 
+    /** Fenced Python, TypeScript, PHP, C and Java, coloured as Preview colours them. */
+    @Test
+    fun codeHighlighting() =
+        shot("editor-code-highlighting") {
+            EditorWith(Samples.saved, codePane = { RealCodePane(Samples.saved, it, sample = Samples.highlightedCode) })
+        }
+
     @Test fun preview() = editor("preview", Samples.saved.copy(mode = ViewMode.Preview))
 
     @Test fun splitPortrait() = editor("split-portrait", Samples.saved.copy(mode = ViewMode.Split))

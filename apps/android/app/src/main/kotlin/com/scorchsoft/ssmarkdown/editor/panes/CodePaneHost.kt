@@ -14,6 +14,9 @@ import com.scorchsoft.ssmarkdown.editor.MarkdownCodeView
 import com.scorchsoft.ssmarkdown.editor.ViewMode
 import com.scorchsoft.ssmarkdown.editor.compose.MarkdownEditor
 import com.scorchsoft.ssmarkdown.text.TextDocument
+import com.scorchsoft.ssmarkdown.theme.SyntaxColors
+import com.scorchsoft.ssmarkdown.theme.Theme
+import com.scorchsoft.ssmarkdown.theme.ThemeVariant
 import com.scorchsoft.ssmarkdown.ui.ChromeFonts
 import java.util.concurrent.Executor
 
@@ -39,6 +42,8 @@ fun CodePaneHost(
     background: Executor,
     modifier: Modifier = Modifier,
     lineNumbers: Boolean = true,
+    /** The Preview theme, whose code colours fenced blocks use here too; null for the defaults. */
+    codeTheme: Theme? = null,
 ) {
     val doc = document ?: return
     val holder = remember { ViewHolder() }
@@ -50,6 +55,7 @@ fun CodePaneHost(
         listener = doc,
         background = background,
         modifier = modifier,
+        codeTheme = codeTheme,
         onViewReady = { view ->
             holder.view = view
             onAttach(view)
@@ -63,8 +69,9 @@ fun CodePaneHost(
 
 /**
  * The Code pane's look in the app: [MarkdownEditor] over [text] with the
- * core/ui colours ([EditorTheme.fromColors]) and the bundled code font
- * ([ChromeFonts.codeTypeface]). [CodePaneHost] binds it to the open
+ * core/ui colours ([EditorTheme.fromColors]), the Preview theme's code
+ * colours (`codeTheme`, so a fenced block looks the same in both views)
+ * and the bundled code font ([ChromeFonts.codeTypeface]). [CodePaneHost] binds it to the open
  * document; the screenshot harness draws it over a sample, so the
  * screenshots show the colouring the app really draws.
  */
@@ -77,10 +84,19 @@ internal fun CodePane(
     lineNumbers: Boolean = true,
     listener: EditorListener? = null,
     background: Executor? = null,
+    codeTheme: Theme? = null,
     onViewReady: (MarkdownCodeView) -> Unit = {},
 ) {
     val colors = SS.colors
-    val theme = remember(colors) { EditorTheme.fromColors(colors) }
+    val theme =
+        remember(colors, codeTheme) {
+            val variant = if (colors.isDark) ThemeVariant.DARK else ThemeVariant.LIGHT
+            EditorTheme.fromColors(
+                colors,
+                syntax =
+                    codeTheme?.palette(variant)?.syntax ?: SyntaxColors.defaults(variant),
+            )
+        }
     val assets = LocalContext.current.assets
     val typeface = remember { ChromeFonts.codeTypeface(assets) }
     MarkdownEditor(

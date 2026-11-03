@@ -98,7 +98,12 @@ internal fun ColoursTab(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
     )
     val palette = state.theme.palette(state.variant)
-    PaletteKey.entries.forEach { key -> ColourRow(key, palette[key].hex, state.variant, onAction) }
+    PaletteKey.entries.filterNot { it.isSyntax }.forEach { key ->
+        ColourRow(key, palette[key].hex, state.variant, onAction)
+    }
+    // Highlighted code in fenced blocks, Code view and Preview alike: its own group, after the page colours.
+    SectionLabel(stringResource(R.string.theme_code_colours))
+    PaletteKey.SYNTAX.forEach { key -> ColourRow(key, palette[key].hex, state.variant, onAction) }
     if (state.contrast.isNotEmpty()) {
         SectionLabel(stringResource(R.string.theme_contrast))
         state.contrast.forEach { Problem(it.message()) }
@@ -153,6 +158,7 @@ private fun ColourRow(
     }
 }
 
+@Suppress("CyclomaticComplexMethod") // A flat lookup: one arm per palette key.
 private fun colourName(key: PaletteKey): Int =
     when (key) {
         PaletteKey.BG -> R.string.theme_colour_bg
@@ -163,6 +169,15 @@ private fun colourName(key: PaletteKey): Int =
         PaletteKey.CODE_BG -> R.string.theme_colour_code_bg
         PaletteKey.MUTED -> R.string.theme_colour_muted
         PaletteKey.BORDER -> R.string.theme_colour_border
+        PaletteKey.CODE_COMMENT -> R.string.theme_colour_code_comment
+        PaletteKey.CODE_KEYWORD -> R.string.theme_colour_code_keyword
+        PaletteKey.CODE_STRING -> R.string.theme_colour_code_string
+        PaletteKey.CODE_NUMBER -> R.string.theme_colour_code_number
+        PaletteKey.CODE_TITLE -> R.string.theme_colour_code_title
+        PaletteKey.CODE_ATTR -> R.string.theme_colour_code_attr
+        PaletteKey.CODE_BUILT_IN -> R.string.theme_colour_code_built_in
+        PaletteKey.CODE_META -> R.string.theme_colour_code_meta
+        PaletteKey.CODE_DELETION -> R.string.theme_colour_code_deletion
     }
 
 /** Spacing: base size, heading scale and line height, each a stepper. */

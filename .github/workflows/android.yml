@@ -323,7 +323,9 @@ jobs:
       (github.event_name == 'workflow_dispatch' && inputs.perf == true) ||
       (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'perf'))
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # The emulator step stops itself well inside this, so the reports and
+    # the evidence upload below always run.
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@v4
       - name: Enable KVM
@@ -331,6 +333,9 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      - name: Host
+        run: |
+          echo "### Host: $(nproc) vCPU, $(lscpu | sed -n 's/^Model name: *//p'), $(free -g | awk '/Mem:/{print $2}') GB" | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -351,6 +356,11 @@ jobs:
 
       - name: Baseline Profile, Macrobenchmarks and monkey on the emulator
         uses: reactivecircus/android-emulator-runner@v2
+        # The script's own budget (EVIDENCE_BUDGET_MIN) is shorter; this is
+        # the backstop that keeps the job's last steps from being cancelled.
+        timeout-minutes: 72
+        env:
+          EVIDENCE_BUDGET_MIN: 62
         with:
           api-level: 34
           arch: x86_64
@@ -410,4 +420,5 @@ jobs:
             apps/android/app/src/main/generated/baselineProfiles/
             apps/android/app/build/outputs/apk/debug/*.apk
             apps/android/app/build/outputs/mapping/debug/mapping.txt
+            apps/android/*/build/outputs/androidTest-results/
           retention-days: 14

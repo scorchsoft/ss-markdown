@@ -161,6 +161,28 @@ deliberate change, run the script with `--write-baseline` on the job's
 nearest app frame is ours; its allowlist (WebView/Chromium internals only)
 says why for each entry.
 
+- **CI runs the two emulator stages with `am instrument`, not Gradle**
+  (`benchmark/ci/instrument.sh`; `EMULATOR_RUNNER=gradle` restores the
+  connected tasks). From 2026-11-02 every perf run stalled on GitHub's
+  2-vCPU, 8 GB runners: the device finished each stage in about 8
+  minutes, but UTP's `AndroidAdditionalTestOutputPlugin` runs adb shell
+  commands (`am get-current-user`, `ls`) after every test on the thread
+  that reads the results, and on these runners they hang until their
+  6-minute timeout, so Gradle heard about a test minutes late or never
+  (UTP thread dump and `utp.0.log`, run 41623253135). GPU mode, emulator
+  cores, AVD RAM, the Gradle heap and vsock were ruled out; adb itself
+  moves 32 MiB in under a second. `instrument.sh` installs the APKs, runs
+  the instrumentation detached on the device, polls its raw output and
+  pulls `additional_test_output` to where Gradle would have put it. The
+  generated profile goes to `app/src/main/generated/baselineProfiles/`
+  (sorted, de-duplicated: what the plugin's merge does for one generator),
+  and `benchmarkRelease` is rebuilt with it before the Macrobenchmarks.
+  Locally, run the Gradle tasks as before.
+- **A stage that overruns** (20 minutes, retried once, inside a 62-minute
+  script budget so the job always uploads) saves `stall-<stage>-<n>/` in
+  the `emulator-evidence` artifact: screencap and view tree, `dumpsys`,
+  `ps`/`top`, logcat, `/data/anr` thread dumps, and the host's memory,
+  sockets, JVM thread dumps and UTP logs. Read those before guessing.
 - **The app's side**: core/ui's `PerfTrace` sections (`SSM:open`,
   `SSM:commit`, `SSM:previewRefresh`), and MainActivity reports drawn when a
   document is bound (`timeToFullDisplayMs`). Renaming a section breaks the

@@ -3,6 +3,7 @@ package com.scorchsoft.ssmarkdown.editor
 import android.content.ClipData
 import android.content.ClipDescription
 import android.content.ClipboardManager
+import com.scorchsoft.ssmarkdown.markdown.paste.PasteClip
 
 /**
  * Carries out [EditorCommand]s from the keyboard, the text toolbar and
@@ -25,6 +26,24 @@ internal class CommandRunner(
             val description = clipboard?.primaryClipDescription ?: return false
             return description.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) ||
                 description.hasMimeType(ClipDescription.MIMETYPE_TEXT_HTML)
+        }
+
+    /**
+     * True when "Paste as plain text" would paste something other than
+     * Paste: the clip has HTML, or plain text holding Markdown syntax
+     * ([PasteClip.isRich]). The toolbar shows the item only then.
+     */
+    val canPastePlain: Boolean
+        get() {
+            val description = clipboard?.primaryClipDescription ?: return false
+            if (description.hasMimeType(ClipDescription.MIMETYPE_TEXT_HTML)) return true
+            if (!description.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN)) return false
+            val text =
+                clipboard.primaryClip
+                    ?.takeIf { it.itemCount > 0 }
+                    ?.getItemAt(0)
+                    ?.text ?: return false
+            return PasteClip.isRich(text.take(PasteClip.RICH_SCAN_CHARS).toString(), null)
         }
 
     /** Runs [command]; [extend] makes a movement select. Returns true if the command applied. */
@@ -59,8 +78,8 @@ internal class CommandRunner(
                 copy(cut = false)
             }
 
-            EditorCommand.PASTE -> {
-                paste()
+            EditorCommand.PASTE, EditorCommand.PASTE_PLAIN -> {
+                paste(plainOnly = command == EditorCommand.PASTE_PLAIN)
             }
 
             EditorCommand.SELECT_ALL -> {
@@ -225,27 +244,34 @@ internal class CommandRunner(
     }
 
     /**
-     * Pastes the clipboard (docs/ux-spec.md, "Paste"). Plain text the clip
-     * already holds is measured first; a URI, an HTML-only clip or a large
-     * text goes through the sliced paste, which reads it off the main
-     * thread (docs/edge-cases.md, "Paste of 50 MB"). What goes in is the
-     * clip's plain text ([PastedText.clean]); a bare web address over
-     * selected text outside code links it instead ([PastedText.linkOver]).
+     * Pastes the clipboard (docs/ux-spec.md, "Copy and paste"). Plain text
+     * goes in as copied ([PastedText.clean]): Code is raw Markdown, so a
+     * Markdown clip is already what it should be. HTML (a copy from a
+     * browser, Gmail, Docs or Word) goes in converted to Markdown
+     * ([PasteClip.content]), unless it only wraps the clip's plain text, or
+     * the caret is in a code block, where the plain text goes in. A bare web
+     * address over selected text outside code links it instead
+     * ([PastedText.pasteLink]). [plainOnly] is "Paste as plain text": only
+     * the words ([PasteClip.words]), and never a link (decision D9). A
+     * URI, an HTML clip or a large text goes through the sliced paste,
+     * which reads and converts it off the main thread (docs/edge-cases.md,
+     * "Paste of 50 MB"); each paste is one undo step.
      */
-    private fun paste(): Boolean {
-        val item = clipboard?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)
-        val plain = item?.text
-        // HTML-only clips enter here (a copy from a browser that set no plain text): their text, never tags.
-        val html = if (plain == null) item?.htmlText else null
-        val pasteable = item != null && (plain == null || plain.isNotEmpty())
-        if (pasteable && plain != null && PastedText.pasteLink(view, plain)) return true
-        if (pasteable) {
-            val context = view.context
-            view.pasteText(plain?.length ?: UNKNOWN_LENGTH) {
-                PastedText.clean(plain ?: html?.let(PastedText::fromHtml) ?: item.coerceToText(context))
-            }
+    private fun paste(plainOnly: Boolean): Boolean {
+        val item = clipboard?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0) ?: return false
+        val plain = item.text
+        val html = item.htmlText?.takeIf { it.isNotBlank() }
+        if (plain?.isEmpty() == true) return false
+        val raw = !plainOnly && html == null
+        if (raw && plain != null && PastedText.pasteLink(view, plain)) return true
+        val inCode = PastedText.inCode(view)
+        val context = view.context
+        view.pasteText(if (raw) plain?.length ?: UNKNOWN_LENGTH else UNKNOWN_LENGTH) {
+            // Only a clip with neither text nor HTML (a URI) is read through coerceToText.
+            val text = plain ?: if (html == null) item.coerceToText(context) else null
+            PastedText.clean(PastedText.forClip(text, html, plainOnly, inCode))
         }
-        return pasteable
+        return true
     }
 
     private companion object {
@@ -265,6 +291,7 @@ internal class CommandRunner(
                 EditorCommand.REDO,
                 EditorCommand.CUT,
                 EditorCommand.PASTE,
+                EditorCommand.PASTE_PLAIN,
                 EditorCommand.BACKSPACE,
                 EditorCommand.FORWARD_DELETE,
                 EditorCommand.ENTER,

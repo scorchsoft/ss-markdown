@@ -9,6 +9,9 @@ enum class EditorCommand {
     CUT,
     COPY,
     PASTE,
+
+    /** "Paste as plain text": only the words, without Markdown or HTML (EB-CLIP-14). */
+    PASTE_PLAIN,
     SELECT_ALL,
     BACKSPACE,
     FORWARD_DELETE,
@@ -37,7 +40,7 @@ data class KeyAction(
  * The hardware-keyboard map (edge-cases: "Hardware keyboard or
  * Chromebook"): arrows, Home/End, Page Up/Down, Shift to select, Ctrl for
  * words and the clipboard, Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y for undo and
- * redo. A pure function of key code and modifiers, so the whole table is
+ * redo, Ctrl+Shift+V to paste as plain text. A pure function of key code and modifiers, so the whole table is
  * tested on the host. Shortcuts that are the host's business (Ctrl+S,
  * Ctrl+F, Ctrl+B, Tab) map to null and are offered to the host instead.
  */
@@ -64,6 +67,7 @@ object KeyCommands {
         val command =
             when (keyCode) {
                 KeyEvent.KEYCODE_Z -> if (shift) EditorCommand.REDO else EditorCommand.UNDO
+                KeyEvent.KEYCODE_V -> if (shift) EditorCommand.PASTE_PLAIN else EditorCommand.PASTE
                 else -> CTRL_KEYS[keyCode]
             }
         return command?.let { KeyAction(it, extend = shift && it in MOVEMENTS) }
@@ -71,13 +75,12 @@ object KeyCommands {
 
     private fun plainCommand(keyCode: Int): EditorCommand? = PLAIN_KEYS[keyCode]
 
-    /** Keys pressed with Ctrl (Ctrl+Z is special-cased: Shift turns it into redo). */
+    /** Keys pressed with Ctrl (Ctrl+Z and Ctrl+V are special-cased: Shift makes them redo and plain paste). */
     private val CTRL_KEYS =
         mapOf(
             KeyEvent.KEYCODE_Y to EditorCommand.REDO,
             KeyEvent.KEYCODE_X to EditorCommand.CUT,
             KeyEvent.KEYCODE_C to EditorCommand.COPY,
-            KeyEvent.KEYCODE_V to EditorCommand.PASTE,
             KeyEvent.KEYCODE_A to EditorCommand.SELECT_ALL,
             KeyEvent.KEYCODE_DPAD_LEFT to EditorCommand.WORD_LEFT,
             KeyEvent.KEYCODE_DPAD_RIGHT to EditorCommand.WORD_RIGHT,

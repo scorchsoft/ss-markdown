@@ -705,32 +705,53 @@ Code is the raw text; Preview is the rendering. Each pastes the way its
 surface reads (docs/editing-behaviours.md, EB-CLIP, EB-LINK; the matrix
 tests are `PasteMatrixTest` and `e2e/paste.test.ts`).
 
-**Code.** A paste is the clip's plain text, exactly: CRLF and lone CR
-become the document's line breaks, a NUL is dropped (a saved NUL would
-make the file reopen as "not text") and so is one leading BOM; every other
+A normal paste **keeps formatting** (Andrew, 2026-11-03). **Paste as
+plain text** puts in only the words. Both are one Undo step.
+
+**HTML** on the clipboard (a copy from Chrome, Gmail, Google Docs or
+Word) is converted to Markdown, the same way in both surfaces
+(`HtmlToMarkdown.kt`, `htmlToMarkdown.ts`, one set of vectors): headings,
+paragraphs, line breaks, bold, italic, strikethrough (from tags or from
+Docs' and Word's styles), inline code, code blocks with the language of a
+`language-x` class, links (web and `mailto:` only; any other link keeps
+its words), web pictures as `![alt](address)` (others are left out),
+nested bulleted and numbered lists with their start number, task lists,
+Word's paragraph lists, quotes, rules, and tables: a simple one as a GFM
+table, one with merged or nested cells as rows of text. Scripts, styles,
+comments, hidden text, forms and media are dropped and nothing in the
+clip runs or loads. Whitespace collapses as HTML collapses it. When the
+HTML formats nothing (a single span, plain paragraphs), the clip's plain
+text is used instead, and inside a code block the plain text always is.
+
+**Code.** Plain text goes in exactly as copied: CRLF and lone CR become
+the document's line breaks, a NUL is dropped (a saved NUL would make the
+file reopen as "not text") and so is one leading BOM; every other
 character goes in as copied, NBSP, zero-width and bidi marks included.
 Nothing is added or taken away whatever block the caret is in (code,
-list, table, quote): no markers, no escapes. A selection is replaced. The
-caret ends after the paste and the view follows it. A paste over 256K
-characters goes in by slices with progress and is still one undo step. A
-clip with only HTML pastes its words, never its tags. Copy and Cut take
-exactly the selected source; with nothing selected they do nothing.
+list, table, quote): no markers, no escapes. HTML goes in as Markdown
+(above). A selection is replaced. The caret ends after the paste and the
+view follows it. A paste over 256K characters, and any HTML or plain-text
+conversion, goes in off the main thread by slices with progress and is
+still one undo step. Copy and Cut take exactly the selected source; with
+nothing selected they do nothing.
 
-**Preview.** What is pasted is what shows:
-- **Plain text** is escaped where its characters would become syntax
-  (`*bold*`, `` `x` ``, `[x]`, `~~x~~`, `==x==`, `$x$`, `&amp;`,
-  `:smile:`, and `#`, `-`, `+`, `>`, `1.` or `---` at the start of a
-  block), and only there: `snake_case`, `a * b`, `x < y` and `$5` stay as
-  they are.
-- **Several lines** join the way Enter would there: paragraphs in a
-  paragraph, paragraphs after it in a heading, `>` paragraphs in a quote.
-  In a **list item** (decision D10), a Markdown list on the clipboard
-  becomes items of the same list, the item split at the caret and the
-  numbers after it counted on; other lines join the item as continuation
-  lines indented to its text. In a **table cell** the lines are joined by
-  `<br>` and pipes become `\|`, so the table never breaks. In a **code
-  block** the text goes in verbatim. Blank lines and a trailing line
-  break add nothing.
+**Preview.** A paste is Markdown **kept literally** (EB-CLIP-06): text
+copied from a `.md` file, Preview's own copy and converted HTML go into
+the source as written, so they render formatted. Nothing is escaped,
+except what would break the block it lands in:
+- **Several lines** of prose (no Markdown in it) join the way Enter would
+  there: paragraphs in a paragraph, paragraphs after it in a heading, `>`
+  paragraphs in a quote. Markdown with block syntax or several lines gets
+  blocks of its own (in a quote, every line keeps its `>`), so a copied
+  list pastes as a list after a paragraph. In a **list item** (decision
+  D10), a Markdown list on the clipboard becomes items of the same list,
+  the item split at the caret and the numbers after it counted on; other
+  lines join the item as continuation lines indented to its text. In a
+  **table cell** the lines are joined by `<br>` and pipes become `\|`, so
+  the table never breaks. In a **code block** the text goes in verbatim.
+  Blank lines and a trailing line break add nothing.
+- `snake_case`, `a * b` and `$5` show as they are (CommonMark leaves an
+  `_` inside a word alone).
 - **Copy** of a selection puts its Markdown source on the clipboard as
   plain text and its rendering as HTML; Cut does the same and removes the
   selection's source as one edit. An end at the start or end of a
@@ -740,14 +761,22 @@ exactly the selected source; with nothing selected they do nothing.
   never carries half of the syntax. **Pasting Preview's own copy** back
   into Preview goes in as Markdown: bold stays bold, a link stays a link,
   and a copied list pasted after a paragraph is a list.
-- **HTML from another app** pastes its plain text, escaped as above; a
-  clip with only HTML pastes its words (an inert parse: nothing runs or
-  loads). Converting HTML to Markdown, and a "Paste as plain text" item,
-  are planned (EB-CLIP-13, -14). Chromium's own "Paste as plain text" already
-  reaches the same path.
 - A paste aimed at text Preview cannot edit (maths, an autolink, raw
   HTML) is refused with the usual message and never lands elsewhere.
 - In **Split**, a Preview paste reaches Code as one undo step.
+
+**Paste as plain text** (EB-CLIP-14). In the text toolbar right after
+Paste, in Code and while editing in Preview, only when the clip is
+formatted: it has HTML, or its plain text holds Markdown syntax. On a
+hardware keyboard, Ctrl+Shift+V. It inserts only the words of what Paste
+would insert: no `#`, `*`, `_`, `` ` ``, `>`, brackets, list markers,
+task boxes or fences; each list item on a line of its own; a table one
+row per line with its cells separated by a tab; a blank line between
+blocks; a link as its text and a picture as its alt text; a code block's
+lines as written. In Preview the words are escaped and fitted to the
+block (cell, list, quote) so they show exactly as pasted. It never makes
+a link of a selection. In Preview, Chromium's own "Paste as plain text"
+item does the same; the app adds its item only when Chromium shows none.
 
 **A web address pasted over selected text** (both surfaces, decision D9):
 when the clip is one bare `http(s)://` address and the selection is text

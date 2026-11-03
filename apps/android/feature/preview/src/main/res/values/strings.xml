@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Text selection menu item after Paste while editing in Preview: pastes only the words of a formatted clip. -->
+    <string name="preview_paste_plain">Paste as plain text</string>
+</resources>

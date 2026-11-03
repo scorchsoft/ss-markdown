@@ -3,10 +3,14 @@ package com.scorchsoft.ssmarkdown.editor
 import android.content.ClipData
 import android.content.ClipDescription
 import android.content.ClipboardManager
+import android.view.ActionMode
 import android.view.KeyEvent
+import android.view.Menu
+import android.view.MenuInflater
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import androidx.test.core.app.ApplicationProvider
+import com.scorchsoft.ssmarkdown.feature.editor.R
 import com.scorchsoft.ssmarkdown.text.PieceTree
 import com.scorchsoft.ssmarkdown.text.TextDocument
 import org.junit.Assert.assertEquals
@@ -15,16 +19,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.fakes.RoboMenu
 import java.util.concurrent.Executor
 
 /**
  * Paste in Code, through the real entry points (the keyboard's editing
  * panel, the text toolbar's item and Ctrl+V) with real `ClipData`, over
  * every kind of block and every kind of clip a user copies
- * (docs/ux-spec.md, "Paste"). Code is raw text: what goes in is the clip's
- * plain text exactly, with only line endings, NUL and a leading BOM
- * changed, and no marker is ever added or taken away. The one exception is
- * a bare web address pasted over selected text outside code, which links it.
+ * (docs/ux-spec.md, "Copy and paste"). Code is raw text: plain text goes in
+ * exactly, with only line endings, NUL and a leading BOM changed, and no
+ * marker is ever added or taken away. HTML goes in as Markdown (as its
+ * plain text in a code block). A bare web address pasted over selected text
+ * outside code links it. "Paste as plain text" puts in only the words.
  */
 @RunWith(RobolectricTestRunner::class)
 class PasteMatrixTest {
@@ -59,33 +65,80 @@ class PasteMatrixTest {
         EMPTY("‸"),
     }
 
-    /** What the user copied: the plain text and/or HTML on the clip, and what Code must insert. */
+    /**
+     * What the user copied: the plain text and/or HTML on the clip, what Code
+     * must insert ([inCode] inside a code block, when it differs), and what
+     * "Paste as plain text" inserts ([words]).
+     */
     private enum class Clip(
         val plain: String?,
         val html: String?,
         val inserted: String,
+        val words: String,
+        val inCode: String = inserted,
     ) {
-        ONE_LINE("plain *star* _under_ [x] `tick` # | -", null, "plain *star* _under_ [x] `tick` # | -"),
-        MULTI_LINE("first\n- item\n> quote\n\n```\ncode\n```", null, "first\n- item\n> quote\n\n```\ncode\n```"),
-        CRLF("one\r\ntwo\rthree\r\n", null, "one\ntwo\nthree\n"),
+        ONE_LINE(
+            "plain *star* _under_ [x] `tick` # | -",
+            null,
+            "plain *star* _under_ [x] `tick` # | -",
+            "plain star under [x] tick # | -",
+        ),
+        MULTI_LINE(
+            "first\n- item\n> quote\n\n```\ncode\n```",
+            null,
+            "first\n- item\n> quote\n\n```\ncode\n```",
+            "first\n\nitem\n\nquote\n\ncode",
+        ),
+        CRLF("one\r\ntwo\rthree\r\n", null, "one\ntwo\nthree\n", "one\ntwo\nthree"),
         HTML_ONLY(
             null,
             "<html><head><style>p{color:red}</style><script>alert(1)</script></head><body>" +
                 "<p>Hi <b>there</b> <img src=\"https://example.com/x.png\"></p><p>Two</p></body></html>",
-            "Hi there \n\nTwo",
+            "Hi **there** ![](https://example.com/x.png)\n\nTwo",
+            "Hi there\n\nTwo",
+            inCode = "Hi there\n\nTwo",
         ),
-        HTML_AND_PLAIN("Hi **there**", "<p>Hi <b>there</b></p>", "Hi **there**"),
+        HTML_AND_PLAIN("Hi **there**", "<p>Hi <b>there</b></p>", "Hi **there**", "Hi there"),
+        HTML_DOCS(
+            "Title\nBold words",
+            "<meta charset=\"utf-8\"><h1>Title</h1><p><b>Bold</b> words</p>",
+            "# Title\n\n**Bold** words",
+            "Title\n\nBold words",
+            inCode = "Title\nBold words",
+        ),
+        HTML_WRAPPER("a *b* c", "<span style=\"color:red\">a *b* c</span>", "a *b* c", "a b c"),
         UNICODE(
             "👩\u200D👩\u200D👧 مرحبا بالعالم e\u0301 🇬🇧\u00A0x\u200By",
             null,
             "👩\u200D👩\u200D👧 مرحبا بالعالم e\u0301 🇬🇧\u00A0x\u200By",
+            "👩\u200D👩\u200D👧 مرحبا بالعالم e\u0301 🇬🇧\u00A0x\u200By",
         ),
-        CONTROL("\uFEFFbefore\u0000after", null, "beforeafter"),
-        BARE_URL("https://example.com/a_b?q=1", null, "https://example.com/a_b?q=1"),
+        CONTROL("\uFEFFbefore\u0000after", null, "beforeafter", "beforeafter"),
+        BARE_URL("https://example.com/a_b?q=1", null, "https://example.com/a_b?q=1", "https://example.com/a_b?q=1"),
     }
 
     /** The three ways a user pastes in Code; each must reach the same paste. */
     private enum class Entry { KEYBOARD_PANEL, TOOLBAR, CTRL_V }
+
+    /** The same three ways for "Paste as plain text": the keyboard's panel, the toolbar item and Ctrl+Shift+V. */
+    private fun pastePlain(entry: Entry) {
+        when (entry) {
+            Entry.KEYBOARD_PANEL -> {
+                view.onCreateInputConnection(EditorInfo()).performContextMenuAction(android.R.id.pasteAsPlainText)
+            }
+
+            Entry.TOOLBAR -> {
+                view.runCommand(EditorCommand.PASTE_PLAIN)
+            }
+
+            Entry.CTRL_V -> {
+                val meta = KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON
+                view.dispatchKeyEvent(KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_V, 0, meta))
+                view.dispatchKeyEvent(KeyEvent(0, 0, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_V, 0, meta))
+            }
+        }
+        while (frames.isNotEmpty()) frames.removeFirst().run()
+    }
 
     private fun show(marked: String): Pair<Int, Int> {
         val start = marked.indexOf('‸').coerceAtLeast(0)
@@ -141,6 +194,30 @@ class PasteMatrixTest {
 
     @Test
     fun `EB-CLIP-06 to 16 every clip goes into every block as copied, caret after it, one undo step`() {
+        val cases =
+            matrix(plainOnly = false) { clip, block ->
+                if (block ==
+                    Block.FENCE
+                ) {
+                    clip.inCode
+                } else {
+                    clip.inserted
+                }
+            }
+        assertEquals(Block.entries.size * Clip.entries.size, cases)
+    }
+
+    @Test
+    fun `EB-CLIP-14 Paste as plain text puts only the words into every block, one undo step`() {
+        val cases = matrix(plainOnly = true) { clip, _ -> clip.words }
+        assertEquals(Block.entries.size * Clip.entries.size, cases)
+    }
+
+    /** Pastes every clip into every block, rotating through the entries; fails listing every miss. */
+    private fun matrix(
+        plainOnly: Boolean,
+        want: (Clip, Block) -> String,
+    ): Int {
         var cases = 0
         val failures = mutableListOf<String>()
         for (block in Block.entries) {
@@ -149,18 +226,85 @@ class PasteMatrixTest {
                 val (at, _) = show(block.marked)
                 val before = text
                 put(clip.plain, clip.html)
-                paste(entry)
+                if (plainOnly) pastePlain(entry) else paste(entry)
                 val label = "$clip into $block by $entry"
-                val expected = before.substring(0, at) + clip.inserted + before.substring(at)
+                val inserted = want(clip, block)
+                val expected = before.substring(0, at) + inserted + before.substring(at)
                 if (text != expected) failures += "$label: got ${text.quoted()}, want ${expected.quoted()}"
-                if (view.session.caret != at + clip.inserted.length) failures += "$label: caret ${view.session.caret}"
+                if (view.session.caret != at + inserted.length) failures += "$label: caret ${view.session.caret}"
                 view.undo()
                 if (text != before) failures += "$label: undo left ${text.quoted()}"
                 cases++
             }
         }
         assertEquals(failures.joinToString("\n"), 0, failures.size)
-        assertEquals(Block.entries.size * Clip.entries.size, cases)
+        return cases
+    }
+
+    @Test
+    fun `D9 Paste as plain text over a selection replaces it, never links it`() {
+        show("See the docs here.")
+        view.session.setSelection(4, 12)
+        put("https://example.com/a", null)
+        pastePlain(Entry.TOOLBAR)
+        assertEquals("See https://example.com/a here.", text)
+        assertTrue(view.undo())
+        assertEquals("See the docs here.", text)
+    }
+
+    @Test
+    fun `the toolbar offers Paste as plain text right after Paste, only for a formatted clip`() {
+        show("ab‸")
+        val callback = TextActionModeCallback(view.selectionUi)
+        val ids = { clip: Pair<String?, String?> ->
+            put(clip.first, clip.second)
+            val menu = RoboMenu(context)
+            callback.onCreateActionMode(FakeActionMode(), menu)
+            (0 until menu.size()).map { menu.getItem(it).itemId }
+        }
+        val rich = ids("**bold**" to null)
+        assertEquals(rich.indexOf(android.R.id.paste) + 1, rich.indexOf(android.R.id.pasteAsPlainText))
+        assertTrue(android.R.id.pasteAsPlainText in ids(null to "<b>x</b>"))
+        assertTrue(android.R.id.pasteAsPlainText in ids("Hi" to "<p>Hi</p>"))
+        assertFalse(android.R.id.pasteAsPlainText in ids("just words, snake_case and 2 * 3" to null))
+
+        put("# Title\n\n- **one**", null)
+        val menu = RoboMenu(context)
+        callback.onCreateActionMode(FakeActionMode(), menu)
+        val item = menu.findItem(android.R.id.pasteAsPlainText)
+        assertEquals(context.getString(R.string.editor_paste_plain), item.title.toString())
+        callback.onActionItemClicked(FakeActionMode(), item)
+        while (frames.isNotEmpty()) frames.removeFirst().run()
+        assertEquals("abTitle\n\none", text)
+        assertTrue(view.undo())
+        assertEquals("ab", text)
+    }
+
+    /** An action mode that does nothing: the callback only sets its title and finishes it. */
+    private class FakeActionMode : ActionMode() {
+        override fun setTitle(title: CharSequence?) = Unit
+
+        override fun setTitle(resId: Int) = Unit
+
+        override fun setSubtitle(subtitle: CharSequence?) = Unit
+
+        override fun setSubtitle(resId: Int) = Unit
+
+        override fun setCustomView(view: View?) = Unit
+
+        override fun invalidate() = Unit
+
+        override fun finish() = Unit
+
+        override fun getMenu(): Menu? = null
+
+        override fun getTitle(): CharSequence? = null
+
+        override fun getSubtitle(): CharSequence? = null
+
+        override fun getCustomView(): View? = null
+
+        override fun getMenuInflater(): MenuInflater? = null
     }
 
     @Test

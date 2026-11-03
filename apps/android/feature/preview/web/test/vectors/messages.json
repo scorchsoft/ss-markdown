@@ -28,6 +28,7 @@
     "tableNav": { "type": "tableNav", "direction": "next" },
     "tableOp": { "type": "tableOp", "op": { "kind": "align", "align": "center" } },
     "endEditing": { "type": "endEditing" },
+    "pastePlain": { "type": "pastePlain", "text": "**a** b", "html": "<b>a</b> b" },
     "exportImage": { "type": "exportImage", "requestId": 7, "line": 3, "format": "png", "scale": 2 },
     "preparePrint": { "type": "preparePrint", "requestId": 4 },
     "finishPrint": { "type": "finishPrint" },

@@ -246,7 +246,7 @@ class CodeInputConnection internal constructor(
      */
     override fun performContextMenuAction(id: Int): Boolean {
         val key = CONTEXT_MENU_KEYS[id] ?: return false
-        val shift = if (id == android.R.id.redo) KeyEvent.META_SHIFT_ON else 0
+        val shift = if (id == android.R.id.redo || id == android.R.id.pasteAsPlainText) KeyEvent.META_SHIFT_ON else 0
         return sendKeyEvent(KeyEvent(0, 0, KeyEvent.ACTION_DOWN, key, 0, KeyEvent.META_CTRL_ON or shift))
     }
 
@@ -273,13 +273,14 @@ class CodeInputConnection internal constructor(
         /** Enough text before the caret to see a sentence end for auto-capitalisation. */
         const val CAPS_CONTEXT = 64
 
-        /** `performContextMenuAction` ids and the Ctrl key that does the same (redo is Ctrl+Shift+Z). */
+        /** `performContextMenuAction` ids and the Ctrl key that does the same (redo and plain paste add Shift). */
         val CONTEXT_MENU_KEYS =
             mapOf(
                 android.R.id.selectAll to KeyEvent.KEYCODE_A,
                 android.R.id.cut to KeyEvent.KEYCODE_X,
                 android.R.id.copy to KeyEvent.KEYCODE_C,
                 android.R.id.paste to KeyEvent.KEYCODE_V,
+                android.R.id.pasteAsPlainText to KeyEvent.KEYCODE_V,
                 android.R.id.undo to KeyEvent.KEYCODE_Z,
                 android.R.id.redo to KeyEvent.KEYCODE_Z,
             )

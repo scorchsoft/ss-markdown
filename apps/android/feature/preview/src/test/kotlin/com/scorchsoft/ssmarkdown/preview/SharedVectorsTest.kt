@@ -139,6 +139,7 @@ class SharedVectorsTest {
             "tableNav" to HostMessage.TableNav(next = true),
             "tableOp" to HostMessage.Table(TableOp.Align(TableAlign.CENTER)),
             "endEditing" to HostMessage.EndEditing,
+            "pastePlain" to HostMessage.PastePlain("**a** b", "<b>a</b> b"),
             "exportImage" to HostMessage.ExportImage(7, 3, png = true, scale = 2),
             "preparePrint" to HostMessage.PreparePrint(4),
             "finishPrint" to HostMessage.FinishPrint,

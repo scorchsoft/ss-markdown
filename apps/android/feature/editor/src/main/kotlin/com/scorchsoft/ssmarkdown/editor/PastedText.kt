@@ -1,27 +1,24 @@
 package com.scorchsoft.ssmarkdown.editor
 
-import android.text.Html
 import com.scorchsoft.ssmarkdown.markdown.edit.DocumentStyle
 import com.scorchsoft.ssmarkdown.markdown.edit.EditCommand
 import com.scorchsoft.ssmarkdown.markdown.edit.ExistingLink
 import com.scorchsoft.ssmarkdown.markdown.edit.FenceStates
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
+import com.scorchsoft.ssmarkdown.markdown.paste.PasteClip
 import com.scorchsoft.ssmarkdown.text.PieceTree
 
 /**
- * What a paste in Code puts in the text (docs/ux-spec.md, "Paste"). Code is
- * raw text, so a clip goes in as copied: only what cannot be text is
- * changed here (line endings are the document's own job).
+ * What a paste in Code puts in the text (docs/ux-spec.md, "Copy and
+ * paste"). Code is raw text, so plain text goes in as copied: only what
+ * cannot be text is changed here (line endings are the document's own
+ * job). HTML goes in as Markdown.
  */
 internal object PastedText {
     private const val NUL = '\u0000'
     private const val BOM = '\uFEFF'
 
-    /** The object-replacement char `Html.fromHtml` leaves where a picture was. */
-    private const val OBJECT = '\uFFFC'
-
     private val webAddress = Regex("""^https?://\S+$""", RegexOption.IGNORE_CASE)
-    private val hidden = Regex("""<(script|style|head|template)\b[\s\S]*?</\1\s*>""", RegexOption.IGNORE_CASE)
 
     /**
      * [text] without NUL (a NUL in the first 64K chars made the saved file
@@ -35,16 +32,33 @@ internal object PastedText {
     }
 
     /**
-     * The words of an HTML-only clip (a copy from an app that set no plain
-     * text), never its tags: scripts, styles and the head are dropped,
-     * pictures leave nothing, and no picture is ever fetched.
+     * What a paste of a clip with [plain] text and/or [html] inserts
+     * (docs/ux-spec.md, "Copy and paste"): with [plainOnly], only the words
+     * ([PasteClip.words]); HTML as Markdown ([PasteClip.content]), or its
+     * plain text inside a code block ([inCode]); plain text as it is. Runs
+     * off the main thread for HTML and large clips.
      */
-    fun fromHtml(html: String): String =
-        Html
-            .fromHtml(html.replace(hidden, ""), Html.FROM_HTML_MODE_LEGACY)
-            .toString()
-            .filterNot { it == OBJECT }
-            .trim('\n')
+    fun forClip(
+        plain: CharSequence?,
+        html: String?,
+        plainOnly: Boolean,
+        inCode: Boolean,
+    ): CharSequence {
+        val text = plain?.toString()?.takeIf { it.isNotEmpty() }
+        return when {
+            plainOnly -> PasteClip.words(text, html)
+            html == null -> plain ?: ""
+            inCode -> text ?: PasteClip.words(null, html)
+            else -> PasteClip.content(text, html).text
+        }
+    }
+
+    /** True when the caret's line is inside a fenced code block, where HTML pastes as its plain text. */
+    fun inCode(view: MarkdownCodeView): Boolean {
+        val text = view.session.document.text
+        val line = text.positionAt(view.session.selectionStart).line
+        return view.fenceStates().roleAt(text.lineStartOffset(line)).isCode
+    }
 
     /**
      * `[selection](address)` when [clip] is one bare http(s) address and

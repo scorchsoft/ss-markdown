@@ -5,7 +5,8 @@ import {
     escapePasted,
     linkFor,
     pasteMarkdown,
-    pastePlain,
+    pasteText,
+    pasteWords,
     renumberAfter,
     type PasteTarget,
 } from "../../src/core/paste";
@@ -58,48 +59,83 @@ describe("escapePasted", () => {
     });
 });
 
-describe("pastePlain", () => {
+describe("pasteWords (Paste as plain text)", () => {
     it("cleans line endings, NUL and a leading BOM", () => {
         expect(cleanClip("\uFEFFa\r\nb\rc\0d")).toBe("a\nb\ncd");
     });
 
     it("makes paragraphs of lines in a paragraph, escaping each new line's start", () => {
-        expect(pastePlain("one *a*\r\n\r\n- two\n# three\n", para)).toBe("one \\*a\\*\n\n\\- two\n\n\\# three");
+        expect(pasteWords("one *a*\r\n\r\n- two\n# three\n", para)).toBe("one \\*a\\*\n\n\\- two\n\n\\# three");
     });
 
     it("escapes the first line's block syntax only where it starts the block", () => {
-        expect(pastePlain("# x", para)).toBe("# x");
-        expect(pastePlain("# x", { ...para, line: "- ", atBlockStart: true })).toBe("\\# x");
+        expect(pasteWords("# x", para)).toBe("# x");
+        expect(pasteWords("# x", { ...para, line: "- ", atBlockStart: true })).toBe("\\# x");
     });
 
     const list = { kind: "listItem", inTable: false, atBlockStart: false, atLineEnd: true } as const;
 
     it("EB-CLIP-08: lines join a list item as continuation lines, escaped, indented to its text (D10)", () => {
-        expect(pastePlain("a\nb\n# c", { ...list, line: "- one" })).toBe("a\n  b\n  \\# c");
-        expect(pastePlain("a\nb", { ...list, line: "10) ten" })).toBe("a\n    b");
-        expect(pastePlain("a\nb", { ...list, line: "> - [x] q" })).toBe("a\n>   b");
-    });
-
-    it("EB-CLIP-07: a Markdown list becomes items of this list, split at the caret (D10)", () => {
-        expect(pastePlain("- a\n- *b*", { ...list, line: "- one" })).toBe("\n- a\n- *b*");
-        expect(pastePlain("* a\n  more\n* b", { ...list, line: "2) two" })).toBe("\n3) a\n   more\n4) b");
-        expect(pastePlain("1. a\n2. b", { ...list, line: "- [ ] t", atLineEnd: false })).toBe(
-            "\n- [ ] a\n- [ ] b\n- [ ] ",
-        );
-        expect(pastePlain("- [x] a", { ...list, line: "- [ ] t" })).toBe("\n- [x] a");
-        expect(pastePlain("- a\n- b", { ...list, line: "- ", atBlockStart: true })).toBe("a\n- b");
+        expect(pasteWords("a\nb\n# c", { ...list, line: "- one" })).toBe("a\n  b\n  \\# c");
+        expect(pasteWords("a\nb", { ...list, line: "10) ten" })).toBe("a\n    b");
+        expect(pasteWords("a\nb", { ...list, line: "> - [x] q" })).toBe("a\n>   b");
+        // Words that look like a list stay words.
+        expect(pasteWords("- a\n- b", { ...list, line: "- one" })).toBe("- a\n  \\- b");
     });
 
     it("keeps quoted lines quoted", () => {
-        expect(pastePlain("a\nb", { ...para, line: "> quoted" })).toBe("a\n>\n> b");
+        expect(pasteWords("a\nb", { ...para, line: "> quoted" })).toBe("a\n>\n> b");
     });
 
     it("puts code in verbatim", () => {
-        expect(pastePlain("  *x*\r\n\n# y", { ...para, kind: "code" })).toBe("  *x*\n\n# y");
+        expect(pasteWords("  *x*\r\n\n# y", { ...para, kind: "code" })).toBe("  *x*\n\n# y");
     });
 
     it("EB-TABLE-07: keeps a table cell on one line, lines joined by <br>, pipes escaped", () => {
-        expect(pastePlain("a | b\nc *d*", { ...para, inTable: true })).toBe("a \\| b<br>c \\*d\\*");
+        expect(pasteWords("a | b\nc *d*", { ...para, inTable: true })).toBe("a \\| b<br>c \\*d\\*");
+        expect(pasteWords("A\tB", { ...para, inTable: true })).toBe("A\tB");
+    });
+});
+
+describe("pasteText (a normal paste: Markdown kept literally, EB-CLIP-06)", () => {
+    const list = { kind: "listItem", inTable: false, atBlockStart: false, atLineEnd: true } as const;
+
+    it("keeps Markdown and every other character as written", () => {
+        expect(pasteText("x *y* _z_ [w] `v` snake_case $5", para)).toBe("x *y* _z_ [w] `v` snake_case $5");
+        expect(pasteText("# x", para)).toBe("\n\n# x");
+        expect(pasteText("# x", { ...para, line: "", atBlockStart: true })).toBe("# x");
+    });
+
+    it("makes paragraphs of plain prose lines, as Enter would", () => {
+        expect(pasteText("one\r\n\r\ntwo\n", para)).toBe("one\n\ntwo");
+        expect(pasteText("a\nb", { ...para, line: "> quoted" })).toBe("a\n>\n> b");
+    });
+
+    it("gives Markdown blocks their own place, quoted in a quote", () => {
+        expect(pasteText("one\n- two", para)).toBe("\n\none\n- two");
+        expect(pasteText("one\n- two", { ...para, atLineEnd: false })).toBe("\n\none\n- two\n\n");
+        expect(pasteText("**a**\n\n- b", { ...para, line: "> quoted" })).toBe("\n>\n> **a**\n>\n> - b");
+        expect(pasteText("- b", { ...para, line: "> ", atBlockStart: true, atLineEnd: false })).toBe("- b\n>\n> ");
+    });
+
+    it("EB-CLIP-07/08: a Markdown list becomes items, other lines continuation lines (D10)", () => {
+        expect(pasteText("- a\n- *b*", { ...list, line: "- one" })).toBe("\n- a\n- *b*");
+        expect(pasteText("* a\n  more\n* b", { ...list, line: "2) two" })).toBe("\n3) a\n   more\n4) b");
+        expect(pasteText("1. a\n2. b", { ...list, line: "- [ ] t", atLineEnd: false })).toBe(
+            "\n- [ ] a\n- [ ] b\n- [ ] ",
+        );
+        expect(pasteText("- [x] a", { ...list, line: "- [ ] t" })).toBe("\n- [x] a");
+        expect(pasteText("- a\n- b", { ...list, line: "- ", atBlockStart: true })).toBe("a\n- b");
+        expect(pasteText("a\n**b**\n# c", { ...list, line: "- one" })).toBe("a\n  **b**\n  # c");
+    });
+
+    it("EB-TABLE-07: keeps a cell on one line, escaping only its pipes", () => {
+        expect(pasteText("a | b\n**c**", { ...para, inTable: true })).toBe("a \\| b<br>**c**");
+        expect(pasteText("a \\| b", { ...para, inTable: true })).toBe("a \\| b");
+    });
+
+    it("puts code in verbatim", () => {
+        expect(pasteText("  *x*\r\n\n# y", { ...para, kind: "code" })).toBe("  *x*\n\n# y");
     });
 });
 

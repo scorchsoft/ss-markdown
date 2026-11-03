@@ -18,7 +18,9 @@ import {
 import type { FormatAction } from "../../protocol";
 import { escapeTyped } from "../../core/minimalEdit";
 import type { SourceDoc, SourceEdit } from "../../core/sourceDoc";
-import { atBlockStart, linkFor, pasteMarkdown, pastePlain, renumberAfter } from "../../core/paste";
+import { atBlockStart, linkFor, pasteMarkdown, pasteText, pasteWords, renumberAfter } from "../../core/paste";
+import { clipContent, clipWords } from "../../core/pasteClip";
+import { hasMarkdown, plainWords } from "../../core/plainWords";
 import { OWN_HTML } from "./clip";
 import type { SectionView } from "../sectionView";
 import { pointToSource, runText, sectionOffset, shiftRuns, snapshotRuns, type RunRecord } from "./runs";
@@ -49,6 +51,8 @@ export interface SessionHost {
 export class EditSession {
     private runs: Map<HTMLElement, RunRecord>;
     private timer: ReturnType<typeof setTimeout> | null = null;
+    /** Ctrl+Shift+V was pressed: the paste it starts is "Paste as plain text" (Chromium's paste-and-match-style). */
+    private plainNext = false;
     private readonly guard: StrayGuard;
     private readonly onInput = (): void => this.schedule();
     private readonly onBeforeInput = (e: InputEvent): void => this.beforeInput(e);
@@ -210,7 +214,13 @@ export class EditSession {
         }
         if (type === "insertFromPaste" || type === "insertFromDrop") {
             e.preventDefault();
-            this.paste(e.dataTransfer);
+            const plain = this.plainNext && type === "insertFromPaste";
+            this.plainNext = false;
+            this.insertClip(
+                e.dataTransfer?.getData("text/plain") ?? "",
+                e.dataTransfer?.getData("text/html") ?? "",
+                plain,
+            );
             return;
         }
         const target = e.getTargetRanges()[0];
@@ -309,6 +319,12 @@ export class EditSession {
      * moves focus out of the text, which would take the keyboard away.
      */
     private keyDown(e: KeyboardEvent): void {
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "v") {
+            // Chromium pastes plain text next, in this same task; its paste carries no sign of being plain.
+            this.plainNext = true;
+            setTimeout(() => (this.plainNext = false), 0);
+            return;
+        }
         if (e.key !== "Tab" || e.ctrlKey || e.altKey || e.metaKey || this.inTable) return;
         e.preventDefault();
         if (!e.shiftKey && this.blockKind() === "paragraph") return;
@@ -327,15 +343,16 @@ export class EditSession {
     }
 
     /**
-     * A paste or a drop (docs/ux-spec.md, "Paste"). Every paste in Preview
-     * enters here, plain text or HTML, from the menu, the keyboard or
-     * Chromium's own "Paste as plain text". Plain text is escaped and its
-     * lines become what Enter makes in this block; Preview's own copy goes
-     * in as Markdown; a bare web address over selected text links it.
+     * A paste or a drop (docs/ux-spec.md, "Copy and paste"), from the menu,
+     * the keyboard, a drop or Kotlin's "Paste as plain text". A normal paste
+     * is Markdown kept literally: plain text (a `.md` file's Markdown),
+     * Preview's own copy and HTML converted to Markdown all render
+     * formatted, fitted to the block they land in. [plainOnly] inserts only
+     * the words, escaped so they show exactly as pasted. A bare web address
+     * over selected text links it (never for a plain paste, decision D9).
      */
-    private paste(data: DataTransfer | null): void {
-        const html = data?.getData("text/html") ?? "";
-        const plain = data?.getData("text/plain") || htmlText(html);
+    insertClip(plainData: string, html: string, plainOnly: boolean): void {
+        const plain = plainData === "" ? null : plainData;
         this.flush();
         const sel = window.getSelection();
         const ends = [sel?.anchorNode, sel?.focusNode].map((n) => (n instanceof Element ? n : n?.parentElement));
@@ -359,10 +376,22 @@ export class EditSession {
             atLineEnd: r.to - doc.lineStart(lastLine) === (doc.lines[lastLine] ?? "").length,
         };
         const own = html.includes(OWN_HTML);
-        let insert = own ? pasteMarkdown(plain, target) : pastePlain(plain, target);
+        let insert: string;
+        if (plainOnly) {
+            insert = pasteWords(own ? plainWords(plain ?? "") : clipWords(plain, html || null), target);
+        } else if (own) {
+            insert = pasteMarkdown(plain ?? "", target);
+        } else if (kind === "code") {
+            insert = pasteText(plain ?? clipWords(null, html || null), target);
+        } else {
+            const clip = clipContent(plain, html || null);
+            insert = pasteText(clip.text, target, clip.fromHtml || hasMarkdown(clip.text));
+        }
         const inCode = ends.some((n) => n?.closest("a, code"));
         const link =
-            kind !== "code" && !inCode ? linkFor(span.slice(r.from - lineStart, r.to - lineStart), plain) : null;
+            !plainOnly && kind !== "code" && !inCode
+                ? linkFor(span.slice(r.from - lineStart, r.to - lineStart), plain ?? "")
+                : null;
         if (r.from === r.to && insert.length === 0) return;
         const edits: SourceEdit[] = [{ from: r.from, to: r.to, insert }];
         if (link && r.to > r.from) {
@@ -376,13 +405,4 @@ export class EditSession {
         }
         this.host.commitAndRerender(edits, r.from + insert.length);
     }
-}
-
-/** The words of an HTML-only clip, one line per block; parsed inert, so nothing runs or loads. */
-function htmlText(html: string): string {
-    if (!html) return "";
-    const body = new DOMParser().parseFromString(html, "text/html").body;
-    body.querySelectorAll("script, style, template").forEach((e) => e.remove());
-    body.querySelectorAll("br, p, div, li, tr, h1, h2, h3, h4, h5, h6, pre, blockquote").forEach((e) => e.after("\n"));
-    return body.textContent ?? "";
 }

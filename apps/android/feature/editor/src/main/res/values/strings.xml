@@ -5,4 +5,6 @@
     <!-- Custom accessibility actions on the Code pane: move the cursor to a heading. -->
     <string name="editor_a11y_next_heading">Next heading</string>
     <string name="editor_a11y_previous_heading">Previous heading</string>
+    <!-- Text toolbar item after Paste in the Code pane and in Preview: pastes only the words of a formatted clip. -->
+    <string name="editor_paste_plain">Paste as plain text</string>
 </resources>

@@ -289,6 +289,11 @@ export class Editor implements SessionHost {
         this.flushPendingCaret();
     }
 
+    /** "Paste as plain text" from Kotlin's menu item or Ctrl+Shift+V: the words of the clip, at the selection. */
+    pastePlain(text: string, html: string): void {
+        this.session?.insertClip(text, html, true);
+    }
+
     nextCell(): void {
         this.moveCell("next");
     }

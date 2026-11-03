@@ -4,7 +4,10 @@ import android.content.Context
 import android.graphics.Color
 import android.os.SystemClock
 import android.util.AttributeSet
+import android.view.ActionMode
+import android.view.KeyEvent
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
 import android.widget.FrameLayout
@@ -254,6 +257,43 @@ class PreviewView
             val waiting = htmlRequests.values.toList()
             htmlRequests.clear()
             waiting.forEach { it(null) }
+        }
+
+        /**
+         * The WebView's text-selection menu, with "Paste as plain text" made
+         * ours ([PlainPasteCallback]): after Paste, for a formatted clip.
+         */
+        override fun startActionModeForChild(
+            originalView: View,
+            callback: ActionMode.Callback,
+            type: Int,
+        ): ActionMode? {
+            val wrapped =
+                PlainPasteCallback(
+                    delegate = callback,
+                    resources = resources,
+                    isRich = { PlainPasteCallback.clipIsRich(context) },
+                    pastePlain = ::pastePlain,
+                    schedule = { delay, action -> postDelayed(action, delay) },
+                )
+            return super.startActionModeForChild(originalView, wrapped, type)
+        }
+
+        /** Ctrl+Shift+V while the page has focus: "Paste as plain text", as in Code. */
+        override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+            val plainPaste =
+                event.keyCode == KeyEvent.KEYCODE_V && event.isCtrlPressed && event.isShiftPressed &&
+                    !event.isAltPressed
+            if (!plainPaste || webView?.hasFocus() != true) return super.dispatchKeyEvent(event)
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) pastePlain()
+            return true
+        }
+
+        /** Sends the clip to the page, which inserts its words at the selection being edited. */
+        fun pastePlain() {
+            val (text, html) = PlainPasteCallback.readClip(context) ?: return
+            if (text.isEmpty() && html.isEmpty()) return
+            send(HostMessage.PastePlain(text, html))
         }
 
         override fun dispatchTouchEvent(event: MotionEvent): Boolean {

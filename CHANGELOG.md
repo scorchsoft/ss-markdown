@@ -38,6 +38,17 @@ release may change behaviour.
 - Text copied in Preview and pasted back keeps its formatting: the copy
   carries the Markdown source, so bold stays bold and a copied list
   pastes as a list.
+- Paste keeps formatting. Text copied from Chrome, Gmail, Google Docs or
+  Word pastes as Markdown in Code and Preview: headings, bold, italic,
+  strikethrough, code (with its language), links, web pictures, nested
+  and numbered lists, task lists, quotes, tables and rules. Scripts,
+  styles, hidden text and unsafe links are left out. Markdown copied from
+  a `.md` file pastes into Preview as Markdown, so it shows formatted.
+- **Paste as plain text**, after Paste in the text toolbar of Code and
+  Preview when the clip is formatted, and Ctrl+Shift+V on a keyboard:
+  only the words go in, with no Markdown symbols. List items are lines of
+  their own, a table's cells are separated by tabs, and code stays as
+  written. Each paste is one Undo step.
 - Fast scroll in Code and Preview (and each Split pane): scroll a long
   document and a slim thumb appears at the right edge. Drag it to jump
   through the file; a bubble beside it names the section you're in, with

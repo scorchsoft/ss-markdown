@@ -108,6 +108,12 @@ export type HostMessage =
     | { readonly type: "tableNav"; readonly direction: "prev" | "next" }
     | { readonly type: "tableOp"; readonly op: TableOp }
     | { readonly type: "endEditing" }
+    /**
+     * "Paste as plain text" from the selection toolbar or Ctrl+Shift+V
+     * (Kotlin reads the clipboard): [text] and [html] are the clip's two
+     * flavours; only their words go in, at the selection being edited.
+     */
+    | { readonly type: "pastePlain"; readonly text: string; readonly html: string }
     | {
           readonly type: "exportImage";
           readonly requestId: number;

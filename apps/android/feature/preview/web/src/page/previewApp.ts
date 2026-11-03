@@ -167,6 +167,9 @@ export class PreviewApp {
             case "tableOp":
                 this.editor.tableOp(m.op);
                 break;
+            case "pastePlain":
+                this.editor.pastePlain(m.text, m.html);
+                break;
             case "endEditing":
                 this.editor.end();
                 (document.activeElement as HTMLElement | null)?.blur();

@@ -1,11 +1,15 @@
 /**
- * What a paste in Preview writes into the source (docs/ux-spec.md, "Paste").
- * Plain text is text: syntax in it is escaped, and its lines become what
- * Enter makes in the block it lands in. Markdown copied from Preview itself
- * goes in as Markdown, so formatting survives a copy and paste.
+ * What a paste in Preview writes into the source (docs/ux-spec.md, "Copy
+ * and paste"). A normal paste is Markdown kept literally (EB-CLIP-06): text
+ * copied from a `.md` file, Preview's own copy and HTML converted to
+ * Markdown all go in as written, so they render formatted; only what would
+ * break the block it lands in is changed (a table cell's `|` and line
+ * breaks, a list item's or a quote's later lines). "Paste as plain text"
+ * inserts words: syntax in them is escaped, so they show exactly as pasted.
  */
 import { escapeLineStart } from "./minimalEdit";
 import { newlineInsert, type BlockKind } from "./newline";
+import { hasMarkdown } from "./plainWords";
 import type { SourceEdit } from "./sourceDoc";
 
 export interface PasteTarget {
@@ -56,29 +60,72 @@ export function atBlockStart(line: string, col: number): boolean {
 const ITEM = /^\s*(?:[-+*]|\d{1,9}[.)])\s+/;
 
 /**
- * Plain [text] as source for [target] (docs/editing-behaviours.md, EB-CLIP):
- * verbatim in code; one line in a table cell, its lines joined by `<br>` and
- * `|` escaped; in a list item, a Markdown list becomes items of this list
- * and other lines join the item as continuation lines (decision D10);
- * elsewhere each line is escaped and joined by what Enter inserts there,
- * so lines become paragraphs, or quoted paragraphs in a quote.
+ * Words for "Paste as plain text" as source for [target]
+ * (docs/editing-behaviours.md, EB-CLIP-14): verbatim in code; one line in a
+ * table cell, its lines joined by `<br>` and `|` escaped; elsewhere each
+ * line is escaped, so it shows exactly as pasted, and the lines are joined
+ * by what Enter inserts there: paragraphs, quoted paragraphs in a quote,
+ * continuation lines in a list item (decision D10).
  */
-export function pastePlain(text: string, target: PasteTarget): string {
+export function pasteWords(text: string, target: PasteTarget): string {
     const clean = cleanClip(text);
     if (target.kind === "code") return clean;
     const lines = clean.split("\n").filter((l) => l.trim());
     if (target.inTable) {
         return lines.map((l) => escapePasted(l.trim(), false).replace(/\|/g, "\\|")).join("<br>");
     }
-    if (target.kind === "listItem" && isList(lines)) return listItems(lines, target);
-    // A paragraph's or quote's next line is what Enter writes; an item's is a line indented to its text (D10).
-    const join = target.kind === "listItem" ? "\n" + under(target.line) : newlineInsert(target.line);
     return lines
         .map((raw, i) => {
             const start = i > 0 || target.atBlockStart;
             return escapePasted(start ? raw.trim() : raw.trimEnd(), start);
         })
-        .join(join);
+        .join(joinFor(target));
+}
+
+/**
+ * A normal paste of [text] as source for [target] (EB-CLIP-06 to -13): the
+ * text is Markdown and goes in as written. Code gets it verbatim; a table
+ * cell gets one line (`<br>` between lines, `|` escaped so the table never
+ * breaks); in a list item a Markdown list becomes items of this list and
+ * other lines join the item as continuation lines (decision D10). Text with
+ * no Markdown in it is prose: its lines become what Enter makes here.
+ * [markdown] text with block syntax or several lines gets blocks of its
+ * own, its lines quoted in a quote.
+ */
+export function pasteText(text: string, target: PasteTarget, markdown = hasMarkdown(text)): string {
+    const clean = cleanClip(text);
+    if (target.kind === "code") return clean;
+    const lines = clean.split("\n").filter((l) => l.trim());
+    if (target.inTable) return lines.map((l) => l.trim().replace(/(?<!\\)\|/g, "\\|")).join("<br>");
+    if (target.kind === "listItem" && isList(lines)) return listItems(lines, target);
+    if (target.kind === "listItem" || !markdown) {
+        return lines.map((raw, i) => (i > 0 || target.atBlockStart ? raw.trim() : raw.trimEnd())).join(joinFor(target));
+    }
+    return ownBlocks(clean.replace(/^\n+|\n+$/g, ""), target);
+}
+
+/** What joins pasted lines in [target]: Enter's new paragraph, or an item's continuation line (D10). */
+function joinFor(target: PasteTarget): string {
+    return target.kind === "listItem" ? "\n" + under(target.line) : newlineInsert(target.line);
+}
+
+const QUOTE_PREFIX = /^((?: {0,3}>[ \t]?)+)/;
+
+/**
+ * Markdown with block syntax or several lines in blocks of its own, so a
+ * copied list pastes as a list after a paragraph; inside a quote every
+ * line keeps the quote's `>`. Inline Markdown on one line goes in as is.
+ */
+function ownBlocks(md: string, target: PasteTarget): string {
+    if (!/\n|^\s*([-+*>]|#{1,6}|\d{1,9}[.)])(\s|$)/.test(md)) return md;
+    const quote = QUOTE_PREFIX.exec(target.line)?.[1];
+    if (!quote) return (target.atBlockStart ? "" : "\n\n") + md + (target.atLineEnd ? "" : "\n\n");
+    const bare = quote.trimEnd();
+    const body = md
+        .split("\n")
+        .map((l, i) => (i === 0 && target.atBlockStart ? l : l.trim() ? quote + l : bare))
+        .join("\n");
+    return (target.atBlockStart ? "" : `\n${bare}\n`) + body + (target.atLineEnd ? "" : `\n${bare}\n${quote}`);
 }
 
 const ITEM_PREFIX = /^(\s*(?:>\s?)*)(\s*)([-+*]|(\d{1,9})([.)]))(\s+)(\[[ xX]\]\s+)?/;
@@ -130,20 +177,9 @@ function listItems(lines: readonly string[], target: PasteTarget): string {
     return target.atLineEnd ? out : out + next();
 }
 
-/**
- * Markdown copied from Preview, for [target]: a table cell gets one line
- * (`<br>` between lines) with its pipes escaped; a list into a list item
- * becomes its items; other Markdown with block syntax or several lines
- * gets blocks of its own, so a copied list pastes as a list after a paragraph.
- */
+/** Markdown copied from Preview, for [target]: [pasteText] with the text taken as Markdown. */
 export function pasteMarkdown(markdown: string, target: PasteTarget): string {
-    const md = cleanClip(markdown).replace(/\n+$/, "");
-    if (target.kind === "code") return md;
-    if (target.inTable) return md.replace(/\n+/g, "<br>").replace(/(^|[^\\])\|/g, "$1\\|");
-    const lines = md.split("\n").filter((l) => l.trim());
-    if (target.kind === "listItem" && isList(lines)) return listItems(lines, target);
-    if (!/\n|^\s*([-+*>]|#{1,6}|\d{1,9}[.)])(\s|$)/.test(md)) return md;
-    return (target.atBlockStart ? "" : "\n\n") + md + (target.atLineEnd ? "" : "\n\n");
+    return pasteText(markdown, target, true);
 }
 
 /**

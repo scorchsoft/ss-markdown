@@ -322,6 +322,22 @@ sealed interface HostMessage {
         override fun writeTo(json: JSONObject) = Unit
     }
 
+    /**
+     * "Paste as plain text" from the selection toolbar or Ctrl+Shift+V: the
+     * clip's [text] and [html] flavours, whose words the page inserts at the
+     * selection being edited (docs/ux-spec.md, "Copy and paste").
+     */
+    data class PastePlain(
+        val text: String,
+        val html: String,
+    ) : HostMessage {
+        override val type = "pastePlain"
+
+        override fun writeTo(json: JSONObject) {
+            json.put("text", text).put("html", html)
+        }
+    }
+
     /** Asks for the diagram at [line] as SVG or a PNG at [scale] (1–3). */
     data class ExportImage(
         val requestId: Int,

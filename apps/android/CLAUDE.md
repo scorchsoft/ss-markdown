@@ -235,3 +235,15 @@ Traps:
   problem at this scale (the APK is about 7 MB); the budget exists to catch
   an accidental dependency, so keep raising it only with a reason here. `cytoscape` is stubbed (mindmap and
   architecture diagrams show a named "not supported" box with Show source).
+- **esbuild target stays `chrome90`.** Paste formatting and plain-text
+  paste (2026-11-03) took the folder from 3,674,849 to 3,692,173 bytes,
+  well inside the budget. `chrome91` would save about 28 KB (optional
+  chaining stops being down-levelled), but no doc or ADR states a minimum
+  WebView, and WebView updates apart from minSdk 29, so the target only
+  moves when a stated minimum allows it.
+- **Paste conversions have a Kotlin twin.** `src/core/htmlToMarkdown.ts`
+  and `plainWords.ts` are written again in core/markdown's `paste/`
+  package (Code pastes without a WebView). Both run
+  `test/vectors/paste-conversions.txt`; change both, regenerate the file
+  with `UPDATE_VECTORS=1 npx vitest run --project unit test/unit/pasteConversions.test.ts`,
+  review the diff, then run `:core:markdown:test`.

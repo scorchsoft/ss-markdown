@@ -88,6 +88,7 @@ export const HOST_TYPES: ReadonlySet<string> = new Set<string>([
     "tableNav",
     "tableOp",
     "endEditing",
+    "pastePlain",
     "exportImage",
     "preparePrint",
     "finishPrint",

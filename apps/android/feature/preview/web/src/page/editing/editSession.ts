@@ -17,7 +17,9 @@ import {
 } from "../../core/newline";
 import type { FormatAction } from "../../protocol";
 import { escapeTyped } from "../../core/minimalEdit";
-import type { SourceEdit } from "../../core/sourceDoc";
+import type { SourceDoc, SourceEdit } from "../../core/sourceDoc";
+import { atBlockStart, linkFor, pasteMarkdown, pastePlain } from "../../core/paste";
+import { OWN_HTML } from "./clip";
 import type { SectionView } from "../sectionView";
 import { pointToSource, runText, sectionOffset, shiftRuns, snapshotRuns, type RunRecord } from "./runs";
 import { StrayGuard } from "./strayGuard";
@@ -26,6 +28,7 @@ export const FLUSH_DELAY_MS = 150;
 
 /** What the session needs from the editor that owns it. */
 export interface SessionHost {
+    readonly doc: SourceDoc;
     lineTextAt(offset: number): string;
     /** The source offset where the line holding [offset] starts. */
     lineStartAt(offset: number): number;
@@ -207,8 +210,7 @@ export class EditSession {
         }
         if (type === "insertFromPaste" || type === "insertFromDrop") {
             e.preventDefault();
-            const text = e.dataTransfer?.getData("text/plain") ?? "";
-            this.structural(this.escapePasted(text), null);
+            this.paste(e.dataTransfer);
             return;
         }
         const target = e.getTargetRanges()[0];
@@ -313,12 +315,51 @@ export class EditSession {
         return "paragraph";
     }
 
-    private escapePasted(text: string): string {
-        if (this.blockKind() === "code") return text;
-        return text
-            .replace(/\r\n?/g, "\n")
-            .split("\n")
-            .map((line, i) => escapeTyped(line, { inTable: this.inTable, atLineStart: i > 0 }))
-            .join(this.inTable ? " " : "\n");
+    /**
+     * A paste or a drop (docs/ux-spec.md, "Paste"). Every paste in Preview
+     * enters here, plain text or HTML, from the menu, the keyboard or
+     * Chromium's own "Paste as plain text". Plain text is escaped and its
+     * lines become what Enter makes in this block; Preview's own copy goes
+     * in as Markdown; a bare web address over selected text links it.
+     */
+    private paste(data: DataTransfer | null): void {
+        const html = data?.getData("text/html") ?? "";
+        const plain = data?.getData("text/plain") ?? "";
+        this.flush();
+        const sel = window.getSelection();
+        const ends = [sel?.anchorNode, sel?.focusNode].map((n) => (n instanceof Element ? n : n?.parentElement));
+        const r = ends.some((n) => n?.closest("[contenteditable=false]")) ? null : this.selectionRange();
+        if (!r) {
+            // Nowhere in the source to put it, or inside text that cannot be edited: say so, never put it elsewhere.
+            this.host.refuse();
+            return;
+        }
+        const doc = this.host.doc;
+        const line = doc.lineAt(r.from);
+        const lineStart = doc.lineStart(line);
+        const lastLine = doc.lineAt(r.to);
+        const span = doc.lines.slice(line, lastLine + 1).join("\n");
+        const kind = this.blockKind();
+        const target = {
+            kind,
+            inTable: this.inTable,
+            line: doc.lines[line] ?? "",
+            atBlockStart: atBlockStart(span, r.from - lineStart),
+            atLineEnd: r.to - doc.lineStart(lastLine) === (doc.lines[lastLine] ?? "").length,
+        };
+        const own = html.includes(OWN_HTML);
+        let insert = own ? pasteMarkdown(plain, target) : pastePlain(plain, target);
+        const inCode = ends.some((n) => n?.closest("a, code"));
+        const link =
+            kind !== "code" && !inCode ? linkFor(span.slice(r.from - lineStart, r.to - lineStart), plain) : null;
+        if (r.from === r.to && insert.length === 0) return;
+        const edits: SourceEdit[] = [{ from: r.from, to: r.to, insert }];
+        if (link && r.to > r.from) {
+            // Two steps, so the first Undo leaves the plain paste (decision D9, EB-UNDO-07).
+            this.host.commit(edits);
+            edits[0] = { from: r.from, to: r.from + insert.length, insert: link };
+            insert = link;
+        }
+        this.host.commitAndRerender(edits, r.from + insert.length);
     }
 }

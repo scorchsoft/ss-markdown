@@ -62,8 +62,18 @@ const INLINE_SYNTAX = /[\\`*_[\]<]/g;
 export function escapeTyped(text: string, ctx: EscapeContext): string {
     let out = text.replace(INLINE_SYNTAX, (c) => `\\${c}`);
     if (ctx.inTable) out = out.replace(/\|/g, "\\|");
-    if (ctx.atLineStart) out = out.replace(/^([#>+-]|\d+[.)])/, "\\$1");
-    return out;
+    return ctx.atLineStart ? escapeLineStart(out) : out;
+}
+
+/**
+ * Block syntax at a line start: `# `, `- `, `+ `, `> ` and a `---` rule get a
+ * backslash, and a number's `.` or `)` does (`1\. `): a backslash before a
+ * digit is no escape, and `\1. x` showed its backslash.
+ */
+export function escapeLineStart(text: string): string {
+    return text
+        .replace(/^(?:[#+-](?=\s|$)|>|-(?=(?:\s*-){2,}\s*$))/, "\\$&")
+        .replace(/^(\d{1,9})(?=[.)](?:\s|$))/, "$1\\");
 }
 
 /** A no-break space, as Chrome shows a space at a text run's edge. */

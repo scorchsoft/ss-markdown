@@ -32,6 +32,12 @@ release may change behaviour.
   YAML), and a `}`, `]` or `)` typed first on a line takes one off.
 - In Preview, Enter on a second empty line at the end of a code block
   leaves the block.
+
+- Pasting a web address over selected text makes it a link, in Code and
+  Preview; the first Undo leaves the address as plain pasted text.
+- Text copied in Preview and pasted back keeps its formatting: the copy
+  carries the Markdown source, so bold stays bold and a copied list
+  pastes as a list.
 - Sharing text that is already at the end (or top) of the chosen file no
   longer adds it twice: the share sheet says "This text is already at the
   end of <file>." and offers Open, Add again and Cancel.
@@ -97,6 +103,17 @@ release may change behaviour.
   one joins it.
 - Indent is disabled on a paragraph, where four spaces would have made
   it a code block.
+- Paste in Preview now fits the block it lands in: several lines become
+  paragraphs (quoted ones in a quote), continuation lines or list items in
+  a list, `<br>`-joined text in a table
+  cell, and go in verbatim in code. Only characters that would really
+  turn into formatting are escaped, so `snake_case` and `a * b` paste
+  clean and stay editable, and `# x` pasted at the start of a block no
+  longer becomes a heading.
+- In Code, a clip holding only HTML pasted nothing; it now pastes its text.
+- A pasted NUL character could make the saved file reopen read-only as
+  "not text"; paste now drops NUL and a leading byte-order mark.
+- Typing `1.` at the start of a line in Preview showed a stray backslash.
 - An edit made while a large paste was finishing (Find's Replace) could
   land a few characters off when you had typed during the paste; it now
   lands where it was aimed, and an edit whose text has moved is refused

@@ -3,7 +3,7 @@
  * edits to the document and to Kotlin, and puts the caret back by source
  * offset after a section re-renders.
  */
-import type { SourceEdit } from "../../core/sourceDoc";
+import type { SourceDoc, SourceEdit } from "../../core/sourceDoc";
 import { mapOffset } from "../../core/ot";
 import type { FormatAction, PageMessage, TableOp } from "../../protocol";
 import type { RenderController } from "../controller";
@@ -24,6 +24,7 @@ import {
 } from "./tableEditor";
 import { TableToolbar } from "./tableToolbar";
 import { blockNear, caretAt } from "./tapPoint";
+import { copySelection } from "./clip";
 
 /** Blocks that take a caret. Anything inside a read-only block never does. */
 export const EDITABLE_BLOCK = "p, h1, h2, h3, h4, h5, h6, li, td, th, dt, dd, pre.code-block > code[data-s]";
@@ -53,6 +54,7 @@ export class Editor implements SessionHost {
             more: () => this.tableMenu(),
         });
         document.addEventListener("selectionchange", () => this.onSelectionChange());
+        document.addEventListener("copy", (e) => copySelection(e, this.controller.doc));
     }
 
     get editing(): boolean {
@@ -245,6 +247,10 @@ export class Editor implements SessionHost {
     }
 
     // SessionHost
+
+    get doc(): SourceDoc {
+        return this.controller.doc;
+    }
 
     lineTextAt(offset: number): string {
         const doc = this.controller.doc;

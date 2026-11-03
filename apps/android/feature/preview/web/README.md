@@ -68,6 +68,12 @@ and the caret comes back by source offset after the re-render. Raw HTML,
 footnote and reference definitions, front matter, maths and diagrams are
 read-only with an **Edit in Code** chip.
 
+Paste and copy (`core/paste.ts`, `page/editing/clip.ts`; ux-spec "Copy and
+paste"): every paste enters `EditSession.paste`. Plain text is escaped only
+where it would act and its lines join the way Enter would in that block; a
+selection's copy carries its Markdown source as plain text and its rendering
+as HTML marked `data-ssmd`, and a paste with that mark goes in as Markdown.
+
 Nothing typed is ever left on screen without reaching the source:
 
 - **Read-only inline runs.** Text inside raw inline HTML, autolinks and bare

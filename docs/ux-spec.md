@@ -645,6 +645,64 @@ separate Recent menu.
   A section runs from the heading to the next heading of the same or a
   higher level.
 
+## Copy and paste
+
+Code is the raw text; Preview is the rendering. Each pastes the way its
+surface reads (docs/editing-behaviours.md, EB-CLIP, EB-LINK; the matrix
+tests are `PasteMatrixTest` and `e2e/paste.test.ts`).
+
+**Code.** A paste is the clip's plain text, exactly: CRLF and lone CR
+become the document's line breaks, a NUL is dropped (a saved NUL would
+make the file reopen as "not text") and so is one leading BOM; every other
+character goes in as copied, NBSP, zero-width and bidi marks included.
+Nothing is added or taken away whatever block the caret is in (code,
+list, table, quote): no markers, no escapes. A selection is replaced. The
+caret ends after the paste and the view follows it. A paste over 256K
+characters goes in by slices with progress and is still one undo step. A
+clip with only HTML pastes its words, never its tags. Copy and Cut take
+exactly the selected source; with nothing selected they do nothing.
+
+**Preview.** What is pasted is what shows:
+- **Plain text** is escaped where its characters would become syntax
+  (`*bold*`, `` `x` ``, `[x]`, `~~x~~`, `==x==`, `$x$`, `&amp;`,
+  `:smile:`, and `#`, `-`, `+`, `>`, `1.` or `---` at the start of a
+  block), and only there: `snake_case`, `a * b`, `x < y` and `$5` stay as
+  they are.
+- **Several lines** join the way Enter would there: paragraphs in a
+  paragraph, paragraphs after it in a heading, `>` paragraphs in a quote.
+  In a **list item** (decision D10), a Markdown list on the clipboard
+  becomes items of the same list, the item split at the caret (the items
+  after keep their numbers in the source; the list still shows them in
+  order); other lines join the item as continuation lines indented to its
+  text. In a **table cell** the lines are joined by
+  `<br>` and pipes become `\|`, so the table never breaks. In a **code
+  block** the text goes in verbatim. Blank lines and a trailing line
+  break add nothing.
+- **Copy** of a selection puts its Markdown source on the clipboard as
+  plain text and its rendering as HTML (Cut is still the browser's own:
+  the rendered text). An end at the start or end of a
+  block takes the block's whole line, so a copied list is `- a` lines.
+  A selection with one end inside bold, a link or code and the other
+  outside it is copied by the browser as rendered text instead, so it
+  never carries half of the syntax. **Pasting Preview's own copy** back
+  into Preview goes in as Markdown: bold stays bold, a link stays a link,
+  and a copied list pasted after a paragraph is a list.
+- **HTML from another app** pastes its plain text, escaped as above; a
+  clip with only HTML pastes nothing yet. Converting HTML to Markdown, and
+  a "Paste as plain text" item, are planned (EB-CLIP-13, -14). Chromium's own "Paste as plain text" already
+  reaches the same path.
+- A paste aimed at text Preview cannot edit (maths, an autolink, raw
+  HTML) is refused with the usual message and never lands elsewhere.
+- In **Split**, a Preview paste reaches Code as one undo step.
+
+**A web address pasted over selected text** (both surfaces, decision D9):
+when the clip is one bare `http(s)://` address and the selection is text
+on one line outside code and outside a link, and is not itself an
+address, the selection becomes `[text](address)` (brackets escaped,
+awkward addresses in `<>`). It is two undo steps: the first Undo leaves
+the address pasted as text, the second brings the text back. Anything
+else (no selection, inside code, more than an address) pastes as text.
+
 ## Copy formatted text
 
 What "Copy formatted text" (the Copy chooser, ⋮ → Copy as…, the section

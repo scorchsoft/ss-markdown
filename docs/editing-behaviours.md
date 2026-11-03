@@ -207,7 +207,7 @@ The rules every row inherits, so they are not repeated in each one:
 | EB-CODE-21 | Long code line in Preview | Type at its end | n/a | The block scrolls sideways inside itself and keeps the caret in view | [SSM] ux-spec (wrap modes) | P2 | untested |
 | EB-CODE-22 | ```` ```js ```` | Change the info string | Highlighting switches language | A body edit never loses the info string | brainstorm | P3 | untested |
 | EB-CODE-23 | ``a`b`` selected | Code key | Uses a longer delimiter with padding: ``` ``a`b`` ``` | same | [CMS] §6.1 | P3 | untested |
-| EB-CODE-24 | Paste code into a fenced block | Paste | Pasted literally: no smart quotes, no link conversion, no list continuation, tabs kept | Pasted as plain text into the block, indentation kept | known case; [MK] #2819 | P1 | untested |
+| EB-CODE-24 | Paste code into a fenced block | Paste | Pasted literally: no smart quotes, no link conversion, no list continuation, tabs kept | Pasted as plain text into the block, indentation kept | known case; [MK] #2819 | P1 | `PasteMatrixTest` (FENCE), `e2e/paste.test.ts` (EB-LINK-08 / EB-CODE-24) |
 
 ## Quotes and alerts
 
@@ -258,7 +258,7 @@ The rules every row inherits, so they are not repeated in each one:
 | EB-TABLE-04 | Last cell of the last row | Next cell | Adds a row and moves into it | same | [SSM] ux-spec | P1 | untested |
 | EB-TABLE-05 | Caret in a cell | Enter | Moves to the same column in the next row (adding one at the end); never writes a line break inside the row | Same; Shift+Enter writes `<br>` | [GFM] §4.10 (one row per line); brainstorm | P1 | untested |
 | EB-TABLE-06 | Caret in a cell | Type `\|` | Literal (the user is editing syntax) | Written as `\|` so the cell does not split | [GFM] §4.10, [SSM] ux-spec | P1 | untested |
-| EB-TABLE-07 | Multi-line clipboard | Paste into a cell | Pasted as is | Lines joined with `<br>`, pipes escaped, so the table survives | known case (paste per block) | P1 | untested |
+| EB-TABLE-07 | Multi-line clipboard | Paste into a cell | Pasted as is | Lines joined with `<br>`, pipes escaped, so the table survives | known case (paste per block) | P1 | `unit/paste.test.ts` (EB-TABLE-07), `e2e/paste.test.ts` |
 | EB-TABLE-08 | Padded table | Type in a cell | Nothing re-padded automatically | Only the edited column is re-padded, by display width | [SSM] ux-spec | P2 | untested |
 | EB-TABLE-09 | Only one body row | Delete row | A header-only table remains | same | [SSM] ux-spec | P2 | untested |
 | EB-TABLE-10 | Column | Align centre | Only that column's delimiter changes (`:---:`) | same | [SSM] ux-spec | P2 | untested |
@@ -319,10 +319,10 @@ The rules every row inherits, so they are not repeated in each one:
 | EB-LINK-02 | `is «https://example.com»` | Link | Sheet: address prefilled, text empty; Done with no text writes `[https://example.com](https://example.com)` or the typed text | same | [MTE] ("URL selected"), [SSM] | P1 | untested |
 | EB-LINK-03 | Caret in a bare URL `https://exa‸mple.com` | Link | The whole URL is taken as the address | same | [MTE] ("cursor inside URL") | P2 | untested |
 | EB-LINK-04 | Caret inside `[doc](x)` | Link | "Edit link" sheet prefilled; Remove link leaves `doc` | same | [SSM] ux-spec | P1 | untested |
-| EB-LINK-05 | `«text»` selected, clipboard holds a URL | Paste | Becomes `[text](url)`; one Undo turns it back into a plain replace, a second restores `text` | same | [GH-LINK], [OB-PASTE], [GL], [MAIO] (paste link); decision D9 | P1 | untested |
-| EB-LINK-06 | `«text»` selected, clipboard holds text that is not a URL | Paste | Plain replace | same | [GH-LINK] | P1 | untested |
-| EB-LINK-07 | Selected URL, clipboard holds a URL | Paste | Plain replace (never a link of a URL to a URL) | same | [OB-PASTE] (complaint) | P2 | untested |
-| EB-LINK-08 | Selection inside code | Paste a URL | Plain replace (no link in code) | same | rule 3 | P2 | untested |
+| EB-LINK-05 | `«text»` selected, clipboard holds a URL | Paste | Becomes `[text](url)`; one Undo turns it back into a plain replace, a second restores `text` | same | [GH-LINK], [OB-PASTE], [GL], [MAIO] (paste link); decision D9 | P1 | `PasteMatrixTest` (EB-LINK-05), `e2e/paste.test.ts` (EB-LINK-05) |
+| EB-LINK-06 | `«text»` selected, clipboard holds text that is not a URL | Paste | Plain replace | same | [GH-LINK] | P1 | `PasteMatrixTest` (EB-LINK-06 to 08), `e2e/paste.test.ts` (EB-LINK-06) |
+| EB-LINK-07 | Selected URL, clipboard holds a URL | Paste | Plain replace (never a link of a URL to a URL) | same | [OB-PASTE] (complaint) | P2 | `PasteMatrixTest` (EB-LINK-06 to 08), `unit/paste.test.ts` (EB-LINK-07) |
+| EB-LINK-08 | Selection inside code | Paste a URL | Plain replace (no link in code) | same | rule 3 | P2 | `PasteMatrixTest` (EB-LINK-06 to 08), `e2e/paste.test.ts` (EB-LINK-08) |
 | EB-LINK-09 | Link in Preview | Tap | n/a | Chip "Open · Copy link · Edit link"; the caret does not move into the link text until Edit | [SSM] ux-spec | P1 | untested |
 | EB-LINK-10 | Link in Preview | Type at its end | n/a | Typed text after the last character is **outside** the link (links are not inclusive at the end) | [PM] (link mark `inclusive: false`), [GDOCS] | P1 | untested |
 | EB-LINK-11 | Link in Preview, caret in its text | Type | n/a | Edits the link's text only; the URL is untouched | brainstorm | P1 | untested |
@@ -409,7 +409,7 @@ The rules every row inherits, so they are not repeated in each one:
 | EB-UNDO-04 | A renumbering Enter (`1.`→`2.` …) | Undo | Restores the numbers too, in one step | same | rule 2 | P1 | untested |
 | EB-UNDO-05 | Any strip command | Undo | One step; caret and selection restored to before the command | same | rule 2 | P1 | untested |
 | EB-UNDO-06 | Input rule conversion in Preview (`# `, `**x**`, ```` ``` ````) | Undo straight after | n/a: Code has no input rules | Gives back the literal characters typed, not the empty line | [TT] (undoInputRule), [NOTION] | P2 | untested |
-| EB-UNDO-07 | Paste URL over selection → link | Undo | First undo: plain replace; second: original text | same | decision D9 | P2 | untested |
+| EB-UNDO-07 | Paste URL over selection → link | Undo | First undo: plain replace; second: original text | same | decision D9 | P2 | `PasteMatrixTest` (EB-UNDO-07), `e2e/paste.test.ts`, `PreviewSyncTest` (Split) |
 | EB-UNDO-08 | Edits in Preview then in Code | Undo repeatedly | One history across both, in order | same | [SSM] R5 | P1 | untested |
 | EB-UNDO-09 | Undo, then type | Redo | Redo stack cleared by new typing | same | brainstorm | P2 | untested |
 | EB-UNDO-10 | Undo with the caret far from the change | Undo | Scrolls to and shows the undone change | same | brainstorm | P1 | untested |
@@ -425,26 +425,26 @@ The rules every row inherits, so they are not repeated in each one:
 
 | ID | Situation | Action | Code | Preview | Source | P | Status |
 |---|---|---|---|---|---|---|---|
-| EB-CLIP-01 | Text selected | Copy | Copies the exact source | Copies the source Markdown of the selection by default (plain-text apps get Markdown; rich apps get formatted HTML) | [SSM] ux-spec (Copy formatted) | P1 | untested |
-| EB-CLIP-02 | Selection inside a code block in Preview | Copy | n/a | Exact code, no smart quotes, no markup | [SSM] R9 | P1 | untested |
-| EB-CLIP-03 | Selection that cuts through `**bo«ld**» text` in Preview | Copy | n/a | The copy is balanced: `**ld**` as formatted, `ld` as plain; never a stray `**` | brainstorm | P2 | untested |
+| EB-CLIP-01 | Text selected | Copy | Copies the exact source | Copies the source Markdown of the selection by default (plain-text apps get Markdown; rich apps get formatted HTML) | [SSM] ux-spec (Copy formatted) | P1 | `PasteMatrixTest` (EB-CLIP-01), `e2e/paste.test.ts` (EB-CLIP-01) |
+| EB-CLIP-02 | Selection inside a code block in Preview | Copy | n/a | Exact code, no smart quotes, no markup | [SSM] R9 | P1 | `e2e/paste.test.ts` (EB-CLIP-02) |
+| EB-CLIP-03 | Selection that cuts through `**bo«ld**» text` in Preview | Copy | n/a | The copy is balanced: `**ld**` as formatted, `ld` as plain; never a stray `**` | brainstorm | P2 | `e2e/paste.test.ts` (EB-CLIP-03; copied as rendered text, so no stray `**`) |
 | EB-CLIP-04 | Whole list item selected | Cut | Line removed with its terminator; numbered list renumbers | same | brainstorm | P2 | untested |
-| EB-CLIP-05 | No selection | Cut / Copy (hardware Ctrl+X) | Does nothing (Android convention; VS Code's "cut the whole line" is not expected on a phone) | same | [AND-KB]; brainstorm | P3 | untested |
+| EB-CLIP-05 | No selection | Cut / Copy (hardware Ctrl+X) | Does nothing (Android convention; VS Code's "cut the whole line" is not expected on a phone) | same | [AND-KB]; brainstorm | P3 | `PasteMatrixTest` (EB-CLIP-05) |
 | EB-CLIP-06 | Paste plain text into a paragraph | Paste | Inserted as is | Inserted as text; Markdown characters in it are kept literally in the source (not escaped) when the user pastes Markdown | known case | P1 | untested |
-| EB-CLIP-07 | Paste multi-line Markdown `- a⏎- b` into a list item | Paste | As is | Becomes list items at the caret's list; the item is split at the caret | known case; brainstorm | P1 | untested |
-| EB-CLIP-08 | Paste multi-line text into a list item `- foo‸` | Paste | As is (lines after the first are lazy lines) | The first line joins the item; later lines become continuation lines indented to the item, so the paste stays inside it | known case; decision D10 | P1 | untested |
-| EB-CLIP-09 | Paste into a quote | Paste | As is | Every pasted line gets `> ` so it stays in the quote | known case | P1 | untested |
-| EB-CLIP-10 | Paste into a code block | Paste | As is | Literal, no formatting, indentation kept | known case | P1 | untested |
-| EB-CLIP-11 | Paste into a heading | Paste | As is (several lines become paragraphs after the heading) | First line joins the heading; the rest become paragraphs after it | known case; brainstorm | P2 | untested |
-| EB-CLIP-12 | Paste into a table cell | Paste | As is | See EB-TABLE-07 | known case | P1 | untested |
+| EB-CLIP-07 | Paste multi-line Markdown `- a⏎- b` into a list item | Paste | As is | Becomes list items at the caret's list; the item is split at the caret | known case; brainstorm | P1 | `unit/paste.test.ts`, `e2e/paste.test.ts` (EB-CLIP-07; the items after keep their source numbers) |
+| EB-CLIP-08 | Paste multi-line text into a list item `- foo‸` | Paste | As is (lines after the first are lazy lines) | The first line joins the item; later lines become continuation lines indented to the item, so the paste stays inside it | known case; decision D10 | P1 | `unit/paste.test.ts`, `e2e/paste.test.ts` (EB-CLIP-08/09/10/11) |
+| EB-CLIP-09 | Paste into a quote | Paste | As is | Every pasted line gets `> ` so it stays in the quote | known case | P1 | `e2e/paste.test.ts` (EB-CLIP-08/09/10/11) |
+| EB-CLIP-10 | Paste into a code block | Paste | As is | Literal, no formatting, indentation kept | known case | P1 | `PasteMatrixTest`, `e2e/paste.test.ts` (EB-CLIP-08/09/10/11) |
+| EB-CLIP-11 | Paste into a heading | Paste | As is (several lines become paragraphs after the heading) | First line joins the heading; the rest become paragraphs after it | known case; brainstorm | P2 | `e2e/paste.test.ts` (EB-CLIP-08/09/10/11) |
+| EB-CLIP-12 | Paste into a table cell | Paste | As is | See EB-TABLE-07 | known case | P1 | `unit/paste.test.ts` (EB-TABLE-07), `e2e/paste.test.ts` |
 | EB-CLIP-13 | Paste rich HTML (from a browser or Docs) | Paste | Plain text of the clip (Code is raw) | Converted to Markdown (headings, lists, links, bold, tables), sanitised | [GDOCS], [NOTION]; brainstorm | P1 | untested |
 | EB-CLIP-14 | Paste rich HTML | Paste as plain text (long-press menu, Ctrl+Shift+V) | Plain text | Plain text, no conversion | known case; [AND-KB] | P1 | untested |
-| EB-CLIP-15 | Pasted text with CRLF or lone CR | Paste | Line endings normalised to the file's own | same | [SSM] robustness | P1 | untested |
-| EB-CLIP-16 | Pasted text with NBSP, zero-width or bidi control chars | Paste | Kept as is (they may be intended), shown visibly in Code | Kept | brainstorm | P3 | untested |
+| EB-CLIP-15 | Pasted text with CRLF or lone CR | Paste | Line endings normalised to the file's own | same | [SSM] robustness | P1 | `PasteMatrixTest` (CRLF), `e2e/paste.test.ts` (EB-CLIP-15) |
+| EB-CLIP-16 | Pasted text with NBSP, zero-width or bidi control chars | Paste | Kept as is (they may be intended), shown visibly in Code | Kept | brainstorm | P3 | `PasteMatrixTest` (UNICODE), `e2e/paste.test.ts` (EB-CLIP-16) |
 | EB-CLIP-17 | Paste of a picture (image clip) | Paste | Offers to save the picture beside the file and insert `![](…)` | same | brainstorm | P3 | untested |
-| EB-CLIP-18 | Very large paste | Paste | Progress, cancellable, one undo step | same | [SSM] edge-cases | P1 | untested |
-| EB-CLIP-19 | Paste with a trailing newline at the end of a line | Paste | Does not add an extra blank line or break a list | same | brainstorm | P2 | untested |
-| EB-CLIP-20 | Paste via the keyboard's clipboard strip (Gboard clipboard chip) | Commit text | Same as Paste (treated as one insertion, one undo step) | same | [AND-IC] (commitText) | P1 | untested |
+| EB-CLIP-18 | Very large paste | Paste | Progress, cancellable, one undo step | same | [SSM] edge-cases | P1 | `PasteMatrixTest` (EB-CLIP-18), `ChunkedPasteTest` |
+| EB-CLIP-19 | Paste with a trailing newline at the end of a line | Paste | Does not add an extra blank line or break a list | same | brainstorm | P2 | `e2e/paste.test.ts` (EB-CLIP-19; Preview only, Code pastes raw) |
+| EB-CLIP-20 | Paste via the keyboard's clipboard strip (Gboard clipboard chip) | Commit text | Same as Paste (treated as one insertion, one undo step) | same | [AND-IC] (commitText) | P1 | `PasteMatrixTest` (EB-CLIP-20; Code only) |
 | EB-CLIP-21 | Drag and drop text (tablets, ChromeOS) | Drop | Moves the text (copies with Ctrl); one undo step | same | brainstorm | P3 | untested |
 
 ## Find and replace

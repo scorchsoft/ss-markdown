@@ -2,6 +2,7 @@ package com.scorchsoft.ssmarkdown.editor.preview
 
 import com.scorchsoft.ssmarkdown.markdown.edit.FormatState
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
+import com.scorchsoft.ssmarkdown.preview.FormattedCopy
 import com.scorchsoft.ssmarkdown.preview.RendererState
 import com.scorchsoft.ssmarkdown.preview.bridge.LinkTarget
 import com.scorchsoft.ssmarkdown.preview.bridge.MediaKind
@@ -38,6 +39,13 @@ sealed interface PreviewEvent {
     data class MediaLongPress(
         val kind: MediaKind,
         val line: Int,
+    ) : PreviewEvent
+
+    /** The selection menu's "Copy Markdown" / "Copy formatted", answered by the page. */
+    data class SelectionCopy(
+        val formatted: Boolean,
+        val markdown: String,
+        val copy: FormattedCopy?,
     ) : PreviewEvent
 
     /** The table toolbar's ⋯ for the table at [line]. */

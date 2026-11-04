@@ -383,6 +383,12 @@ class PreviewSession(
 
     override fun onEditRefused(line: Int) = host.onPreviewEvent(PreviewEvent.EditRefused(line))
 
+    override fun onSelectionCopy(
+        formatted: Boolean,
+        markdown: String,
+        copy: FormattedCopy?,
+    ) = host.onPreviewEvent(PreviewEvent.SelectionCopy(formatted, markdown, copy))
+
     override fun onTableMenu(
         line: Int,
         row: Int,

@@ -36,6 +36,8 @@ internal class SelectionUi(
 
     override val canPastePlain: Boolean get() = commands.canPastePlain
 
+    override val canCopyFormatted: Boolean get() = view.listener?.canCopyFormatted == true
+
     override fun runCommand(command: EditorCommand): Boolean = commands.run(command)
 
     override fun onActionModeDestroyed() {

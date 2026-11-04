@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The Preview selection menu's "Copy Markdown" and "Copy formatted" (CopyChoiceCallback). -->
+    <item name="preview_copy_markdown" type="id" />
+    <item name="preview_copy_formatted" type="id" />
+</resources>

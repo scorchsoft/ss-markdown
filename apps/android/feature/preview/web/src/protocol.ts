@@ -143,6 +143,12 @@ export type HostMessage =
           readonly maxChars: number;
       }
     /**
+     * The selection toolbar's "Copy Markdown" / "Copy formatted text": the
+     * current selection's source and its formatted copy, together at most
+     * [maxChars]. Answered by `selectionCopy` with the same [requestId].
+     */
+    | { readonly type: "copySelection"; readonly requestId: number; readonly maxChars: number }
+    /**
      * Find & replace: the matches, as source offsets in the text at revision
      * [rev], flat `[start0, end0, start1, end1, …]`; absent keeps the ones
      * the page holds, empty clears them. [current] is an index or -1; with
@@ -307,6 +313,18 @@ export type PageMessage =
     | { readonly type: "tableMenu"; readonly line: number; readonly row: number; readonly column: number }
     | { readonly type: "exportResult"; readonly requestId: number; readonly mime: string; readonly data: string }
     | { readonly type: "printReady"; readonly requestId: number }
+    /**
+     * The answer to `copySelection`: the selection's Markdown, null with
+     * nothing selected; [html] and its plain-text twin [text], null when
+     * the formatted copy would not fit.
+     */
+    | {
+          readonly type: "selectionCopy";
+          readonly requestId: number;
+          readonly markdown: string | null;
+          readonly html: string | null;
+          readonly text: string | null;
+      }
     /**
      * The answer to `exportHtml`: [html] and its plain-text twin [text], both
      * null when the lines could not be rendered; [truncated] when the copy

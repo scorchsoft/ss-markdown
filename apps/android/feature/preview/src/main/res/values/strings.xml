@@ -2,4 +2,6 @@
 <resources>
     <!-- Text selection menu item after Paste while editing in Preview: pastes only the words of a formatted clip. -->
     <string name="preview_paste_plain">Paste as plain text</string>
+    <string name="preview_copy_markdown">Copy Markdown</string>
+    <string name="preview_copy_formatted">Copy formatted</string>
 </resources>

@@ -78,6 +78,12 @@ internal class CommandRunner(
                 copy(cut = false)
             }
 
+            EditorCommand.COPY_FORMATTED -> {
+                val session = view.session
+                session.hasSelection &&
+                    view.listener?.onCopyFormatted(session.selectionStart, session.selectionEnd) == true
+            }
+
             EditorCommand.PASTE, EditorCommand.PASTE_PLAIN -> {
                 paste(plainOnly = command == EditorCommand.PASTE_PLAIN)
             }

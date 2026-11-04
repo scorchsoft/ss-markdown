@@ -676,6 +676,12 @@ class EditorViewModel(
 
     override fun onCopyTooLarge(chars: Int) = message(MessageKind.CopyTooLarge)
 
+    override fun onCopyFormatted(
+        document: ActiveDocument,
+        start: Int,
+        end: Int,
+    ): Boolean = document === active && copies.copySelection(document, start, end)
+
     /** Admission control for large pastes (PERF-G): refused with a message rather than risking the heap. */
     override fun admitPaste(chars: Int): Boolean {
         val admitted = deps.memory?.admitPaste(chars.toLong()) ?: true

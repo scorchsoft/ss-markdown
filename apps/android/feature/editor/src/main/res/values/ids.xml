@@ -3,4 +3,6 @@
     <!-- Ids of the Code pane's custom accessibility actions. -->
     <item name="editor_action_next_heading" type="id" />
     <item name="editor_action_previous_heading" type="id" />
+    <!-- The selection toolbar's "Copy formatted text". -->
+    <item name="editor_copy_formatted" type="id" />
 </resources>

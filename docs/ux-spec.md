@@ -711,6 +711,14 @@ tests are `PasteMatrixTest` and `e2e/paste.test.ts`).
 A normal paste **keeps formatting** (Andrew, 2026-11-03). **Paste as
 plain text** puts in only the words. Both are one Undo step.
 
+**Copying a selection** (Andrew, 2026-11-04) offers the same two forms as
+the header's Copy chooser. In Preview the text menu has **Copy Markdown**
+(the selection's exact source) and **Copy formatted** (its rendering,
+inline-styled for mail and documents, with a plain-text twin) after Copy,
+which still carries both so a paste back into Preview keeps formatting.
+In Code, Copy is the Markdown and **Copy formatted** renders the lines
+the selection touches.
+
 **HTML** on the clipboard (a copy from Chrome, Gmail, Google Docs or
 Word) is converted to Markdown, the same way in both surfaces
 (`HtmlToMarkdown.kt`, `htmlToMarkdown.ts`, one set of vectors): headings,

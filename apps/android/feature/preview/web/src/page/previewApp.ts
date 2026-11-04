@@ -9,6 +9,7 @@ import { Bridge } from "./bridge";
 import { RenderController } from "./controller";
 import { Editor } from "./editing/editor";
 import { exportHtml, type FormattedCopy } from "./exportHtml";
+import { selectionCopy, type SelectionCopy } from "./copy/selectionCopy";
 import { exportDiagram } from "./exportImage";
 import { FindMarks } from "./findMarks";
 import { Gestures } from "./gestures";
@@ -186,6 +187,9 @@ export class PreviewApp {
             case "exportHtml":
                 void this.exportHtml(m.requestId, m.fromLine, m.toLine, m.maxChars);
                 break;
+            case "copySelection":
+                void this.copySelection(m.requestId, m.maxChars);
+                break;
             case "find":
                 this.findMatches(m);
                 break;
@@ -321,6 +325,23 @@ export class PreviewApp {
         } catch (e) {
             this.bridge.post({ type: "error", message: e instanceof Error ? e.message : String(e) });
         }
+    }
+
+    private async copySelection(requestId: number, maxChars: number): Promise<void> {
+        this.editor.flushTyping();
+        let copy: SelectionCopy | null = null;
+        try {
+            copy = await selectionCopy(this.controller.doc, maxChars, (source) => this.mermaid.drawForCopy(source));
+        } catch (e) {
+            this.bridge.post({ type: "error", message: e instanceof Error ? e.message : String(e) });
+        }
+        this.bridge.post({
+            type: "selectionCopy",
+            requestId,
+            markdown: copy?.markdown ?? null,
+            html: copy?.html ?? null,
+            text: copy?.text ?? null,
+        });
     }
 
     private async exportHtml(requestId: number, fromLine: number, toLine: number, maxChars: number): Promise<void> {

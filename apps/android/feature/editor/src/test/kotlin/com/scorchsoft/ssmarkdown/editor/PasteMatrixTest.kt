@@ -252,6 +252,36 @@ class PasteMatrixTest {
         assertEquals("See the docs here.", text)
     }
 
+    /** Andrew, 2026-11-04: copy a selection formatted, not only the whole file. */
+    @Test
+    fun `the toolbar offers Copy formatted after Copy, with a selection and a host that can, and runs it`() {
+        show("one two")
+        val asked = mutableListOf<Pair<Int, Int>>()
+        view.listener =
+            object : EditorListener {
+                override val canCopyFormatted = true
+
+                override fun onCopyFormatted(
+                    start: Int,
+                    end: Int,
+                ): Boolean = asked.add(start to end)
+            }
+        val callback = TextActionModeCallback(view.selectionUi)
+        val ids = {
+            val menu = RoboMenu(context)
+            callback.onCreateActionMode(FakeActionMode(), menu)
+            (0 until menu.size()).map { menu.getItem(it).itemId }
+        }
+        assertFalse("no selection, nothing to copy", R.id.editor_copy_formatted in ids())
+        view.session.setSelection(4, 7)
+        val withSelection = ids()
+        assertEquals(withSelection.indexOf(android.R.id.copy) + 1, withSelection.indexOf(R.id.editor_copy_formatted))
+        assertTrue(view.runCommand(EditorCommand.COPY_FORMATTED))
+        assertEquals(listOf(4 to 7), asked)
+        view.listener = null
+        assertFalse("a host that cannot render it", R.id.editor_copy_formatted in ids())
+    }
+
     @Test
     fun `the toolbar offers Paste as plain text right after Paste, only for a formatted clip`() {
         show("ab‸")

@@ -8,6 +8,9 @@ enum class EditorCommand {
     REDO,
     CUT,
     COPY,
+
+    /** "Copy formatted text" of the selection: the host renders it (Andrew, 2026-11-04). */
+    COPY_FORMATTED,
     PASTE,
 
     /** "Paste as plain text": only the words, without Markdown or HTML (EB-CLIP-14). */

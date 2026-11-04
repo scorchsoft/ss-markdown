@@ -119,6 +119,14 @@ object BridgeCodec {
             "exportResult" to
                 { j -> PageMessage.ExportResult.of(j.getInt("requestId"), j.getString("mime"), j.getString("data")) },
             "printReady" to { j -> PageMessage.PrintReady(j.getInt("requestId")) },
+            "selectionCopy" to { j ->
+                PageMessage.SelectionCopyResult(
+                    j.getInt("requestId"),
+                    if (j.isNull("markdown")) null else j.getString("markdown"),
+                    if (j.isNull("html")) null else j.getString("html"),
+                    if (j.isNull("text")) null else j.getString("text"),
+                )
+            },
             "htmlResult" to { j ->
                 PageMessage.HtmlResult(
                     j.getInt("requestId"),

@@ -377,6 +377,22 @@ sealed interface HostMessage {
     }
 
     /**
+     * The selection menu's "Copy Markdown" / "Copy formatted text": the
+     * page's current selection as its Markdown and formatted copy, together
+     * within [maxChars]; answered by [PageMessage.SelectionCopyResult].
+     */
+    data class CopySelection(
+        val requestId: Int,
+        val maxChars: Int,
+    ) : HostMessage {
+        override val type = "copySelection"
+
+        override fun writeTo(json: JSONObject) {
+            json.put("requestId", requestId).put("maxChars", maxChars)
+        }
+    }
+
+    /**
      * "Copy formatted text": asks for lines `[fromLine, toLine)` as HTML with
      * inline light styles plus a plain-text twin, together within [maxChars]
      * (the clipboard crosses Binder); answered by [PageMessage.HtmlResult].

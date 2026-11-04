@@ -19,22 +19,31 @@ export function copySelection(e: ClipboardEvent, doc: SourceDoc): boolean {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || !e.clipboardData) return false;
     const range = sel.getRangeAt(0);
-    const from = edge(range, doc, true);
-    const to = edge(range, doc, false);
-    if (from === null || to === null || to <= from) return false;
-    const first = doc.lineAt(from);
-    const base = doc.lineStart(first);
+    const md = selectionSource(range, doc);
+    if (md === null) return false;
     const box = document.createElement("div");
     box.append(range.cloneContents());
     // Only the structure and link addresses travel: no classes, offsets or editing state.
     for (const el of box.querySelectorAll("*")) {
         for (const a of [...el.attributes]) if (a.name !== "href") el.removeAttribute(a.name);
     }
-    const md = doc.lines.slice(first, doc.lineAt(to) + 1).join("\n");
-    e.clipboardData.setData("text/plain", md.slice(from - base, to - base));
+    e.clipboardData.setData("text/plain", md);
     e.clipboardData.setData("text/html", `<div ${OWN_HTML}>${box.innerHTML}</div>`);
     e.preventDefault();
     return true;
+}
+
+/** The Markdown source [range] covers, or null when an end cannot be had whole. */
+export function selectionSource(range: Range, doc: SourceDoc): string | null {
+    const from = edge(range, doc, true);
+    const to = edge(range, doc, false);
+    if (from === null || to === null || to <= from) return null;
+    const first = doc.lineAt(from);
+    const base = doc.lineStart(first);
+    return doc.lines
+        .slice(first, doc.lineAt(to) + 1)
+        .join("\n")
+        .slice(from - base, to - base);
 }
 
 /** The source offset of one end of [range]; null when it cannot be had whole. */

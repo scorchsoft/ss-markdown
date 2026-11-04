@@ -49,6 +49,13 @@ interface ActiveDocumentListener {
     /** A copy was refused for Binder size; offer Share as file. */
     fun onCopyTooLarge(chars: Int) = Unit
 
+    /** The selection menu's "Copy formatted" over `[start, end)` of this document; false if it cannot. */
+    fun onCopyFormatted(
+        document: ActiveDocument,
+        start: Int,
+        end: Int,
+    ): Boolean = false
+
     /** May a large paste of [chars] go in? False refuses it; the listener says why. */
     fun admitPaste(chars: Int): Boolean = true
 
@@ -301,6 +308,13 @@ class ActiveDocument(
      * indent unit off it (`EditCommand.Type`). Anywhere else the view
      * deletes or types as usual.
      */
+    override val canCopyFormatted: Boolean get() = true
+
+    override fun onCopyFormatted(
+        start: Int,
+        end: Int,
+    ): Boolean = listener.onCopyFormatted(this, start, end)
+
     override fun onEditKey(key: EditKey): Boolean =
         when (key) {
             EditKey.Enter -> enter()

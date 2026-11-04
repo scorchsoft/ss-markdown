@@ -144,6 +144,7 @@ class SharedVectorsTest {
             "preparePrint" to HostMessage.PreparePrint(4),
             "finishPrint" to HostMessage.FinishPrint,
             "exportHtml" to HostMessage.ExportHtml(8, 2, 9, 400_000),
+            "copySelection" to HostMessage.CopySelection(11, 400_000),
             "flush" to HostMessage.Flush,
             "find" to HostMessage.Find(6, intArrayOf(3, 20), intArrayOf(9, 26), current = 1, reveal = true),
             "findKeep" to HostMessage.Find(6, null, null, current = 0, reveal = true),

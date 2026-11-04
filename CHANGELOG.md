@@ -7,6 +7,14 @@ release may change behaviour.
 
 ## [Unreleased]
 
+## [0.2.8] - 2026-11-04
+
+### Added
+
+- Copy a selection as Markdown or as formatted text. In Preview the text
+  menu has Copy Markdown and Copy formatted; in Code, Copy gives the
+  Markdown and Copy formatted gives the selected lines as they read.
+
 ## [0.2.7] - 2026-11-04
 
 ### Changed

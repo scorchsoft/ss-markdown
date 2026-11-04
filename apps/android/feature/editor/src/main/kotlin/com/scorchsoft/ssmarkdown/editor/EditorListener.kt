@@ -83,6 +83,19 @@ interface EditorListener {
      * itself; false lets the view type a line break, delete or type as usual.
      */
     fun onEditKey(key: EditKey): Boolean = false
+
+    /**
+     * The selection menu's "Copy formatted text" over `[start, end)`: the
+     * host puts the selection's rendering on the clipboard. False when it
+     * cannot (the menu then never offers it: [canCopyFormatted]).
+     */
+    fun onCopyFormatted(
+        start: Int,
+        end: Int,
+    ): Boolean = false
+
+    /** Whether the host can answer [onCopyFormatted]. */
+    val canCopyFormatted: Boolean get() = false
 }
 
 /** The keys offered to [EditorListener.onEditKey]. */

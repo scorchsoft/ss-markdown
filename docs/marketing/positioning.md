@@ -141,7 +141,7 @@ Gaps to capture on a device: a .md opened from the Files app (in-place
 save), and tap-to-edit on a table in Preview. The Robolectric harness
 can't render either, because it can't run a WebView or another app.
 
-## 5. Promo video brief (≈ 95 s, 16:9, works muted)
+## 5. Promo video brief (≈ 100 s, 16:9, works muted)
 
 **Norms.** A Play promo video is a YouTube link, landscape, 30 s – 2 min.
 Turn monetisation off, or it stops playing in the listing. Viewers can
@@ -155,7 +155,8 @@ sits under the play button.
 app's own off-white or ink. Large Inter captions sit beside the phone,
 with one line at a time and a maximum of 8 words per card. Use the
 Scorchsoft red only where the app uses it: unsaved, Save. Use a quiet
-music bed with no beat drops. Real screen recordings are best; the PNGs
+music bed with no beat drops. Shoot about half the beats in light mode and half in
+dark, so both are seen before the Light or dark beat names them. Real screen recordings are best; the PNGs
 named below are stand-ins for the storyboard and the fallback.
 
 | Time | Beat (pain → answer) | On-screen text | Visual (one-sentence direction) | Optional VO |
@@ -169,9 +170,10 @@ named below are stand-ins for the storyboard and the fallback.
 | 0:47–0:56 | **Copy two ways, all or part** (see "Why these beats") | `Copy as Markdown, or as formatted text.` → `The whole page, or just what you select.` | Tap Copy: the chooser shows "Copy Markdown" and "Copy formatted text". Pick formatted, switch to Gmail and paste: the heading, bold, list and table arrive formatted. Back in Preview, long-press to select one paragraph and its list: the selection menu offers Copy (the Markdown) and Copy formatted text; pick Copy and paste into a chat to show the `**` and `-` arrive. (Long-press Copy repeats the last choice, so it is one press next time.) | "Copy the Markdown or the formatted page, all of it or just a selection, ready for email, docs or chat." |
 | 0:56–1:05 | **Big files** (P3) | `A 20 MB log. Still smooth.` → small: `Built on the text structure VS Code uses.` | Open a genuinely large log (the "Big-file mode" chip shows), fling to the middle, and type: the characters land without a hitch (`editor-big-file`, re-shot). | "Big files stay smooth. Typing doesn't slow down as the file grows." |
 | 1:05–1:13 | **Changed elsewhere** (P2) | `Changed in another app?` → `Nothing is overwritten. Merge it.` | The amber banner "roadmap.md changed in another app" slides in, and Review opens `conflict-sheet` with "Merge my edits into the new file" tapped. | "If Syncthing or Drive changes the file, you choose what happens." |
-| 1:13–1:20 | **Depth without clutter** (love list) | `Diagrams, maths, dark mode, your fonts.` | A quick three-shot montage: `preview-dark` (formula and Mermaid), `mermaid-sheet`, and `theme-editor` switching a font. | "Mermaid, maths, themes and fonts, all offline." |
-| 1:20–1:28 | **Values** (P7, P10) | `No ads. No account. No subscription.` → `Works offline. Open source. About 6 MB.` | Toggle aeroplane mode on and keep typing, then show the `about` screen with its open-source licences. | "No ads, no account, no subscription. Open source, and it works offline." |
-| 1:28–1:35 | **End card** | `SS Markdown` / `Free · Open source · No ads` / `github.com/scorchsoft/ss-markdown` / Google Play badge | Logo (`docs/brand/logo-240.png`) on off-white, with the line `Your Markdown files. Calm, quick, and kept safe.` | "SS Markdown, by Scorchsoft." |
+| 1:13–1:18 | **Light or dark** (love list) | `Light or dark. Or follow the phone.` | On one document in Preview, open ⋮ → View and tap Appearance: Light, then Dark. The whole app turns at once (header, strip, page, code blocks and diagrams), then cut to the same page in Code, dark. | "Light or dark, or let it follow your phone." |
+| 1:18–1:24 | **Depth without clutter** (love list) | `Diagrams, maths, themes, your fonts.` | A quick three-shot montage: `preview-dark` (formula and Mermaid), `mermaid-sheet`, and `theme-editor` switching a font. | "Mermaid, maths, themes and fonts, all offline." |
+| 1:24–1:32 | **Values** (P7, P10) | `No ads. No account. No subscription.` → `Works offline. Open source. About 6 MB.` | Toggle aeroplane mode on and keep typing, then show the `about` screen with its open-source licences. | "No ads, no account, no subscription. Open source, and it works offline." |
+| 1:32–1:39 | **End card** | `SS Markdown` / `Free · Open source · No ads` / `github.com/scorchsoft/ss-markdown` / Google Play badge | Logo (`docs/brand/logo-240.png`) on off-white, with the line `Your Markdown files. Calm, quick, and kept safe.` | "SS Markdown, by Scorchsoft." |
 
 **Why these beats** (research 2026-11-04; claim "not every editor does this", never "no other app"):
 - *Synced Split.* None of the Android editors we checked keeps a source and preview pane in step both ways. Markor and Joplin have no split view; you toggle and lose your place. Users have asked Markor for "scroll synchronization between markdown preview in view-mode and its source code in edit-mode" since 2019 ([#2373](https://github.com/gsantner/markor/issues/2373), 27 Jul 2024, and [#2820](https://github.com/gsantner/markor/issues/2820), 9 May 2026, both open). Joplin reverted its tablet dual pane ([forum](https://discourse.joplinapp.org/t/joplin-mobile-tablet-layout/25775?page=3), 14 Dec 2024). Epsilon Notes syncs "as percentage of the scrolling", which drifts on images ([dev, 2019](https://groups.google.com/g/epsilon-notes/c/bV7dy5r-_Pg)). Obsidian's sync-scroll plugin is desktop-only. Obsidian (Live Preview) and JotterPad (WYSIWYG) avoid the problem by design, so don't call them broken.

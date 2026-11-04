@@ -15,7 +15,8 @@ import org.robolectric.Shadows.shadowOf
  * edge-cases "Dark mode white flash when the WebView loads": the WebView
  * is painted in the theme's background before it has loaded anything, so
  * there is no white frame before the page's own CSS arrives. And it is
- * locked down before the first load: no file or content access.
+ * locked down before the first load: no file or content access. Its
+ * own scrollbar is off: the fast-scroll pill is the only indicator.
  */
 @RunWith(RobolectricTestRunner::class)
 class PreviewWebViewsTest {
@@ -33,5 +34,16 @@ class PreviewWebViewsTest {
         assertNull("nothing loaded yet", shadowOf(view).lastLoadedUrl)
         assertFalse(view.settings.allowFileAccess)
         assertFalse(view.settings.allowContentAccess)
+    }
+
+    @Test
+    fun `the WebView draws no scrollbar of its own beside the fast-scroll pill`() {
+        val client =
+            PreviewWebViewClient(PreviewWebViews.assetLoader(context, { null }, { null }), {}, {})
+
+        val view = PreviewWebViews.create(context, Color.BLACK, client)
+
+        assertFalse(view.isVerticalScrollBarEnabled)
+        assertFalse(view.isHorizontalScrollBarEnabled)
     }
 }

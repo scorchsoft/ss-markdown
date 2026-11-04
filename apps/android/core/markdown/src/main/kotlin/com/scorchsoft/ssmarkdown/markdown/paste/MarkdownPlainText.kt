@@ -1,5 +1,7 @@
 package com.scorchsoft.ssmarkdown.markdown.paste
 
+import com.scorchsoft.ssmarkdown.markdown.LinearSyntax
+
 /**
  * Markdown as the words it shows, for "Paste as plain text" (docs/ux-spec.md,
  * "Copy and paste"): no `#`, `*`, `_`, `` ` ``, `>`, brackets, list markers,
@@ -30,8 +32,6 @@ internal object PlainBlocks {
     private val setext = Regex("""^ {0,3}(?:=+|-+)[ \t]*$""")
     private val heading = Regex("""^ {0,3}(#{1,6})(?:[ \t]+(.*?))?[ \t]*$""")
     private val closingHashes = Regex("""(?:^|[ \t]+)#+$""")
-    private val rule = Regex("""^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$""")
-    private val divider = Regex("""^[ \t]*\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$""")
     private val quote = Regex("""^ {0,3}>""")
     private val quoteMarker = Regex("""^ {0,3}>[ \t]?""")
     private val item = Regex("""^( {0,3})([-+*]|[0-9]{1,9}[.)])([ \t]+|$)""")
@@ -83,7 +83,7 @@ internal object PlainBlocks {
                     i++
                 }
 
-                rule.matches(line) -> {
+                LinearSyntax.isThematicBreak(line) -> {
                     flush().also { i++ }
                 }
 
@@ -168,7 +168,7 @@ internal object PlainBlocks {
         next: String,
     ): Boolean =
         '|' in line &&
-            divider.matches(next) &&
+            LinearSyntax.isDelimiterRow(next, LinearSyntax::isSpaceOrTab) &&
             '-' in next &&
             cells(line).size == cells(next).size
 
@@ -214,7 +214,7 @@ internal object PlainBlocks {
                     items.last() += ""
                 }
 
-                rule.matches(line) && indent < contentIndent -> {
+                LinearSyntax.isThematicBreak(line) && indent < contentIndent -> {
                     break
                 }
 
@@ -248,6 +248,7 @@ internal object PlainBlocks {
     }
 
     private fun startsBlock(line: String): Boolean =
-        heading.matches(line) || fence.matches(line) || quote.containsMatchIn(line) || rule.matches(line) ||
+        heading.matches(line) || fence.matches(line) || quote.containsMatchIn(line) ||
+            LinearSyntax.isThematicBreak(line) ||
             item.containsMatchIn(line)
 }

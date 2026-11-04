@@ -231,7 +231,8 @@ export class RenderController {
         }
         const pinned = this.pinned && removed.includes(this.pinned) ? this.pinned : null;
         let pinnedUsed = false;
-        const fresh = r.fresh.map((section) => {
+        const sections = pinned ? this.wholeFrom(r.fresh, pinned.startLine) : r.fresh;
+        const fresh = sections.map((section) => {
             const key = this.keyOf(section);
             let view = pool.get(key)?.shift();
             if (view === pinned) pinnedUsed = true;
@@ -272,6 +273,23 @@ export class RenderController {
             this.views = this.views.slice(0, r.first).concat(fresh, this.views.slice(r.end));
         }
         return r.first;
+    }
+
+    /**
+     * [fresh] with the sections from the one starting at [startLine] on made
+     * one. The section being edited keeps its HTML until editing ends, so
+     * splitting it (Enter in a paragraph, then typing) would show what is
+     * typed twice: in the pinned HTML and in the new section's own render.
+     * The larger section is still a valid one (it starts and ends at section
+     * boundaries) and re-renders in place when editing ends; a later edit
+     * near it re-splits it.
+     */
+    private wholeFrom(fresh: readonly Section[], startLine: number): readonly Section[] {
+        const k = fresh.findIndex((s) => s.startLine === startLine);
+        const last = fresh[fresh.length - 1];
+        if (k < 0 || k === fresh.length - 1 || !last) return fresh;
+        const text = this.doc.lines.slice(startLine, last.endLine).join("\n");
+        return [...fresh.slice(0, k), { startLine, endLine: last.endLine, hash: contentHash(text) }];
     }
 
     /** After a batch of changes from view [first] on: fix mounted offsets, rescale, and render what changed. */

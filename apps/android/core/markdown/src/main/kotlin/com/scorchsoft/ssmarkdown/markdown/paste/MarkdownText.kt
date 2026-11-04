@@ -1,5 +1,7 @@
 package com.scorchsoft.ssmarkdown.markdown.paste
 
+import com.scorchsoft.ssmarkdown.markdown.LinearSyntax
+
 /**
  * Words from pasted HTML written as Markdown text: syntax characters are
  * escaped only where they could act (`snake_case`, `a * b` and `$5` stay as
@@ -21,7 +23,8 @@ internal object MarkdownText {
                 """(?<![\p{L}\p{N}])_|_(?![\p{L}\p{N}])|<(?=[A-Za-z/!?]|$)|(?<==|^)=|=(?==|$)|""" +
                 """\$(?![ \t\n\r\f\u000B\u00A00-9])|&(?=#?[A-Za-z0-9_]+;)|:(?=[A-Za-z_+-][A-Za-z0-9_+-]*:)""",
         )
-    private val blockStart = Regex("""^(?:[#+-](?=[ \t]|$)|>|-(?=(?:[ \t]*-){2,}[ \t]*$))""")
+    private val blockStart = Regex("""^(?:[#+-](?=[ \t]|$)|>)""")
+    private const val MIN_DASH_RULE = 3
     private val numberStart = Regex("""^([0-9]{1,9})(?=[.)](?:[ \t]|$))""")
 
     /** [text] with every character that could act as inline syntax escaped. */
@@ -29,7 +32,9 @@ internal object MarkdownText {
 
     /** [line] with block syntax at its start escaped (`\# `, `\- `, `1\. `, `\>`). */
     fun escapeLineStart(line: String): String {
-        val marked = blockStart.replace(line) { "\\" + it.value }
+        // `---` and `- - -` (a rule or setext underline) by scan: as a regex group it recursed per dash.
+        val rule = LinearSyntax.isRunOf(line, 0, '-', MIN_DASH_RULE)
+        val marked = if (rule || blockStart.containsMatchIn(line)) "\\" + line else line
         return numberStart.replace(marked) { it.value + "\\" }
     }
 

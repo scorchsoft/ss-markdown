@@ -620,9 +620,12 @@ only when it applies.
   stops, unless held. It never shows while selection handles or the text
   toolbar are in use.
 - **Look.** A pill 6 dp wide and 44 dp tall, 3 dp from the right edge, in
-  the gutter grey; 10 dp and `inkMuted` while held. Its touch target is
-  48 × 48 dp. No track: the reading line under the header already shows
-  progress.
+  the gutter grey, ringed by a 1.5 dp halo of the page colour so it stays
+  a distinct handle over text; it eases to 10 dp and `inkMuted` while held
+  (at once with "Remove animations"). Its touch target is 48 × 48 dp. No
+  track: the reading line under the header already shows progress, and
+  no view draws a platform scrollbar beside it (the Preview WebView's is
+  off).
 - **Drag.** The pill's position is a fraction of the document and the pane
   jumps there live. Code maps it by line index through the height map,
   so a file with estimated heights stays steady and only moves forwards

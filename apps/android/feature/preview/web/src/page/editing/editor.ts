@@ -105,6 +105,47 @@ export class Editor implements SessionHost {
     }
 
     /**
+     * A tap below everything the page shows. In a blank document (a new file has nothing to tap)
+     * the caret goes to its end, on a placeholder line; otherwise into the last block at its end,
+     * when that block is text (a paragraph, heading, list item or quote), not a table, code or
+     * anything read-only (EB-CARET-04).
+     * False, and nothing changes, for a tap above the end of the content.
+     */
+    beginBelowEnd(x: number, y: number): boolean {
+        const views = this.controller.views;
+        const last = views[views.length - 1];
+        if (!last?.mounted) return false;
+        const tail = last.el.lastElementChild;
+        const bottom = tail?.getBoundingClientRect().bottom ?? -Infinity;
+        const session = this.session;
+        // Already editing the last block (its section waits to re-render until editing ends): stay in it.
+        if (session?.view === last && tail?.contains(session.block) && y >= bottom) {
+            if (!session.block.matches(".placeholder")) caretAt(session.block, x, y);
+            return true;
+        }
+        if (last.needsRender) return false;
+        const doc = this.controller.doc;
+        if (isBlank(doc.lines)) {
+            if (tail && y < bottom) return false;
+            this.end();
+            this.restoreCaret(doc.text.length);
+            return this.session !== null;
+        }
+        if (!tail || y < bottom) return false;
+        // A final table, code block or read-only block is left alone: below those, EB-CARET-04 wants a new
+        // paragraph, which a tap must not write by itself.
+        if (tail.matches("table, pre, .ro-block, .diagram, .math-block") || tail.querySelector(":scope > table"))
+            return false;
+        const blocks = [...last.el.querySelectorAll<HTMLElement>(EDITABLE_BLOCK)].filter(
+            (el) => tail.contains(el) && !el.matches("td, th, code") && this.editableBlock(el) === el,
+        );
+        const block = blocks[blocks.length - 1];
+        if (!block) return false;
+        this.begin(block, x, y);
+        return true;
+    }
+
+    /**
      * Ends the session: flushes, re-pads a padded table, and re-renders if the
      * text changed. With [handoff] the session is only being swapped for the
      * re-rendered block (a strip command, Enter, a table move): focus waits in
@@ -521,6 +562,13 @@ export class Editor implements SessionHost {
         });
     }
 }
+
+/** Whether [lines] hold nothing but whitespace; a long document is never blank, so it stops early. */
+function isBlank(lines: readonly string[]): boolean {
+    return lines.length <= BLANK_SCAN_LINES && lines.every((line) => line.trim().length === 0);
+}
+
+const BLANK_SCAN_LINES = 64;
 
 /** Format actions that stand for a key press, answered by an edit and a `select`. */
 const STRUCTURAL: ReadonlySet<FormatAction> = new Set(["enter", "backspace", "type}", "type]", "type)"]);

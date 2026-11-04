@@ -142,6 +142,8 @@ export class Gestures {
             editor.begin(block, e.clientX, e.clientY);
             return false;
         }
+        // Below everything shown, and anywhere in an empty file: editing starts at the end.
+        if (editor.beginBelowEnd(e.clientX, e.clientY)) return false;
         editor.end();
         return false;
     }

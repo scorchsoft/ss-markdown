@@ -1,10 +1,11 @@
 package com.scorchsoft.ssmarkdown.markdown.edit
 
+import com.scorchsoft.ssmarkdown.markdown.LinearSyntax
+
 /** Recognises the lines of a GFM table: a run of `|` lines that holds a delimiter row (`| --- | :-: |`). */
 internal object TableLines {
     /** How far a table is searched for its delimiter row, each way. */
     private const val MAX_ROWS = 1_000
-    private val DELIMITER = Regex("""^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$""")
 
     fun isTableLine(
         text: CharSequence,
@@ -24,5 +25,6 @@ internal object TableLines {
         return false
     }
 
-    private fun isDelimiter(content: String): Boolean = '-' in content && DELIMITER.matches(content)
+    private fun isDelimiter(content: String): Boolean =
+        '-' in content && LinearSyntax.isDelimiterRow(content, LinearSyntax::isRegexSpace)
 }

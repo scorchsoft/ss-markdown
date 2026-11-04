@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.core.ui.components
 
 import android.provider.Settings
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
@@ -31,6 +32,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -118,7 +120,7 @@ fun FastScrollThumb(
                 .testTag(FastScrollDefaults.THUMB_TAG)
                 .then(input)
                 .graphicsLayer { this.alpha = if (animate) fade.value else 1f }
-                .pill(state),
+                .pill(state, animate),
         )
     }
 }
@@ -188,26 +190,47 @@ private fun Modifier.thumbInput(
             }
         }
 
-/** Draws the pill at the target's right edge, wider while held. */
+/**
+ * Draws the pill at the target's right edge, wider and darker while held,
+ * easing between the two (at once with [animate] false). A thin halo in the
+ * page's colour keeps it a distinct handle where it lies over text.
+ */
 @Composable
-private fun Modifier.pill(state: FastScrollState): Modifier {
-    val color = SS.colors.gutter
-    val held = SS.colors.inkMuted
+private fun Modifier.pill(
+    state: FastScrollState,
+    animate: Boolean,
+): Modifier {
+    val held = state.isDragging
+    val spec = if (animate) tween<Float>(FastScrollDefaults.FADE_MILLIS) else snap()
+    val grow = animateFloatAsState(if (held) 1f else 0f, spec)
+    val color = animateColorAsState(if (held) SS.colors.inkMuted else SS.colors.gutter, colorSpec(animate))
+    val halo = SS.colors.bg
     val density = LocalDensity.current
     val rest = with(density) { FastScrollDefaults.PillWidth.toPx() }
     val wide = with(density) { FastScrollDefaults.PillWidthHeld.toPx() }
     val tall = with(density) { FastScrollDefaults.PillHeight.toPx() }
     val gap = with(density) { FastScrollDefaults.EdgeGap.toPx() }
+    val ring = with(density) { FastScrollDefaults.HaloWidth.toPx() }
     return drawBehind {
-        val width = if (state.isDragging) wide else rest
+        val width = rest + (wide - rest) * grow.value
+        val left = size.width - gap - width
+        val top = (size.height - tall) / 2
         drawRoundRect(
-            color = if (state.isDragging) held else color,
-            topLeft = Offset(size.width - gap - width, (size.height - tall) / 2),
+            color = halo,
+            topLeft = Offset(left - ring, top - ring),
+            size = Size(width + 2 * ring, tall + 2 * ring),
+            cornerRadius = CornerRadius(width / 2 + ring),
+        )
+        drawRoundRect(
+            color = color.value,
+            topLeft = Offset(left, top),
             size = Size(width, tall),
             cornerRadius = CornerRadius(width / 2),
         )
     }
 }
+
+private fun colorSpec(animate: Boolean) = if (animate) tween<Color>(FastScrollDefaults.FADE_MILLIS) else snap()
 
 /** The section bubble, level with the pill and just left of its target. */
 @Composable

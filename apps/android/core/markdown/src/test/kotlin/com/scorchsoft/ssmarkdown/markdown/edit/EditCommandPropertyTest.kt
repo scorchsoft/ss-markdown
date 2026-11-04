@@ -45,6 +45,14 @@ class EditCommandPropertyTest {
             "日本語のテキスト",
             "snake_case_name",
             "a ~~b~~ c",
+            // Empty items, which Backspace deletes with their line, and unclosed blocks.
+            "- ",
+            "1. ",
+            "  - ",
+            "> - ",
+            "- [ ] ",
+            "<!--",
+            "$$",
         )
 
     private val commands: List<EditCommand> =
@@ -63,6 +71,7 @@ class EditCommandPropertyTest {
                 EditCommand.Indent,
                 EditCommand.Outdent,
                 EditCommand.Newline,
+                EditCommand.BackspaceAtItemStart,
                 EditCommand.Type("x"),
                 EditCommand.Type("(", smartPairs = true),
             )

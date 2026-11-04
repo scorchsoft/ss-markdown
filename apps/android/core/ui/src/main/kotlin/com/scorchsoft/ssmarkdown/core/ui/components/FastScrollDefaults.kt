@@ -12,6 +12,9 @@ object FastScrollDefaults {
     /** The touch target around the pill: the platform's 48 dp minimum, and well inside the 200 dp exclusion cap. */
     val Touch = 48.dp
 
+    /** The ring of page colour around the pill, so it stays distinct over text. */
+    val HaloWidth = 1.5.dp
+
     /** Gap between the pill and the pane's right edge. */
     val EdgeGap = 3.dp
 

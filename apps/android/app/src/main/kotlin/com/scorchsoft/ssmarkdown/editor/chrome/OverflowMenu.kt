@@ -108,7 +108,11 @@ fun OverflowMenu(
     // Measured here, in the editor's window: inside the menu's popup window the keyboard's inset
     // reads as zero, so with the keyboard up the rows ran under it and never scrolled.
     val rowsMaxHeight = menuRowsMaxHeight()
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, containerColor = SS.colors.chrome) {
+    DropdownMenu(
+        expanded = expanded && keyboardGoneOrWaited(expanded),
+        onDismissRequest = onDismiss,
+        containerColor = SS.colors.chrome,
+    ) {
         HistoryRow(history)
         HorizontalDivider(thickness = SS.dimens.hairline, color = SS.colors.border)
         ScrollingRows(maxHeight = rowsMaxHeight) {

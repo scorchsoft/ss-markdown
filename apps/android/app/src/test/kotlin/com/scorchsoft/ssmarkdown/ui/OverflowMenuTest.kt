@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.ui
 
 import android.view.View
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
@@ -8,6 +9,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -125,16 +127,7 @@ class OverflowMenuTest {
             Themed(dark = false) { EditorFor(open) { actions += it } }
         }
         rule.waitForIdle()
-        rule.runOnIdle {
-            val ime = (KEYBOARD_DP * root.resources.displayMetrics.density).toInt()
-            val insets =
-                WindowInsetsCompat
-                    .Builder()
-                    .setInsets(WindowInsetsCompat.Type.ime(), Insets.of(0, 0, 0, ime))
-                    .setVisible(WindowInsetsCompat.Type.ime(), true)
-                    .build()
-            ViewCompat.dispatchApplyWindowInsets(root, insets)
-        }
+        rule.runOnIdle { keyboard(root, up = true) }
         rule.waitForIdle()
         val rows =
             rule
@@ -147,6 +140,69 @@ class OverflowMenuTest {
         for (row in listOf("New", "Find & replace", "Export PDF", "Settings")) {
             rule.onNodeWithText(row).performScrollTo().assertIsDisplayed()
         }
+    }
+
+    /** Dispatches a [KEYBOARD_DP] keyboard's inset to [root], or takes it away. */
+    private fun keyboard(
+        root: View,
+        up: Boolean,
+    ) {
+        val ime = if (up) (KEYBOARD_DP * root.resources.displayMetrics.density).toInt() else 0
+        val insets =
+            WindowInsetsCompat
+                .Builder()
+                .setInsets(WindowInsetsCompat.Type.ime(), Insets.of(0, 0, 0, ime))
+                .setVisible(WindowInsetsCompat.Type.ime(), up)
+                .build()
+        ViewCompat.dispatchApplyWindowInsets(root, insets)
+    }
+
+    /** The editor with the keyboard up, then ⋮ pressed; the clock is driven by hand. */
+    private fun openOverKeyboard(): View {
+        RuntimeEnvironment.setQualifiers("w412dp-h915dp-420dpi")
+        lateinit var root: View
+        val state = mutableStateOf(Samples.saved)
+        rule.mainClock.autoAdvance = false
+        rule.setContent {
+            root = LocalView.current
+            Themed(dark = false) { EditorFor(state.value) { actions += it } }
+        }
+        rule.mainClock.advanceTimeByFrame()
+        rule.runOnIdle { keyboard(root, up = true) }
+        rule.mainClock.advanceTimeByFrame()
+        state.value = open
+        repeat(3) { rule.mainClock.advanceTimeByFrame() }
+        return root
+    }
+
+    private fun menuShown(): Boolean = rule.onAllNodesWithText("Settings").fetchSemanticsNodes().isNotEmpty()
+
+    /**
+     * Andrew, 2026-11-04: the menu showed while the keyboard was leaving, was
+     * laid out in the room above it, and stayed small until touched. It waits
+     * for the keyboard to go and then opens once, at full size.
+     */
+    @Test
+    fun `the menu waits for the keyboard to go, then opens at full size`() {
+        val root = openOverKeyboard()
+        assertFalse("not drawn over the leaving keyboard", menuShown())
+        rule.runOnIdle { keyboard(root, up = false) }
+        repeat(3) { rule.mainClock.advanceTimeByFrame() }
+        assertTrue("open once the keyboard has gone", menuShown())
+        val rows =
+            rule
+                .onNodeWithTag(MENU_ROWS_TAG)
+                .fetchSemanticsNode()
+                .size.height / root.resources.displayMetrics.density
+        assertTrue("rows are $rows dp tall: the full screen's room", rows > 915 - KEYBOARD_DP - 112 - 48)
+    }
+
+    @Test
+    fun `a keyboard that stays only delays the menu briefly`() {
+        openOverKeyboard()
+        assertFalse(menuShown())
+        rule.mainClock.advanceTimeBy(500)
+        assertTrue("open after the wait, above the keyboard", menuShown())
     }
 
     private fun ActiveDocument.typeAtEnd(typed: String) {

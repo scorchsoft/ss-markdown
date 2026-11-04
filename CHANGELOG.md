@@ -7,6 +7,11 @@ release may change behaviour.
 
 ## [Unreleased]
 
+### Fixed
+
+- Preview: an unfinished `$$` maths block in a list item no longer hides
+  the text after the list.
+
 ## [0.2.11] - 2026-11-04
 
 ### Added

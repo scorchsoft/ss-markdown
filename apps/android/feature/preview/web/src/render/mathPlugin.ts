@@ -89,7 +89,10 @@ function mathBlock(state: StateBlock, startLine: number, endLine: number, silent
             found = true;
         }
     }
-    state.line = next + 1;
+    // Unclosed, it ends where its list item or quote does (a line indented less than the container's
+    // content), and that line belongs to what follows: before, it was swallowed, and with it every line
+    // after an unclosed `$$` in a list item ("- $$" then text below the list vanished).
+    state.line = found ? next + 1 : next;
     const token = state.push("math_block", "math", 0);
     token.block = true;
     const middle = next > startLine + 1 ? state.getLines(startLine + 1, next, state.tShift[startLine] ?? 0, true) : "";

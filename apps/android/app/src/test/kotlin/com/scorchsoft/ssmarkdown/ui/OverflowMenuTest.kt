@@ -143,7 +143,10 @@ class OverflowMenuTest {
                 .size.height / root.resources.displayMetrics.density
         // 915 dp, less the keyboard, the menu's margins and its icon row: well under the menu's full height.
         assertTrue("rows are $rows dp tall", rows <= 915 - KEYBOARD_DP - 112 - 48 + 1)
-        everyRowReachable()
+        // The formatting strip, up with the keyboard, has an Undo of its own: check the rows by name.
+        for (row in listOf("New", "Find & replace", "Export PDF", "Settings")) {
+            rule.onNodeWithText(row).performScrollTo().assertIsDisplayed()
+        }
     }
 
     private fun ActiveDocument.typeAtEnd(typed: String) {

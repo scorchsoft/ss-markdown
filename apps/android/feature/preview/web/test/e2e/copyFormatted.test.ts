@@ -97,7 +97,7 @@ describe("copy formatted text", () => {
         expect(html).not.toContain("tags: [test]");
         expect(html).toMatch(/<img(?=[^>]*src="data:image\/png;base64,[^"]+")(?=[^>]*alt="Diagram: flowchart")/);
         const plain = result.text ?? "";
-        expect(plain.startsWith("Extended syntax\n\n")).toBe(true);
+        expect(plain.startsWith("Extended syntax\n===============\n\n")).toBe(true);
         expect(plain).toContain("☐ Open task\n☑ Done task");
         expect(plain).toContain("[Diagram: flowchart]");
         expect(plain).not.toMatch(/^#|\*\*|^```/m);
@@ -111,7 +111,7 @@ describe("copy formatted text", () => {
         expect(result.html).toContain("Two");
         expect(result.html).not.toContain("One");
         expect(result.html).not.toContain("Beta");
-        expect(result.text).toBe("Alpha bold.\n\nTwo");
+        expect(result.text).toBe("Alpha bold.\n\nTwo\n---");
     });
 
     it("embeds pictures next to the file within the caps, else their alt text; web pictures stay links", async () => {

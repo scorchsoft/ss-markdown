@@ -82,7 +82,10 @@ class SaveController(
     /** The picker answered; [target] is null when it was cancelled. */
     fun onSaveLocation(target: String?) {
         val open = host.active?.open ?: return
-        if (target == null) return
+        if (target == null) {
+            afterSaveAs = null
+            return
+        }
         deps.permissions(target, true)
         val from = open.uri
         host.updateMeta(from.value) { it.copy(saving = true, savingAs = true) }
@@ -102,6 +105,12 @@ class SaveController(
                 ) {
                     host.message(MessageKind.PicturesStayedWithDraft)
                 }
+                afterSaveAs?.let {
+                    afterSaveAs = null
+                    leave(it, discard = false)
+                }
+            } else {
+                afterSaveAs = null
             }
         }
     }
@@ -203,21 +212,44 @@ class SaveController(
 
     /** Something would take a dirty buffer out of memory: ask first; otherwise just do it. */
     fun requestLeave(leave: PendingLeave) {
-        val dirty =
-            host.state.isDirty && host.active
-                ?.open
-                ?.uri
-                ?.isDraft == false
+        val uri = host.active?.open?.uri
+        val dirty = host.state.isDirty && uri?.isDraft == false
+        // New from a draft with words in it: the draft is kept, but say so and offer Save as… or Delete.
+        val draftWithText =
+            leave == PendingLeave.NewDocument && uri?.isDraft == true &&
+                host.active
+                    ?.text
+                    ?.snapshot()
+                    ?.isNotBlank() == true
         val folderSwitch = leave is PendingLeave.OpenOther && host.state.folder != null
-        if (dirty && !folderSwitch) {
+        if (draftWithText) {
+            host.update { it.copy(overlay = EditorOverlay.DirtyPrompt(leave, draft = true)) }
+        } else if (dirty && !folderSwitch) {
             host.update { it.copy(overlay = EditorOverlay.DirtyPrompt(leave)) }
         } else {
             leave(leave, discard = false)
         }
     }
 
-    /** "Save" at the prompt: leave only once the save has verified. */
-    fun saveThenLeave(leave: PendingLeave) = save { leave(leave, discard = false) }
+    /**
+     * "Save" at the prompt: leave only once the save has verified. A draft
+     * goes through the Save as… picker first, and leaves once that save has
+     * verified; cancelling the picker stays on the draft.
+     */
+    fun saveThenLeave(leave: PendingLeave) {
+        host.update { it.copy(overlay = null) }
+        if (host.active
+                ?.open
+                ?.uri
+                ?.isDraft == true
+        ) {
+            afterSaveAs = leave
+        }
+        save { leave(leave, discard = false) }
+    }
+
+    /** Where to go once a Save as… started from the leave prompt has verified. */
+    private var afterSaveAs: PendingLeave? = null
 
     /**
      * Carries out [leave]; with [discard], "Don't save" (a History
@@ -233,7 +265,15 @@ class SaveController(
         host.update { it.copy(overlay = null) }
         val open = host.active?.open
         deps.scope.launch {
-            if (discard && open != null) {
+            if (discard && open != null && open.uri.isDraft) {
+                // "Delete draft": its last typing is written first, so Undo brings all of it back, then it
+                // goes to the drafts trash with Undo, as the Navigator's delete does (DS-16).
+                if (deps.store[open.uri]?.isDirty == true) deps.store.save(open.uri)
+                deps.store.close(open.uri)
+                if (withContext(deps.io) { deps.drafts.trash(open.uri) }) {
+                    (host as? EditorViewModel)?.navigator?.trashed(open.uri)
+                }
+            } else if (discard && open != null) {
                 val closed = deps.store.close(open.uri, discardUnsaved = true, evenIfNotKept = evenIfNotKept)
                 if (closed is CloseOutcome.NotKept) {
                     val ask = EditorOverlay.NotKept(NotKeptStep.DontSave(leave), closed.checkpoint)

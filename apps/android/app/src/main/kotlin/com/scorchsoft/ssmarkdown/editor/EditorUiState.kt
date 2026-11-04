@@ -286,9 +286,15 @@ sealed interface EditorOverlay {
     /** "Use my version…" asks first: it overwrites the other app's change. */
     data object ConfirmUseMine : EditorOverlay
 
-    /** Save / Don't save / Keep editing. */
+    /**
+     * Save / Don't save / Keep editing. With [draft], the document is an
+     * untitled draft about to be left by New: Save as… / Keep as draft /
+     * Delete draft / Keep editing, since leaving a draft loses nothing but
+     * said nothing either (Andrew, 2026-11-04).
+     */
     data class DirtyPrompt(
         val leave: PendingLeave,
+        val draft: Boolean = false,
     ) : EditorOverlay
 
     /**

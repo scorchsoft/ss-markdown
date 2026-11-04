@@ -21,9 +21,9 @@ data class LineChange(
 /**
  * Preview behaviour that Kotlin owns (Settings, zoom, renderer health).
  *
- * @property noWrap Display → Preview wrapping "No wrap": code lines and
- *   table cells keep their width and scroll sideways in their own box, and
- *   the reading-width cap is lifted. Fluid (false) wraps code as well.
+ * @property noWrap Display → Preview wrapping "No wrap": as in Code, each
+ *   source line of text, code and table rows keeps its width and the page
+ *   pans sideways. Fluid (false) wraps everything.
  *   Ignored in [pageMode], which follows the print rules.
  */
 data class PreviewSettings(

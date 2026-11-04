@@ -59,7 +59,7 @@ fun EditorOverlays(
         }
 
         is EditorOverlay.DirtyPrompt -> {
-            LeaveSheet(name, onAction, historyOn = state.historyOn)
+            if (overlay.draft) DraftLeaveSheet(onAction) else LeaveSheet(name, onAction, historyOn = state.historyOn)
         }
 
         is EditorOverlay.Display -> {

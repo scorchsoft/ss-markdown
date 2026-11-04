@@ -59,17 +59,18 @@ describe("bridge", () => {
             page,
             "```js\n" + long + "\n```\n\n| a | b |\n|---|---|\n| " + "word ".repeat(30) + "| c |\n",
         );
-        const width = (): Promise<{ code: number; box: number }> =>
+        const width = (): Promise<{ code: number; box: number; screen: number }> =>
             page.evaluate(() => {
                 const pre = document.querySelector("pre.code-block") as HTMLElement;
-                return { code: pre.scrollWidth, box: pre.clientWidth };
+                return { code: pre.scrollWidth, box: pre.clientWidth, screen: innerWidth };
             });
         const fluid = await width();
         expect(fluid.code).toBeLessThanOrEqual(fluid.box);
         const settings = { tapToEdit: true, pageMode: false, zoom: 1, lean: false, readOnly: false };
         await send(page, { type: "settings", settings: { ...settings, noWrap: true } });
         const noWrap = await width();
-        expect(noWrap.code).toBeGreaterThan(noWrap.box);
+        // The line stays whole: wider than the screen, the page pans sideways (noWrap.test.ts).
+        expect(noWrap.code).toBeGreaterThan(noWrap.screen);
         expect(await page.evaluate(() => getComputedStyle(document.querySelector("td") as Element).whiteSpace)).toBe(
             "nowrap",
         );

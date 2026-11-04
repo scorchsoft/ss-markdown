@@ -172,6 +172,13 @@ class NavigatorController(
         }
     }
 
+    /** A draft the leave prompt's "Delete draft" moved to the trash: "Draft deleted · Undo", as here. */
+    fun trashed(uri: DocumentUri) {
+        lastDeleted = uri
+        host.message(MessageKind.DraftDeleted, undo = true)
+        loadDrafts()
+    }
+
     /** Undo on "Draft deleted": the draft comes back as it was. */
     fun undoDeleteDraft() {
         val target = lastDeleted ?: return

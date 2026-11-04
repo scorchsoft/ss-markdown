@@ -49,9 +49,9 @@ export interface PreviewSettings {
     readonly lean: boolean;
     readonly readOnly: boolean;
     /**
-     * Display → Preview wrapping "No wrap": the reading-width cap is lifted,
-     * code lines and table cells keep their natural width and scroll sideways
-     * in their own box. Fluid (the default) wraps code too, so nothing does.
+     * Display → Preview wrapping "No wrap": as in Code, each source line of
+     * text, code and table rows keeps its natural width, and the page pans
+     * sideways. Fluid (the default) wraps code too, so nothing does.
      */
     readonly noWrap?: boolean;
 }

@@ -180,6 +180,9 @@ sealed interface EditorAction {
 
     data object LeaveDiscard : EditorAction
 
+    /** The draft prompt's "Keep as draft": leave, the draft kept in the Navigator's Drafts. */
+    data object LeaveKeepDraft : EditorAction
+
     data object KeepEditing : EditorAction
 
     // The formatting strip.

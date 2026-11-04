@@ -911,7 +911,10 @@ One sheet with a **fixed layout**, the same from every entry point:
 
 1. **Lines**: a **Code** row (Wrap / No wrap) and a **Preview** row
    (Fluid / A4 page / No wrap), each a label and a compact segmented
-   control.
+   control. Preview's No wrap matches Code's: each source line of text
+   stays one line (a list item or table cell one line each), never wrapped
+   at the screen's edge, and the page pans sideways (Andrew, 2026-11-04;
+   it used to unwrap only code and tables, so prose looked like Fluid).
 2. **Appearance** (System / Light / Dark).
 3. **Text size · this file**: Code − / + and Preview − / +, with the real
    size beside each and "Reset to your default".
@@ -1005,6 +1008,10 @@ set in Settings.
   the conflict sheet (see "File changed outside the app"). The conflict
   sheet is the only place conflicts are resolved.
 - Leaving with unsaved changes prompts Save / Don't save / Keep editing.
+- New from an untitled draft with text in it asks "This draft isn't saved
+  to a file yet": Save as… (then the new draft), Keep as draft, Delete
+  draft (Undo straight after) or Keep editing. Nothing is lost either way;
+  the prompt says where the draft went.
   This happens only when a buffer would leave memory (see `robustness.md`
   §6); switching files in a folder never prompts.
 - First open of a file, under "Last used": **Preview** for files opened

@@ -170,6 +170,10 @@ internal object EditorEffects {
                 (before.overlay as? EditorOverlay.DirtyPrompt)?.let { vm.saves.saveThenLeave(it.leave) }
             }
 
+            EditorAction.LeaveKeepDraft -> {
+                (before.overlay as? EditorOverlay.DirtyPrompt)?.let { vm.saves.leave(it.leave, discard = false) }
+            }
+
             EditorAction.LeaveDiscard -> {
                 // The sheet said "can't be undone" when History was off: the user has accepted no copy.
                 (before.overlay as? EditorOverlay.DirtyPrompt)?.let {

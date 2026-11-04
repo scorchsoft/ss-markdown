@@ -7,6 +7,8 @@ release may change behaviour.
 
 ## [Unreleased]
 
+## [0.2.11] - 2026-11-04
+
 ### Added
 
 - Tidy, in ⋮'s top row: evens out how the Markdown is written (extra blank

@@ -42,8 +42,8 @@ android {
         minSdk = 29
         targetSdk = 36
         // versionCode bumps by exactly one per artefact handed to anyone.
-        versionCode = 12
-        versionName = "0.2.10"
+        versionCode = 13
+        versionName = "0.2.11"
         // AndroidJUnitRunner that also installs LeakCanary's watcher, so the
         // instrumented tests fail on a leaked Activity, View or ViewModel.
         testInstrumentationRunner = "com.scorchsoft.ssmarkdown.LeakCheckRunner"

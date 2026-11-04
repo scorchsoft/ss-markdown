@@ -209,6 +209,7 @@ private suspend fun onEditorEvent(
 
         EditorEvent.HideKeyboard -> {
             targets.keyboard?.hide()
+            KeyboardReturn.hide(targets.view)
         }
 
         EditorEvent.ReturnKeyboard -> {

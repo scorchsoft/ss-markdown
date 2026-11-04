@@ -1261,7 +1261,9 @@ line and 25-30 lines a page, with a quarter of the width empty).
   rows, diagrams and pictures are not split across pages when they fit on
   one.
 - Diagrams and images scale to the text width and never split across
-  pages.
+  pages: one taller than a page's text (240 mm, Letter's, so A4 fits too)
+  scales down to fit a page. Nothing prints in the 15 mm at the foot but
+  the page number.
 - The **A4 page mode** in Preview uses the same stylesheet at true scale.
   On a phone that makes body text small, by design ("true scale, pinch
   to read"); pinch zooms the page, not the type.

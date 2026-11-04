@@ -1,5 +1,7 @@
 package com.scorchsoft.ssmarkdown.ui
 
+import android.view.View
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
@@ -7,16 +9,21 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.Insets
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.scorchsoft.ssmarkdown.document.ActiveDocument
 import com.scorchsoft.ssmarkdown.editor.EditorAction
 import com.scorchsoft.ssmarkdown.editor.EditorEvent
 import com.scorchsoft.ssmarkdown.editor.EditorOverlay
 import com.scorchsoft.ssmarkdown.editor.EditorReducer
 import com.scorchsoft.ssmarkdown.editor.LineChange
+import com.scorchsoft.ssmarkdown.editor.chrome.MENU_ROWS_TAG
 import com.scorchsoft.ssmarkdown.fixtures.EditorFixture
 import com.scorchsoft.ssmarkdown.fixtures.Samples
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -39,6 +46,10 @@ import org.robolectric.RuntimeEnvironment
 @RunWith(RobolectricTestRunner::class)
 @OptIn(ExperimentalCoroutinesApi::class)
 class OverflowMenuTest {
+    private companion object {
+        const val KEYBOARD_DP = 300
+    }
+
     @get:Rule val rule = createComposeRule()
 
     @get:Rule val temp = TemporaryFolder()
@@ -98,6 +109,40 @@ class OverflowMenuTest {
     @Test
     fun `at 2x font every row is reachable`() {
         show("w360dp-h640dp-xhdpi", fontScale = 2f)
+        everyRowReachable()
+    }
+
+    /**
+     * Andrew, 2026-11-04: with the keyboard still up, the rows ran under it
+     * and could not be scrolled to. They are held above it and scroll.
+     */
+    @Test
+    fun `with the keyboard up the rows fit above it and every row is reachable`() {
+        RuntimeEnvironment.setQualifiers("w412dp-h915dp-420dpi")
+        lateinit var root: View
+        rule.setContent {
+            root = LocalView.current
+            Themed(dark = false) { EditorFor(open) { actions += it } }
+        }
+        rule.waitForIdle()
+        rule.runOnIdle {
+            val ime = (KEYBOARD_DP * root.resources.displayMetrics.density).toInt()
+            val insets =
+                WindowInsetsCompat
+                    .Builder()
+                    .setInsets(WindowInsetsCompat.Type.ime(), Insets.of(0, 0, 0, ime))
+                    .setVisible(WindowInsetsCompat.Type.ime(), true)
+                    .build()
+            ViewCompat.dispatchApplyWindowInsets(root, insets)
+        }
+        rule.waitForIdle()
+        val rows =
+            rule
+                .onNodeWithTag(MENU_ROWS_TAG)
+                .fetchSemanticsNode()
+                .size.height / root.resources.displayMetrics.density
+        // 915 dp, less the keyboard, the menu's margins and its icon row: well under the menu's full height.
+        assertTrue("rows are $rows dp tall", rows <= 915 - KEYBOARD_DP - 112 - 48 + 1)
         everyRowReachable()
     }
 

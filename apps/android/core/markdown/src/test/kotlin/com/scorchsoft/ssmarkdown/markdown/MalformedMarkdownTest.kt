@@ -134,22 +134,31 @@ class MalformedMarkdownTest {
         for ((name, text) in cases) {
             val fences = FenceStates.scan(text)
             val style = DocumentStyle.detect(text)
-            for (caret in carets(text)) {
-                for (selection in listOf(TextSelection.caret(caret), TextSelection(0, caret))) {
-                    for (command in commands) {
-                        val result =
-                            try {
-                                command.apply(text, selection, style, fences)
-                            } catch (e: RuntimeException) {
-                                throw AssertionError("$command threw on \"$name\" at $selection", e)
-                            } catch (e: StackOverflowError) {
-                                throw AssertionError("$command overflowed the stack on \"$name\" at $selection", e)
-                            }
-                        assertInvariants(text, result, result.applyTo(text))
-                    }
-                }
+            val selections = carets(text).flatMap { listOf(TextSelection.caret(it), TextSelection(0, it)) }
+            for (selection in selections) {
+                for (command in commands) assertCommand(name, text, command, selection, style, fences)
             }
         }
+    }
+
+    @Suppress("LongParameterList") // One case of the matrix: every axis is a parameter.
+    private fun assertCommand(
+        name: String,
+        text: String,
+        command: EditCommand,
+        selection: TextSelection,
+        style: DocumentStyle,
+        fences: FenceStates,
+    ) {
+        val result =
+            try {
+                command.apply(text, selection, style, fences)
+            } catch (e: RuntimeException) {
+                throw AssertionError("$command threw on \"$name\" at $selection", e)
+            } catch (e: StackOverflowError) {
+                throw AssertionError("$command overflowed the stack on \"$name\" at $selection", e)
+            }
+        assertInvariants(text, result, result.applyTo(text))
     }
 
     /** Line starts, line ends and a few points between, capped so a 200 KB line stays quick. */

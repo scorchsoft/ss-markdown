@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -104,10 +105,13 @@ fun OverflowMenu(
     picturesNeedFolder: Boolean = false,
 ) {
     val hardwareKeyboard = LocalConfiguration.current.keyboard == Configuration.KEYBOARD_QWERTY
+    // Measured here, in the editor's window: inside the menu's popup window the keyboard's inset
+    // reads as zero, so with the keyboard up the rows ran under it and never scrolled.
+    val rowsMaxHeight = menuRowsMaxHeight()
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, containerColor = SS.colors.chrome) {
         HistoryRow(history)
         HorizontalDivider(thickness = SS.dimens.hairline, color = SS.colors.border)
-        ScrollingRows(maxHeight = menuRowsMaxHeight()) {
+        ScrollingRows(maxHeight = rowsMaxHeight) {
             menuGroups(copyInMenu, saveAll = unsavedCount > 0, showPictures = picturesNeedFolder).forEachIndexed {
                 index,
                 group,
@@ -200,7 +204,7 @@ private fun ScrollingRows(
 ) {
     val scroll = rememberScrollState()
     val fade = SS.colors.chrome
-    Box(Modifier.heightIn(max = maxHeight)) {
+    Box(Modifier.heightIn(max = maxHeight).testTag(MENU_ROWS_TAG)) {
         Column(Modifier.verticalScroll(scroll)) { content() }
         if (scroll.canScrollBackward) {
             Box(
@@ -226,7 +230,9 @@ private fun ScrollingRows(
 /**
  * The height left for the rows: the window, less the system bars and the
  * keyboard (the menu hides the keyboard as it opens, but may draw before
- * it has gone), less the menu's margins and the pinned icon row.
+ * it has gone, and a keyboard that stays keeps its room), less the menu's
+ * margins and the pinned icon row. Read in the editor's window, never the
+ * popup's, which hears of no keyboard.
  */
 @Composable
 private fun menuRowsMaxHeight(): Dp {
@@ -244,6 +250,9 @@ private fun menuRowsMaxHeight(): Dp {
 
 /** Above and below the menu (Material's 48 dp vertical margin each side) and its own padding. */
 private val MenuMargins = 112.dp
+
+/** The menu's scrolling rows, for tests. */
+const val MENU_ROWS_TAG = "menu-rows"
 private val FadeHeight = 24.dp
 private const val DISABLED_ALPHA = 0.38f
 

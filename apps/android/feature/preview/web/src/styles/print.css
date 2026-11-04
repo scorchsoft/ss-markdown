@@ -216,6 +216,14 @@
     --border: var(--l-border);
     color-scheme: light;
 }
+/* Pinch scales the whole page, like a PDF viewer: text, margins and pictures together, so the
+   page keeps its layout (Andrew, 2026-11-04: pinch did nothing in A4 page mode). Screen only:
+   print is always true scale. */
+@media screen {
+    :root.page-mode .doc {
+        zoom: var(--zoom);
+    }
+}
 :root.page-mode body {
     background: #e8e8ea;
     font-size: 11pt;

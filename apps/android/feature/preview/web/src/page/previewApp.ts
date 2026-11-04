@@ -16,6 +16,7 @@ import { Gestures } from "./gestures";
 import { PageImages } from "./images";
 import { MermaidRunner } from "./mermaidRunner";
 import { breadcrumb, fillTocs } from "./outline";
+import { PinchFocus } from "./pinchFocus";
 import { scrollToLine, topLine } from "./scrollSync";
 import { applyTheme } from "./theme";
 import { BUILT_IN_THEMES } from "./themes";
@@ -33,6 +34,7 @@ export class PreviewApp {
     private readonly find: FindMarks;
     private readonly images: PageImages;
     private settings: PreviewSettings = DEFAULT_SETTINGS;
+    private readonly pinchFocus = new PinchFocus();
     private anchorLine: number | null = null;
     private lastTop = -1;
     private lastFractionStep = -1;
@@ -251,12 +253,16 @@ export class PreviewApp {
     }
 
     private applySettings(s: PreviewSettings): void {
+        const before = this.settings;
         this.settings = s;
         const root = document.documentElement;
-        root.style.setProperty("--zoom", String(Math.min(4, Math.max(0.5, s.zoom))));
+        const zoom = Math.min(4, Math.max(0.5, s.zoom));
+        const oldZoom = Math.min(4, Math.max(0.5, before.zoom));
+        root.style.setProperty("--zoom", String(zoom));
         root.classList.toggle("page-mode", s.pageMode);
         root.classList.toggle("no-wrap", s.noWrap === true && !s.pageMode);
         root.classList.toggle("read-only", s.readOnly || !s.tapToEdit);
+        if (s.pageMode && before.pageMode && zoom !== oldZoom) this.pinchFocus.keep(zoom / oldZoom);
         this.mermaid.setLean(s.lean);
         if (s.readOnly || !s.tapToEdit) this.editor.end();
     }

@@ -122,4 +122,3 @@ describe("pinch in A4 page mode", () => {
         expect(zoom).toBe("1");
     });
 });
-

@@ -7,6 +7,37 @@ release may change behaviour.
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-11-04
+
+From Andrew's 0.2.3 phone test: editing edge cases, an empty file in
+Preview, the fast-scroll pill, PDF page bottoms, the ⋮ menu over the
+keyboard, and a malformed-Markdown robustness pass.
+
+### Changed
+
+- Backspace on an emptied list item deletes the item with its line, the
+  caret going to the end of the item above, and a numbered list closes up
+  (1, 2, 4, 5 reads 1, 2, 3, 4). Before, it left a blank line that split
+  the list. Code and Preview behave the same.
+- The fast-scroll pill has a thin halo in the page colour and eases
+  between rest and held; Preview no longer draws Android's own scrollbar
+  beside it.
+- The ⋮ menu waits for the keyboard to go and opens once, at full size;
+  with the keyboard still up its rows scroll above it.
+
+### Fixed
+
+- Preview of an empty file: a tap now starts editing, so you can type
+  straight into a new file. A tap below the last paragraph puts the caret
+  at its end.
+- Preview showed text typed after Enter twice until editing ended.
+- PDF: a diagram, picture or formula taller than a page was sliced across
+  the page foot, with a blank page before it. It now scales to fit a page.
+- Crashes on malformed Markdown found by the new robustness suites: the
+  ¶ Paragraph command on a very wide table row, pasting with very long
+  table or rule lines, a theme with a huge font name, and the list keys on
+  a selection over an item and its nested item.
+
 ## [0.2.3] - 2026-11-03
 
 From the 0.2.2 phone test: lists, paste, tapping, Split and the keyboard

@@ -5,6 +5,7 @@ package com.scorchsoft.ssmarkdown.editor
  * [MarkdownCodeView]. Every method has an empty default, so a host
  * overrides only what it needs. All calls arrive on the main thread.
  */
+@Suppress("TooManyFunctions") // One no-op default per event the view reports; nothing to split.
 interface EditorListener {
     /** The selection settled at `[start, end)` (equal for a caret), after the keyboard's batch closed. */
     fun onSelectionChanged(

@@ -24,6 +24,7 @@ import com.scorchsoft.ssmarkdown.text.TextDocument
  * What the editor screen hears from the document on screen. The view
  * model implements it; every call is on the main thread.
  */
+@Suppress("TooManyFunctions") // One no-op default per event the document reports; nothing to split.
 interface ActiveDocumentListener {
     /** The text changed by typing, a command or undo. */
     fun onEdited() = Unit

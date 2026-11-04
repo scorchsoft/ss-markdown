@@ -1,0 +1,16697 @@
+=== blank-run
+--- input
+a¶
+¶
+¶
+¶
+b¶
+¶
+--- output
+a¶
+¶
+b¶
+¶
+=== blank-run-whitespace
+--- input
+a¶
+  ¶
+	¶
+ ¶
+b¶
+¶
+--- output
+a¶
+¶
+b¶
+¶
+=== blank-leading
+--- input
+¶
+¶
+¶
+# Title¶
+¶
+--- output
+# Title¶
+¶
+=== blank-leading-before-dashes
+--- input
+¶
+¶
+---¶
+title: x¶
+---¶
+¶
+--- output
+¶
+---¶
+title: x¶
+---¶
+¶
+=== blank-in-list
+--- input
+- a¶
+¶
+¶
+- b¶
+¶
+--- output
+- a¶
+¶
+- b¶
+¶
+=== blank-quote-marker-is-not-blank
+--- input
+> a¶
+>¶
+>¶
+> b¶
+¶
+--- output
+> a¶
+>¶
+>¶
+> b¶
+¶
+=== blank-between-indented-code
+--- input
+    code¶
+¶
+¶
+    more¶
+¶
+--- output
+    code¶
+¶
+¶
+    more¶
+¶
+=== blank-before-definition
+--- input
+Term¶
+¶
+¶
+: definition¶
+¶
+--- output
+Term¶
+¶
+¶
+: definition¶
+¶
+=== blank-in-fence
+--- input
+```¶
+a¶
+¶
+¶
+¶
+b¶
+```¶
+¶
+--- output
+```¶
+a¶
+¶
+¶
+¶
+b¶
+```¶
+¶
+=== blank-in-math
+--- input
+$$¶
+a¶
+¶
+¶
+b¶
+$$¶
+¶
+--- output
+$$¶
+a¶
+¶
+¶
+b¶
+$$¶
+¶
+=== blank-in-comment
+--- input
+<!--¶
+a¶
+¶
+¶
+b¶
+-->¶
+¶
+--- output
+<!--¶
+a¶
+¶
+¶
+b¶
+-->¶
+¶
+=== blank-in-pre
+--- input
+<pre>¶
+a¶
+¶
+¶
+b¶
+</pre>¶
+¶
+--- output
+<pre>¶
+a¶
+¶
+¶
+b¶
+</pre>¶
+¶
+=== blank-in-list-fence
+--- input
+- ```¶
+  a¶
+¶
+¶
+  b¶
+  ```¶
+¶
+--- output
+- ```¶
+  a¶
+¶
+¶
+  b¶
+  ```¶
+¶
+=== blank-only-file
+--- input
+¶
+¶
+  ¶
+¶
+--- output
+¶
+=== trailing-spaces
+--- input
+a  ¶
+¶
+b 	¶
+¶
+--- output
+a¶
+¶
+b¶
+¶
+=== trailing-single-space
+--- input
+one ¶
+two¶
+¶
+--- output
+one¶
+two¶
+¶
+=== hard-break-kept
+--- input
+one  ¶
+two¶
+¶
+--- output
+one  ¶
+two¶
+¶
+=== tab-mid-paragraph-kept
+--- input
+one	¶
+two¶
+¶
+--- output
+one	¶
+two¶
+¶
+=== hard-break-many-spaces
+--- input
+one     ¶
+two¶
+¶
+--- output
+one     ¶
+two¶
+¶
+=== hard-break-at-paragraph-end
+--- input
+one  ¶
+¶
+two¶
+¶
+--- output
+one¶
+¶
+two¶
+¶
+=== backslash-then-space
+--- input
+one\ ¶
+two¶
+¶
+--- output
+one\ ¶
+two¶
+¶
+=== code-span-across-lines
+--- input
+a `b ¶
+c` d¶
+¶
+--- output
+a `b ¶
+c` d¶
+¶
+=== html-attribute-across-lines
+--- input
+a <span title="x ¶
+y">z</span>¶
+¶
+--- output
+a <span title="x ¶
+y">z</span>¶
+¶
+=== trailing-heading
+--- input
+# Title   ¶
+¶
+--- output
+# Title¶
+¶
+=== trailing-in-fence
+--- input
+```¶
+code   ¶
+```¶
+¶
+--- output
+```¶
+code   ¶
+```¶
+¶
+=== trailing-indented-code
+--- input
+    code   ¶
+¶
+--- output
+    code   ¶
+¶
+=== trailing-tab-indented
+--- input
+	code   ¶
+¶
+--- output
+	code   ¶
+¶
+=== trailing-quote
+--- input
+> a ¶
+> b  ¶
+> c¶
+¶
+--- output
+> a¶
+> b  ¶
+> c¶
+¶
+=== trailing-table
+--- input
+| a |  ¶
+| - |¶
+| 1 |  ¶
+¶
+--- output
+| a |  ¶
+| - |¶
+| 1 |  ¶
+¶
+=== trailing-front-matter
+--- input
+---¶
+title: x  ¶
+---¶
+¶
+--- output
+---¶
+title: x  ¶
+---¶
+¶
+=== trailing-html
+--- input
+<div>  ¶
+x  ¶
+</div>¶
+¶
+--- output
+<div>  ¶
+x  ¶
+</div>¶
+¶
+=== final-newline-missing
+--- input
+a¶
+--- output
+a¶
+¶
+=== final-newline-extra
+--- input
+a¶
+¶
+¶
+¶
+--- output
+a¶
+¶
+=== final-newline-trailing-spaces
+--- input
+a  ¶
+--- output
+a¶
+¶
+=== empty-file
+--- input
+¶
+--- output
+¶
+=== final-newline-open-math
+--- input
+$$¶
+x¶
+--- output
+$$¶
+x¶
+=== final-newline-open-comment
+--- input
+<!-- a¶
+¶
+¶
+--- output
+<!-- a¶
+¶
+¶
+=== unclosed-fence
+--- input
+```js¶
+code¶
+¶
+--- output
+```js¶
+code¶
+```¶
+¶
+=== unclosed-fence-no-newline
+--- input
+```¶
+code¶
+--- output
+```¶
+code¶
+```¶
+¶
+=== unclosed-fence-long
+--- input
+````¶
+a¶
+```¶
+b¶
+¶
+--- output
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+=== unclosed-tilde-indented
+--- input
+  ~~~¶
+x¶
+¶
+--- output
+  ~~~¶
+x¶
+  ~~~¶
+¶
+=== unclosed-fence-trailing-blanks
+--- input
+```¶
+code¶
+¶
+¶
+¶
+--- output
+```¶
+code¶
+¶
+¶
+```¶
+¶
+=== unclosed-fence-in-list
+--- input
+- ```¶
+  code¶
+¶
+--- output
+- ```¶
+  code¶
+¶
+=== heading-spacing
+--- input
+#   Title¶
+¶
+--- output
+# Title¶
+¶
+=== heading-spacing-level
+--- input
+###  Three  ###¶
+¶
+--- output
+### Three  ###¶
+¶
+=== hashtag
+--- input
+#tag and #another¶
+¶
+--- output
+#tag and #another¶
+¶
+=== heading-tab
+--- input
+#	Title¶
+¶
+--- output
+#	Title¶
+¶
+=== heading-empty-closing
+--- input
+#   #¶
+¶
+--- output
+#   #¶
+¶
+=== heading-in-list
+--- input
+- #   item¶
+¶
+--- output
+- #   item¶
+¶
+=== heading-after-text
+--- input
+Para¶
+# H¶
+more¶
+¶
+--- output
+Para¶
+¶
+# H¶
+¶
+more¶
+¶
+=== heading-after-list
+--- input
+- a¶
+- b¶
+## H¶
+¶
+--- output
+- a¶
+- b¶
+¶
+## H¶
+¶
+=== heading-before-list
+--- input
+# H¶
+1. a¶
+2. b¶
+¶
+--- output
+# H¶
+¶
+1. a¶
+2. b¶
+¶
+=== heading-quote
+--- input
+> q¶
+# H¶
+> r¶
+¶
+--- output
+> q¶
+¶
+# H¶
+¶
+> r¶
+¶
+=== heading-heading
+--- input
+# A¶
+## B¶
+¶
+--- output
+# A¶
+¶
+## B¶
+¶
+=== heading-after-text-hard-break
+--- input
+Para  ¶
+# H¶
+¶
+--- output
+Para¶
+¶
+# H¶
+¶
+=== table-then-heading
+--- input
+| a | b |¶
+|---|---|¶
+| 1 | 2 |¶
+# H¶
+¶
+--- output
+| a | b |¶
+|---|---|¶
+| 1 | 2 |¶
+# H¶
+¶
+=== heading-after-html
+--- input
+<div>¶
+# H¶
+</div>¶
+¶
+--- output
+<div>¶
+# H¶
+</div>¶
+¶
+=== heading-after-setext
+--- input
+Title¶
+=====¶
+# H¶
+¶
+--- output
+Title¶
+=====¶
+# H¶
+¶
+=== heading-after-front-matter
+--- input
+---¶
+x: 1¶
+---¶
+# H¶
+¶
+--- output
+---¶
+x: 1¶
+---¶
+# H¶
+¶
+=== heading-indented
+--- input
+Para¶
+  # H¶
+¶
+--- output
+Para¶
+  # H¶
+¶
+=== heading-before-indented
+--- input
+# H¶
+    code¶
+¶
+--- output
+# H¶
+    code¶
+¶
+=== heading-before-definition
+--- input
+# H¶
+: not a term¶
+¶
+--- output
+# H¶
+: not a term¶
+¶
+=== setext-dashes
+--- input
+para¶
+---¶
+¶
+--- output
+para¶
+---¶
+¶
+=== fence-after-text
+--- input
+Para¶
+```¶
+code¶
+```¶
+after¶
+¶
+--- output
+Para¶
+¶
+```¶
+code¶
+```¶
+¶
+after¶
+¶
+=== fence-heading
+--- input
+# H¶
+```¶
+x¶
+```¶
+¶
+--- output
+# H¶
+¶
+```¶
+x¶
+```¶
+¶
+=== fence-fence
+--- input
+```¶
+a¶
+```¶
+~~~¶
+b¶
+~~~¶
+¶
+--- output
+```¶
+a¶
+```¶
+¶
+~~~¶
+b¶
+~~~¶
+¶
+=== fence-in-list-item
+--- input
+- item¶
+  ```¶
+  code¶
+  ```¶
+- next¶
+¶
+--- output
+- item¶
+  ```¶
+  code¶
+  ```¶
+- next¶
+¶
+=== fence-in-quote
+--- input
+> a¶
+> ```¶
+> x¶
+> ```¶
+¶
+--- output
+> a¶
+> ```¶
+> x¶
+> ```¶
+¶
+=== fence-after-table
+--- input
+| a |¶
+| - |¶
+```¶
+x¶
+```¶
+¶
+--- output
+| a |¶
+| - |¶
+```¶
+x¶
+```¶
+¶
+=== fence-indented
+--- input
+Para¶
+  ```¶
+  x¶
+  ```¶
+¶
+--- output
+Para¶
+  ```¶
+  x¶
+  ```¶
+¶
+=== fence-backtick-info
+--- input
+``` a`b¶
+not a fence¶
+¶
+--- output
+``` a`b¶
+not a fence¶
+¶
+=== list-renumber
+--- input
+1. a¶
+1. b¶
+1. c¶
+¶
+--- output
+1. a¶
+2. b¶
+3. c¶
+¶
+=== list-renumber-start
+--- input
+3) a¶
+7) b¶
+¶
+--- output
+3) a¶
+4) b¶
+¶
+=== list-renumber-loose
+--- input
+1. a¶
+¶
+5. b¶
+¶
+¶
+9. c¶
+¶
+--- output
+1. a¶
+¶
+2. b¶
+¶
+3. c¶
+¶
+=== list-renumber-nested
+--- input
+1. a¶
+   1. x¶
+   5. y¶
+2. b¶
+9. c¶
+¶
+--- output
+1. a¶
+   1. x¶
+   2. y¶
+2. b¶
+3. c¶
+¶
+=== list-renumber-continuation
+--- input
+1. a¶
+¶
+   more¶
+4. b¶
+¶
+--- output
+1. a¶
+¶
+   more¶
+2. b¶
+¶
+=== list-renumber-lazy
+--- input
+1. wraps¶
+lazily¶
+3. b¶
+¶
+--- output
+1. wraps¶
+lazily¶
+2. b¶
+¶
+=== list-renumber-wider
+--- input
+9. a¶
+1. b¶
+¶
+--- output
+9. a¶
+10. b¶
+¶
+=== list-wider-with-continuation
+--- input
+9. a¶
+1. b¶
+   more¶
+¶
+--- output
+9. a¶
+1. b¶
+   more¶
+¶
+=== list-delimiters-differ
+--- input
+1. a¶
+3) b¶
+¶
+--- output
+1. a¶
+3) b¶
+¶
+=== list-1984
+--- input
+Text¶
+1984. was a year¶
+1985. too¶
+¶
+--- output
+Text¶
+1984. was a year¶
+1985. too¶
+¶
+=== list-not-interrupting
+--- input
+Text¶
+2. b¶
+5. c¶
+¶
+--- output
+Text¶
+2. b¶
+5. c¶
+¶
+=== list-nested-not-interrupting
+--- input
+- a¶
+  2. b¶
+  5. c¶
+¶
+--- output
+- a¶
+  2. b¶
+  5. c¶
+¶
+=== list-split-by-paragraph
+--- input
+1. a¶
+¶
+para¶
+¶
+5. b¶
+¶
+--- output
+1. a¶
+¶
+para¶
+¶
+5. b¶
+¶
+=== list-with-code
+--- input
+1. a¶
+¶
+       code¶
+5. b¶
+¶
+--- output
+1. a¶
+¶
+       code¶
+5. b¶
+¶
+=== list-with-fence
+--- input
+1. a¶
+   ```¶
+   2. x¶
+   ```¶
+5. b¶
+¶
+--- output
+1. a¶
+   ```¶
+   2. x¶
+   ```¶
+5. b¶
+¶
+=== list-in-quote
+--- input
+> 1. a¶
+> 5. b¶
+¶
+--- output
+> 1. a¶
+> 5. b¶
+¶
+=== list-bullets-kept
+--- input
+- a¶
+* b¶
++ c¶
+¶
+--- output
+- a¶
+* b¶
++ c¶
+¶
+=== list-bullet-then-ordered
+--- input
+- a¶
+¶
+2. x¶
+9. y¶
+¶
+--- output
+- a¶
+¶
+2. x¶
+3. y¶
+¶
+=== dash-item
+--- input
+-item¶
+#Heading¶
+¶
+--- output
+-item¶
+#Heading¶
+¶
+=== emphasis-unbalanced
+--- input
+**bold _it¶
+¶
+--- output
+**bold _it¶
+¶
+=== html-run-with-heading
+--- input
+<div>¶
+## Inside¶
+text  ¶
+</div>¶
+¶
+--- output
+<div>¶
+## Inside¶
+text  ¶
+</div>¶
+¶
+=== comment-with-blank-lines
+--- input
+<!-- a¶
+¶
+¶
+# x  ¶
+-->¶
+¶
+--- output
+<!-- a¶
+¶
+¶
+# x  ¶
+-->¶
+¶
+=== script
+--- input
+<script>¶
+let a = 1;  ¶
+¶
+¶
+let b = 2;¶
+</script>¶
+¶
+--- output
+<script>¶
+let a = 1;  ¶
+¶
+¶
+let b = 2;¶
+</script>¶
+¶
+=== front-matter-only
+--- input
+---¶
+title: x¶
+# not a heading¶
+¶
+--- output
+---¶
+title: x¶
+# not a heading¶
+¶
+=== crlf-untouched
+--- input
+a  ¶
+¶
+¶
+¶
+b¶
+¶
+--- output
+a  ¶
+¶
+¶
+¶
+b¶
+¶
+=== tidy-already
+--- input
+# Title¶
+¶
+Some text.¶
+¶
+- a¶
+- b¶
+¶
+--- output
+# Title¶
+¶
+Some text.¶
+¶
+- a¶
+- b¶
+¶
+=== deflist
+--- input
+Term¶
+: one  ¶
+: two¶
+¶
+--- output
+Term¶
+: one  ¶
+: two¶
+¶
+=== footnote
+--- input
+Text[^1].¶
+¶
+[^1]: Note¶
+¶
+    more  ¶
+¶
+--- output
+Text[^1].¶
+¶
+[^1]: Note¶
+¶
+    more  ¶
+¶
+=== generated-0
+--- input
+Trailing tab	¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+   ¶
+¶
+> quote  ¶
+> more¶
+- a¶
+¶
+¶
+- b¶
+¶
+¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+1. one¶
+1. two¶
+1. three¶
+#tag line¶
+¶
+¶
+--- output
+Trailing tab	¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+   ¶
+¶
+> quote  ¶
+> more¶
+- a¶
+¶
+- b¶
+¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+1. one¶
+1. two¶
+1. three¶
+#tag line¶
+¶
+¶
+=== generated-1
+--- input
+    $$¶
+>---¶
+    ~ tilde def¶
+    -->¶
+<b>bold</b> text¶
+   ¶
+##    Spaced¶
+	: definition¶
+>2. two¶
+      - dash   ¶
+      7) seven¶
+===¶
+1. ```¶
+    <span>¶
+    wrapped line¶
+***¶
+1. ¶
+text¶
+	</div>   ¶
+   ##    Spaced¶
+   <!-- x -->¶
+> ~~~ \¶
+ ##    Spaced  ¶
+	<div>¶
+-¶
+¶
+--- output
+    $$¶
+>---¶
+    ~ tilde def¶
+    -->¶
+<b>bold</b> text¶
+   ¶
+## Spaced¶
+	: definition¶
+>2. two¶
+      - dash   ¶
+      7) seven¶
+===¶
+1. ```¶
+    <span>¶
+    wrapped line¶
+***¶
+1. ¶
+text¶
+	</div>   ¶
+   ##    Spaced¶
+   <!-- x -->¶
+> ~~~ \¶
+ ##    Spaced  ¶
+	<div>¶
+-¶
+¶
+=== generated-2
+--- input
+> lazy¶
+continuation¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+¶
+¶
+> ```¶
+> code¶
+> ```¶
+¶
+--- output
+> lazy¶
+continuation¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+> ```¶
+> code¶
+> ```¶
+¶
+=== generated-3
+--- input
+      10. ten ¶
+-¶
+¶
+> > </div>¶
+   [ref]: /u¶
+  	¶
+> > `` a ` b ``   ¶
+*[HTML]: Hyper¶
+  a \` b¶
+      [^1]: note¶
+   1. nested¶
+    more text¶
+===  ¶
+> \¶
+ `` a ` b ``¶
+ |---|---|¶
+span`  ¶
+  <!-- x -->¶
+   - ¶
+: definition ¶
+   | a | b |¶
+--- output
+      10. ten ¶
+-¶
+¶
+> > </div>¶
+   [ref]: /u¶
+¶
+> > `` a ` b ``   ¶
+*[HTML]: Hyper¶
+  a \` b¶
+      [^1]: note¶
+   1. nested¶
+    more text¶
+===  ¶
+> \¶
+ `` a ` b ``¶
+ |---|---|¶
+span`  ¶
+  <!-- x -->¶
+   - ¶
+: definition ¶
+   | a | b |¶
+=== generated-4
+--- input
+| a |¶
+| - |¶
+¶
+#¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+¶
+Setext two¶
+---¶
+¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+--- output
+| a |¶
+| - |¶
+¶
+#¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+Setext two¶
+---¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+=== generated-5
+--- input
+    `` a ` b ``¶
+    ``` ¶
+> >    1. nested¶
+> > 7) seven   ¶
+    text   ¶
+`code¶
++ plus¶
+      ~ tilde def¶
+  ```¶
+2. two¶
+	   1. nested \¶
+    - ```¶
+>a \` b¶
+##¶
+-¶
+      ```¶
+</pre>¶
+    \¶
+more text¶
+¶
+--- output
+    `` a ` b ``¶
+    ``` ¶
+> >    1. nested¶
+> > 7) seven   ¶
+    text   ¶
+`code¶
++ plus¶
+      ~ tilde def¶
+  ```¶
+2. two¶
+	   1. nested \¶
+    - ```¶
+>a \` b¶
+##¶
+-¶
+      ```¶
+</pre>¶
+    \¶
+more text¶
+¶
+=== generated-6
+--- input
+- a¶
+¶
+¶
+- b¶
+  ¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+¶
+¶
+9. nine¶
+3. ten¶
+¶
+¶
+¶
+#tag line¶
+¶
+9. nine¶
+3. ten¶
+¶
+--- output
+- a¶
+¶
+- b¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+¶
+¶
+9. nine¶
+3. ten¶
+¶
+¶
+¶
+#tag line¶
+¶
+9. nine¶
+3. ten¶
+¶
+=== generated-7
+--- input
+>text¶
+>*[HTML]: Hyper¶
+  | a | b |¶
+    more text¶
+¶
+  ¶
+ ~~~¶
+> > ¶
+~ tilde def¶
+> > text¶
+¶
+: definition¶
+- dash ¶
+- > q	¶
+    ¶
+##¶
+> > quote¶
+  a \` b¶
+<!--¶
+</pre>¶
+     ¶
+````¶
+---¶
+> ```js	¶
+ <pre>¶
+|---|---|¶
+   ~ tilde def¶
+    `code \¶
+¶
+--- output
+>text¶
+>*[HTML]: Hyper¶
+  | a | b |¶
+    more text¶
+¶
+  ¶
+ ~~~¶
+> > ¶
+~ tilde def¶
+> > text¶
+¶
+: definition¶
+- dash ¶
+- > q	¶
+    ¶
+##¶
+> > quote¶
+  a \` b¶
+<!--¶
+</pre>¶
+     ¶
+````¶
+---¶
+> ```js	¶
+ <pre>¶
+|---|---|¶
+   ~ tilde def¶
+    `code \¶
+ ~~~¶
+¶
+=== generated-8
+--- input
+---¶
+title: Doc 8¶
+---¶
+Trailing tab	¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+a [link](/u "title ¶
+more") b¶
+| a |¶
+| - |¶
+### Closed ###¶
+¶
+¶
+¶
+¶
+--- output
+---¶
+title: Doc 8¶
+---¶
+Trailing tab¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+a [link](/u "title ¶
+more") b¶
+| a |¶
+| - |¶
+### Closed ###¶
+¶
+=== generated-9
+--- input
+1.  ¶
+ <!-- x -->¶
+> ¶
+> a \` b   ¶
+<!--¶
+> > ```js¶
+> > ##¶
+*[HTML]: Hyper \¶
+***¶
+ <!-- \¶
+> 1. ¶
+ + plus ¶
+more text¶
+===¶
+ span` \¶
+# Heading¶
+      [^1]: note ¶
+a \` b¶
+    -¶
+> <!--¶
+   - > q ¶
+   `` a ` b ``¶
+         1. nested   ¶
+      | a | b |  ¶
+- > q¶
+¶
+--- output
+1.  ¶
+ <!-- x -->¶
+> ¶
+> a \` b   ¶
+<!--¶
+> > ```js¶
+> > ##¶
+*[HTML]: Hyper \¶
+***¶
+ <!-- \¶
+> 1. ¶
+ + plus ¶
+more text¶
+===¶
+ span` \¶
+# Heading¶
+      [^1]: note ¶
+a \` b¶
+    -¶
+> <!--¶
+   - > q ¶
+   `` a ` b ``¶
+         1. nested   ¶
+      | a | b |  ¶
+- > q¶
+¶
+=== generated-10
+--- input
+Setext¶
+===¶
+¶
+¶
+¶
+> ```¶
+> code¶
+> ```¶
+¶
+¶
+1) paren¶
+5) paren¶
+¶
+Trailing space ¶
+then more¶
+  ¶
+¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+**bold _it¶
+¶
+¶
+¶
+¶
+--- output
+Setext¶
+===¶
+¶
+> ```¶
+> code¶
+> ```¶
+¶
+1) paren¶
+2) paren¶
+¶
+Trailing space¶
+then more¶
+¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+**bold _it¶
+¶
+=== generated-11
+--- input
+*[HTML]: Hyper¶
+> > ##    Spaced¶
+  ~ tilde def¶
+7) seven¶
+>10. ten	¶
+	##    Spaced¶
+   5. five¶
+      ~ tilde def   ¶
+  - nested¶
+   [^1]: note¶
+> ````¶
+>*[HTML]: Hyper¶
+	  - nested¶
+3. three¶
+-->  ¶
+[ref]: /u¶
+***¶
+¶
+--- output
+*[HTML]: Hyper¶
+> > ##    Spaced¶
+  ~ tilde def¶
+7) seven¶
+>10. ten	¶
+	##    Spaced¶
+   5. five¶
+      ~ tilde def   ¶
+  - nested¶
+   [^1]: note¶
+> ````¶
+>*[HTML]: Hyper¶
+	  - nested¶
+3. three¶
+-->  ¶
+[ref]: /u¶
+***¶
+¶
+=== generated-12
+--- input
+---¶
+title: Doc 12¶
+---¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+- - -¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+[^1]: Footnote¶
+¶
+    more  ¶
+  ¶
+¶
+Setext¶
+===¶
+¶
+a [link](/u "title ¶
+more") b¶
+  ¶
+¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+9. nine¶
+3. ten¶
+¶
+¶
+--- output
+---¶
+title: Doc 12¶
+---¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+- - -¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+[^1]: Footnote¶
+¶
+    more  ¶
+  ¶
+¶
+Setext¶
+===¶
+¶
+a [link](/u "title ¶
+more") b¶
+¶
+- a¶
+  1. x¶
+  2. y¶
+- b¶
+9. nine¶
+10. ten¶
+¶
+=== generated-13
+--- input
+1. ¶
+#tag¶
+<pre>   ¶
+  `code¶
+<div>¶
+¶
+> `` a ` b ``¶
+***¶
+  - nested¶
+> > <div>¶
+````¶
+      \	¶
+`code¶
+`code¶
+  ¶
+> ~~~¶
+ ````  ¶
+|---|---|¶
+> - dash¶
+  #tag   ¶
+      Term¶
+ text¶
+¶
+--- output
+1. ¶
+#tag¶
+<pre>   ¶
+  `code¶
+<div>¶
+¶
+> `` a ` b ``¶
+***¶
+  - nested¶
+> > <div>¶
+````¶
+      \	¶
+`code¶
+`code¶
+  ¶
+> ~~~¶
+ ````  ¶
+|---|---|¶
+> - dash¶
+  #tag   ¶
+      Term¶
+ text¶
+¶
+=== generated-14
+--- input
+$$ a $$¶
+¶
+¶
+¶
+Ends with spaces   ¶
+Trailing space ¶
+then more¶
+> lazy¶
+continuation¶
+  ¶
+¶
+9. nine¶
+3. ten¶
+¶
+¶
+--- output
+$$ a $$¶
+¶
+Ends with spaces   ¶
+Trailing space¶
+then more¶
+> lazy¶
+continuation¶
+¶
+9. nine¶
+10. ten¶
+¶
+=== generated-15
+--- input
+  2. two¶
+a \` b¶
+more text¶
+wrapped line   ¶
+  - dash ¶
+   --> \¶
+¶
+      text¶
+   - ```¶
+	</pre>¶
+    # Heading¶
+</div>¶
+	10. ten¶
+	- ```¶
+	¶
+  </div>¶
+> 2. two ¶
+  | a | b |¶
+¶
+--- output
+  2. two¶
+a \` b¶
+more text¶
+wrapped line   ¶
+  - dash ¶
+   --> \¶
+¶
+      text¶
+   - ```¶
+	</pre>¶
+    # Heading¶
+</div>¶
+	10. ten¶
+	- ```¶
+	¶
+  </div>¶
+> 2. two ¶
+  | a | b |¶
+¶
+=== generated-16
+--- input
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+¶
+¶
+¶
+- a¶
+¶
+¶
+- b¶
+  ¶
+¶
+Setext¶
+===¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+  ¶
+¶
+¶
+--- output
+3. three¶
+¶
+4. seven¶
+¶
+5. nine¶
+¶
+- a¶
+¶
+- b¶
+¶
+Setext¶
+===¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+  ¶
+¶
+¶
+=== generated-17
+--- input
+$$ x $$¶
+|---|---|¶
+a \` b¶
+| a | b |¶
+  ¶
+   `code¶
+$$  ¶
+	##    Spaced   ¶
+-¶
+##¶
+> >    1. nested¶
+    ===¶
+	<!--	¶
+  -->¶
+   * star¶
+¶
+--- output
+$$ x $$¶
+|---|---|¶
+a \` b¶
+| a | b |¶
+¶
+   `code¶
+$$  ¶
+	##    Spaced   ¶
+-¶
+##¶
+> >    1. nested¶
+    ===¶
+	<!--	¶
+  -->¶
+   * star¶
+¶
+=== generated-18
+--- input
+~~~py¶
+x = 1¶
+~~~¶
+¶
+9. nine¶
+3. ten¶
+¶
+```¶
+open fence  ¶
+¶
+--- output
+~~~py¶
+x = 1¶
+~~~¶
+¶
+9. nine¶
+10. ten¶
+¶
+```¶
+open fence  ¶
+```¶
+¶
+=== generated-19
+--- input
+<span>¶
+  ¶
+¶
+    : definition¶
+a \` b	¶
+>1.   ¶
+10. ten¶
+    Term   ¶
+   ``` ¶
+   [ref]: /u  ¶
+: definition  ¶
+   a \` b¶
+10. ten¶
+    - > q¶
+>[ref]: /u¶
+ - > q¶
+   - ```  ¶
+> ***¶
+> ===¶
+##    Spaced¶
+¶
+--- output
+<span>¶
+¶
+    : definition¶
+a \` b	¶
+>1.   ¶
+10. ten¶
+    Term   ¶
+   ``` ¶
+   [ref]: /u  ¶
+: definition  ¶
+   a \` b¶
+10. ten¶
+    - > q¶
+>[ref]: /u¶
+ - > q¶
+   - ```  ¶
+> ***¶
+> ===¶
+##    Spaced¶
+¶
+=== generated-20
+--- input
+Term¶
+: definition¶
+¶
+¶
+¶
+#¶
+¶
+**bold _it¶
+¶
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+¶
+--- output
+Term¶
+: definition¶
+¶
+¶
+¶
+#¶
+¶
+**bold _it¶
+¶
+3. three¶
+¶
+4. seven¶
+¶
+5. nine¶
+¶
+=== generated-21
+--- input
+ Term¶
+      -¶
+	a \` b¶
+  - nested¶
+   - dash¶
+>```js¶
+> - dash  ¶
+>text¶
+      <b>bold</b> text¶
+¶
+--- output
+ Term¶
+      -¶
+	a \` b¶
+  - nested¶
+   - dash¶
+>```js¶
+> - dash  ¶
+>text¶
+      <b>bold</b> text¶
+¶
+=== generated-22
+--- input
+<span>inline</span> text¶
+  ¶
+¶
+<span>inline</span> text¶
+¶
+¶
+--- output
+<span>inline</span> text¶
+¶
+<span>inline</span> text¶
+¶
+=== generated-23
+--- input
+| a | b |¶
+\ \¶
+ ~ tilde def¶
+	##    Spaced¶
+      <span>  ¶
+````   ¶
+$$¶
+wrapped line¶
+| a | b |¶
+> 7) seven¶
+   - ```¶
+> ##    Spaced¶
+1.  \¶
+more text¶
+> > ```js¶
+      1. nested  ¶
+       ```¶
+--- output
+| a | b |¶
+\ \¶
+ ~ tilde def¶
+	##    Spaced¶
+      <span>  ¶
+````   ¶
+$$¶
+wrapped line¶
+| a | b |¶
+> 7) seven¶
+   - ```¶
+> ##    Spaced¶
+1.  \¶
+more text¶
+> > ```js¶
+      1. nested  ¶
+       ```¶
+=== generated-24
+--- input
+Text¶
+1. interrupts¶
+¶
+¶
+1. wraps¶
+lazily¶
+4. next¶
+  ¶
+¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+  ¶
+¶
+- - -¶
+**bold _it¶
+¶
+Plain paragraph text.¶
+¶
+¶
+¶
+Trailing space ¶
+then more¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+text without newline¶
+--- output
+Text¶
+1. interrupts¶
+¶
+2. wraps¶
+lazily¶
+3. next¶
+¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+- - -¶
+**bold _it¶
+¶
+Plain paragraph text.¶
+¶
+Trailing space¶
+then more¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+¶
+text without newline¶
+¶
+=== generated-25
+--- input
+      : definition \¶
+| a | b |¶
+5. five¶
+> > <pre>¶
+	[ref]: /u¶
+>  - nested¶
+</pre>	¶
+¶
+--- output
+      : definition \¶
+| a | b |¶
+5. five¶
+> > <pre>¶
+	[ref]: /u¶
+>  - nested¶
+</pre>	¶
+¶
+=== generated-26
+--- input
+``` a`b¶
+not a fence¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+text without newline¶
+--- output
+``` a`b¶
+not a fence¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+text without newline¶
+¶
+=== generated-27
+--- input
+> > <div>¶
+>*[HTML]: Hyper¶
+      ¶
+: definition¶
+      ~ tilde def¶
+1. ¶
+> > *[HTML]: Hyper¶
+--- output
+> > <div>¶
+>*[HTML]: Hyper¶
+¶
+: definition¶
+      ~ tilde def¶
+1. ¶
+> > *[HTML]: Hyper¶
+=== generated-28
+--- input
+| a |¶
+| - |¶
+¶
+¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+  ¶
+¶
+$$ a $$¶
+Two lines  ¶
+with a hard break¶
+¶
+¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+¶
+¶
+--- output
+| a |¶
+| - |¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+  ¶
+¶
+$$ a $$¶
+Two lines  ¶
+with a hard break¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+=== generated-29
+--- input
+	<div>¶
+¶
+a \` b¶
+¶
+--- output
+	<div>¶
+¶
+a \` b¶
+¶
+=== generated-30
+--- input
+1) paren¶
+5) paren¶
+¶
+¶
+¶
+$$ a $$¶
+¶
+¶
+--- output
+1) paren¶
+2) paren¶
+¶
+$$ a $$¶
+¶
+=== generated-31
+--- input
+| a | b | ¶
+        - nested  ¶
+    </pre>¶
+>*[HTML]: Hyper¶
+  - ```	¶
+##¶
+      |---|---|¶
+   more text¶
+  - ```¶
+````¶
+> # Heading¶
+>2. two¶
+> > `` a ` b ``¶
+`code  ¶
+	- ¶
+7) seven¶
+   - dash¶
+: definition¶
+ 5. five¶
+Term¶
+#tag ¶
+ 1. ```¶
+> > a \` b¶
+   - ```   ¶
+   $$ x $$¶
+>¶
+- > q \¶
+> + plus¶
+- dash¶
+¶
+--- output
+| a | b |¶
+        - nested  ¶
+    </pre>¶
+>*[HTML]: Hyper¶
+  - ```	¶
+##¶
+      |---|---|¶
+   more text¶
+  - ```¶
+````¶
+> # Heading¶
+>2. two¶
+> > `` a ` b ``¶
+`code  ¶
+	- ¶
+7) seven¶
+   - dash¶
+: definition¶
+ 5. five¶
+Term¶
+#tag ¶
+ 1. ```¶
+> > a \` b¶
+   - ```   ¶
+   $$ x $$¶
+>¶
+- > q \¶
+> + plus¶
+- dash¶
+````¶
+¶
+=== generated-32
+--- input
+    indented code  ¶
+¶
+¶
+    more code¶
+¶
+¶
+¶
+1. wraps¶
+lazily¶
+4. next¶
+1. one¶
+1. two¶
+1. three¶
+¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+¶
+¶
+¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+¶
+¶
+¶
+--- output
+    indented code  ¶
+¶
+¶
+    more code¶
+¶
+¶
+¶
+1. wraps¶
+lazily¶
+4. next¶
+1. one¶
+1. two¶
+1. three¶
+¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+¶
+¶
+¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+- a¶
+  1. x¶
+  2. y¶
+- b¶
+¶
+=== generated-33
+--- input
+> 1. one¶
+- dash¶
+  ```` ¶
+--- output
+> 1. one¶
+- dash¶
+  ```` ¶
+=== generated-34
+--- input
+#tag line¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+¶
+1. wraps¶
+lazily¶
+4. next¶
+¶
+Text¶
+1984. was a year¶
+  ¶
+¶
+Ends with spaces   ¶
+  ¶
+¶
+text without newline¶
+--- output
+#tag line¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+1. wraps¶
+lazily¶
+2. next¶
+¶
+Text¶
+1984. was a year¶
+¶
+Ends with spaces¶
+¶
+text without newline¶
+¶
+=== generated-35
+--- input
+  $$¶
+    ```js¶
+> [ref]: /u¶
+>\¶
+> - dash¶
+¶
+        ```	¶
+      #tag¶
+   - dash¶
+> > <!-- x -->¶
+[^1]: note¶
+      1. ¶
+# Heading¶
+1. ¶
+      text   ¶
+      1. nested¶
+more text¶
+>    ```¶
+# Heading¶
+> >   - nested¶
+3. three¶
+¶
+--- output
+  $$¶
+    ```js¶
+> [ref]: /u¶
+>\¶
+> - dash¶
+¶
+        ```	¶
+      #tag¶
+   - dash¶
+> > <!-- x -->¶
+[^1]: note¶
+      1. ¶
+# Heading¶
+1. ¶
+      text   ¶
+      1. nested¶
+more text¶
+>    ```¶
+# Heading¶
+> >   - nested¶
+3. three¶
+¶
+=== generated-36
+--- input
+1. wraps¶
+lazily¶
+4. next¶
+¶
+> lazy¶
+continuation¶
+¶
+¶
+Plain paragraph text.¶
+$$ a $$¶
+¶
+¶
+¶
+- [ ] task¶
+- [x] done¶
+> quote  ¶
+> more¶
+¶
+¶
+--- output
+1. wraps¶
+lazily¶
+2. next¶
+¶
+> lazy¶
+continuation¶
+¶
+Plain paragraph text.¶
+$$ a $$¶
+¶
+- [ ] task¶
+- [x] done¶
+> quote  ¶
+> more¶
+¶
+=== generated-37
+--- input
+|---|---| ¶
+<span>¶
+<pre>¶
+> > |---|---|   ¶
+<b>bold</b> text¶
+   [^1]: note¶
+ ##¶
+    ````¶
+      1. ```¶
+[ref]: /u  ¶
+    ¶
+> > ===¶
+> quote¶
+¶
+--- output
+|---|---|¶
+<span>¶
+<pre>¶
+> > |---|---|   ¶
+<b>bold</b> text¶
+   [^1]: note¶
+ ##¶
+    ````¶
+      1. ```¶
+[ref]: /u  ¶
+    ¶
+> > ===¶
+> quote¶
+¶
+=== generated-38
+--- input
+### Closed ###¶
+¶
+¶
+¶
+Setext¶
+===¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+¶
+--- output
+### Closed ###¶
+¶
+Setext¶
+===¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+=== generated-39
+--- input
+> 5. five   ¶
+    `` a ` b ``¶
+  - ```¶
+ - > q¶
+***¶
+¶
+- ```¶
+````¶
+<b>bold</b> text¶
+> > | a | b |¶
+¶
+--- output
+> 5. five   ¶
+    `` a ` b ``¶
+  - ```¶
+ - > q¶
+***¶
+¶
+- ```¶
+````¶
+<b>bold</b> text¶
+> > | a | b |¶
+````¶
+¶
+=== generated-40
+--- input
+> # quoted heading¶
+> - item¶
+  ¶
+¶
+Trailing tab	¶
+  ¶
+¶
+Setext two¶
+---¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+<div>¶
+# in html  ¶
+</div>¶
+  ¶
+¶
+9. nine¶
+3. ten¶
+¶
+9. nine¶
+3. ten¶
+¶
+¶
+Setext¶
+===¶
+¶
+--- output
+> # quoted heading¶
+> - item¶
+¶
+Trailing tab¶
+¶
+Setext two¶
+---¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+<div>¶
+# in html  ¶
+</div>¶
+¶
+9. nine¶
+10. ten¶
+¶
+11. nine¶
+12. ten¶
+¶
+Setext¶
+===¶
+¶
+=== generated-41
+--- input
+> ¶
+  <b>bold</b> text¶
+  2. two¶
+   ##    Spaced¶
+> > text¶
+    `code¶
+ more text¶
+¶
+      </pre>   ¶
+> Term¶
+|---|---| \¶
+wrapped line¶
+    [^1]: note¶
+   + plus	¶
+-¶
+> <!-- ¶
+ ```¶
+   : definition¶
+      $$ x $$¶
+~~~¶
+  ~~~  ¶
+	- dash¶
+¶
+--- output
+> ¶
+  <b>bold</b> text¶
+  2. two¶
+   ##    Spaced¶
+> > text¶
+    `code¶
+ more text¶
+¶
+      </pre>   ¶
+> Term¶
+|---|---| \¶
+wrapped line¶
+    [^1]: note¶
+   + plus	¶
+-¶
+> <!-- ¶
+ ```¶
+   : definition¶
+      $$ x $$¶
+~~~¶
+  ~~~  ¶
+	- dash¶
+¶
+=== generated-42
+--- input
+9. nine¶
+3. ten¶
+¶
+¶
+a | b¶
+--- | ---¶
+¶
+¶
+¶
+<span>inline</span> text¶
+  ¶
+¶
+$$ a $$¶
+¶
+¶
+¶
+$$ a $$¶
+¶
+¶
+- a¶
+¶
+¶
+- b¶
+### Closed ###¶
+¶
+--- output
+9. nine¶
+10. ten¶
+¶
+a | b¶
+--- | ---¶
+¶
+<span>inline</span> text¶
+¶
+$$ a $$¶
+¶
+$$ a $$¶
+¶
+- a¶
+¶
+- b¶
+¶
+### Closed ###¶
+¶
+=== generated-43
+--- input
+<span>¶
+   wrapped line  ¶
+> > 3. three¶
+    [^1]: note¶
+   wrapped line¶
+          ```¶
+   [ref]: /u¶
+>   - nested¶
+-->¶
+<pre>¶
+2. two¶
+¶
+--- output
+<span>¶
+   wrapped line  ¶
+> > 3. three¶
+    [^1]: note¶
+   wrapped line¶
+          ```¶
+   [ref]: /u¶
+>   - nested¶
+-->¶
+<pre>¶
+2. two¶
+¶
+=== generated-44
+--- input
+| a |¶
+| - |¶
+Ends with spaces   ¶
+¶
+¶
+¶
+# Title¶
+¶
+¶
+1) paren¶
+5) paren¶
+  ¶
+¶
+¶
+--- output
+| a |¶
+| - |¶
+Ends with spaces   ¶
+¶
+# Title¶
+¶
+1) paren¶
+2) paren¶
+¶
+=== generated-45
+--- input
+|---|---|¶
+5. five¶
+   - ```¶
+     ¶
+</div>¶
+a \` b¶
+¶
+> > ---  ¶
+ ``` ¶
+1. ```¶
+> > ---¶
+> > ```js¶
+   </pre>¶
+  [^1]: note¶
+1. one¶
+more text¶
+   <pre>¶
+> : definition¶
+> > <div>¶
+      1. ¶
+   1. nested¶
+    $$ x $$¶
+    ¶
+ ***¶
+   `code¶
+    1. ¶
+ *[HTML]: Hyper¶
+wrapped line¶
+¶
+--- output
+|---|---|¶
+5. five¶
+   - ```¶
+     ¶
+</div>¶
+a \` b¶
+¶
+> > ---¶
+ ``` ¶
+1. ```¶
+> > ---¶
+> > ```js¶
+   </pre>¶
+  [^1]: note¶
+1. one¶
+more text¶
+   <pre>¶
+> : definition¶
+> > <div>¶
+      1. ¶
+   1. nested¶
+    $$ x $$¶
+    ¶
+ ***¶
+   `code¶
+    1. ¶
+ *[HTML]: Hyper¶
+wrapped line¶
+ ```¶
+¶
+=== generated-46
+--- input
+---¶
+title: Doc 46¶
+---¶
+**bold _it¶
+  ¶
+¶
+   ¶
+¶
+9. nine¶
+3. ten¶
+¶
+Text¶
+1. interrupts¶
+¶
+¶
+¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+#tag line¶
+  ¶
+¶
+8. a¶
+9. b¶
+3. c¶
+   more¶
+¶
+--- output
+---¶
+title: Doc 46¶
+---¶
+**bold _it¶
+¶
+9. nine¶
+10. ten¶
+¶
+Text¶
+1. interrupts¶
+¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+#tag line¶
+¶
+8. a¶
+9. b¶
+3. c¶
+   more¶
+¶
+=== generated-47
+--- input
+      ===¶
+      3. three¶
+: definition¶
+~~~¶
+ `` a ` b ``¶
+ ---¶
+      : definition   ¶
+       ```¶
+-->¶
+> >   - nested¶
+    $$ x $$¶
+        ```   ¶
+> > more text  ¶
+¶
+--- output
+      ===¶
+      3. three¶
+: definition¶
+~~~¶
+ `` a ` b ``¶
+ ---¶
+      : definition   ¶
+       ```¶
+-->¶
+> >   - nested¶
+    $$ x $$¶
+        ```   ¶
+> > more text  ¶
+¶
+=== generated-48
+--- input
+Ends with spaces   ¶
+¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+¶
+8. a¶
+9. b¶
+3. c¶
+   more¶
+¶
+¶
+--- output
+Ends with spaces¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+¶
+8. a¶
+9. b¶
+3. c¶
+   more¶
+¶
+=== generated-49
+--- input
+a \` b¶
+>text¶
+>1. ¶
+      ¶
+      $$ x $$¶
+> 2. two¶
+   ¶
+¶
+wrapped line ¶
+  #tag¶
+  > quote¶
+¶
+    </pre>¶
+	`code¶
+	: definition¶
+> > 1. ¶
+	a \` b  ¶
+      more text¶
+10. ten¶
+ `` a ` b ``¶
+>    ```¶
+   - ```¶
+   10. ten¶
+|---|---|¶
++ plus \¶
+1. one¶
+    ## ¶
+--- output
+a \` b¶
+>text¶
+>1.¶
+¶
+      $$ x $$¶
+> 2. two¶
+¶
+wrapped line¶
+  #tag¶
+  > quote¶
+¶
+    </pre>¶
+	`code¶
+	: definition¶
+> > 1. ¶
+	a \` b  ¶
+      more text¶
+10. ten¶
+ `` a ` b ``¶
+>    ```¶
+   - ```¶
+   10. ten¶
+|---|---|¶
++ plus \¶
+1. one¶
+    ## ¶
+=== generated-50
+--- input
+- - -¶
+¶
+> # quoted heading¶
+> - item¶
+  ¶
+¶
+$$ a $$¶
+  ¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+- a¶
+¶
+¶
+- b¶
+8. a¶
+9. b¶
+3. c¶
+   more¶
+¶
+* star¶
++ plus¶
+- dash¶
+¶
+Trailing space ¶
+then more¶
+¶
+--- output
+- - -¶
+¶
+> # quoted heading¶
+> - item¶
+¶
+$$ a $$¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+- a¶
+¶
+¶
+- b¶
+8. a¶
+9. b¶
+3. c¶
+   more¶
+¶
+* star¶
++ plus¶
+- dash¶
+¶
+Trailing space¶
+then more¶
+¶
+=== generated-51
+--- input
+> #tag¶
+> [ref]: /u¶
+more text¶
+>- dash¶
+  - ```¶
+7) seven¶
+      ##    Spaced¶
+  <!--¶
+¶
+--- output
+> #tag¶
+> [ref]: /u¶
+more text¶
+>- dash¶
+  - ```¶
+7) seven¶
+      ##    Spaced¶
+  <!--¶
+¶
+=== generated-52
+--- input
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+¶
+8. a¶
+9. b¶
+3. c¶
+   more¶
+Term¶
+¶
+: loose definition¶
+  ¶
+¶
+text without newline¶
+--- output
+3. three¶
+¶
+4. seven¶
+¶
+5. nine¶
+¶
+6. a¶
+7. b¶
+8. c¶
+   more¶
+Term¶
+¶
+: loose definition¶
+  ¶
+¶
+text without newline¶
+¶
+=== generated-53
+--- input
+~~~¶
+	| a | b |¶
+---¶
+5. five	¶
+      <!--¶
+> 3. three¶
+>===¶
+[ref]: /u¶
+	<!-- x -->¶
+   10. ten¶
+    5. five¶
+> > <span>¶
+> $$ x $$¶
+- > q¶
+`` a ` b ``¶
+   -¶
+Term¶
+> > - dash¶
+> > <!-- x -->¶
+    ¶
+      | a | b |¶
+	```¶
+> > 3. three¶
+¶
+--- output
+~~~¶
+	| a | b |¶
+---¶
+5. five	¶
+      <!--¶
+> 3. three¶
+>===¶
+[ref]: /u¶
+	<!-- x -->¶
+   10. ten¶
+    5. five¶
+> > <span>¶
+> $$ x $$¶
+- > q¶
+`` a ` b ``¶
+   -¶
+Term¶
+> > - dash¶
+> > <!-- x -->¶
+    ¶
+      | a | b |¶
+	```¶
+> > 3. three¶
+~~~¶
+¶
+=== generated-54
+--- input
+***¶
+¶
+- [ ] task¶
+- [x] done¶
+  ¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+  ¶
+¶
+    ¶
+--- output
+***¶
+¶
+- [ ] task¶
+- [x] done¶
+  ¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+  ¶
+¶
+    ¶
+=== generated-55
+--- input
+1. ```¶
+    5. five¶
+      - dash¶
+ <b>bold</b> text  ¶
+      $$ x $$¶
+: definition¶
+	+ plus ¶
+--- output
+1. ```¶
+    5. five¶
+      - dash¶
+ <b>bold</b> text  ¶
+      $$ x $$¶
+: definition¶
+	+ plus ¶
+=== generated-56
+--- input
+1. wraps¶
+lazily¶
+4. next¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+¶
+¶
+--- output
+1. wraps¶
+lazily¶
+2. next¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+=== generated-57
+--- input
+   ---¶
+ > quote  ¶
+   [^1]: note¶
+¶
+     1. nested¶
+¶
+--- output
+   ---¶
+ > quote  ¶
+   [^1]: note¶
+¶
+     1. nested¶
+¶
+=== generated-58
+--- input
+1.¶
+2.¶
+### Closed ###¶
+¶
+¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+  ¶
+¶
+9. nine¶
+3. ten¶
+#¶
+¶
+¶
+¶
+--- output
+1.¶
+2.¶
+### Closed ###¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+9. nine¶
+10. ten¶
+¶
+#¶
+¶
+=== generated-59
+--- input
+> [^1]: note¶
+	# Heading¶
+ a \` b   ¶
+  7) seven¶
+ : definition ¶
+> > ~~~¶
+  ~~~¶
+# Heading¶
+> > 7) seven¶
+  ***	¶
+      $$ x $$¶
+--- output
+> [^1]: note¶
+	# Heading¶
+ a \` b   ¶
+  7) seven¶
+ : definition ¶
+> > ~~~¶
+  ~~~¶
+# Heading¶
+> > 7) seven¶
+  ***	¶
+      $$ x $$¶
+=== generated-60
+--- input
+---¶
+title: Doc 60¶
+---¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+<span>inline</span> text¶
+¶
+### Closed ###¶
+¶
+a `code ¶
+span` b¶
+¶
+¶
+¶
+--- output
+---¶
+title: Doc 60¶
+---¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+<span>inline</span> text¶
+¶
+### Closed ###¶
+¶
+a `code ¶
+span` b¶
+¶
+¶
+¶
+=== generated-61
+--- input
+ ##    Spaced¶
+> $$	¶
+	text¶
+> </pre>¶
+¶
+--- output
+ ## Spaced¶
+> $$	¶
+	text¶
+> </pre>¶
+¶
+=== generated-62
+--- input
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+¶
+¶
+# Title¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+  ¶
+¶
+[ref]: /url 'title'¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+# Title¶
+¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+    indented code  ¶
+¶
+¶
+    more code¶
+¶
+¶
+¶
+¶
+--- output
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+# Title¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+  ¶
+¶
+[ref]: /url 'title'¶
+- a¶
+  1. x¶
+  2. y¶
+- b¶
+¶
+# Title¶
+¶
+- a¶
+  1. x¶
+  2. y¶
+- b¶
+    indented code  ¶
+¶
+¶
+    more code¶
+¶
+=== generated-63
+--- input
+   <!--  ¶
+	    ```¶
+<b>bold</b> text¶
+>wrapped line¶
+````¶
+[^1]: note¶
+`code¶
+	7) seven¶
+text¶
+   ```js¶
+¶
+#tag¶
+   ¶
+    ---¶
+    *** \¶
+>> quote¶
+         1. nested   ¶
+      ``` \¶
+--- output
+   <!--  ¶
+	    ```¶
+<b>bold</b> text¶
+>wrapped line¶
+````¶
+[^1]: note¶
+`code¶
+	7) seven¶
+text¶
+   ```js¶
+¶
+#tag¶
+   ¶
+    ---¶
+    *** \¶
+>> quote¶
+         1. nested   ¶
+      ``` \¶
+=== generated-64
+--- input
+[ref]: /url 'title'¶
+  ¶
+¶
+#¶
+  ¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+Trailing tab	¶
+¶
+¶
+- [ ] task¶
+- [x] done¶
+  ¶
+¶
+¶
+--- output
+[ref]: /url 'title'¶
+¶
+#¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+Trailing tab¶
+¶
+- [ ] task¶
+- [x] done¶
+¶
+=== generated-65
+--- input
+   $$ x $$	¶
+> `code¶
+ - > q¶
+    ---¶
+   7) seven¶
+      \¶
+ -¶
+¶
+--- output
+   $$ x $$	¶
+> `code¶
+ - > q¶
+    ---¶
+   7) seven¶
+      \¶
+ -¶
+¶
+=== generated-66
+--- input
+1. one¶
+1. two¶
+1. three¶
+¶
+¶
+¶
+Term¶
+¶
+: loose definition¶
+> ```¶
+> code¶
+> ```¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+--- output
+1. one¶
+2. two¶
+3. three¶
+¶
+Term¶
+¶
+: loose definition¶
+> ```¶
+> code¶
+> ```¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+=== generated-67
+--- input
+* star¶
+>$$ ¶
+# Heading¶
+   [^1]: note¶
+- ```¶
+¶
+--- output
+* star¶
+>$$ ¶
+# Heading¶
+   [^1]: note¶
+- ```¶
+¶
+=== generated-68
+--- input
+a [link](/u "title ¶
+more") b¶
+1. one¶
+1. two¶
+1. three¶
+¶
+¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+  ¶
+¶
+Cite[^1] here.¶
+  ¶
+¶
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+> ```¶
+> code¶
+> ```¶
+Setext¶
+===¶
+¶
+¶
+¶
+--- output
+a [link](/u "title ¶
+more") b¶
+1. one¶
+1. two¶
+1. three¶
+¶
+¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+  ¶
+¶
+Cite[^1] here.¶
+¶
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+> ```¶
+> code¶
+> ```¶
+Setext¶
+===¶
+¶
+=== generated-69
+--- input
+ 5. five¶
+>- dash¶
+````¶
+1. one¶
+ 7) seven¶
+ </div>¶
+	<div> \¶
+: definition¶
+    1. ```¶
+> ---¶
+><span>¶
+|---|---|¶
+***  ¶
+- dash¶
+`code¶
+	> quote¶
+>   1. nested¶
+3. three	¶
+      1. ``` \¶
+> quote¶
+<!--¶
++ plus¶
+1. one¶
+10. ten¶
+	#tag¶
+>$$¶
+¶
+--- output
+ 5. five¶
+>- dash¶
+¶
+````¶
+1. one¶
+ 7) seven¶
+ </div>¶
+	<div> \¶
+: definition¶
+    1. ```¶
+> ---¶
+><span>¶
+|---|---|¶
+***  ¶
+- dash¶
+`code¶
+	> quote¶
+>   1. nested¶
+3. three	¶
+      1. ``` \¶
+> quote¶
+<!--¶
++ plus¶
+1. one¶
+10. ten¶
+	#tag¶
+>$$¶
+````¶
+¶
+=== generated-70
+--- input
+1. one¶
+1. two¶
+1. three¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+| a |¶
+| - |¶
+¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+  ¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+Ends with spaces   ¶
+¶
+--- output
+1. one¶
+1. two¶
+1. three¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+| a |¶
+| - |¶
+¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+  ¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+Ends with spaces   ¶
+¶
+=== generated-71
+--- input
+> 1. ¶
+> <!-- x -->¶
+> a \` b¶
+    + plus¶
+> *[HTML]: Hyper¶
+<span>¶
+   ¶
+```¶
+>1. ```¶
+- ```¶
+	*** ¶
+   $$ x $$	¶
+text¶
+	$$ x $$¶
+	¶
+```js¶
+: definition¶
+> ¶
+</pre>¶
+ ¶
+> > -¶
+    ```¶
+Term¶
+--- output
+> 1. ¶
+> <!-- x -->¶
+> a \` b¶
+    + plus¶
+> *[HTML]: Hyper¶
+<span>¶
+   ¶
+```¶
+>1. ```¶
+- ```¶
+	*** ¶
+   $$ x $$	¶
+text¶
+	$$ x $$¶
+	¶
+```js¶
+: definition¶
+> ¶
+</pre>¶
+ ¶
+> > -¶
+    ```¶
+Term¶
+=== generated-72
+--- input
+Plain paragraph text.¶
+¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+Text¶
+1. interrupts¶
+  ¶
+¶
+Term¶
+: definition¶
+¶
+¶
+--- output
+Plain paragraph text.¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+Text¶
+1. interrupts¶
+¶
+Term¶
+: definition¶
+¶
+¶
+=== generated-73
+--- input
+  7) seven¶
+   1. ¶
+    ¶
+      > quote¶
+* star¶
+  <!--¶
+3. three¶
+`` a ` b ``¶
+    | a | b |¶
+   * star¶
+> > ~ tilde def¶
+¶
+	<b>bold</b> text¶
+</div>¶
+¶
+--- output
+  7) seven¶
+   1. ¶
+    ¶
+      > quote¶
+* star¶
+  <!--¶
+3. three¶
+`` a ` b ``¶
+    | a | b |¶
+   * star¶
+> > ~ tilde def¶
+¶
+	<b>bold</b> text¶
+</div>¶
+¶
+=== generated-74
+--- input
+    indented code  ¶
+¶
+¶
+    more code¶
+¶
+Setext two¶
+---¶
+¶
+#tag line¶
+¶
+¶
+¶
+Setext¶
+===¶
+  ¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+¶
+8. a¶
+9. b¶
+3. c¶
+   more¶
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+¶
+1) paren¶
+5) paren¶
+  ¶
+¶
+¶
+--- output
+    indented code  ¶
+¶
+¶
+    more code¶
+¶
+Setext two¶
+---¶
+¶
+#tag line¶
+¶
+Setext¶
+===¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+8. a¶
+9. b¶
+3. c¶
+   more¶
+11. three¶
+¶
+12. seven¶
+¶
+13. nine¶
+¶
+1) paren¶
+2) paren¶
+¶
+=== generated-75
+--- input
+> *[HTML]: Hyper¶
+ \¶
+*[HTML]: Hyper	¶
+	- dash¶
+ $$¶
+> > </div>¶
+ [ref]: /u  ¶
+ -->¶
+      ¶
+ 1. one¶
+>$$	¶
+      a \` b¶
+> <div> ¶
+    1. one	¶
+   more text¶
+     ``` \¶
+  - dash   ¶
+1. ```¶
+</div> \¶
+	-->¶
+    5. five¶
+7) seven \¶
+: definition¶
+¶
+¶
+--- output
+> *[HTML]: Hyper¶
+ \¶
+*[HTML]: Hyper	¶
+	- dash¶
+ $$¶
+> > </div>¶
+ [ref]: /u  ¶
+ -->¶
+      ¶
+ 1. one¶
+>$$	¶
+      a \` b¶
+> <div> ¶
+    1. one	¶
+   more text¶
+     ``` \¶
+  - dash   ¶
+1. ```¶
+</div> \¶
+	-->¶
+    5. five¶
+7) seven \¶
+: definition¶
+¶
+¶
+=== generated-76
+--- input
+Ends with spaces   ¶
+  ¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+¶
+text without newline¶
+--- output
+Ends with spaces¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+text without newline¶
+¶
+=== generated-77
+--- input
+##    Spaced   ¶
+  ```¶
+##    Spaced¶
+      # Heading¶
+2. two¶
+   span`¶
+> - ```¶
+> > wrapped line¶
+	| a | b |¶
+  span`¶
+- ``` \¶
+> > - dash¶
+   --> \¶
+      7) seven¶
+    - nested	¶
+<!-- x -->¶
+> >   - nested¶
+    #tag¶
+> span`¶
+      <span>¶
+    ```¶
+>\¶
+    ¶
+>7) seven  ¶
+    \¶
+> 3. three¶
+> [ref]: /u ¶
+> > <b>bold</b> text¶
+<!--¶
+¶
+--- output
+## Spaced¶
+¶
+  ```¶
+##    Spaced¶
+      # Heading¶
+2. two¶
+   span`¶
+> - ```¶
+> > wrapped line¶
+	| a | b |¶
+  span`¶
+- ``` \¶
+> > - dash¶
+   --> \¶
+      7) seven¶
+    - nested	¶
+<!-- x -->¶
+> >   - nested¶
+    #tag¶
+> span`¶
+      <span>¶
+    ```¶
+>\¶
+    ¶
+>7) seven  ¶
+    \¶
+> 3. three¶
+> [ref]: /u ¶
+> > <b>bold</b> text¶
+<!--¶
+  ```¶
+¶
+=== generated-78
+--- input
+-item¶
+  ¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+Cite[^1] here.¶
+  ¶
+¶
+[ref]: /url 'title'¶
+¶
+¶
+¶
+a [link](/u "title ¶
+more") b¶
+¶
+--- output
+-item¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+Cite[^1] here.¶
+¶
+[ref]: /url 'title'¶
+¶
+a [link](/u "title ¶
+more") b¶
+¶
+=== generated-79
+--- input
+<!-- x -->¶
+1.  \¶
+      #tag  ¶
+    ~~~  ¶
+¶
+--- output
+<!-- x -->¶
+1.  \¶
+      #tag  ¶
+    ~~~  ¶
+¶
+=== generated-80
+--- input
+9. nine¶
+3. ten¶
+¶
+| a |¶
+| - |¶
+¶
+¶
+¶
+Plain paragraph text.¶
+¶
+¶
+a `code ¶
+span` b¶
+¶
+¶
+--- output
+9. nine¶
+10. ten¶
+¶
+| a |¶
+| - |¶
+¶
+Plain paragraph text.¶
+¶
+a `code ¶
+span` b¶
+¶
+=== generated-81
+--- input
+      ¶
+    wrapped line¶
+      ===   ¶
+># Heading \¶
+> -¶
+	[ref]: /u¶
+> >   - nested¶
+      [ref]: /u¶
+> | a | b |¶
+>1. ¶
+ #tag¶
+ </div>¶
+##¶
+    <div>¶
+         1. nested¶
+	<pre>¶
+<pre>¶
+	<b>bold</b> text¶
+      [ref]: /u¶
+¶
+--- output
+    wrapped line¶
+      ===   ¶
+># Heading \¶
+> -¶
+	[ref]: /u¶
+> >   - nested¶
+      [ref]: /u¶
+> | a | b |¶
+>1. ¶
+ #tag¶
+ </div>¶
+##¶
+    <div>¶
+         1. nested¶
+	<pre>¶
+<pre>¶
+	<b>bold</b> text¶
+      [ref]: /u¶
+¶
+=== generated-82
+--- input
+> # quoted heading¶
+> - item¶
+Ends with spaces   ¶
+``` a`b¶
+not a fence¶
+¶
+¶
+¶
+--- output
+> # quoted heading¶
+> - item¶
+Ends with spaces   ¶
+``` a`b¶
+not a fence¶
+¶
+=== generated-83
+--- input
+</pre> ¶
+</pre>  ¶
+> > ##    Spaced¶
+> 3. three¶
+    -¶
+><!-- ¶
+> ***¶
+      <b>bold</b> text¶
+> > </div>¶
+--- output
+</pre> ¶
+</pre>  ¶
+> > ##    Spaced¶
+> 3. three¶
+    -¶
+><!-- ¶
+> ***¶
+      <b>bold</b> text¶
+> > </div>¶
+=== generated-84
+--- input
+8. a¶
+9. b¶
+3. c¶
+   more¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+Cite[^1] here.¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+  ¶
+¶
+> lazy¶
+continuation¶
+¶
+¶
+### Closed ###¶
+  ¶
+¶
+```¶
+open fence  ¶
+¶
+--- output
+8. a¶
+9. b¶
+3. c¶
+   more¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+Cite[^1] here.¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+> lazy¶
+continuation¶
+¶
+### Closed ###¶
+¶
+```¶
+open fence  ¶
+```¶
+¶
+=== generated-85
+--- input
+      - nested  ¶
+===¶
+[^1]: note¶
+   > quote¶
+>- ```¶
+    ```¶
+      --> \¶
+>*[HTML]: Hyper  ¶
+ ```js   ¶
+>-¶
+ 1. one¶
+    # Heading¶
+`code¶
+    2. two¶
+> > |---|---|	¶
+  ##    Spaced¶
+</div>¶
+3. three¶
+   ***¶
+ 1. ```¶
+===¶
+      <pre>	¶
+    - > q \¶
+a \` b	¶
+> ```` ¶
+> > wrapped line	¶
+>5. five¶
+ ````¶
+--- output
+      - nested  ¶
+===¶
+[^1]: note¶
+   > quote¶
+>- ```¶
+    ```¶
+      --> \¶
+>*[HTML]: Hyper  ¶
+ ```js   ¶
+>-¶
+ 1. one¶
+    # Heading¶
+`code¶
+    2. two¶
+> > |---|---|	¶
+  ##    Spaced¶
+</div>¶
+3. three¶
+   ***¶
+ 1. ```¶
+===¶
+      <pre>	¶
+    - > q \¶
+a \` b	¶
+> ```` ¶
+> > wrapped line	¶
+>5. five¶
+ ````¶
+=== generated-86
+--- input
+---¶
+title: Doc 86¶
+---¶
+Setext two¶
+---¶
+  ¶
+¶
+- a¶
+¶
+¶
+- b¶
+¶
+¶
+¶
+--- output
+---¶
+title: Doc 86¶
+---¶
+Setext two¶
+---¶
+¶
+- a¶
+¶
+- b¶
+¶
+=== generated-87
+--- input
+  * star¶
+	3. three¶
+```js¶
+  `` a ` b ``¶
+> ````¶
+      <span>¶
+> > : definition¶
+	   1. nested¶
+   # Heading   ¶
+  #tag¶
+      1. nested¶
+	$$  ¶
+span`¶
+    </pre>¶
+	```¶
+ 1.   ¶
+##¶
+    <!--	¶
+> ##    Spaced¶
+<!-- x -->¶
+  *[HTML]: Hyper¶
+   [^1]: note¶
+	*[HTML]: Hyper¶
+a \` b¶
+¶
+--- output
+  * star¶
+	3. three¶
+```js¶
+  `` a ` b ``¶
+> ````¶
+      <span>¶
+> > : definition¶
+	   1. nested¶
+   # Heading   ¶
+  #tag¶
+      1. nested¶
+	$$  ¶
+span`¶
+    </pre>¶
+	```¶
+ 1.   ¶
+##¶
+    <!--	¶
+> ##    Spaced¶
+<!-- x -->¶
+  *[HTML]: Hyper¶
+   [^1]: note¶
+	*[HTML]: Hyper¶
+a \` b¶
+¶
+=== generated-88
+--- input
+> lazy¶
+continuation¶
+~~~py¶
+x = 1¶
+~~~¶
+¶
+¶
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+1.¶
+2.¶
+  ¶
+¶
+¶
+--- output
+> lazy¶
+continuation¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+¶
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+1.¶
+2.¶
+  ¶
+¶
+¶
+=== generated-89
+--- input
+> \¶
+ $$¶
+> <!-- x -->¶
+```js¶
+¶
+--- output
+> \¶
+ $$¶
+> <!-- x -->¶
+```js¶
+¶
+=== generated-90
+--- input
+9. nine¶
+3. ten¶
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+Term¶
+¶
+: loose definition¶
+¶
+¶
+¶
+¶
+--- output
+9. nine¶
+3. ten¶
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+Term¶
+¶
+: loose definition¶
+¶
+¶
+¶
+¶
+=== generated-91
+--- input
+ 1. ¶
+  1.  ¶
+*[HTML]: Hyper¶
+  [ref]: /u	¶
+$$ \¶
+<b>bold</b> text¶
+   + plus¶
+````¶
+- ```¶
+      <!-- x -->¶
+*[HTML]: Hyper¶
+      `` a ` b ``¶
+ 10. ten¶
+> > ```¶
+-¶
+> ##¶
+    [ref]: /u	¶
+> > : definition¶
+	`` a ` b ``¶
+--- output
+ 1. ¶
+  1.  ¶
+*[HTML]: Hyper¶
+  [ref]: /u	¶
+$$ \¶
+<b>bold</b> text¶
+   + plus¶
+````¶
+- ```¶
+      <!-- x -->¶
+*[HTML]: Hyper¶
+      `` a ` b ``¶
+ 10. ten¶
+> > ```¶
+-¶
+> ##¶
+    [ref]: /u	¶
+> > : definition¶
+	`` a ` b ``¶
+=== generated-92
+--- input
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+¶
+¶
+1) paren¶
+5) paren¶
+¶
+¶
+¶
+Term¶
+: definition¶
+¶
+¶
+Setext¶
+===¶
+¶
+--- output
+3. three¶
+¶
+4. seven¶
+¶
+5. nine¶
+¶
+1) paren¶
+2) paren¶
+¶
+Term¶
+: definition¶
+¶
+¶
+Setext¶
+===¶
+¶
+=== generated-93
+--- input
+   <pre>¶
+***¶
+> > $$¶
+~ tilde def¶
+	-->¶
+1. ```	¶
+	-¶
+$$ \¶
+[ref]: /u¶
+   `code  ¶
+ 2. two¶
+| a | b |¶
+ - ``` ¶
+	more text \¶
+    ```¶
+```js¶
+</pre>   ¶
+       1. nested¶
+      text¶
+	    ``` ¶
+  # Heading¶
+> > Term¶
+> ¶
+¶
+--- output
+   <pre>¶
+***¶
+> > $$¶
+~ tilde def¶
+	-->¶
+1. ```	¶
+	-¶
+$$ \¶
+[ref]: /u¶
+   `code  ¶
+ 2. two¶
+| a | b |¶
+ - ``` ¶
+	more text \¶
+    ```¶
+```js¶
+</pre>   ¶
+       1. nested¶
+      text¶
+	    ``` ¶
+  # Heading¶
+> > Term¶
+>¶
+¶
+=== generated-94
+--- input
+Trailing tab	¶
+Setext two¶
+---¶
+* star¶
++ plus¶
+- dash¶
+¶
+Term¶
+: definition¶
+¶
+#tag line¶
+#tag line¶
+¶
+¶
+¶
+--- output
+Trailing tab	¶
+Setext two¶
+---¶
+* star¶
++ plus¶
+- dash¶
+¶
+Term¶
+: definition¶
+¶
+#tag line¶
+#tag line¶
+¶
+=== generated-95
+--- input
+> > ~ tilde def¶
+> > + plus¶
+   <b>bold</b> text¶
+    text¶
+> </div> ¶
+ <!--¶
+     - nested¶
+  Term¶
+- > q¶
+```¶
+      ***	¶
+text¶
+    * star¶
+> 5. five¶
+    ````¶
+> > </div>¶
+> Term ¶
+  <!--¶
+      \¶
+    <!-- ¶
+</div>  ¶
+   [^1]: note¶
+ 10. ten \¶
+      ---¶
+      ¶
+>[ref]: /u¶
+> <pre>¶
+¶
+--- output
+> > ~ tilde def¶
+> > + plus¶
+   <b>bold</b> text¶
+    text¶
+> </div> ¶
+ <!--¶
+     - nested¶
+  Term¶
+- > q¶
+```¶
+      ***	¶
+text¶
+    * star¶
+> 5. five¶
+    ````¶
+> > </div>¶
+> Term ¶
+  <!--¶
+      \¶
+    <!-- ¶
+</div>  ¶
+   [^1]: note¶
+ 10. ten \¶
+      ---¶
+      ¶
+>[ref]: /u¶
+> <pre>¶
+¶
+=== generated-96
+--- input
+#¶
+Trailing tab	¶
+¶
+¶
+¶
+--- output
+#¶
+¶
+Trailing tab¶
+¶
+=== generated-97
+--- input
+      ---¶
+> \¶
+~ tilde def¶
+---¶
+   | a | b |¶
+ *** \¶
+<!--¶
+ ```¶
+    -¶
+ $$ x $$¶
+> *[HTML]: Hyper¶
+ <pre>¶
+7) seven¶
+```js  ¶
+> > Term¶
+  </pre> ¶
+   1. one¶
+span`¶
+span`¶
+      7) seven¶
+<b>bold</b> text¶
+  <!-- x -->¶
+> ```¶
+[ref]: /u ¶
+  $$¶
++ plus¶
+~~~¶
+¶
+--- output
+      ---¶
+> \¶
+~ tilde def¶
+---¶
+   | a | b |¶
+ *** \¶
+<!--¶
+ ```¶
+    -¶
+ $$ x $$¶
+> *[HTML]: Hyper¶
+ <pre>¶
+7) seven¶
+```js  ¶
+> > Term¶
+  </pre> ¶
+   1. one¶
+span`¶
+span`¶
+      7) seven¶
+<b>bold</b> text¶
+  <!-- x -->¶
+> ```¶
+[ref]: /u ¶
+  $$¶
++ plus¶
+~~~¶
+¶
+=== generated-98
+--- input
+-item¶
+  ¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+Plain paragraph text.¶
+¶
+9. nine¶
+3. ten¶
+  ¶
+¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+¶
+--- output
+-item¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+Plain paragraph text.¶
+¶
+9. nine¶
+3. ten¶
+  ¶
+¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+¶
+=== generated-99
+--- input
+      - ```¶
+    ```¶
+ [ref]: /u   ¶
+>##¶
+> > 5. five	¶
+> : definition¶
+¶
+--- output
+      - ```¶
+    ```¶
+ [ref]: /u   ¶
+>##¶
+> > 5. five	¶
+> : definition¶
+¶
+=== generated-100
+--- input
+*[HTML]: Hyper Text¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+```¶
+open fence  ¶
+¶
+--- output
+*[HTML]: Hyper Text¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+```¶
+open fence  ¶
+```¶
+¶
+=== generated-101
+--- input
+```js¶
+    - ```¶
+   ~~~¶
+    10. ten¶
+¶
+--- output
+```js¶
+    - ```¶
+   ~~~¶
+    10. ten¶
+```¶
+¶
+=== generated-102
+--- input
+Text¶
+1. interrupts¶
+¶
+Text¶
+1984. was a year¶
+¶
+9. nine¶
+3. ten¶
+¶
+¶
+a `code ¶
+span` b¶
+¶
+--- output
+Text¶
+1. interrupts¶
+¶
+Text¶
+1984. was a year¶
+¶
+9. nine¶
+10. ten¶
+¶
+a `code ¶
+span` b¶
+¶
+=== generated-103
+--- input
+> | a | b |¶
+   5. five¶
+    ```¶
+   ##    Spaced¶
+--- output
+> | a | b |¶
+   5. five¶
+    ```¶
+   ##    Spaced¶
+=== generated-104
+--- input
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+¶
+¶
+Term¶
+¶
+: loose definition¶
+¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+##   Spaced heading¶
+  ¶
+¶
+Trailing space ¶
+then more¶
+  ¶
+¶
+    ¶
+--- output
+3. three¶
+¶
+4. seven¶
+¶
+5. nine¶
+¶
+Term¶
+¶
+: loose definition¶
+¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+##   Spaced heading¶
+  ¶
+¶
+Trailing space ¶
+then more¶
+  ¶
+¶
+    ¶
+=== generated-105
+--- input
+ > quote ¶
+>- > q  ¶
+> > - > q¶
+	`` a ` b ``¶
+  ===¶
+</div>¶
+		¶
+	</div>¶
+> > # Heading¶
+ # Heading¶
+ ~~~¶
+>$$ ¶
+    7) seven¶
+<pre>¶
+   * star¶
+      *[HTML]: Hyper¶
+> > ```js¶
+	***¶
+	    ```¶
+***   ¶
+¶
+--- output
+ > quote ¶
+>- > q  ¶
+> > - > q¶
+	`` a ` b ``¶
+  ===¶
+</div>¶
+¶
+	</div>¶
+> > # Heading¶
+ # Heading¶
+ ~~~¶
+>$$ ¶
+    7) seven¶
+<pre>¶
+   * star¶
+      *[HTML]: Hyper¶
+> > ```js¶
+	***¶
+	    ```¶
+***   ¶
+ ~~~¶
+¶
+=== generated-106
+--- input
+a `code ¶
+span` b¶
+  ¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+-item¶
+¶
+# Title¶
+¶
+¶
+[ref]: /url 'title'¶
+¶
+¶
+¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+a | b¶
+--- | ---¶
+¶
+¶
+¶
+--- output
+a `code ¶
+span` b¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+-item¶
+¶
+# Title¶
+¶
+[ref]: /url 'title'¶
+¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+a | b¶
+--- | ---¶
+¶
+¶
+¶
+=== generated-107
+--- input
+- ```¶
+    <div>  ¶
+##   ¶
+      : definition	¶
+    7) seven¶
+<!-- x -->¶
+> > $$ x $$   ¶
+|---|---|¶
+¶
+--- output
+- ```¶
+    <div>  ¶
+##¶
+      : definition	¶
+    7) seven¶
+<!-- x -->¶
+> > $$ x $$   ¶
+|---|---|¶
+¶
+=== generated-108
+--- input
+    indented code  ¶
+¶
+¶
+    more code¶
+¶
+¶
+### Closed ###¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+¶
+¶
+### Closed ###¶
+¶
+¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+Term¶
+: definition¶
+¶
+--- output
+    indented code  ¶
+¶
+¶
+    more code¶
+¶
+¶
+### Closed ###¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+### Closed ###¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+Term¶
+: definition¶
+¶
+=== generated-109
+--- input
+	<b>bold</b> text¶
+	- > q \¶
+##¶
+   \¶
+    |---|---|¶
+><pre>   ¶
+    - > q¶
+	¶
+      1. ¶
+ ¶
+> * star¶
+>¶
+- ```¶
+> > <!-- x -->   ¶
+      ~ tilde def¶
+	-¶
+      1. one¶
+--- output
+	<b>bold</b> text¶
+	- > q \¶
+##¶
+¶
+   \¶
+    |---|---|¶
+><pre>   ¶
+    - > q¶
+	¶
+      1. ¶
+ ¶
+> * star¶
+>¶
+- ```¶
+> > <!-- x -->   ¶
+      ~ tilde def¶
+	-¶
+      1. one¶
+=== generated-110
+--- input
+# Title¶
+¶
+¶
+1. one¶
+1. two¶
+1. three¶
+  ¶
+¶
+¶
+--- output
+# Title¶
+¶
+1. one¶
+2. two¶
+3. three¶
+¶
+=== generated-111
+--- input
+><b>bold</b> text¶
+  span`¶
+- dash	¶
+   1. ¶
+1. one¶
+¶
+--- output
+><b>bold</b> text¶
+  span`¶
+- dash	¶
+   1. ¶
+1. one¶
+¶
+=== generated-112
+--- input
+> quote  ¶
+> more¶
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+<span>inline</span> text¶
+¶
+¶
+¶
+- a¶
+¶
+¶
+- b¶
+Plain paragraph text.¶
+$$ a $$¶
+¶
+--- output
+> quote  ¶
+> more¶
+¶
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+<span>inline</span> text¶
+¶
+- a¶
+¶
+- b¶
+Plain paragraph text.¶
+$$ a $$¶
+¶
+=== generated-113
+--- input
+> ~~~¶
+> > #tag   ¶
+      ```js¶
+      $$ x $$¶
+	span`¶
+   1. nested¶
+> > ~ tilde def¶
+* star¶
+> - > q¶
+> `code   ¶
+> > [ref]: /u¶
+><b>bold</b> text¶
+> > ===¶
+   [ref]: /u¶
+>more text¶
+> <!-- x -->¶
+>*** ¶
+      : definition ¶
+>Term¶
+> > ===¶
+¶
+--- output
+> ~~~¶
+> > #tag   ¶
+      ```js¶
+      $$ x $$¶
+	span`¶
+   1. nested¶
+> > ~ tilde def¶
+* star¶
+> - > q¶
+> `code   ¶
+> > [ref]: /u¶
+><b>bold</b> text¶
+> > ===¶
+   [ref]: /u¶
+>more text¶
+> <!-- x -->¶
+>*** ¶
+      : definition ¶
+>Term¶
+> > ===¶
+¶
+=== generated-114
+--- input
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+##   Spaced heading¶
+¶
+-item¶
+Cite[^1] here.¶
+¶
+1. one¶
+1. two¶
+1. three¶
+<span>inline</span> text¶
+¶
+¶
+¶
+Text¶
+1. interrupts¶
+  ¶
+¶
+¶
+--- output
+3. three¶
+¶
+4. seven¶
+¶
+5. nine¶
+¶
+## Spaced heading¶
+¶
+-item¶
+Cite[^1] here.¶
+¶
+1. one¶
+1. two¶
+1. three¶
+<span>inline</span> text¶
+¶
+¶
+¶
+Text¶
+1. interrupts¶
+¶
+=== generated-115
+--- input
+===¶
+   1. nested¶
+>10. ten¶
+      |---|---|¶
+--- output
+===¶
+   1. nested¶
+>10. ten¶
+      |---|---|¶
+=== generated-116
+--- input
+<span>inline</span> text¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+  ¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+Trailing space ¶
+then more¶
+¶
+Plain paragraph text.¶
+9. nine¶
+3. ten¶
+Ends with spaces   ¶
+¶
+¶
+--- output
+<span>inline</span> text¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+¶
+Trailing space¶
+then more¶
+¶
+Plain paragraph text.¶
+9. nine¶
+3. ten¶
+Ends with spaces¶
+¶
+=== generated-117
+--- input
+    ```js \¶
+      ##    Spaced¶
+  <!--¶
+    ```¶
+- ```¶
+ ~~~¶
+1. ```¶
+ 7) seven ¶
+> > <span> \¶
+>[ref]: /u¶
+    ```¶
+> > 1. ¶
+> > - dash¶
+      text¶
+      <!-- ¶
+5. five¶
+   |---|---|¶
+¶
+--- output
+    ```js \¶
+      ##    Spaced¶
+  <!--¶
+    ```¶
+- ```¶
+ ~~~¶
+1. ```¶
+ 7) seven ¶
+> > <span> \¶
+>[ref]: /u¶
+    ```¶
+> > 1. ¶
+> > - dash¶
+      text¶
+      <!-- ¶
+5. five¶
+   |---|---|¶
+¶
+=== generated-118
+--- input
+---¶
+title: Doc 118¶
+---¶
+a [link](/u "title ¶
+more") b¶
+   ¶
+   ¶
+¶
+> ```¶
+> code¶
+> ```¶
+¶
+¶
+--- output
+---¶
+title: Doc 118¶
+---¶
+a [link](/u "title ¶
+more") b¶
+¶
+> ```¶
+> code¶
+> ```¶
+¶
+=== generated-119
+--- input
+    # Heading¶
+      Term ¶
+---¶
+      1. ```  ¶
+	- > q ¶
+  10. ten¶
+>`` a ` b ``¶
+	¶
+***¶
+      [ref]: /u¶
+<!--¶
+      [ref]: /u   ¶
+>2. two  ¶
+	* star ¶
+> - > q¶
+¶
+  more text¶
+  -->¶
+   [^1]: note¶
+      `code¶
+	<pre>¶
+more text¶
+ ¶
+   ##¶
+<div>¶
+  - nested¶
+--- output
+    # Heading¶
+      Term ¶
+---¶
+      1. ```  ¶
+	- > q ¶
+  10. ten¶
+>`` a ` b ``¶
+¶
+***¶
+      [ref]: /u¶
+<!--¶
+      [ref]: /u   ¶
+>2. two  ¶
+	* star ¶
+> - > q¶
+¶
+  more text¶
+  -->¶
+   [^1]: note¶
+      `code¶
+	<pre>¶
+more text¶
+ ¶
+   ##¶
+<div>¶
+  - nested¶
+=== generated-120
+--- input
+Two lines  ¶
+with a hard break¶
+¶
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+#¶
+Plain paragraph text.¶
+¶
+9. nine¶
+3. ten¶
+Setext two¶
+---¶
+  ¶
+¶
+1.¶
+2.¶
+¶
+¶
+```¶
+open fence  ¶
+¶
+--- output
+Two lines  ¶
+with a hard break¶
+¶
+3. three¶
+¶
+4. seven¶
+¶
+5. nine¶
+¶
+#¶
+¶
+Plain paragraph text.¶
+¶
+9. nine¶
+3. ten¶
+Setext two¶
+---¶
+¶
+1.¶
+2.¶
+¶
+¶
+```¶
+open fence  ¶
+```¶
+¶
+=== generated-121
+--- input
+  | a | b |¶
+<span>¶
+      </pre>¶
+   1. nested¶
+></div>¶
+    - ``` ¶
+<pre>   ¶
+***¶
+  <span>¶
+  \¶
+> > text¶
+  # Heading¶
+      ```js¶
+>7) seven ¶
+- dash ¶
+¶
+¶
+--- output
+  | a | b |¶
+<span>¶
+      </pre>¶
+   1. nested¶
+></div>¶
+    - ``` ¶
+<pre>   ¶
+***¶
+  <span>¶
+  \¶
+> > text¶
+  # Heading¶
+      ```js¶
+>7) seven ¶
+- dash ¶
+¶
+¶
+=== generated-122
+--- input
+Text¶
+1984. was a year¶
+**bold _it¶
+¶
+#tag line¶
+  ¶
+¶
+Plain paragraph text.¶
+¶
+¶
+Cite[^1] here.¶
+¶
+¶
+¶
+¶
+--- output
+Text¶
+1984. was a year¶
+**bold _it¶
+¶
+#tag line¶
+¶
+Plain paragraph text.¶
+¶
+Cite[^1] here.¶
+¶
+=== generated-123
+--- input
+      * star¶
+	  - nested¶
+> ---¶
+	$$ x $$   ¶
+> ~~~  ¶
+      <!--¶
+````¶
+  ¶
+  - ``` ¶
+> 1. ``` \¶
+	##¶
+	> quote¶
+> 3. three¶
+ ~ tilde def¶
+Term¶
+>    1. nested¶
+Term¶
+   1. ```  ¶
+[ref]: /u¶
+¶
+      ~~~¶
+*[HTML]: Hyper¶
+    5. five¶
+>    ```¶
+  <div>¶
+¶
+--- output
+      * star¶
+	  - nested¶
+> ---¶
+	$$ x $$   ¶
+> ~~~  ¶
+      <!--¶
+````¶
+  ¶
+  - ``` ¶
+> 1. ``` \¶
+	##¶
+	> quote¶
+> 3. three¶
+ ~ tilde def¶
+Term¶
+>    1. nested¶
+Term¶
+   1. ```  ¶
+[ref]: /u¶
+¶
+      ~~~¶
+*[HTML]: Hyper¶
+    5. five¶
+>    ```¶
+  <div>¶
+¶
+=== generated-124
+--- input
+``` a`b¶
+not a fence¶
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+### Closed ###¶
+``` a`b¶
+not a fence¶
+¶
+-item¶
+  ¶
+¶
+Text¶
+1984. was a year¶
+¶
+--- output
+``` a`b¶
+not a fence¶
+¶
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+### Closed ###¶
+¶
+``` a`b¶
+not a fence¶
+¶
+-item¶
+¶
+Text¶
+1984. was a year¶
+¶
+=== generated-125
+--- input
+   ¶
+[ref]: /u¶
+    + plus¶
+>  \¶
+      1. ```¶
+10. ten¶
+    <pre>¶
+      - dash¶
+>\¶
+> | a | b |¶
+      more text  ¶
+   ~ tilde def¶
+> ---¶
+         1. nested¶
+> > > quote¶
+    ~~~¶
+¶
+--- output
+[ref]: /u¶
+    + plus¶
+>  \¶
+      1. ```¶
+10. ten¶
+    <pre>¶
+      - dash¶
+>\¶
+> | a | b |¶
+      more text  ¶
+   ~ tilde def¶
+> ---¶
+         1. nested¶
+> > > quote¶
+    ~~~¶
+¶
+=== generated-126
+--- input
+Trailing space ¶
+then more¶
+¶
+Cite[^1] here.¶
+¶
+¶
+¶
+**bold _it¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+¶
+--- output
+Trailing space¶
+then more¶
+¶
+Cite[^1] here.¶
+¶
+**bold _it¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+¶
+=== generated-127
+--- input
+	$$¶
+$$¶
+   `` a ` b ``¶
+	10. ten¶
+	1. one¶
+	[^1]: note¶
+span`¶
+  1. ```¶
+>more text¶
+	~ tilde def¶
+	> quote¶
+- ```¶
+	10. ten¶
+¶
+--- output
+	$$¶
+$$¶
+   `` a ` b ``¶
+	10. ten¶
+	1. one¶
+	[^1]: note¶
+span`¶
+  1. ```¶
+>more text¶
+	~ tilde def¶
+	> quote¶
+- ```¶
+	10. ten¶
+¶
+=== generated-128
+--- input
+| a |¶
+| - |¶
+  ¶
+¶
+#¶
+¶
+Trailing tab	¶
+¶
+Text¶
+1984. was a year¶
+| a |¶
+| - |¶
+¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+¶
+¶
+--- output
+| a |¶
+| - |¶
+¶
+#¶
+¶
+Trailing tab¶
+¶
+Text¶
+1984. was a year¶
+| a |¶
+| - |¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+¶
+=== generated-129
+--- input
+    <!--  ¶
+~~~¶
+```js¶
+> -¶
+***¶
+>`code¶
+>: definition¶
+  |---|---|¶
+> ##    Spaced¶
+> `` a ` b ``   ¶
+>1. one¶
+> ~ tilde def¶
+	  - nested¶
+   [^1]: note¶
+a \` b	¶
+===¶
+$$ x $$ \¶
+```¶
+    - dash¶
+      <!-- x -->¶
+   - nested   ¶
+Term   ¶
+>##¶
+$$ x $$¶
+> > [^1]: note¶
+>##    Spaced¶
+¶
+--- output
+    <!--  ¶
+~~~¶
+```js¶
+> -¶
+***¶
+>`code¶
+>: definition¶
+  |---|---|¶
+> ##    Spaced¶
+> `` a ` b ``   ¶
+>1. one¶
+> ~ tilde def¶
+	  - nested¶
+   [^1]: note¶
+a \` b	¶
+===¶
+$$ x $$ \¶
+```¶
+    - dash¶
+      <!-- x -->¶
+   - nested   ¶
+Term   ¶
+>##¶
+$$ x $$¶
+> > [^1]: note¶
+>##    Spaced¶
+~~~¶
+¶
+=== generated-130
+--- input
+* star¶
++ plus¶
+- dash¶
+¶
+¶
+Term¶
+¶
+: loose definition¶
+¶
+--- output
+* star¶
++ plus¶
+- dash¶
+¶
+Term¶
+¶
+: loose definition¶
+¶
+=== generated-131
+--- input
+1. ```¶
+> > ---¶
+   ===¶
+ > quote¶
+    $$¶
+$$ x $$¶
+      ~~~¶
+>¶
+> > 7) seven¶
+span`¶
+> > more text¶
+	*[HTML]: Hyper¶
+- > q¶
+>1. ¶
+   10. ten¶
+  ```¶
+~ tilde def¶
+# Heading¶
+[ref]: /u¶
+¶
+--- output
+1. ```¶
+> > ---¶
+   ===¶
+ > quote¶
+    $$¶
+$$ x $$¶
+      ~~~¶
+>¶
+> > 7) seven¶
+span`¶
+> > more text¶
+	*[HTML]: Hyper¶
+- > q¶
+>1. ¶
+   10. ten¶
+  ```¶
+~ tilde def¶
+# Heading¶
+[ref]: /u¶
+¶
+=== generated-132
+--- input
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+¶
+Two lines  ¶
+with a hard break¶
+  ¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+¶
+¶
+--- output
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+=== generated-133
+--- input
+   </pre>¶
+  | a | b |¶
+       1. nested¶
+    ````¶
+- ```¶
+> > <!--¶
+> > 1. ```¶
+  | a | b | ¶
+> \¶
+	````¶
+> > ---¶
+$$¶
+>~~~¶
+  - nested¶
+  <b>bold</b> text	¶
+>- > q¶
+	````¶
+[ref]: /u¶
+| a | b | \¶
+      - > q ¶
+10. ten¶
+```js¶
+    [^1]: note  ¶
+>-->¶
+ > quote¶
+<!-- x -->¶
+3. three  ¶
+--- output
+   </pre>¶
+  | a | b |¶
+       1. nested¶
+    ````¶
+- ```¶
+> > <!--¶
+> > 1. ```¶
+  | a | b | ¶
+> \¶
+	````¶
+> > ---¶
+$$¶
+>~~~¶
+  - nested¶
+  <b>bold</b> text	¶
+>- > q¶
+	````¶
+[ref]: /u¶
+| a | b | \¶
+      - > q ¶
+10. ten¶
+```js¶
+    [^1]: note  ¶
+>-->¶
+ > quote¶
+<!-- x -->¶
+3. three  ¶
+=== generated-134
+--- input
+a [link](/u "title ¶
+more") b¶
+  ¶
+¶
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+¶
+* star¶
++ plus¶
+- dash¶
+¶
+¶
+¶
+text without newline¶
+--- output
+a [link](/u "title ¶
+more") b¶
+¶
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+* star¶
++ plus¶
+- dash¶
+¶
+text without newline¶
+¶
+=== generated-135
+--- input
+> > a \` b¶
+      ~ tilde def¶
+*[HTML]: Hyper¶
+wrapped line¶
+	~~~ \¶
+> Term¶
+      | a | b |  ¶
+````¶
+- ```¶
+	<div>¶
+ span`¶
+>$$¶
+> > : definition¶
+7) seven¶
+> ```¶
+##    Spaced¶
+> > <pre>¶
+````¶
+      - dash¶
+¶
+--- output
+> > a \` b¶
+      ~ tilde def¶
+*[HTML]: Hyper¶
+wrapped line¶
+	~~~ \¶
+> Term¶
+      | a | b |  ¶
+````¶
+- ```¶
+	<div>¶
+ span`¶
+>$$¶
+> > : definition¶
+7) seven¶
+> ```¶
+##    Spaced¶
+> > <pre>¶
+````¶
+      - dash¶
+¶
+=== generated-136
+--- input
+<span>inline</span> text¶
+  ¶
+¶
+Trailing space ¶
+then more¶
+¶
+¶
+$$ a $$¶
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+¶
+¶
+¶
+*[HTML]: Hyper Text¶
+  ¶
+¶
+*[HTML]: Hyper Text¶
+* star¶
++ plus¶
+- dash¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+--- output
+<span>inline</span> text¶
+¶
+Trailing space¶
+then more¶
+¶
+$$ a $$¶
+3. three¶
+¶
+4. seven¶
+¶
+5. nine¶
+¶
+*[HTML]: Hyper Text¶
+¶
+*[HTML]: Hyper Text¶
+* star¶
++ plus¶
+- dash¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+=== generated-137
+--- input
+	~ tilde def¶
+   ===¶
+> *[HTML]: Hyper¶
+7) seven	¶
+> > 2. two¶
+> > ##    Spaced¶
+   \¶
+```js¶
+    ##¶
+  * star¶
+	a \` b¶
+	7) seven ¶
+ <pre>¶
+--- output
+	~ tilde def¶
+   ===¶
+> *[HTML]: Hyper¶
+7) seven	¶
+> > 2. two¶
+> > ##    Spaced¶
+   \¶
+```js¶
+    ##¶
+  * star¶
+	a \` b¶
+	7) seven ¶
+ <pre>¶
+=== generated-138
+--- input
+| a |¶
+| - |¶
+````¶
+a¶
+```¶
+b¶
+````¶
+  ¶
+¶
+a | b¶
+--- | ---¶
+¶
+¶
+¶
+a [link](/u "title ¶
+more") b¶
+¶
+- - -¶
+  ¶
+¶
+¶
+¶
+¶
+--- output
+| a |¶
+| - |¶
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+a | b¶
+--- | ---¶
+¶
+a [link](/u "title ¶
+more") b¶
+¶
+- - -¶
+¶
+=== generated-139
+--- input
+	# Heading¶
+span`¶
+	: definition ¶
+	1. ```	¶
+>text¶
+> quote¶
+$$¶
+-¶
+*[HTML]: Hyper  ¶
+~~~¶
+ <!--¶
+ $$¶
+¶
+`code¶
+> a \` b¶
+      [ref]: /u¶
+ 7) seven¶
+    `code¶
+> > > quote	¶
+   ¶
+| a | b |¶
+````¶
+span`¶
+--- output
+	# Heading¶
+span`¶
+	: definition ¶
+	1. ```	¶
+>text¶
+> quote¶
+$$¶
+-¶
+*[HTML]: Hyper  ¶
+~~~¶
+ <!--¶
+ $$¶
+¶
+`code¶
+> a \` b¶
+      [ref]: /u¶
+ 7) seven¶
+    `code¶
+> > > quote	¶
+   ¶
+| a | b |¶
+````¶
+span`¶
+````¶
+¶
+=== generated-140
+--- input
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+¶
+¶
+Cite[^1] here.¶
+¶
+¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+a `code ¶
+span` b¶
+¶
+¶
+¶
+-item¶
+¶
+¶
+¶
+- [ ] task¶
+- [x] done¶
+a [link](/u "title ¶
+more") b¶
+  ¶
+¶
+[ref]: /url 'title'¶
+¶
+¶
+¶
+¶
+¶
+¶
+--- output
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+Cite[^1] here.¶
+¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+a `code ¶
+span` b¶
+¶
+-item¶
+¶
+- [ ] task¶
+- [x] done¶
+a [link](/u "title ¶
+more") b¶
+¶
+[ref]: /url 'title'¶
+¶
+=== generated-141
+--- input
+      ````¶
+> > --> \¶
+>1. 	¶
+a \` b   ¶
+  - nested¶
+></pre>	¶
+> > 1. one¶
+ <!-- x -->¶
+>7) seven¶
+	span`¶
+      more text¶
+     ```¶
+¶
+--- output
+      ````¶
+> > --> \¶
+>1. 	¶
+a \` b   ¶
+  - nested¶
+></pre>	¶
+> > 1. one¶
+ <!-- x -->¶
+>7) seven¶
+	span`¶
+      more text¶
+     ```¶
+¶
+=== generated-142
+--- input
+<span>inline</span> text¶
+¶
+Trailing space ¶
+then more¶
+¶
+¶
+Trailing space ¶
+then more¶
+¶
+#¶
+¶
+| a |¶
+| - |¶
+Setext¶
+===¶
+Cite[^1] here.¶
+¶
+¶
+- - -¶
+¶
+--- output
+<span>inline</span> text¶
+¶
+Trailing space¶
+then more¶
+¶
+Trailing space¶
+then more¶
+¶
+#¶
+¶
+| a |¶
+| - |¶
+Setext¶
+===¶
+Cite[^1] here.¶
+¶
+- - -¶
+¶
+=== generated-143
+--- input
+> ## ¶
+    ---¶
+> > ```	¶
+</div>¶
+  #tag¶
+	Term¶
+    $$¶
+- > q¶
+```¶
+    `code¶
+> Term¶
+ 2. two¶
+> > # Heading¶
+* star¶
+ -->¶
+1. ```¶
+  - nested¶
+    <span>¶
+	- dash¶
+  <b>bold</b> text¶
+   ```js¶
+  `` a ` b ``¶
+      1. ```¶
+¶
+--- output
+> ## ¶
+    ---¶
+> > ```	¶
+</div>¶
+  #tag¶
+	Term¶
+    $$¶
+- > q¶
+```¶
+    `code¶
+> Term¶
+ 2. two¶
+> > # Heading¶
+* star¶
+ -->¶
+1. ```¶
+  - nested¶
+    <span>¶
+	- dash¶
+  <b>bold</b> text¶
+   ```js¶
+  `` a ` b ``¶
+      1. ```¶
+¶
+=== generated-144
+--- input
+Text¶
+1984. was a year¶
+> ```¶
+> code¶
+> ```¶
+¶
+¶
+¶
+a [link](/u "title ¶
+more") b¶
+¶
+¶
+¶
+--- output
+Text¶
+1984. was a year¶
+> ```¶
+> code¶
+> ```¶
+¶
+a [link](/u "title ¶
+more") b¶
+¶
+=== generated-145
+--- input
+ #tag¶
+  ¶
+\¶
+¶
+#tag¶
+-->¶
+<pre>	¶
+¶
+> | a | b |¶
+> > ¶
+¶
+--- output
+ #tag¶
+¶
+\¶
+¶
+#tag¶
+-->¶
+<pre>	¶
+¶
+> | a | b |¶
+> > ¶
+¶
+=== generated-146
+--- input
+    indented code  ¶
+¶
+¶
+    more code¶
+Text¶
+1. interrupts¶
+¶
+¶
+¶
+--- output
+    indented code  ¶
+¶
+¶
+    more code¶
+Text¶
+1. interrupts¶
+¶
+=== generated-147
+--- input
+>- > q¶
+ ***¶
+      - nested   ¶
+  wrapped line¶
+$$ \¶
+	  - nested¶
+¶
+--- output
+>- > q¶
+ ***¶
+      - nested   ¶
+  wrapped line¶
+$$ \¶
+	  - nested¶
+¶
+=== generated-148
+--- input
+---¶
+title: Doc 148¶
+---¶
+1) paren¶
+5) paren¶
+¶
+> lazy¶
+continuation¶
+8. a¶
+9. b¶
+3. c¶
+   more¶
+¶
+Text¶
+1984. was a year¶
+¶
+--- output
+---¶
+title: Doc 148¶
+---¶
+1) paren¶
+2) paren¶
+¶
+> lazy¶
+continuation¶
+8. a¶
+9. b¶
+3. c¶
+   more¶
+¶
+Text¶
+1984. was a year¶
+¶
+=== generated-149
+--- input
+> > more text  ¶
+> >     ```¶
+[ref]: /u¶
+  Term¶
+  a \` b ¶
+$$¶
+>wrapped line   ¶
+[^1]: note¶
+    `` a ` b ``	¶
+   |---|---|	¶
+> > # Heading¶
+> <pre>¶
+ | a | b |¶
+>| a | b |¶
+    a \` b¶
+`` a ` b ``¶
+  ~ tilde def	¶
+	</div>¶
+	<pre>¶
+--- output
+> > more text  ¶
+> >     ```¶
+[ref]: /u¶
+  Term¶
+  a \` b ¶
+$$¶
+>wrapped line   ¶
+[^1]: note¶
+    `` a ` b ``	¶
+   |---|---|	¶
+> > # Heading¶
+> <pre>¶
+ | a | b |¶
+>| a | b |¶
+    a \` b¶
+`` a ` b ``¶
+  ~ tilde def	¶
+	</div>¶
+	<pre>¶
+=== generated-150
+--- input
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+a `code ¶
+span` b¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+  ¶
+¶
+¶
+--- output
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+a `code ¶
+span` b¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+  ¶
+¶
+¶
+=== generated-151
+--- input
+  <pre>¶
+more text¶
+1. one¶
+    </pre>¶
+> > <pre> \¶
+</pre>¶
+~ tilde def¶
+¶
+--- output
+  <pre>¶
+more text¶
+1. one¶
+    </pre>¶
+> > <pre> \¶
+</pre>¶
+~ tilde def¶
+¶
+=== generated-152
+--- input
+> quote  ¶
+> more¶
+¶
+¶
+¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+  ¶
+¶
+Term¶
+¶
+: loose definition¶
+Setext two¶
+---¶
+¶
+¶
+--- output
+> quote  ¶
+> more¶
+¶
+- a¶
+  1. x¶
+  2. y¶
+- b¶
+¶
+Term¶
+¶
+: loose definition¶
+Setext two¶
+---¶
+¶
+¶
+=== generated-153
+--- input
+  a \` b¶
+>more text¶
+   ¶
+   </pre>¶
+> ¶
+>* star¶
+   ~ tilde def¶
+	7) seven¶
+- dash¶
+10. ten¶
+  - nested¶
+Term¶
+   </pre>¶
+> ```¶
+> > + plus¶
+	$$ x $$¶
+> 10. ten¶
+a \` b¶
+``` \¶
+  Term¶
+>***¶
+> >  ¶
+> ===¶
+| a | b |¶
+# Heading¶
+-¶
+> > <!--¶
+  \¶
+         1. nested¶
+> > $$ x $$¶
+¶
+--- output
+  a \` b¶
+>more text¶
+¶
+   </pre>¶
+> ¶
+>* star¶
+   ~ tilde def¶
+	7) seven¶
+- dash¶
+10. ten¶
+  - nested¶
+Term¶
+   </pre>¶
+> ```¶
+> > + plus¶
+	$$ x $$¶
+> 10. ten¶
+a \` b¶
+``` \¶
+  Term¶
+>***¶
+> >  ¶
+> ===¶
+| a | b |¶
+# Heading¶
+-¶
+> > <!--¶
+  \¶
+         1. nested¶
+> > $$ x $$¶
+¶
+=== generated-154
+--- input
+[^1]: Footnote¶
+¶
+    more  ¶
+<span>inline</span> text¶
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+  ¶
+¶
+***¶
+¶
+¶
+--- output
+[^1]: Footnote¶
+¶
+    more  ¶
+<span>inline</span> text¶
+3. three¶
+¶
+7. seven¶
+¶
+8. nine¶
+¶
+***¶
+¶
+=== generated-155
+--- input
+> > ~ tilde def \¶
+    ```  ¶
+<span>¶
+`` a ` b ``¶
+         1. nested¶
+===	¶
+> > : definition¶
+	---¶
+ 7) seven¶
+>* star¶
+¶
+--- output
+> > ~ tilde def \¶
+    ```  ¶
+<span>¶
+`` a ` b ``¶
+         1. nested¶
+===	¶
+> > : definition¶
+	---¶
+ 7) seven¶
+>* star¶
+¶
+=== generated-156
+--- input
+1. one¶
+1. two¶
+1. three¶
+  ¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+¶
+#¶
+¶
+### Closed ###¶
+¶
+¶
+¶
+- [ ] task¶
+- [x] done¶
+  ¶
+¶
+8. a¶
+9. b¶
+3. c¶
+   more¶
+¶
+¶
+--- output
+1. one¶
+2. two¶
+3. three¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+¶
+#¶
+¶
+### Closed ###¶
+¶
+- [ ] task¶
+- [x] done¶
+¶
+8. a¶
+9. b¶
+3. c¶
+   more¶
+¶
+=== generated-157
+--- input
+<b>bold</b> text¶
+> > - > q¶
+- ```  ¶
+## ¶
+	[ref]: /u¶
+> > ***   ¶
+*[HTML]: Hyper¶
+7) seven¶
+    * star¶
+      ---¶
+> > [^1]: note ¶
++ plus¶
+  1. ``` ¶
+   text¶
+2. two¶
+ * star¶
+ *[HTML]: Hyper \¶
+[^1]: note¶
+¶
+	more text¶
+> ¶
+  `code¶
+--- output
+<b>bold</b> text¶
+> > - > q¶
+- ```  ¶
+##¶
+	[ref]: /u¶
+> > ***   ¶
+*[HTML]: Hyper¶
+7) seven¶
+    * star¶
+      ---¶
+> > [^1]: note ¶
++ plus¶
+  1. ``` ¶
+   text¶
+2. two¶
+ * star¶
+ *[HTML]: Hyper \¶
+[^1]: note¶
+¶
+	more text¶
+> ¶
+  `code¶
+=== generated-158
+--- input
+> ```¶
+> code¶
+> ```¶
+  ¶
+¶
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+¶
+¶
+¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+¶
+<span>inline</span> text¶
+¶
+¶
+¶
+1.¶
+2.¶
+Setext¶
+===¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+¶
+--- output
+> ```¶
+> code¶
+> ```¶
+¶
+3. three¶
+¶
+4. seven¶
+¶
+5. nine¶
+¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+<span>inline</span> text¶
+¶
+1.¶
+2.¶
+Setext¶
+===¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+=== generated-159
+--- input
+   > quote  ¶
+  </pre>¶
+   # Heading \¶
+ # Heading¶
+~ tilde def ¶
+\¶
+> <!--¶
+<!-- x -->¶
+> > ````¶
+    <pre>¶
+<!--¶
+    1. ```¶
+    -¶
+   | a | b |¶
+2. two¶
+> more text¶
+> a \` b   ¶
+    3. three¶
+5. five	¶
+>   1. nested¶
+> > 1. one¶
+ \¶
+>- dash  ¶
+    ````¶
+    a \` b¶
+>===¶
+¶
+--- output
+   > quote  ¶
+  </pre>¶
+   # Heading \¶
+ # Heading¶
+~ tilde def ¶
+\¶
+> <!--¶
+<!-- x -->¶
+> > ````¶
+    <pre>¶
+<!--¶
+    1. ```¶
+    -¶
+   | a | b |¶
+2. two¶
+> more text¶
+> a \` b   ¶
+    3. three¶
+5. five	¶
+>   1. nested¶
+> > 1. one¶
+ \¶
+>- dash  ¶
+    ````¶
+    a \` b¶
+>===¶
+¶
+=== generated-160
+--- input
+| a |¶
+| - |¶
+¶
+¶
+¶
+Text¶
+1. interrupts¶
+¶
+Trailing space ¶
+then more¶
+¶
+¶
+--- output
+| a |¶
+| - |¶
+¶
+Text¶
+1. interrupts¶
+¶
+Trailing space¶
+then more¶
+¶
+=== generated-161
+--- input
+#tag¶
+> > + plus   ¶
+      + plus¶
+  -->¶
+	##  ¶
+>```¶
+> > - dash¶
+<b>bold</b> text¶
+¶
+--- output
+#tag¶
+> > + plus   ¶
+      + plus¶
+  -->¶
+	##  ¶
+>```¶
+> > - dash¶
+<b>bold</b> text¶
+¶
+=== generated-162
+--- input
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+**bold _it¶
+¶
+   ¶
+¶
+¶
+¶
+¶
+--- output
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+**bold _it¶
+¶
+=== generated-163
+--- input
+> > ===¶
+ ¶
+<span>  ¶
+-->¶
+>- ```¶
+¶
+--- output
+> > ===¶
+¶
+<span>  ¶
+-->¶
+>- ```¶
+¶
+=== generated-164
+--- input
+Trailing space ¶
+then more¶
+¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+1.¶
+2.¶
+¶
+¶
+Term¶
+¶
+: loose definition¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+¶
+¶
+¶
+--- output
+Trailing space¶
+then more¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+1.¶
+2.¶
+¶
+¶
+Term¶
+¶
+: loose definition¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+¶
+¶
+¶
+=== generated-165
+--- input
+    ```¶
+	- > q¶
+ 10. ten¶
+> > `code¶
+        ```¶
+  ##    Spaced¶
+>     ```¶
+1. ```¶
+text	¶
+     - nested¶
+ : definition¶
+><!--¶
+> > ---¶
+>  ¶
+> > <!--¶
+  ~ tilde def¶
+      ~~~¶
+   ¶
+>3. three¶
+--- output
+    ```¶
+	- > q¶
+ 10. ten¶
+> > `code¶
+        ```¶
+  ## Spaced¶
+>     ```¶
+1. ```¶
+text	¶
+     - nested¶
+ : definition¶
+><!--¶
+> > ---¶
+>  ¶
+> > <!--¶
+  ~ tilde def¶
+      ~~~¶
+   ¶
+>3. three¶
+=== generated-166
+--- input
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+¶
+¶
+* star¶
++ plus¶
+- dash¶
+a [link](/u "title ¶
+more") b¶
+Two lines  ¶
+with a hard break¶
+¶
+¶
+#tag line¶
+¶
+¶
+¶
+### Closed ###¶
+¶
+--- output
+- a¶
+  1. x¶
+  2. y¶
+- b¶
+¶
+* star¶
++ plus¶
+- dash¶
+a [link](/u "title ¶
+more") b¶
+Two lines  ¶
+with a hard break¶
+¶
+#tag line¶
+¶
+### Closed ###¶
+¶
+=== generated-167
+--- input
+---¶
+  text   ¶
+      10. ten¶
+  `code¶
+    a \` b   ¶
+>#tag¶
+>    ```¶
+    - > q¶
+<pre>¶
+	  - nested¶
+  - ```¶
+$$ ¶
+````¶
+   5. five¶
+a \` b¶
+> > ````¶
+ -->¶
+   ¶
+3. three¶
+>$$ x $$¶
+    span`  ¶
+~ tilde def¶
+>$$¶
+  1. one¶
+   ````¶
+> #tag	¶
+    text	¶
+¶
+--- output
+---¶
+  text   ¶
+      10. ten¶
+  `code¶
+    a \` b   ¶
+>#tag¶
+>    ```¶
+    - > q¶
+<pre>¶
+	  - nested¶
+  - ```¶
+$$ ¶
+````¶
+   5. five¶
+a \` b¶
+> > ````¶
+ -->¶
+   ¶
+3. three¶
+>$$ x $$¶
+    span`  ¶
+~ tilde def¶
+>$$¶
+  1. one¶
+   ````¶
+> #tag	¶
+    text	¶
+¶
+=== generated-168
+--- input
+---¶
+title: Doc 168¶
+---¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+# Title¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+¶
+--- output
+---¶
+title: Doc 168¶
+---¶
+- a¶
+  1. x¶
+  2. y¶
+- b¶
+¶
+# Title¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+¶
+=== generated-169
+--- input
+	<span>¶
+¶
+- dash¶
+>- dash¶
+    ```¶
+$$ x $$¶
+  `` a ` b ``¶
+*[HTML]: Hyper¶
+$$¶
+    <span>¶
+#tag¶
+ #tag¶
+¶
+--- output
+	<span>¶
+¶
+- dash¶
+>- dash¶
+    ```¶
+$$ x $$¶
+  `` a ` b ``¶
+*[HTML]: Hyper¶
+$$¶
+    <span>¶
+#tag¶
+ #tag¶
+¶
+=== generated-170
+--- input
+``` a`b¶
+not a fence¶
+¶
+$$ a $$¶
+Text¶
+1. interrupts¶
+¶
+¶
+¶
+¶
+--- output
+``` a`b¶
+not a fence¶
+¶
+$$ a $$¶
+Text¶
+1. interrupts¶
+¶
+=== generated-171
+--- input
+- ```  ¶
+ <b>bold</b> text \¶
+><pre>¶
+3. three¶
+	|---|---|¶
+  2. two¶
+> > 1. ```¶
+>##    Spaced¶
+#tag¶
+`` a ` b ``¶
+      </pre>¶
+¶
+--- output
+- ```  ¶
+ <b>bold</b> text \¶
+><pre>¶
+3. three¶
+	|---|---|¶
+  2. two¶
+> > 1. ```¶
+>##    Spaced¶
+#tag¶
+`` a ` b ``¶
+      </pre>¶
+¶
+=== generated-172
+--- input
+a `code ¶
+span` b¶
+¶
+¶
+1. one¶
+1. two¶
+1. three¶
+¶
+¶
+¶
+*[HTML]: Hyper Text¶
+¶
+¶
+1. one¶
+1. two¶
+1. three¶
+-item¶
+  ¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+¶
+¶
+--- output
+a `code ¶
+span` b¶
+¶
+1. one¶
+2. two¶
+3. three¶
+¶
+*[HTML]: Hyper Text¶
+¶
+1. one¶
+1. two¶
+1. three¶
+-item¶
+  ¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+¶
+¶
+=== generated-173
+--- input
+ ===	¶
+> #tag¶
+   Term¶
+<span>¶
+ # Heading¶
+- dash¶
+  </div>¶
+<!-- \¶
+<div>¶
+a \` b¶
+   </div>¶
+> > ````¶
+7) seven \¶
+      span`   ¶
+<div>¶
+: definition¶
+>> quote¶
+```¶
+> > - \¶
+¶
+--- output
+ ===	¶
+> #tag¶
+   Term¶
+<span>¶
+ # Heading¶
+- dash¶
+  </div>¶
+<!-- \¶
+<div>¶
+a \` b¶
+   </div>¶
+> > ````¶
+7) seven \¶
+      span`   ¶
+<div>¶
+: definition¶
+>> quote¶
+```¶
+> > - \¶
+¶
+=== generated-174
+--- input
+# Title¶
+Setext¶
+===¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+  ¶
+¶
+¶
+--- output
+# Title¶
+¶
+Setext¶
+===¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+=== generated-175
+--- input
+> > text¶
+      ***¶
+	~~~¶
+> quote¶
+=== ¶
+	<!--¶
+      ##    Spaced¶
+      `code¶
+   - > q  ¶
+> - ¶
+```js¶
+    ¶
+~~~¶
+      1. one¶
+ ---	¶
+> quote¶
+  2. two¶
+7) seven¶
+   5. five¶
+  3. three¶
+	##¶
+   <span>¶
+~ tilde def¶
+*[HTML]: Hyper¶
+     ```¶
+  ~ tilde def¶
+> ***¶
+¶
+--- output
+> > text¶
+      ***¶
+	~~~¶
+> quote¶
+=== ¶
+	<!--¶
+      ##    Spaced¶
+      `code¶
+   - > q  ¶
+> - ¶
+```js¶
+    ¶
+~~~¶
+      1. one¶
+ ---	¶
+> quote¶
+  2. two¶
+7) seven¶
+   5. five¶
+  3. three¶
+	##¶
+   <span>¶
+~ tilde def¶
+*[HTML]: Hyper¶
+     ```¶
+  ~ tilde def¶
+> ***¶
+¶
+=== generated-176
+--- input
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+- - -¶
+Setext two¶
+---¶
+¶
+¶
+--- output
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+- - -¶
+Setext two¶
+---¶
+¶
+=== generated-177
+--- input
+> > ```js¶
+	* star   ¶
+    1. one¶
+>wrapped line¶
+ -->¶
+- dash¶
+# Heading  ¶
+```js¶
+¶
+--- output
+> > ```js¶
+	* star   ¶
+    1. one¶
+>wrapped line¶
+ -->¶
+- dash¶
+# Heading  ¶
+```js¶
+¶
+=== generated-178
+--- input
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+Term¶
+¶
+: loose definition¶
+¶
+Text¶
+1984. was a year¶
+¶
+Term¶
+¶
+: loose definition¶
+¶
+¶
+--- output
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+Term¶
+¶
+: loose definition¶
+¶
+Text¶
+1984. was a year¶
+¶
+Term¶
+¶
+: loose definition¶
+¶
+¶
+=== generated-179
+--- input
+> >    1. nested¶
+	````   ¶
+	¶
+    </div>¶
+    1. nested¶
+```js \¶
+    text¶
+````¶
+>[^1]: note¶
+  $$ x $$¶
+ 3. three¶
+       1. nested \¶
+> <pre>   ¶
+>5. five ¶
+> >  \¶
+   - dash¶
+#tag¶
+> #tag¶
+><!--¶
+¶
+¶
+--- output
+> >    1. nested¶
+	````   ¶
+	¶
+    </div>¶
+    1. nested¶
+```js \¶
+    text¶
+````¶
+¶
+>[^1]: note¶
+  $$ x $$¶
+ 3. three¶
+       1. nested \¶
+> <pre>   ¶
+>5. five ¶
+> >  \¶
+   - dash¶
+#tag¶
+> #tag¶
+><!--¶
+¶
+¶
+=== generated-180
+--- input
+$$ a $$¶
+Term¶
+: definition¶
+  ¶
+¶
+[ref]: /url 'title'¶
+¶
+¶
+> lazy¶
+continuation¶
+- - -¶
+¶
+¶
+¶
+- a¶
+¶
+¶
+- b¶
+¶
+#tag line¶
+¶
+--- output
+$$ a $$¶
+Term¶
+: definition¶
+  ¶
+¶
+[ref]: /url 'title'¶
+¶
+> lazy¶
+continuation¶
+- - -¶
+¶
+- a¶
+¶
+- b¶
+¶
+#tag line¶
+¶
+=== generated-181
+--- input
+wrapped line¶
+> >    1. nested¶
+*[HTML]: Hyper¶
+	5. five ¶
+> > * star ¶
+¶
+--- output
+wrapped line¶
+> >    1. nested¶
+*[HTML]: Hyper¶
+	5. five ¶
+> > * star ¶
+¶
+=== generated-182
+--- input
+8. a¶
+9. b¶
+3. c¶
+   more¶
+> # quoted heading¶
+> - item¶
+¶
+Trailing space ¶
+then more¶
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+  ¶
+¶
+Cite[^1] here.¶
+¶
+```¶
+open fence  ¶
+¶
+--- output
+8. a¶
+9. b¶
+3. c¶
+   more¶
+> # quoted heading¶
+> - item¶
+¶
+Trailing space¶
+then more¶
+3. three¶
+¶
+7. seven¶
+¶
+8. nine¶
+¶
+Cite[^1] here.¶
+¶
+```¶
+open fence  ¶
+```¶
+¶
+=== generated-183
+--- input
+    *[HTML]: Hyper¶
+> > ***   ¶
+      + plus¶
+*[HTML]: Hyper¶
+	* star  ¶
+    \ \¶
+> > $$	¶
+    a \` b¶
+    more text¶
+>more text¶
+   * star¶
+# Heading¶
+ $$¶
+>-¶
+> > + plus¶
+	1. ¶
+ <b>bold</b> text¶
+ *[HTML]: Hyper	¶
+1. ¶
+>#tag¶
+> > a \` b¶
+> </pre>¶
+   ***¶
+7) seven¶
+	: definition¶
+--- output
+    *[HTML]: Hyper¶
+> > ***   ¶
+      + plus¶
+*[HTML]: Hyper¶
+	* star  ¶
+    \ \¶
+> > $$	¶
+    a \` b¶
+    more text¶
+>more text¶
+   * star¶
+# Heading¶
+ $$¶
+>-¶
+> > + plus¶
+	1. ¶
+ <b>bold</b> text¶
+ *[HTML]: Hyper	¶
+1. ¶
+>#tag¶
+> > a \` b¶
+> </pre>¶
+   ***¶
+7) seven¶
+	: definition¶
+=== generated-184
+--- input
+a `code ¶
+span` b¶
+¶
+¶
+#tag line¶
+¶
+¶
+¶
+--- output
+a `code ¶
+span` b¶
+¶
+#tag line¶
+¶
+=== generated-185
+--- input
+$$¶
+      $$¶
+wrapped line¶
+> > <pre>¶
+1. one¶
+text ¶
+> text¶
+more text¶
+¶
+   [^1]: note¶
+10. ten ¶
+      `code¶
+ a \` b¶
+>##    Spaced¶
+> > `` a ` b ``¶
+*[HTML]: Hyper¶
+¶
+--- output
+$$¶
+      $$¶
+wrapped line¶
+> > <pre>¶
+1. one¶
+text ¶
+> text¶
+more text¶
+¶
+   [^1]: note¶
+10. ten ¶
+      `code¶
+ a \` b¶
+>##    Spaced¶
+> > `` a ` b ``¶
+*[HTML]: Hyper¶
+¶
+=== generated-186
+--- input
+---¶
+title: Doc 186¶
+---¶
+#¶
+¶
+> quote  ¶
+> more¶
+¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+¶
+¶
+¶
+<div>¶
+# in html  ¶
+</div>¶
+¶
+¶
+¶
+### Closed ###¶
+¶
+¶
+¶
+--- output
+---¶
+title: Doc 186¶
+---¶
+#¶
+¶
+> quote  ¶
+> more¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+¶
+¶
+¶
+<div>¶
+# in html  ¶
+</div>¶
+¶
+### Closed ###¶
+¶
+=== generated-187
+--- input
+> > > quote¶
+  </div>	¶
+>##¶
+--- output
+> > > quote¶
+  </div>	¶
+>##¶
+=== generated-188
+--- input
+~~~py¶
+x = 1¶
+~~~¶
+Trailing tab	¶
+¶
+¶
+--- output
+~~~py¶
+x = 1¶
+~~~¶
+¶
+Trailing tab¶
+¶
+=== generated-189
+--- input
+	3. three ¶
+   *[HTML]: Hyper¶
+# Heading¶
+ ##    Spaced   ¶
+> ~~~¶
+> > - dash¶
+    wrapped line¶
+> ¶
+>```  ¶
+  $$¶
+   span`   ¶
+#tag	¶
+<b>bold</b> text¶
+ <div>¶
+    [ref]: /u¶
+></pre>   ¶
+text¶
+--- output
+	3. three ¶
+   *[HTML]: Hyper¶
+¶
+# Heading¶
+¶
+ ## Spaced¶
+> ~~~¶
+> > - dash¶
+    wrapped line¶
+> ¶
+>```  ¶
+  $$¶
+   span`   ¶
+#tag	¶
+<b>bold</b> text¶
+ <div>¶
+    [ref]: /u¶
+></pre>   ¶
+text¶
+=== generated-190
+--- input
+[ref]: /url 'title'¶
+  ¶
+¶
+> ```¶
+> code¶
+> ```¶
+¶
+- - -¶
+Text¶
+1. interrupts¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+¶
+<span>inline</span> text¶
+Cite[^1] here.¶
+  ¶
+¶
+¶
+--- output
+[ref]: /url 'title'¶
+¶
+> ```¶
+> code¶
+> ```¶
+¶
+- - -¶
+Text¶
+1. interrupts¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+¶
+<span>inline</span> text¶
+Cite[^1] here.¶
+¶
+=== generated-191
+--- input
+      1. 	¶
+    <!--   ¶
+##¶
+[^1]: note¶
+¶
+--- output
+      1. 	¶
+    <!--   ¶
+##¶
+[^1]: note¶
+¶
+=== generated-192
+--- input
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+### Closed ###¶
+¶
+¶
+--- output
+3. three¶
+¶
+4. seven¶
+¶
+5. nine¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+¶
+### Closed ###¶
+¶
+=== generated-193
+--- input
+-->¶
+    *[HTML]: Hyper¶
+  <!-- x -->	¶
+      1. nested¶
+ $$ x $$ ¶
+~~~¶
+   $$¶
+<div>	¶
+````¶
+  ##    Spaced¶
+    7) seven¶
+¶
+> 10. ten¶
+    2. two¶
+¶
+> ```  ¶
+  [^1]: note \¶
+    ````¶
+> > ````¶
+> #tag¶
+ wrapped line¶
+ more text \¶
+>span` ¶
+¶
+--- output
+-->¶
+    *[HTML]: Hyper¶
+  <!-- x -->	¶
+      1. nested¶
+ $$ x $$ ¶
+~~~¶
+   $$¶
+<div>	¶
+````¶
+  ##    Spaced¶
+    7) seven¶
+¶
+> 10. ten¶
+    2. two¶
+¶
+> ```  ¶
+  [^1]: note \¶
+    ````¶
+> > ````¶
+> #tag¶
+ wrapped line¶
+ more text \¶
+>span` ¶
+~~~¶
+¶
+=== generated-194
+--- input
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+¶
+¶
+Cite[^1] here.¶
+¶
+Cite[^1] here.¶
+#tag line¶
+¶
+<div>¶
+# in html  ¶
+</div>¶
+``` a`b¶
+not a fence¶
+a | b¶
+--- | ---¶
+***¶
+¶
+--- output
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+Cite[^1] here.¶
+¶
+Cite[^1] here.¶
+#tag line¶
+¶
+<div>¶
+# in html  ¶
+</div>¶
+``` a`b¶
+not a fence¶
+a | b¶
+--- | ---¶
+***¶
+¶
+=== generated-195
+--- input
+    > quote¶
+    1. ```¶
+   ```js¶
+|---|---|¶
+>   - nested¶
+ 7) seven¶
+ ~~~¶
+\¶
+>span`¶
+\   ¶
+span`¶
+-¶
+  ===¶
+> quote \¶
+`` a ` b ``¶
+>[^1]: note¶
+	# Heading¶
+7) seven¶
+¶
+text¶
+      <!-- x --> ¶
+	\¶
+>     ```¶
+--- output
+    > quote¶
+    1. ```¶
+   ```js¶
+|---|---|¶
+>   - nested¶
+ 7) seven¶
+ ~~~¶
+\¶
+>span`¶
+\   ¶
+span`¶
+-¶
+  ===¶
+> quote \¶
+`` a ` b ``¶
+>[^1]: note¶
+	# Heading¶
+7) seven¶
+¶
+text¶
+      <!-- x --> ¶
+	\¶
+>     ```¶
+   ```¶
+¶
+=== generated-196
+--- input
+Term¶
+: definition¶
+a `code ¶
+span` b¶
+#tag line¶
+¶
+Text¶
+1. interrupts¶
+  ¶
+¶
+$$ a $$¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+> quote  ¶
+> more¶
+¶
+¶
+¶
+¶
+--- output
+Term¶
+: definition¶
+a `code ¶
+span` b¶
+#tag line¶
+¶
+Text¶
+1. interrupts¶
+¶
+$$ a $$¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+> quote  ¶
+> more¶
+¶
+=== generated-197
+--- input
+	|---|---|¶
+a \` b¶
+> - > q¶
+> : definition¶
+# Heading¶
+1. one¶
+	more text¶
+>| a | b |¶
+<div>¶
+> > <b>bold</b> text¶
+	wrapped line¶
+> ~ tilde def¶
+> 2. two¶
+   <b>bold</b> text¶
+><b>bold</b> text¶
+	* star¶
+	$$¶
+  - ```¶
+ # Heading¶
+> > wrapped line¶
+*[HTML]: Hyper¶
+>7) seven¶
+      a \` b¶
+ - dash   ¶
+---¶
+ | a | b |  ¶
+¶
+--- output
+	|---|---|¶
+a \` b¶
+> - > q¶
+> : definition¶
+¶
+# Heading¶
+1. one¶
+	more text¶
+>| a | b |¶
+<div>¶
+> > <b>bold</b> text¶
+	wrapped line¶
+> ~ tilde def¶
+> 2. two¶
+   <b>bold</b> text¶
+><b>bold</b> text¶
+	* star¶
+	$$¶
+  - ```¶
+ # Heading¶
+> > wrapped line¶
+*[HTML]: Hyper¶
+>7) seven¶
+      a \` b¶
+ - dash   ¶
+---¶
+ | a | b |  ¶
+¶
+=== generated-198
+--- input
+| a |¶
+| - |¶
+*[HTML]: Hyper Text¶
+¶
+Trailing tab	¶
+¶
+¶
+¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+1) paren¶
+5) paren¶
+  ¶
+¶
+> # quoted heading¶
+> - item¶
+Setext two¶
+---¶
+1.¶
+2.¶
+¶
+¶
+--- output
+| a |¶
+| - |¶
+*[HTML]: Hyper Text¶
+¶
+Trailing tab¶
+¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+1) paren¶
+2) paren¶
+¶
+> # quoted heading¶
+> - item¶
+Setext two¶
+---¶
+1.¶
+2.¶
+¶
+¶
+=== generated-199
+--- input
+  <!--¶
+ -->¶
+	wrapped line¶
+2. two¶
+<b>bold</b> text	¶
+> ~ tilde def¶
+    - dash¶
+    : definition  ¶
+ ```js ¶
+> > text¶
+¶
+> `` a ` b `` ¶
+##    Spaced \¶
+--- output
+  <!--¶
+ -->¶
+	wrapped line¶
+2. two¶
+<b>bold</b> text	¶
+> ~ tilde def¶
+    - dash¶
+    : definition  ¶
+ ```js ¶
+> > text¶
+¶
+> `` a ` b `` ¶
+##    Spaced \¶
+=== generated-200
+--- input
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+Ends with spaces   ¶
+¶
+¶
+¶
+¶
+--- output
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+Ends with spaces¶
+¶
+=== generated-201
+--- input
+>~ tilde def¶
+$$ x $$¶
+  : definition   ¶
+ ¶
+	span`¶
+ - > q¶
+    #tag	¶
+`code¶
+    ~ tilde def¶
+   |---|---|  ¶
+      1. one¶
+*[HTML]: Hyper¶
+><pre>¶
+--- output
+>~ tilde def¶
+$$ x $$¶
+  : definition   ¶
+ ¶
+	span`¶
+ - > q¶
+    #tag	¶
+`code¶
+    ~ tilde def¶
+   |---|---|  ¶
+      1. one¶
+*[HTML]: Hyper¶
+><pre>¶
+=== generated-202
+--- input
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+~~~py¶
+x = 1¶
+~~~¶
+- [ ] task¶
+- [x] done¶
+¶
+Term¶
+: definition¶
+<span>inline</span> text¶
+¶
+¶
+¶
+Text¶
+1984. was a year¶
+¶
+¶
+¶
+#tag line¶
+¶
+--- output
+- a¶
+  1. x¶
+  2. y¶
+- b¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+¶
+- [ ] task¶
+- [x] done¶
+¶
+Term¶
+: definition¶
+<span>inline</span> text¶
+¶
+¶
+¶
+Text¶
+1984. was a year¶
+¶
+#tag line¶
+¶
+=== generated-203
+--- input
+  \¶
+   1. nested¶
+1.    ¶
+>     ```¶
+	* star¶
+~~~ \¶
+ 5. five¶
+* star¶
+ ---¶
+~~~¶
+ ````¶
+--- output
+  \¶
+   1. nested¶
+1.    ¶
+>     ```¶
+	* star¶
+~~~ \¶
+ 5. five¶
+* star¶
+ ---¶
+~~~¶
+ ````¶
+=== generated-204
+--- input
+- [ ] task¶
+- [x] done¶
+  ¶
+¶
+***¶
+¶
+¶
+¶
+   ¶
+> # quoted heading¶
+> - item¶
+a [link](/u "title ¶
+more") b¶
+¶
+--- output
+- [ ] task¶
+- [x] done¶
+¶
+***¶
+¶
+> # quoted heading¶
+> - item¶
+a [link](/u "title ¶
+more") b¶
+¶
+=== generated-205
+--- input
+ ---¶
+- dash¶
+ <!--¶
+	7) seven¶
+      ¶
+> > * star   ¶
+<span>¶
+> > a \` b¶
+>     ```¶
+   - > q¶
+>~ tilde def¶
+      <span>¶
+> `code¶
+```js ¶
+- dash \¶
+    ```	¶
+3. three¶
+      + plus¶
+> > ---¶
+-¶
+  2. two¶
+	text	¶
+> - dash¶
+wrapped line¶
+  ~~~¶
+<!-- x -->¶
+    text¶
+¶
+--- output
+ ---¶
+- dash¶
+ <!--¶
+	7) seven¶
+      ¶
+> > * star   ¶
+<span>¶
+> > a \` b¶
+>     ```¶
+   - > q¶
+>~ tilde def¶
+      <span>¶
+> `code¶
+```js ¶
+- dash \¶
+    ```	¶
+3. three¶
+      + plus¶
+> > ---¶
+-¶
+  2. two¶
+	text	¶
+> - dash¶
+wrapped line¶
+  ~~~¶
+<!-- x -->¶
+    text¶
+¶
+=== generated-206
+--- input
+Setext two¶
+---¶
+  ¶
+¶
+a `code ¶
+span` b¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+***¶
+  ¶
+¶
+*[HTML]: Hyper Text¶
+¶
+Trailing tab	¶
+- [ ] task¶
+- [x] done¶
+¶
+Text¶
+1984. was a year¶
+¶
+¶
+¶
+¶
+--- output
+Setext two¶
+---¶
+¶
+a `code ¶
+span` b¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+***¶
+¶
+*[HTML]: Hyper Text¶
+¶
+Trailing tab	¶
+- [ ] task¶
+- [x] done¶
+¶
+Text¶
+1984. was a year¶
+¶
+=== generated-207
+--- input
+      - > q   ¶
+      - nested¶
+```js¶
+><!--¶
+      5. five¶
+<!-- x -->¶
+span`¶
+> > $$ x $$¶
+    # Heading¶
+ 2. two   ¶
+	===¶
+¶
+1. ¶
+```¶
+  3. three¶
+   ##¶
+# Heading   ¶
+>7) seven  ¶
+> > 1. ```¶
+  wrapped line¶
+>- > q	¶
+-¶
+      `` a ` b ``¶
+  [^1]: note \¶
+    span`¶
+¶
+--- output
+      - > q   ¶
+      - nested¶
+```js¶
+><!--¶
+      5. five¶
+<!-- x -->¶
+span`¶
+> > $$ x $$¶
+    # Heading¶
+ 2. two   ¶
+	===¶
+¶
+1. ¶
+```¶
+¶
+  3. three¶
+   ##¶
+¶
+# Heading¶
+>7) seven  ¶
+> > 1. ```¶
+  wrapped line¶
+>- > q	¶
+-¶
+      `` a ` b ``¶
+  [^1]: note \¶
+    span`¶
+¶
+=== generated-208
+--- input
+> # quoted heading¶
+> - item¶
+**bold _it¶
+¶
+Ends with spaces   ¶
+> quote  ¶
+> more¶
+  ¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+¶
+¶
+- [ ] task¶
+- [x] done¶
+¶
+--- output
+> # quoted heading¶
+> - item¶
+**bold _it¶
+¶
+Ends with spaces   ¶
+> quote  ¶
+> more¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+- [ ] task¶
+- [x] done¶
+¶
+=== generated-209
+--- input
+````¶
+    <pre>¶
+   [^1]: note¶
+ <!-- x -->¶
+> 1. one¶
+   ---¶
+| a | b |¶
+  \ \¶
+      ¶
+     1. nested¶
+> 7) seven¶
+    `code¶
+      <pre>¶
+      - dash¶
+    Term¶
+¶
+--- output
+````¶
+    <pre>¶
+   [^1]: note¶
+ <!-- x -->¶
+> 1. one¶
+   ---¶
+| a | b |¶
+  \ \¶
+      ¶
+     1. nested¶
+> 7) seven¶
+    `code¶
+      <pre>¶
+      - dash¶
+    Term¶
+````¶
+¶
+=== generated-210
+--- input
+##   Spaced heading¶
+¶
+¶
+| a |¶
+| - |¶
+¶
+¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+1) paren¶
+5) paren¶
+  ¶
+¶
+- - -¶
+¶
+¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+  ¶
+¶
+#¶
+  ¶
+¶
+¶
+--- output
+## Spaced heading¶
+¶
+| a |¶
+| - |¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+¶
+1) paren¶
+2) paren¶
+¶
+- - -¶
+¶
+- a¶
+  1. x¶
+  2. y¶
+- b¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+#¶
+¶
+=== generated-211
+--- input
+>  - nested   ¶
+      + plus¶
+  ```¶
+	<!-- x -->¶
+1. ```¶
+ \	¶
+	</div>  ¶
+> > \¶
+>- > q	¶
+ - ```¶
+>    1. nested¶
+ ===¶
+1. one¶
+- > q¶
+> > # Heading¶
+    Term¶
+##  ¶
+***¶
+</div>¶
+>-->¶
+> 1.  \¶
+	2. two¶
+   <div>	¶
+      $$¶
+$$¶
+   1. ```¶
+| a | b |¶
+<div>¶
+> 2. two¶
+> > $$ x $$ \¶
+¶
+--- output
+>  - nested   ¶
+      + plus¶
+  ```¶
+	<!-- x -->¶
+1. ```¶
+ \	¶
+	</div>  ¶
+> > \¶
+>- > q	¶
+ - ```¶
+>    1. nested¶
+ ===¶
+1. one¶
+- > q¶
+> > # Heading¶
+    Term¶
+##  ¶
+***¶
+</div>¶
+>-->¶
+> 1.  \¶
+	2. two¶
+   <div>	¶
+      $$¶
+$$¶
+   1. ```¶
+| a | b |¶
+<div>¶
+> 2. two¶
+> > $$ x $$ \¶
+¶
+=== generated-212
+--- input
+| a |¶
+| - |¶
+  ¶
+¶
+Plain paragraph text.¶
+-item¶
+¶
+¶
+¶
+¶
+--- output
+| a |¶
+| - |¶
+¶
+Plain paragraph text.¶
+-item¶
+¶
+=== generated-213
+--- input
+<!-- x --> ¶
+  text¶
+    + plus¶
+>Term¶
+>\¶
+    - > q¶
+      : definition¶
+`code¶
+</div>¶
+more text¶
+  ```js¶
+3. three¶
+>¶
+--- output
+<!-- x --> ¶
+  text¶
+    + plus¶
+>Term¶
+>\¶
+    - > q¶
+      : definition¶
+`code¶
+</div>¶
+more text¶
+  ```js¶
+3. three¶
+>¶
+=== generated-214
+--- input
+---¶
+title: Doc 214¶
+---¶
+***¶
+¶
+¶
+   ¶
+¶
+¶
+¶
+Setext two¶
+---¶
+Setext¶
+===¶
+¶
+¶
+¶
+¶
+--- output
+---¶
+title: Doc 214¶
+---¶
+***¶
+¶
+Setext two¶
+---¶
+Setext¶
+===¶
+¶
+=== generated-215
+--- input
+#tag	¶
+>[ref]: /u¶
+    \¶
+  7) seven  ¶
+: definition  ¶
+    7) seven¶
+>7) seven¶
+<pre>¶
+1. ¶
+| a | b |¶
+	<!-- x -->¶
+	5. five¶
+  `` a ` b ``¶
+   - nested¶
+  <pre>¶
+> > ```js¶
+`code¶
+   - dash¶
+text¶
+  - nested¶
+	[ref]: /u¶
+ - > q¶
+¶
+> > $$ x $$¶
+   `code¶
+    $$ x $$¶
+===¶
+> > : definition¶
+````¶
+1. ```¶
+¶
+--- output
+#tag	¶
+>[ref]: /u¶
+    \¶
+  7) seven  ¶
+: definition  ¶
+    7) seven¶
+>7) seven¶
+<pre>¶
+1. ¶
+| a | b |¶
+	<!-- x -->¶
+	5. five¶
+  `` a ` b ``¶
+   - nested¶
+  <pre>¶
+> > ```js¶
+`code¶
+   - dash¶
+text¶
+  - nested¶
+	[ref]: /u¶
+ - > q¶
+¶
+> > $$ x $$¶
+   `code¶
+    $$ x $$¶
+===¶
+> > : definition¶
+````¶
+1. ```¶
+¶
+=== generated-216
+--- input
+a `code ¶
+span` b¶
+¶
+¶
+¶
+1) paren¶
+5) paren¶
+¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+  ¶
+¶
+Trailing tab	¶
+``` a`b¶
+not a fence¶
+> quote  ¶
+> more¶
+  ¶
+¶
+¶
+--- output
+a `code ¶
+span` b¶
+¶
+1) paren¶
+2) paren¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+Trailing tab	¶
+``` a`b¶
+not a fence¶
+> quote  ¶
+> more¶
+¶
+=== generated-217
+--- input
+      `` a ` b ``¶
+   2. two	¶
+   $$   ¶
+> Term¶
+      ````¶
+  - nested¶
+	```js ¶
+>##    Spaced   ¶
+    <b>bold</b> text \¶
+> > 10. ten¶
+##    Spaced¶
+	- > q¶
+[ref]: /u¶
+    *[HTML]: Hyper¶
+	<!--¶
+  ¶
+10. ten¶
+  : definition¶
+      ¶
+      : definition¶
+ > quote  ¶
+ text¶
+>```js¶
+: definition¶
+	<pre>¶
+| a | b |¶
+¶
+--- output
+      `` a ` b ``¶
+   2. two	¶
+   $$   ¶
+> Term¶
+      ````¶
+  - nested¶
+	```js ¶
+>##    Spaced   ¶
+    <b>bold</b> text \¶
+> > 10. ten¶
+##    Spaced¶
+	- > q¶
+[ref]: /u¶
+    *[HTML]: Hyper¶
+	<!--¶
+  ¶
+10. ten¶
+  : definition¶
+      ¶
+      : definition¶
+ > quote  ¶
+ text¶
+>```js¶
+: definition¶
+	<pre>¶
+| a | b |¶
+¶
+=== generated-218
+--- input
+Trailing tab	¶
+¶
+1. wraps¶
+lazily¶
+4. next¶
+> lazy¶
+continuation¶
+¶
+¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+Term¶
+¶
+: loose definition¶
+¶
+¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+Term¶
+¶
+: loose definition¶
+¶
+--- output
+Trailing tab¶
+¶
+1. wraps¶
+lazily¶
+2. next¶
+> lazy¶
+continuation¶
+¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+Term¶
+¶
+: loose definition¶
+¶
+¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+Term¶
+¶
+: loose definition¶
+¶
+=== generated-219
+--- input
+      * star ¶
+    <!--¶
+> > ~~~¶
+> > #tag¶
+   |---|---|¶
+   | a | b |¶
+   - > q   ¶
+</pre>¶
+  ```¶
+span`   ¶
+  [ref]: /u¶
+    - nested¶
+[ref]: /u¶
+    # Heading¶
+ <span>¶
+      ===¶
+ Term¶
+ ##¶
+-¶
+  - ```¶
+¶
+--- output
+      * star ¶
+    <!--¶
+> > ~~~¶
+> > #tag¶
+   |---|---|¶
+   | a | b |¶
+   - > q   ¶
+</pre>¶
+  ```¶
+span`   ¶
+  [ref]: /u¶
+    - nested¶
+[ref]: /u¶
+    # Heading¶
+ <span>¶
+      ===¶
+ Term¶
+ ##¶
+-¶
+  - ```¶
+¶
+=== generated-220
+--- input
+Trailing tab	¶
+[ref]: /url 'title'¶
+¶
+| a |¶
+| - |¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+¶
+¶
+*[HTML]: Hyper Text¶
+¶
+--- output
+Trailing tab	¶
+[ref]: /url 'title'¶
+¶
+| a |¶
+| - |¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+*[HTML]: Hyper Text¶
+¶
+=== generated-221
+--- input
+¶
+- > q¶
+> > <pre>¶
+a \` b¶
+> `` a ` b ``	¶
+   5. five¶
+ <!-- x -->	¶
+      <div>¶
+      ````¶
+¶
+--- output
+- > q¶
+> > <pre>¶
+a \` b¶
+> `` a ` b ``	¶
+   5. five¶
+ <!-- x -->	¶
+      <div>¶
+      ````¶
+¶
+=== generated-222
+--- input
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+1) paren¶
+5) paren¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+¶
+¶
+   ¶
+  ¶
+¶
+- a¶
+¶
+¶
+- b¶
+Term¶
+: definition¶
+¶
+¶
+--- output
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+1) paren¶
+5) paren¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+¶
+¶
+   ¶
+  ¶
+¶
+- a¶
+¶
+¶
+- b¶
+Term¶
+: definition¶
+¶
+¶
+=== generated-223
+--- input
+>     ```¶
+  - nested¶
+    ```¶
+  ~~~¶
+  - ```	¶
+  <span>	¶
+¶
+    `` a ` b ``¶
+-->¶
+>     ```¶
+      1. ¶
+	wrapped line  ¶
+> <div>¶
+¶
+--- output
+>     ```¶
+  - nested¶
+    ```¶
+  ~~~¶
+  - ```	¶
+  <span>	¶
+¶
+    `` a ` b ``¶
+-->¶
+>     ```¶
+      1. ¶
+	wrapped line  ¶
+> <div>¶
+  ~~~¶
+¶
+=== generated-224
+--- input
+Setext¶
+===¶
+  ¶
+¶
+Text¶
+1984. was a year¶
+-item¶
+¶
+¶
+¶
+````¶
+a¶
+```¶
+b¶
+````¶
+Text¶
+1984. was a year¶
+¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+1. one¶
+1. two¶
+1. three¶
+¶
+> # quoted heading¶
+> - item¶
+¶
+¶
+--- output
+Setext¶
+===¶
+¶
+Text¶
+1984. was a year¶
+-item¶
+¶
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+Text¶
+1984. was a year¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+1. one¶
+2. two¶
+3. three¶
+¶
+> # quoted heading¶
+> - item¶
+¶
+=== generated-225
+--- input
+more text¶
+#tag¶
+ : definition   ¶
+   ##    Spaced¶
+  <span>¶
+ text¶
+5. five¶
+      3. three¶
+> >     ```¶
+¶
+--- output
+more text¶
+#tag¶
+ : definition   ¶
+   ##    Spaced¶
+  <span>¶
+ text¶
+5. five¶
+      3. three¶
+> >     ```¶
+¶
+=== generated-226
+--- input
+<!-- comment¶
+¶
+¶
+still comment -->¶
+Trailing tab	¶
+¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+Two lines  ¶
+with a hard break¶
+[ref]: /url 'title'¶
+¶
+> lazy¶
+continuation¶
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+¶
+--- output
+<!-- comment¶
+¶
+¶
+still comment -->¶
+Trailing tab¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+Two lines  ¶
+with a hard break¶
+[ref]: /url 'title'¶
+¶
+> lazy¶
+continuation¶
+3. three¶
+¶
+7. seven¶
+¶
+8. nine¶
+¶
+=== generated-227
+--- input
+        - nested¶
+> > more text¶
+     ```¶
+    ``` \¶
+   # Heading¶
+      : definition¶
+	```js¶
+<!--¶
+¶
+--- output
+        - nested¶
+> > more text¶
+     ```¶
+    ``` \¶
+   # Heading¶
+      : definition¶
+	```js¶
+<!--¶
+¶
+=== generated-228
+--- input
+[ref]: /url 'title'¶
+¶
+¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+##   Spaced heading¶
+¶
+Setext¶
+===¶
+$$ a $$¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+#¶
+¶
+¶
+--- output
+[ref]: /url 'title'¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+¶
+## Spaced heading¶
+¶
+Setext¶
+===¶
+$$ a $$¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+#¶
+¶
+=== generated-229
+--- input
+> > ~ tilde def¶
+ ¶
+> > - > q¶
+<b>bold</b> text¶
+ ````  ¶
+ <span> ¶
+- ```¶
+   ¶
+   [ref]: /u¶
+wrapped line ¶
+ 1. one¶
+	- > q¶
+      `` a ` b ``	¶
+> > #tag¶
+ 1. 	¶
+`` a ` b ``¶
+ $$¶
+> > Term¶
+   # Heading¶
+¶
+--- output
+> > ~ tilde def¶
+¶
+> > - > q¶
+<b>bold</b> text¶
+ ````  ¶
+ <span> ¶
+- ```¶
+   ¶
+   [ref]: /u¶
+wrapped line ¶
+ 1. one¶
+	- > q¶
+      `` a ` b ``	¶
+> > #tag¶
+ 1. 	¶
+`` a ` b ``¶
+ $$¶
+> > Term¶
+   # Heading¶
+¶
+=== generated-230
+--- input
+Ends with spaces   ¶
+¶
+**bold _it¶
+¶
+¶
+--- output
+Ends with spaces¶
+¶
+**bold _it¶
+¶
+=== generated-231
+--- input
+> text¶
+1. ```¶
+10. ten¶
+1. ```¶
+>wrapped line¶
+      > quote¶
+    `code   ¶
+> > 10. ten¶
+>  \¶
+> <!-- x -->¶
+   `code¶
+      ##¶
+ `code¶
+	`code¶
+> > : definition¶
+  </div>¶
+¶
+--- output
+> text¶
+1. ```¶
+10. ten¶
+1. ```¶
+>wrapped line¶
+      > quote¶
+    `code   ¶
+> > 10. ten¶
+>  \¶
+> <!-- x -->¶
+   `code¶
+      ##¶
+ `code¶
+	`code¶
+> > : definition¶
+  </div>¶
+¶
+=== generated-232
+--- input
+Setext two¶
+---¶
+¶
+¶
+#tag line¶
+¶
+¶
+¶
+Two lines  ¶
+with a hard break¶
+  ¶
+¶
+    ¶
+--- output
+Setext two¶
+---¶
+¶
+#tag line¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+=== generated-233
+--- input
+wrapped line¶
+> > | a | b |	¶
+    span`¶
+> <!-- x -->¶
+>`` a ` b ``¶
+> ===¶
+	10. ten¶
+	wrapped line¶
+##    Spaced	¶
+`` a ` b ``¶
+>> quote¶
+ [ref]: /u¶
+> </pre>¶
+ text¶
+¶
+--- output
+wrapped line¶
+> > | a | b |	¶
+    span`¶
+> <!-- x -->¶
+>`` a ` b ``¶
+> ===¶
+	10. ten¶
+	wrapped line¶
+##    Spaced	¶
+`` a ` b ``¶
+>> quote¶
+ [ref]: /u¶
+> </pre>¶
+ text¶
+¶
+=== generated-234
+--- input
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+  ¶
+¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+> ```¶
+> code¶
+> ```¶
+¶
+¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+¶
+1. one¶
+1. two¶
+1. three¶
+  ¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+¶
+Term¶
+: definition¶
+¶
+¶
+¶
+--- output
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+  ¶
+¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+> ```¶
+> code¶
+> ```¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+¶
+1. one¶
+1. two¶
+1. three¶
+  ¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+Term¶
+: definition¶
+¶
+¶
+¶
+=== generated-235
+--- input
+<div>¶
+ 7) seven	¶
+	\ \¶
+      span`¶
+ 2. two	¶
+  1. ```¶
+[ref]: /u¶
+¶
+--- output
+<div>¶
+ 7) seven	¶
+	\ \¶
+      span`¶
+ 2. two	¶
+  1. ```¶
+[ref]: /u¶
+¶
+=== generated-236
+--- input
+---¶
+title: Doc 236¶
+---¶
+**bold _it¶
+¶
+1. one¶
+1. two¶
+1. three¶
+````¶
+a¶
+```¶
+b¶
+````¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+¶
+> ```¶
+> code¶
+> ```¶
+  ¶
+¶
+a [link](/u "title ¶
+more") b¶
+¶
+¶
+¶
+¶
+--- output
+---¶
+title: Doc 236¶
+---¶
+**bold _it¶
+¶
+1. one¶
+2. two¶
+3. three¶
+¶
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+- a¶
+  1. x¶
+  2. y¶
+- b¶
+¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+> ```¶
+> code¶
+> ```¶
+¶
+a [link](/u "title ¶
+more") b¶
+¶
+=== generated-237
+--- input
+      ##¶
+    | a | b |¶
+~ tilde def¶
+¶
+--- output
+      ##¶
+    | a | b |¶
+~ tilde def¶
+¶
+=== generated-238
+--- input
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+¶
+* star¶
++ plus¶
+- dash¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+¶
+¶
+- a¶
+¶
+¶
+- b¶
+¶
+Setext¶
+===¶
+¶
+¶
+a | b¶
+--- | ---¶
+¶
+¶
+--- output
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+* star¶
++ plus¶
+- dash¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+- a¶
+¶
+- b¶
+¶
+Setext¶
+===¶
+¶
+a | b¶
+--- | ---¶
+¶
+=== generated-239
+--- input
+-->¶
+  1. 	¶
+      span`  ¶
+---¶
+7) seven¶
+-->¶
+ ##¶
+      span`¶
+> > $$¶
+¶
+--- output
+-->¶
+  1. 	¶
+      span`  ¶
+---¶
+7) seven¶
+-->¶
+ ##¶
+      span`¶
+> > $$¶
+¶
+=== generated-240
+--- input
+a `code ¶
+span` b¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+¶
+¶
+Plain paragraph text.¶
+¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+¶
+--- output
+a `code ¶
+span` b¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+Plain paragraph text.¶
+¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+¶
+=== generated-241
+--- input
+> > # Heading¶
+  more text¶
+    <div>¶
+  ¶
+> > -->¶
+	> quote \¶
+ </div>  ¶
+|---|---|  ¶
+  ``` ¶
+  - ```¶
+>$$¶
+ `` a ` b ``¶
+></div>¶
+ <div>  ¶
+> wrapped line¶
+***¶
+   ¶
+> text¶
+> <pre> ¶
+	> quote \¶
+    : definition¶
+*[HTML]: Hyper¶
+   : definition¶
+> > ##  ¶
+  - > q	¶
+  </div> \¶
+¶
+--- output
+> > # Heading¶
+  more text¶
+    <div>¶
+  ¶
+> > -->¶
+	> quote \¶
+ </div>  ¶
+|---|---|  ¶
+  ``` ¶
+  - ```¶
+>$$¶
+ `` a ` b ``¶
+></div>¶
+ <div>  ¶
+> wrapped line¶
+***¶
+¶
+> text¶
+> <pre> ¶
+	> quote \¶
+    : definition¶
+*[HTML]: Hyper¶
+   : definition¶
+> > ##  ¶
+  - > q	¶
+  </div> \¶
+¶
+=== generated-242
+--- input
+# Title¶
+* star¶
++ plus¶
+- dash¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+¶
+Trailing tab	¶
+  ¶
+¶
+```¶
+open fence  ¶
+¶
+--- output
+# Title¶
+¶
+* star¶
++ plus¶
+- dash¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+¶
+Trailing tab¶
+¶
+```¶
+open fence  ¶
+```¶
+¶
+=== generated-243
+--- input
+      1. 	¶
+> ##¶
+<pre>¶
+> > + plus¶
+| a | b |¶
+  ````  ¶
+| a | b |¶
+<!--¶
+***¶
+   `` a ` b ``¶
+1. one \¶
+	¶
+	</div>¶
+<span>¶
+ 3. three¶
+<b>bold</b> text \¶
+| a | b |¶
+- > q¶
+>- dash¶
+ 5. five¶
+~~~¶
+> quote¶
+</pre>¶
+```js¶
+  ```   ¶
+--- output
+      1. 	¶
+> ##¶
+<pre>¶
+> > + plus¶
+| a | b |¶
+  ````  ¶
+| a | b |¶
+<!--¶
+***¶
+   `` a ` b ``¶
+1. one \¶
+	¶
+	</div>¶
+<span>¶
+ 3. three¶
+<b>bold</b> text \¶
+| a | b |¶
+- > q¶
+>- dash¶
+ 5. five¶
+~~~¶
+> quote¶
+</pre>¶
+```js¶
+  ```   ¶
+¶
+=== generated-244
+--- input
+---¶
+title: Doc 244¶
+---¶
+Cite[^1] here.¶
+¶
+¶
+¶
+* star¶
++ plus¶
+- dash¶
+# Title¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+¶
+1) paren¶
+5) paren¶
+¶
+¶
+--- output
+---¶
+title: Doc 244¶
+---¶
+Cite[^1] here.¶
+¶
+* star¶
++ plus¶
+- dash¶
+¶
+# Title¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+- a¶
+  1. x¶
+  2. y¶
+- b¶
+¶
+1) paren¶
+2) paren¶
+¶
+=== generated-245
+--- input
+* star¶
+      <b>bold</b> text¶
+> <!-- x -->¶
+  ***¶
+	  - nested¶
+	===¶
+ ~ tilde def¶
+ ¶
+>*[HTML]: Hyper¶
+> > </pre>¶
+   <pre>¶
+> > > quote¶
+  [^1]: note¶
+ ```js¶
+ 2. two¶
+ ##¶
+¶
+  --- ¶
+>\¶
+# Heading¶
+> > ~~~¶
+ ~ tilde def  ¶
+¶
+--- output
+* star¶
+      <b>bold</b> text¶
+> <!-- x -->¶
+  ***¶
+	  - nested¶
+	===¶
+ ~ tilde def¶
+ ¶
+>*[HTML]: Hyper¶
+> > </pre>¶
+   <pre>¶
+> > > quote¶
+  [^1]: note¶
+ ```js¶
+ 2. two¶
+ ##¶
+¶
+  --- ¶
+>\¶
+# Heading¶
+> > ~~~¶
+ ~ tilde def  ¶
+¶
+=== generated-246
+--- input
+* star¶
++ plus¶
+- dash¶
+  ¶
+¶
+1. one¶
+1. two¶
+1. three¶
+<span>inline</span> text¶
+¶
+> ```¶
+> code¶
+> ```¶
+  ¶
+¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+Plain paragraph text.¶
+***¶
+¶
+$$ a $$¶
+¶
+    ¶
+--- output
+* star¶
++ plus¶
+- dash¶
+  ¶
+¶
+1. one¶
+1. two¶
+1. three¶
+<span>inline</span> text¶
+¶
+> ```¶
+> code¶
+> ```¶
+  ¶
+¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+Plain paragraph text.¶
+***¶
+¶
+$$ a $$¶
+¶
+    ¶
+=== generated-247
+--- input
+1. ¶
+       ¶
+>3. three¶
+   #tag¶
+> ##    Spaced \¶
+7) seven¶
+# Heading¶
+    ~~~¶
+***¶
+	| a | b |¶
+> > <b>bold</b> text¶
+>---¶
+| a | b | ¶
+> > 7) seven¶
+      1. ```¶
+|---|---|¶
+	<pre>	¶
+¶
+--- output
+1. ¶
+       ¶
+>3. three¶
+   #tag¶
+> ##    Spaced \¶
+7) seven¶
+# Heading¶
+    ~~~¶
+***¶
+	| a | b |¶
+> > <b>bold</b> text¶
+>---¶
+| a | b | ¶
+> > 7) seven¶
+      1. ```¶
+|---|---|¶
+	<pre>	¶
+¶
+=== generated-248
+--- input
+Trailing tab	¶
+Trailing tab	¶
+  ¶
+¶
+Setext two¶
+---¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+¶
+¶
+### Closed ###¶
+9. nine¶
+3. ten¶
+  ¶
+¶
+<div>¶
+# in html  ¶
+</div>¶
+  ¶
+¶
+Ends with spaces   ¶
+¶
+¶
+¶
+--- output
+Trailing tab	¶
+Trailing tab¶
+¶
+Setext two¶
+---¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+### Closed ###¶
+¶
+9. nine¶
+10. ten¶
+¶
+<div>¶
+# in html  ¶
+</div>¶
+¶
+Ends with spaces¶
+¶
+=== generated-249
+--- input
+> >    1. nested¶
+```js¶
+> > more text¶
+   3. three¶
+    ````¶
+> > $$¶
+    ## ¶
+> ~ tilde def¶
+  + plus¶
+1. ```¶
+span`¶
+      ~ tilde def¶
+> | a | b |¶
+¶
+1. ¶
+ - > q¶
+$$¶
+> > 1. ```¶
+<pre>¶
+[ref]: /u¶
+   10. ten¶
+      1. one¶
+	- ```¶
+>[ref]: /u \¶
+>`code¶
+--- output
+> >    1. nested¶
+¶
+```js¶
+> > more text¶
+   3. three¶
+    ````¶
+> > $$¶
+    ## ¶
+> ~ tilde def¶
+  + plus¶
+1. ```¶
+span`¶
+      ~ tilde def¶
+> | a | b |¶
+¶
+1. ¶
+ - > q¶
+$$¶
+> > 1. ```¶
+<pre>¶
+[ref]: /u¶
+   10. ten¶
+      1. one¶
+	- ```¶
+>[ref]: /u \¶
+>`code¶
+```¶
+¶
+=== generated-250
+--- input
+8. a¶
+9. b¶
+3. c¶
+   more¶
+  ¶
+¶
+[ref]: /url 'title'¶
+¶
+#tag line¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+¶
+--- output
+8. a¶
+9. b¶
+3. c¶
+   more¶
+¶
+[ref]: /url 'title'¶
+¶
+#tag line¶
+- a¶
+  1. x¶
+  2. y¶
+- b¶
+¶
+=== generated-251
+--- input
+    \¶
+> ##    Spaced¶
+>¶
+ |---|---|	¶
+>2. two  ¶
+>    ```¶
+	<b>bold</b> text¶
+      ***   ¶
+   | a | b |¶
+> > * star¶
+</div>  ¶
+>text¶
+	$$ x $$ \¶
+   </pre>	¶
+   > quote¶
+  span`¶
+ ---¶
+	<div>¶
+--- output
+    \¶
+> ##    Spaced¶
+>¶
+ |---|---|	¶
+>2. two  ¶
+>    ```¶
+	<b>bold</b> text¶
+      ***   ¶
+   | a | b |¶
+> > * star¶
+</div>  ¶
+>text¶
+	$$ x $$ \¶
+   </pre>	¶
+   > quote¶
+  span`¶
+ ---¶
+	<div>¶
+=== generated-252
+--- input
+---¶
+title: Doc 252¶
+---¶
+Text¶
+1984. was a year¶
+9. nine¶
+3. ten¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+¶
+#¶
+¶
+¶
+--- output
+---¶
+title: Doc 252¶
+---¶
+Text¶
+1984. was a year¶
+9. nine¶
+3. ten¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+#¶
+¶
+=== generated-253
+--- input
+>#tag¶
+~ tilde def \¶
+> > `code¶
+>   - nested¶
+| a | b |¶
+   </pre>¶
+>  - nested¶
+##    Spaced¶
+    </pre>¶
+===¶
+ - > q¶
+  : definition ¶
+a \` b¶
+- ```¶
+Term¶
+    ```¶
+   ¶
+    5. five¶
+> > - dash¶
+ ¶
+  Term  ¶
+`` a ` b ``¶
+$$ x $$¶
+```	¶
+> >   - nested	¶
+ ***¶
+      <!-- x -->¶
+1. ¶
+	1. ```   ¶
+> # Heading¶
+¶
+--- output
+>#tag¶
+~ tilde def \¶
+> > `code¶
+>   - nested¶
+| a | b |¶
+   </pre>¶
+>  - nested¶
+##    Spaced¶
+    </pre>¶
+===¶
+ - > q¶
+  : definition ¶
+a \` b¶
+- ```¶
+Term¶
+    ```¶
+   ¶
+    5. five¶
+> > - dash¶
+ ¶
+  Term  ¶
+`` a ` b ``¶
+$$ x $$¶
+```	¶
+> >   - nested	¶
+ ***¶
+      <!-- x -->¶
+1. ¶
+	1. ```   ¶
+> # Heading¶
+¶
+=== generated-254
+--- input
+~~~py¶
+x = 1¶
+~~~¶
+¶
+Trailing space ¶
+then more¶
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+Trailing space ¶
+then more¶
+¶
+- [ ] task¶
+- [x] done¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+¶
+--- output
+~~~py¶
+x = 1¶
+~~~¶
+¶
+Trailing space¶
+then more¶
+¶
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+Trailing space¶
+then more¶
+¶
+- [ ] task¶
+- [x] done¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+¶
+=== generated-255
+--- input
+--> \¶
+><!-- x -->¶
+   text¶
+    <b>bold</b> text¶
+> > | a | b |¶
+      * star  ¶
+      <div>¶
+Term  ¶
+  7) seven¶
+ # Heading¶
+	span`¶
+>¶
+```js¶
+>##    Spaced¶
+    |---|---|¶
+> > | a | b |¶
+- > q	¶
+      \¶
+   ~ tilde def¶
+	¶
+  ``` ¶
+<!--¶
+    ```js¶
+- dash ¶
+  ````¶
+     1. nested¶
+> > *[HTML]: Hyper¶
+¶
+--- output
+--> \¶
+><!-- x -->¶
+   text¶
+    <b>bold</b> text¶
+> > | a | b |¶
+      * star  ¶
+      <div>¶
+Term  ¶
+  7) seven¶
+ # Heading¶
+	span`¶
+>¶
+```js¶
+>##    Spaced¶
+    |---|---|¶
+> > | a | b |¶
+- > q	¶
+      \¶
+   ~ tilde def¶
+	¶
+  ``` ¶
+<!--¶
+    ```js¶
+- dash ¶
+  ````¶
+     1. nested¶
+> > *[HTML]: Hyper¶
+¶
+=== generated-256
+--- input
+##   Spaced heading¶
+¶
+¶
+¶
+Ends with spaces   ¶
+¶
+- [ ] task¶
+- [x] done¶
+  ¶
+¶
+Trailing tab	¶
+¶
+¶
+¶
+> quote  ¶
+> more¶
+¶
+--- output
+## Spaced heading¶
+¶
+Ends with spaces¶
+¶
+- [ ] task¶
+- [x] done¶
+¶
+Trailing tab¶
+¶
+> quote  ¶
+> more¶
+¶
+=== generated-257
+--- input
+> > === \¶
+5. five¶
+wrapped line¶
+~ tilde def¶
+<!--¶
+    `code   ¶
+      span`¶
+<span>¶
+#tag¶
+ - ```¶
+  1.   ¶
+¶
+--- output
+> > === \¶
+5. five¶
+wrapped line¶
+~ tilde def¶
+<!--¶
+    `code   ¶
+      span`¶
+<span>¶
+#tag¶
+ - ```¶
+  1.   ¶
+¶
+=== generated-258
+--- input
+---¶
+title: Doc 258¶
+---¶
+Setext¶
+===¶
+¶
+¶
+1. wraps¶
+lazily¶
+4. next¶
+##   Spaced heading¶
+a | b¶
+--- | ---¶
+``` a`b¶
+not a fence¶
+¶
+¶
+¶
+- a¶
+¶
+¶
+- b¶
+¶
+1. one¶
+1. two¶
+1. three¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+¶
+¶
+¶
+text without newline¶
+--- output
+---¶
+title: Doc 258¶
+---¶
+Setext¶
+===¶
+¶
+1. wraps¶
+lazily¶
+2. next¶
+¶
+## Spaced heading¶
+a | b¶
+--- | ---¶
+``` a`b¶
+not a fence¶
+¶
+- a¶
+¶
+¶
+- b¶
+¶
+1. one¶
+1. two¶
+1. three¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+¶
+¶
+¶
+text without newline¶
+¶
+=== generated-259
+--- input
+   ```¶
+<b>bold</b> text	¶
+ | a | b |¶
+># Heading ¶
+    <!--¶
+<span>¶
+> > -¶
+>   - nested¶
+| a | b |¶
+   <span>¶
+   7) seven¶
+    10. ten¶
+¶
+--- output
+   ```¶
+<b>bold</b> text	¶
+ | a | b |¶
+># Heading ¶
+    <!--¶
+<span>¶
+> > -¶
+>   - nested¶
+| a | b |¶
+   <span>¶
+   7) seven¶
+    10. ten¶
+   ```¶
+¶
+=== generated-260
+--- input
+---¶
+title: Doc 260¶
+---¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+¶
+Cite[^1] here.¶
+  ¶
+¶
+¶
+--- output
+---¶
+title: Doc 260¶
+---¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+¶
+Cite[^1] here.¶
+¶
+=== generated-261
+--- input
+	$$ x $$¶
+	# Heading¶
+> <b>bold</b> text¶
+5. five¶
+7) seven¶
+	* star¶
+> > 1. ¶
+	-¶
+`code¶
+¶
+--- output
+	$$ x $$¶
+	# Heading¶
+> <b>bold</b> text¶
+5. five¶
+7) seven¶
+	* star¶
+> > 1. ¶
+	-¶
+`code¶
+¶
+=== generated-262
+--- input
+~~~py¶
+x = 1¶
+~~~¶
+¶
+¶
+#¶
+¶
+*[HTML]: Hyper Text¶
+Trailing tab	¶
+¶
+--- output
+~~~py¶
+x = 1¶
+~~~¶
+¶
+#¶
+¶
+*[HTML]: Hyper Text¶
+Trailing tab¶
+¶
+=== generated-263
+--- input
+	\¶
+   3. three¶
+   <!-- x -->¶
+    - ```¶
+`` a ` b ``¶
+more text¶
+ <!--¶
+- dash¶
+    $$   ¶
+   $$ x $$¶
+*[HTML]: Hyper¶
+>##¶
+ ¶
+  `code¶
+   `` a ` b ``¶
+a \` b¶
+	- ```¶
+# Heading¶
+	~ tilde def¶
+    text¶
+    wrapped line¶
+  ~~~¶
+\¶
+      </pre>¶
+-->¶
+ ```js   ¶
+  ***	¶
+ ##    Spaced¶
+--- output
+	\¶
+   3. three¶
+   <!-- x -->¶
+    - ```¶
+`` a ` b ``¶
+more text¶
+ <!--¶
+- dash¶
+    $$   ¶
+   $$ x $$¶
+*[HTML]: Hyper¶
+>##¶
+ ¶
+  `code¶
+   `` a ` b ``¶
+a \` b¶
+	- ```¶
+# Heading¶
+	~ tilde def¶
+    text¶
+    wrapped line¶
+  ~~~¶
+\¶
+      </pre>¶
+-->¶
+ ```js   ¶
+  ***	¶
+ ##    Spaced¶
+ ```¶
+¶
+=== generated-264
+--- input
+---¶
+title: Doc 264¶
+---¶
+- - -¶
+¶
+¶
+¶
+[ref]: /url 'title'¶
+¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+  ¶
+¶
+¶
+--- output
+---¶
+title: Doc 264¶
+---¶
+- - -¶
+¶
+[ref]: /url 'title'¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+=== generated-265
+--- input
+<pre> ¶
+more text ¶
+    |---|---|¶
+>more text¶
+|---|---|  ¶
+|---|---|¶
+>1. one¶
+--- output
+<pre> ¶
+more text ¶
+    |---|---|¶
+>more text¶
+|---|---|  ¶
+|---|---|¶
+>1. one¶
+=== generated-266
+--- input
+# Title¶
+¶
+*[HTML]: Hyper Text¶
+Plain paragraph text.¶
+¶
+¶
+- [ ] task¶
+- [x] done¶
+¶
+¶
+text without newline¶
+--- output
+# Title¶
+¶
+*[HTML]: Hyper Text¶
+Plain paragraph text.¶
+¶
+- [ ] task¶
+- [x] done¶
+¶
+text without newline¶
+¶
+=== generated-267
+--- input
+> ```¶
+  span`¶
+- ```¶
+   |---|---|¶
+3. three   ¶
+   ~ tilde def¶
+    ##¶
+> quote	¶
+      : definition¶
+  1. ```¶
+ ---¶
+	1. ¶
+2. two	¶
+\¶
+   ##    Spaced¶
+    ¶
+>   1. nested¶
+> > </pre>¶
+7) seven	¶
+1. ```   ¶
++ plus   ¶
+   ````	¶
+   | a | b |¶
+   1. ¶
+<div>¶
+~ tilde def¶
+¶
+--- output
+> ```¶
+  span`¶
+- ```¶
+   |---|---|¶
+3. three   ¶
+   ~ tilde def¶
+    ##¶
+> quote	¶
+      : definition¶
+  1. ```¶
+ ---¶
+	1. ¶
+2. two	¶
+\¶
+   ##    Spaced¶
+¶
+>   1. nested¶
+> > </pre>¶
+7) seven	¶
+1. ```   ¶
++ plus   ¶
+   ````	¶
+   | a | b |¶
+   1. ¶
+<div>¶
+~ tilde def¶
+¶
+=== generated-268
+--- input
+9. nine¶
+3. ten¶
+¶
+¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+--- output
+9. nine¶
+10. ten¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+=== generated-269
+--- input
+      + plus¶
+ : definition¶
+    | a | b |¶
+	</pre>¶
+| a | b |¶
+   1. one¶
+    text¶
+> > | a | b |¶
+ 1. one¶
+    * star¶
+> > quote¶
+   <span>¶
+ text  ¶
+</div>¶
+ wrapped line \¶
+  <pre>¶
+<!--¶
+> >   ¶
+    1. ¶
+--- output
+      + plus¶
+ : definition¶
+    | a | b |¶
+	</pre>¶
+| a | b |¶
+   1. one¶
+    text¶
+> > | a | b |¶
+ 1. one¶
+    * star¶
+> > quote¶
+   <span>¶
+ text  ¶
+</div>¶
+ wrapped line \¶
+  <pre>¶
+<!--¶
+> >   ¶
+    1. ¶
+=== generated-270
+--- input
+> ```¶
+> code¶
+> ```¶
+¶
+¶
+¶
+Text¶
+1. interrupts¶
+¶
+¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+Ends with spaces   ¶
+¶
+--- output
+> ```¶
+> code¶
+> ```¶
+¶
+Text¶
+1. interrupts¶
+¶
+¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+Ends with spaces¶
+¶
+=== generated-271
+--- input
+> - dash ¶
+   - dash ¶
+*[HTML]: Hyper¶
+>```js	¶
+ ##¶
+</div>¶
+3. three¶
+  ¶
+	~~~¶
+> > </div>¶
+   - ```   ¶
+--- output
+> - dash¶
+   - dash ¶
+*[HTML]: Hyper¶
+>```js	¶
+ ##¶
+</div>¶
+3. three¶
+  ¶
+	~~~¶
+> > </div>¶
+   - ```   ¶
+=== generated-272
+--- input
+$$ a $$¶
+¶
+¶
+¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+a | b¶
+--- | ---¶
+¶
+¶
+#tag line¶
+¶
+<span>inline</span> text¶
+> # quoted heading¶
+> - item¶
+  ¶
+¶
+Setext¶
+===¶
+¶
+--- output
+$$ a $$¶
+¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+a | b¶
+--- | ---¶
+¶
+#tag line¶
+¶
+<span>inline</span> text¶
+> # quoted heading¶
+> - item¶
+¶
+Setext¶
+===¶
+¶
+=== generated-273
+--- input
+> > ---¶
+> > * star  ¶
+      Term¶
+  2. two¶
+ $$   ¶
+   ~~~¶
+$$ x $$  ¶
+> > ---¶
+   -¶
+    ---¶
+  : definition \¶
+>``` \¶
+-->¶
+  `code¶
+  text¶
+  -¶
+> > ~ tilde def ¶
+3. three¶
+#tag¶
+      ```   ¶
+> 7) seven   ¶
+      ##    Spaced ¶
+  \¶
+> > - > q¶
+>1. one¶
+   </div>¶
+--- output
+> > ---¶
+> > * star  ¶
+      Term¶
+  2. two¶
+ $$   ¶
+   ~~~¶
+$$ x $$  ¶
+> > ---¶
+   -¶
+    ---¶
+  : definition \¶
+>``` \¶
+-->¶
+  `code¶
+  text¶
+  -¶
+> > ~ tilde def ¶
+3. three¶
+#tag¶
+      ```   ¶
+> 7) seven   ¶
+      ##    Spaced ¶
+  \¶
+> > - > q¶
+>1. one¶
+   </div>¶
+=== generated-274
+--- input
+Text¶
+1. interrupts¶
+¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+Text¶
+1. interrupts¶
+$$ a $$¶
+¶
+   ¶
+> # quoted heading¶
+> - item¶
+¶
+¶
+¶
+a `code ¶
+span` b¶
+¶
+¶
+¶
+--- output
+Text¶
+1. interrupts¶
+¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+Text¶
+1. interrupts¶
+$$ a $$¶
+¶
+> # quoted heading¶
+> - item¶
+¶
+a `code ¶
+span` b¶
+¶
+=== generated-275
+--- input
+  1. one \¶
+	$$ x $$¶
+      5. five¶
+> <pre>¶
+      <div>¶
+> <div>¶
+> Term¶
+¶
+--- output
+  1. one \¶
+	$$ x $$¶
+      5. five¶
+> <pre>¶
+      <div>¶
+> <div>¶
+> Term¶
+¶
+=== generated-276
+--- input
+a `code ¶
+span` b¶
+- [ ] task¶
+- [x] done¶
+  ¶
+¶
+¶
+--- output
+a `code ¶
+span` b¶
+- [ ] task¶
+- [x] done¶
+¶
+=== generated-277
+--- input
+  * star¶
+	---¶
+	***¶
+> quote¶
+ <div>¶
+> text  ¶
+```js¶
+<span>¶
+	<span>¶
+> - dash ¶
+¶
+--- output
+  * star¶
+	---¶
+	***¶
+> quote¶
+ <div>¶
+> text  ¶
+```js¶
+<span>¶
+	<span>¶
+> - dash ¶
+¶
+=== generated-278
+--- input
+---¶
+title: Doc 278¶
+---¶
+1. wraps¶
+lazily¶
+4. next¶
+¶
+8. a¶
+9. b¶
+3. c¶
+   more¶
+¶
+¶
+¶
+Plain paragraph text.¶
+¶
+¶
+¶
+--- output
+---¶
+title: Doc 278¶
+---¶
+1. wraps¶
+lazily¶
+2. next¶
+¶
+3. a¶
+4. b¶
+5. c¶
+   more¶
+¶
+Plain paragraph text.¶
+¶
+=== generated-279
+--- input
+$$¶
+      [^1]: note¶
+   $$ x $$¶
+      2. two  ¶
+    Term ¶
+  ***¶
+> > more text¶
+~~~ \¶
+	[ref]: /u¶
+   <!--¶
+      <!--¶
+    -¶
+text¶
+      <div> \¶
+text¶
+	* star¶
+         1. nested¶
+>  \¶
+> > ===¶
+> > [^1]: note¶
+| a | b |¶
+  1. ```¶
+></div>¶
+    10. ten¶
+--- output
+$$¶
+      [^1]: note¶
+   $$ x $$¶
+      2. two  ¶
+    Term ¶
+  ***¶
+> > more text¶
+¶
+~~~ \¶
+	[ref]: /u¶
+   <!--¶
+      <!--¶
+    -¶
+text¶
+      <div> \¶
+text¶
+	* star¶
+         1. nested¶
+>  \¶
+> > ===¶
+> > [^1]: note¶
+| a | b |¶
+  1. ```¶
+></div>¶
+    10. ten¶
+~~~¶
+¶
+=== generated-280
+--- input
+<span>inline</span> text¶
+#tag line¶
+  ¶
+¶
+### Closed ###¶
+> # quoted heading¶
+> - item¶
+¶
+¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+¶
+¶
+¶
+##   Spaced heading¶
+¶
+a `code ¶
+span` b¶
+¶
+Cite[^1] here.¶
+¶
+¶
+--- output
+<span>inline</span> text¶
+#tag line¶
+¶
+### Closed ###¶
+¶
+> # quoted heading¶
+> - item¶
+¶
+- a¶
+  1. x¶
+  2. y¶
+- b¶
+¶
+## Spaced heading¶
+¶
+a `code ¶
+span` b¶
+¶
+Cite[^1] here.¶
+¶
+=== generated-281
+--- input
+````¶
+      -¶
+    ```¶
+   1. nested \¶
+   7) seven¶
+   text ¶
+      <b>bold</b> text¶
+[ref]: /u¶
+---¶
+ 1. ¶
+| a | b |¶
+$$¶
+1.    ¶
+text¶
+  [ref]: /u¶
+      <!-- x -->¶
+> \¶
+|---|---|¶
+      10. ten¶
+	Term¶
+   1. nested¶
+    1. ¶
+<pre>¶
+>`code   ¶
+>Term¶
+      #tag   ¶
+¶
+--- output
+````¶
+      -¶
+    ```¶
+   1. nested \¶
+   7) seven¶
+   text ¶
+      <b>bold</b> text¶
+[ref]: /u¶
+---¶
+ 1. ¶
+| a | b |¶
+$$¶
+1.    ¶
+text¶
+  [ref]: /u¶
+      <!-- x -->¶
+> \¶
+|---|---|¶
+      10. ten¶
+	Term¶
+   1. nested¶
+    1. ¶
+<pre>¶
+>`code   ¶
+>Term¶
+      #tag   ¶
+````¶
+¶
+=== generated-282
+--- input
+***¶
+  ¶
+¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+1.¶
+2.¶
+¶
+1) paren¶
+5) paren¶
+¶
+¶
+¶
+¶
+--- output
+***¶
+¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+1.¶
+2.¶
+¶
+1) paren¶
+5) paren¶
+¶
+¶
+¶
+¶
+=== generated-283
+--- input
+  ===   ¶
+    ```js¶
+	1. ```¶
+\¶
+><span>¶
+   <pre>¶
+> > 5. five¶
+ - ```¶
+      more text¶
+¶
+--- output
+  ===   ¶
+    ```js¶
+	1. ```¶
+\¶
+><span>¶
+   <pre>¶
+> > 5. five¶
+ - ```¶
+      more text¶
+¶
+=== generated-284
+--- input
+---¶
+title: Doc 284¶
+---¶
+$$ a $$¶
+8. a¶
+9. b¶
+3. c¶
+   more¶
+¶
+¶
+¶
+> lazy¶
+continuation¶
+¶
+¶
+--- output
+---¶
+title: Doc 284¶
+---¶
+$$ a $$¶
+8. a¶
+9. b¶
+3. c¶
+   more¶
+¶
+> lazy¶
+continuation¶
+¶
+=== generated-285
+--- input
+7) seven¶
+         1. nested¶
+    * star¶
+  10. ten¶
+  3. three¶
+> - dash¶
+ <b>bold</b> text¶
+  - nested¶
+><pre>¶
+<b>bold</b> text¶
+>: definition¶
+--- output
+7) seven¶
+         1. nested¶
+    * star¶
+  10. ten¶
+  3. three¶
+> - dash¶
+ <b>bold</b> text¶
+  - nested¶
+><pre>¶
+<b>bold</b> text¶
+>: definition¶
+=== generated-286
+--- input
+> ```¶
+> code¶
+> ```¶
+Two lines  ¶
+with a hard break¶
+¶
+a `code ¶
+span` b¶
+¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+¶
+¶
+¶
+Ends with spaces   ¶
+* star¶
++ plus¶
+- dash¶
+¶
+--- output
+> ```¶
+> code¶
+> ```¶
+Two lines  ¶
+with a hard break¶
+¶
+a `code ¶
+span` b¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+¶
+¶
+¶
+Ends with spaces   ¶
+* star¶
++ plus¶
+- dash¶
+¶
+=== generated-287
+--- input
+> > 1. ```¶
+>$$¶
+      ~ tilde def¶
+  text¶
+> ````¶
+      7) seven¶
+    ##¶
+      span`¶
+[^1]: note¶
+   </pre>¶
+  <span>¶
+***¶
+	span`¶
+> 1. one¶
+<!--¶
+> + plus¶
+      5. five¶
+    ```¶
+ a \` b¶
+   7) seven¶
+¶
+--- output
+> > 1. ```¶
+>$$¶
+      ~ tilde def¶
+  text¶
+> ````¶
+      7) seven¶
+    ##¶
+      span`¶
+[^1]: note¶
+   </pre>¶
+  <span>¶
+***¶
+	span`¶
+> 1. one¶
+<!--¶
+> + plus¶
+      5. five¶
+    ```¶
+ a \` b¶
+   7) seven¶
+¶
+=== generated-288
+--- input
+Ends with spaces   ¶
+Term¶
+: definition¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+#tag line¶
+¶
+--- output
+Ends with spaces   ¶
+Term¶
+: definition¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+#tag line¶
+¶
+=== generated-289
+--- input
+##¶
+      ---¶
+	- \¶
+> > ¶
+  - nested ¶
+ - ```¶
+><pre>¶
+  -->¶
+<!-- x -->¶
+>~~~¶
+      $$¶
+> >    ¶
+      <span>¶
+   <span>¶
+      Term   ¶
+<b>bold</b> text¶
+ ***¶
+|---|---| ¶
++ plus	¶
+    $$ x $$¶
+> -¶
+: definition ¶
+      | a | b |¶
+-¶
+> $$¶
+- dash¶
+##    Spaced¶
+>> quote \¶
+¶
+--- output
+##¶
+      ---¶
+	- \¶
+> >¶
+  - nested ¶
+ - ```¶
+><pre>¶
+  -->¶
+<!-- x -->¶
+>~~~¶
+      $$¶
+> >    ¶
+      <span>¶
+   <span>¶
+      Term   ¶
+<b>bold</b> text¶
+ ***¶
+|---|---| ¶
++ plus	¶
+    $$ x $$¶
+> -¶
+: definition ¶
+      | a | b |¶
+-¶
+> $$¶
+- dash¶
+##    Spaced¶
+>> quote \¶
+¶
+=== generated-290
+--- input
+---¶
+title: Doc 290¶
+---¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+Trailing space ¶
+then more¶
+¶
+¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+¶
+¶
+--- output
+---¶
+title: Doc 290¶
+---¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+Trailing space¶
+then more¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+¶
+=== generated-291
+--- input
+> -¶
+    ***¶
+    more text¶
+> quote¶
+¶
+--- output
+> -¶
+    ***¶
+    more text¶
+> quote¶
+¶
+=== generated-292
+--- input
+Term¶
+: definition¶
+1. wraps¶
+lazily¶
+4. next¶
+¶
+#tag line¶
+### Closed ###¶
+  ¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+¶
+Trailing tab	¶
+¶
+¶
+¶
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+¶
+¶
+¶
+[ref]: /url 'title'¶
+¶
+¶
+¶
+¶
+--- output
+Term¶
+: definition¶
+1. wraps¶
+lazily¶
+4. next¶
+¶
+#tag line¶
+¶
+### Closed ###¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+Trailing tab¶
+¶
+3. three¶
+¶
+4. seven¶
+¶
+5. nine¶
+¶
+[ref]: /url 'title'¶
+¶
+=== generated-293
+--- input
+      1.   ¶
+	</div>¶
+>   1. nested¶
+> <!--¶
+¶
+--- output
+      1.   ¶
+	</div>¶
+>   1. nested¶
+> <!--¶
+¶
+=== generated-294
+--- input
+Term¶
+¶
+: loose definition¶
+  ¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+¶
+Two lines  ¶
+with a hard break¶
+  ¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+¶
+¶
+--- output
+Term¶
+¶
+: loose definition¶
+  ¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+¶
+¶
+=== generated-295
+--- input
+      ~ tilde def	¶
+   7) seven¶
+> > ¶
+    </pre>¶
+   1. nested¶
+    > quote¶
+```¶
+5. five  ¶
+  text¶
+wrapped line¶
+   <!--¶
+more text¶
+      wrapped line¶
+   </div> ¶
+   <span>¶
+> | a | b |¶
+---¶
+--- output
+      ~ tilde def	¶
+   7) seven¶
+> > ¶
+    </pre>¶
+   1. nested¶
+    > quote¶
+```¶
+5. five  ¶
+  text¶
+wrapped line¶
+   <!--¶
+more text¶
+      wrapped line¶
+   </div> ¶
+   <span>¶
+> | a | b |¶
+---¶
+=== generated-296
+--- input
+[ref]: /url 'title'¶
+¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+--- output
+[ref]: /url 'title'¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+=== generated-297
+--- input
++ plus¶
+>    ```	¶
+> ===¶
+	> quote¶
+   <!-- \¶
+`code¶
+> # Heading  ¶
+   10. ten¶
+ $$ x $$  ¶
+    Term¶
+~~~¶
+    wrapped line¶
+	*[HTML]: Hyper¶
+    - ``` \¶
+   ***¶
+   ```` ¶
+> quote   ¶
+  : definition	¶
+    ¶
+  </pre>¶
++ plus¶
+>  ¶
+   [ref]: /u¶
+      1. one¶
+¶
+--- output
++ plus¶
+>    ```	¶
+> ===¶
+	> quote¶
+   <!-- \¶
+`code¶
+> # Heading  ¶
+   10. ten¶
+ $$ x $$  ¶
+    Term¶
+~~~¶
+    wrapped line¶
+	*[HTML]: Hyper¶
+    - ``` \¶
+   ***¶
+   ```` ¶
+> quote   ¶
+  : definition	¶
+    ¶
+  </pre>¶
++ plus¶
+>  ¶
+   [ref]: /u¶
+      1. one¶
+¶
+=== generated-298
+--- input
+### Closed ###¶
+1. one¶
+1. two¶
+1. three¶
+¶
+Term¶
+¶
+: loose definition¶
+  ¶
+¶
+¶
+¶
+¶
+--- output
+### Closed ###¶
+¶
+1. one¶
+2. two¶
+3. three¶
+¶
+Term¶
+¶
+: loose definition¶
+  ¶
+¶
+¶
+¶
+¶
+=== generated-299
+--- input
+> 2. two¶
+  ```	¶
+ -¶
+	Term¶
+ <b>bold</b> text¶
+> 1. ```¶
+   ~ tilde def¶
+  : definition   ¶
+    ¶
+   : definition¶
+*[HTML]: Hyper¶
+	\¶
+   - dash¶
+   \¶
++ plus   ¶
+  <b>bold</b> text ¶
+    10. ten	¶
+> > 	¶
+   `` a ` b `` ¶
+  - nested¶
+#tag¶
+   [ref]: /u	¶
+| a | b |¶
+     1. nested ¶
+- ```¶
+~~~¶
+	7) seven¶
+      ```¶
+##    Spaced¶
+: definition¶
+¶
+--- output
+> 2. two¶
+  ```	¶
+ -¶
+	Term¶
+ <b>bold</b> text¶
+> 1. ```¶
+   ~ tilde def¶
+  : definition   ¶
+    ¶
+   : definition¶
+*[HTML]: Hyper¶
+	\¶
+   - dash¶
+   \¶
++ plus   ¶
+  <b>bold</b> text ¶
+    10. ten	¶
+> > 	¶
+   `` a ` b `` ¶
+  - nested¶
+#tag¶
+   [ref]: /u	¶
+| a | b |¶
+     1. nested ¶
+- ```¶
+~~~¶
+	7) seven¶
+      ```¶
+##    Spaced¶
+: definition¶
+  ```¶
+¶
+=== generated-300
+--- input
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+> ```¶
+> code¶
+> ```¶
+¶
+a [link](/u "title ¶
+more") b¶
+a [link](/u "title ¶
+more") b¶
+¶
+¶
+¶
+--- output
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+> ```¶
+> code¶
+> ```¶
+¶
+a [link](/u "title ¶
+more") b¶
+a [link](/u "title ¶
+more") b¶
+¶
+=== generated-301
+--- input
+> > <!--¶
+~~~¶
+   # Heading¶
+##    Spaced¶
+ 10. ten ¶
+<span>¶
+>***¶
+  ```js¶
+    - ```¶
+> #tag ¶
+</div>¶
+ |---|---|¶
+¶
+--- output
+> > <!--¶
+~~~¶
+   # Heading¶
+##    Spaced¶
+ 10. ten ¶
+<span>¶
+>***¶
+  ```js¶
+    - ```¶
+> #tag ¶
+</div>¶
+ |---|---|¶
+~~~¶
+¶
+=== generated-302
+--- input
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+¶
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+¶
+¶
+Trailing tab	¶
+¶
+a [link](/u "title ¶
+more") b¶
+¶
+¶
+¶
+1. one¶
+1. two¶
+1. three¶
+¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+¶
+```¶
+open fence  ¶
+¶
+--- output
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+¶
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+¶
+¶
+Trailing tab¶
+¶
+a [link](/u "title ¶
+more") b¶
+¶
+1. one¶
+2. two¶
+3. three¶
+¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+```¶
+open fence  ¶
+```¶
+¶
+=== generated-303
+--- input
+text¶
+> > $$ x $$¶
+a \` b¶
+> quote¶
+> `` a ` b ``	¶
+>10. ten¶
+	|---|---| \¶
+text¶
+¶
+--- output
+text¶
+> > $$ x $$¶
+a \` b¶
+> quote¶
+> `` a ` b ``	¶
+>10. ten¶
+	|---|---| \¶
+text¶
+¶
+=== generated-304
+--- input
+Plain paragraph text.¶
+¶
+¶
+¶
+| a |¶
+| - |¶
+1. wraps¶
+lazily¶
+4. next¶
+¶
+--- output
+Plain paragraph text.¶
+¶
+| a |¶
+| - |¶
+1. wraps¶
+lazily¶
+2. next¶
+¶
+=== generated-305
+--- input
+-->¶
+> > text¶
+\¶
+  - ``` ¶
+      - nested¶
+> > $$¶
+a \` b¶
+<b>bold</b> text¶
+ 1. ```¶
+<b>bold</b> text¶
+	<b>bold</b> text¶
+	¶
+1. ```¶
+| a | b |¶
+ 7) seven¶
+	7) seven¶
+  - nested¶
+- ```¶
+       \¶
+	<!--¶
+more text¶
+> </div>¶
+ ¶
+¶
+--- output
+-->¶
+> > text¶
+\¶
+  - ``` ¶
+      - nested¶
+> > $$¶
+a \` b¶
+<b>bold</b> text¶
+ 1. ```¶
+<b>bold</b> text¶
+	<b>bold</b> text¶
+	¶
+1. ```¶
+| a | b |¶
+ 7) seven¶
+	7) seven¶
+  - nested¶
+- ```¶
+       \¶
+	<!--¶
+more text¶
+> </div>¶
+ ¶
+¶
+=== generated-306
+--- input
+### Closed ###¶
+~~~py¶
+x = 1¶
+~~~¶
+¶
+Trailing space ¶
+then more¶
+  ¶
+¶
+- - -¶
+¶
+¶
+¶
+# Title¶
+¶
+¶
+¶
+¶
+--- output
+### Closed ###¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+¶
+Trailing space¶
+then more¶
+¶
+- - -¶
+¶
+# Title¶
+¶
+=== generated-307
+--- input
+  -->¶
+1. one¶
+> > $$ x $$¶
+ ~ tilde def¶
+   ##    Spaced¶
+-->¶
+  <b>bold</b> text   ¶
+---¶
+> > [ref]: /u¶
+>     ```  ¶
+> <b>bold</b> text¶
+  + plus¶
+	a \` b¶
+   <pre>¶
+> -->¶
+    ---¶
+¶
+--- output
+  -->¶
+1. one¶
+> > $$ x $$¶
+ ~ tilde def¶
+   ##    Spaced¶
+-->¶
+  <b>bold</b> text   ¶
+---¶
+> > [ref]: /u¶
+>     ```  ¶
+> <b>bold</b> text¶
+  + plus¶
+	a \` b¶
+   <pre>¶
+> -->¶
+    ---¶
+¶
+=== generated-308
+--- input
+   ¶
+¶
+¶
+# Title¶
+¶
+¶
+¶
+Text¶
+1. interrupts¶
+- - -¶
+¶
+Trailing space ¶
+then more¶
+$$ a $$¶
+  ¶
+¶
+```¶
+open fence  ¶
+¶
+--- output
+# Title¶
+¶
+Text¶
+1. interrupts¶
+- - -¶
+¶
+Trailing space¶
+then more¶
+$$ a $$¶
+¶
+```¶
+open fence  ¶
+```¶
+¶
+=== generated-309
+--- input
+> ```¶
+	Term¶
+><!--¶
+      </div>¶
+      ~ tilde def \¶
+      - ```¶
+¶
+--- output
+> ```¶
+	Term¶
+><!--¶
+      </div>¶
+      ~ tilde def \¶
+      - ```¶
+¶
+=== generated-310
+--- input
+<div>¶
+# in html  ¶
+</div>¶
+¶
+¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+$$ a $$¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+  ¶
+¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+--- output
+<div>¶
+# in html  ¶
+</div>¶
+¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+$$ a $$¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+=== generated-311
+--- input
+      1. one¶
+`` a ` b ``¶
+    ~~~¶
+ - > q¶
+	`` a ` b ``¶
+[^1]: note¶
+ 7) seven  ¶
+	1. one¶
+> > ~ tilde def¶
+`` a ` b ``¶
+ ~ tilde def¶
+  </pre>¶
+> > span`¶
+     ¶
+ ````¶
+          ```¶
+   - > q¶
+ 1. ```¶
+--- output
+      1. one¶
+`` a ` b ``¶
+    ~~~¶
+ - > q¶
+	`` a ` b ``¶
+[^1]: note¶
+ 7) seven  ¶
+	1. one¶
+> > ~ tilde def¶
+`` a ` b ``¶
+ ~ tilde def¶
+  </pre>¶
+> > span`¶
+     ¶
+ ````¶
+          ```¶
+   - > q¶
+ 1. ```¶
+=== generated-312
+--- input
+<div>¶
+# in html  ¶
+</div>¶
+#tag line¶
+¶
+#tag line¶
+¶
+¶
+#¶
+Trailing tab	¶
+¶
+¶
+¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+¶
+¶
+¶
+--- output
+<div>¶
+# in html  ¶
+</div>¶
+#tag line¶
+¶
+#tag line¶
+¶
+#¶
+¶
+Trailing tab¶
+¶
+- a¶
+  1. x¶
+  2. y¶
+- b¶
+¶
+=== generated-313
+--- input
+> > <pre>  ¶
+  1. one¶
+>[ref]: /u ¶
+ ~ tilde def¶
+   > quote¶
+  `code¶
+```¶
+      1. nested ¶
+	> quote¶
+    1. nested	¶
+<div>¶
+    <b>bold</b> text¶
+> > Term¶
+	</pre>	¶
+¶
+--- output
+> > <pre>  ¶
+  1. one¶
+>[ref]: /u ¶
+ ~ tilde def¶
+   > quote¶
+  `code¶
+```¶
+      1. nested ¶
+	> quote¶
+    1. nested	¶
+<div>¶
+    <b>bold</b> text¶
+> > Term¶
+	</pre>	¶
+¶
+=== generated-314
+--- input
+-item¶
+  ¶
+¶
+Plain paragraph text.¶
+¶
+Text¶
+1. interrupts¶
+¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+¶
+¶
+--- output
+-item¶
+¶
+Plain paragraph text.¶
+¶
+Text¶
+1. interrupts¶
+¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+¶
+¶
+=== generated-315
+--- input
+   - nested¶
+1. ¶
+7) seven¶
+>| a | b |¶
+>***¶
+--- output
+   - nested¶
+1. ¶
+7) seven¶
+>| a | b |¶
+>***¶
+=== generated-316
+--- input
+1. wraps¶
+lazily¶
+4. next¶
+¶
+¶
+8. a¶
+9. b¶
+3. c¶
+   more¶
+¶
+#tag line¶
+¶
+--- output
+1. wraps¶
+lazily¶
+2. next¶
+¶
+3. a¶
+4. b¶
+5. c¶
+   more¶
+¶
+#tag line¶
+¶
+=== generated-317
+--- input
+ \¶
+ <!-- x -->¶
+	more text¶
+¶
+--- output
+ \¶
+ <!-- x -->¶
+	more text¶
+¶
+=== generated-318
+--- input
+Text¶
+1984. was a year¶
+````¶
+a¶
+```¶
+b¶
+````¶
+  ¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+<div>¶
+# in html  ¶
+</div>¶
+  ¶
+¶
+# Title¶
+##   Spaced heading¶
+¶
+¶
+--- output
+Text¶
+1984. was a year¶
+¶
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+<div>¶
+# in html  ¶
+</div>¶
+  ¶
+¶
+# Title¶
+##   Spaced heading¶
+¶
+¶
+=== generated-319
+--- input
+~~~  ¶
+ ```js¶
+	````¶
+===¶
+> [ref]: /u¶
+\   ¶
+>: definition¶
+   ===¶
+>more text   ¶
+    - ```¶
+    1. ```¶
+> > ***¶
+     1. nested¶
+> ##    Spaced¶
+    ```  ¶
+  </pre>¶
+  ````¶
+  + plus	¶
+  1. one¶
+--- output
+~~~  ¶
+ ```js¶
+	````¶
+===¶
+> [ref]: /u¶
+\   ¶
+>: definition¶
+   ===¶
+>more text   ¶
+    - ```¶
+    1. ```¶
+> > ***¶
+     1. nested¶
+> ##    Spaced¶
+    ```  ¶
+  </pre>¶
+  ````¶
+  + plus	¶
+  1. one¶
+~~~¶
+¶
+=== generated-320
+--- input
+8. a¶
+9. b¶
+3. c¶
+   more¶
+3. three¶
+¶
+7. seven¶
+¶
+¶
+9. nine¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+  ¶
+¶
+9. nine¶
+3. ten¶
+- - -¶
+¶
+Term¶
+: definition¶
+1.¶
+2.¶
+¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+--- output
+8. a¶
+9. b¶
+3. c¶
+   more¶
+11. three¶
+¶
+12. seven¶
+¶
+9. nine¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+  ¶
+¶
+14. nine¶
+15. ten¶
+- - -¶
+¶
+Term¶
+: definition¶
+1.¶
+2.¶
+¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+=== generated-321
+--- input
+	##    Spaced ¶
+      |---|---|¶
+wrapped line¶
+> 10. ten¶
+    - nested   ¶
+- ```¶
+> > 10. ten¶
+> > $$ x $$¶
+> ````¶
+<b>bold</b> text	¶
+> $$ x $$¶
+- ```¶
+	    ```¶
+> : definition	¶
+> > $$¶
+</div>¶
+    7) seven¶
+--- output
+	##    Spaced ¶
+      |---|---|¶
+wrapped line¶
+> 10. ten¶
+    - nested   ¶
+- ```¶
+> > 10. ten¶
+> > $$ x $$¶
+> ````¶
+<b>bold</b> text	¶
+> $$ x $$¶
+- ```¶
+	    ```¶
+> : definition	¶
+> > $$¶
+</div>¶
+    7) seven¶
+=== generated-322
+--- input
+#tag line¶
+  ¶
+¶
+``` a`b¶
+not a fence¶
+¶
+¶
+- - -¶
+¶
+--- output
+#tag line¶
+¶
+``` a`b¶
+not a fence¶
+¶
+- - -¶
+¶
+=== generated-323
+--- input
+ | a | b |¶
+`` a ` b ``¶
+	```` \¶
+> *[HTML]: Hyper¶
+  : definition	¶
+      7) seven¶
+	-¶
+  \¶
+>-¶
+````¶
+	¶
+    ===¶
+ ¶
+text¶
+>more text¶
+ 1. ¶
+>1. ```¶
+> ¶
+- dash¶
+>     ```¶
+¶
+--- output
+ | a | b |¶
+`` a ` b ``¶
+	```` \¶
+> *[HTML]: Hyper¶
+  : definition	¶
+      7) seven¶
+	-¶
+  \¶
+>-¶
+````¶
+	¶
+    ===¶
+ ¶
+text¶
+>more text¶
+ 1. ¶
+>1. ```¶
+> ¶
+- dash¶
+>     ```¶
+¶
+=== generated-324
+--- input
+> lazy¶
+continuation¶
+¶
+¶
+¶
+1. one¶
+1. two¶
+1. three¶
+¶
+¶
+¶
+--- output
+> lazy¶
+continuation¶
+¶
+1. one¶
+2. two¶
+3. three¶
+¶
+=== generated-325
+--- input
+> \¶
+ 5. five¶
+````¶
+2. two¶
+      ¶
+> 3. three¶
+  `code ¶
+5. five¶
+  ```  ¶
+* star¶
+~ tilde def	¶
+  ##¶
+-  ¶
+      1. nested  ¶
+	1. one¶
+> > <b>bold</b> text¶
+>text¶
+      [^1]: note¶
+##¶
+<pre>¶
+--- output
+> \¶
+ 5. five¶
+````¶
+2. two¶
+      ¶
+> 3. three¶
+  `code ¶
+5. five¶
+  ```  ¶
+* star¶
+~ tilde def	¶
+  ##¶
+-  ¶
+      1. nested  ¶
+	1. one¶
+> > <b>bold</b> text¶
+>text¶
+      [^1]: note¶
+##¶
+<pre>¶
+=== generated-326
+--- input
+> lazy¶
+continuation¶
+¶
+- [ ] task¶
+- [x] done¶
+¶
+¶
+¶
+[ref]: /url 'title'¶
+¶
+--- output
+> lazy¶
+continuation¶
+¶
+- [ ] task¶
+- [x] done¶
+¶
+[ref]: /url 'title'¶
+¶
+=== generated-327
+--- input
+      5. five  ¶
+      span`¶
+  2. two ¶
+--- output
+      5. five  ¶
+      span`¶
+  2. two ¶
+¶
+=== generated-328
+--- input
+> lazy¶
+continuation¶
+  ¶
+¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+  ¶
+¶
+¶
+--- output
+> lazy¶
+continuation¶
+¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+=== generated-329
+--- input
+      + plus¶
+ ~ tilde def¶
+> > [^1]: note¶
+    [^1]: note ¶
+> 1. one¶
+ - > q¶
+>[^1]: note¶
+	+ plus   ¶
+>   ¶
+> > | a | b |¶
+> > <pre>  ¶
+> > ¶
+> > span` ¶
+1. ```¶
+	*[HTML]: Hyper¶
+  -¶
+   ~ tilde def¶
+¶
+--- output
+      + plus¶
+ ~ tilde def¶
+> > [^1]: note¶
+    [^1]: note ¶
+> 1. one¶
+ - > q¶
+>[^1]: note¶
+	+ plus   ¶
+>   ¶
+> > | a | b |¶
+> > <pre>  ¶
+> > ¶
+> > span` ¶
+1. ```¶
+	*[HTML]: Hyper¶
+  -¶
+   ~ tilde def¶
+¶
+=== generated-330
+--- input
+Plain paragraph text.¶
+¶
+Term¶
+: definition¶
+¶
+¶
+¶
+--- output
+Plain paragraph text.¶
+¶
+Term¶
+: definition¶
+¶
+¶
+¶
+=== generated-331
+--- input
+    text¶
+    </div>¶
+ ```js¶
+a \` b¶
+--- output
+    text¶
+    </div>¶
+ ```js¶
+a \` b¶
+ ```¶
+¶
+=== generated-332
+--- input
+### Closed ###¶
+¶
+¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+¶
+¶
+1) paren¶
+5) paren¶
+> lazy¶
+continuation¶
+  ¶
+¶
+a `code ¶
+span` b¶
+¶
+¶
+¶
+##   Spaced heading¶
+¶
+¶
+# Title¶
+a `code ¶
+span` b¶
+¶
+¶
+--- output
+### Closed ###¶
+¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+¶
+¶
+¶
+1) paren¶
+5) paren¶
+> lazy¶
+continuation¶
+¶
+a `code ¶
+span` b¶
+¶
+## Spaced heading¶
+¶
+# Title¶
+¶
+a `code ¶
+span` b¶
+¶
+=== generated-333
+--- input
+> > \¶
+~~~¶
+	<!-- x -->¶
+10. ten¶
+	a \` b¶
+>-¶
+    10. ten¶
+	---  ¶
+  </div>¶
+````	¶
+>````¶
+      # Heading¶
+      $$¶
+<pre>¶
+  <!--¶
+	text¶
+	- > q¶
+   `` a ` b ``¶
+  span`¶
+	a \` b¶
+- dash¶
+> ~~~	¶
+>text¶
+> ##    Spaced¶
+   ```  ¶
+><b>bold</b> text¶
+    ````¶
+      ~~~   ¶
+ > quote	¶
+¶
+--- output
+> > \¶
+¶
+~~~¶
+	<!-- x -->¶
+10. ten¶
+	a \` b¶
+>-¶
+    10. ten¶
+	---  ¶
+  </div>¶
+````	¶
+>````¶
+      # Heading¶
+      $$¶
+<pre>¶
+  <!--¶
+	text¶
+	- > q¶
+   `` a ` b ``¶
+  span`¶
+	a \` b¶
+- dash¶
+> ~~~	¶
+>text¶
+> ##    Spaced¶
+   ```  ¶
+><b>bold</b> text¶
+    ````¶
+      ~~~   ¶
+ > quote	¶
+~~~¶
+¶
+=== generated-334
+--- input
+* star¶
++ plus¶
+- dash¶
+¶
+***¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+-item¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+Setext two¶
+---¶
+¶
+¶
+¶
+¶
+¶
+¶
+--- output
+* star¶
++ plus¶
+- dash¶
+¶
+***¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+- item¶
+  ```¶
+  code  ¶
+¶
+¶
+  ```¶
+- next¶
+-item¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+Setext two¶
+---¶
+¶
+¶
+¶
+¶
+¶
+¶
+=== generated-335
+--- input
+> wrapped line¶
+ - ¶
+> > - ```¶
+    <span> ¶
+      ```` ¶
+    ===¶
+>a \` b¶
+	$$ \¶
+ + plus¶
+> > - ```¶
+   # Heading¶
+\¶
+    : definition \¶
+	7) seven¶
+>3. three¶
+*[HTML]: Hyper¶
+¶
+--- output
+> wrapped line¶
+ - ¶
+> > - ```¶
+    <span> ¶
+      ```` ¶
+    ===¶
+>a \` b¶
+	$$ \¶
+ + plus¶
+> > - ```¶
+   # Heading¶
+\¶
+    : definition \¶
+	7) seven¶
+>3. three¶
+*[HTML]: Hyper¶
+¶
+=== generated-336
+--- input
+---¶
+title: Doc 336¶
+---¶
+| a |¶
+| - |¶
+  ¶
+¶
+[ref]: /url 'title'¶
+  ¶
+¶
+¶
+--- output
+---¶
+title: Doc 336¶
+---¶
+| a |¶
+| - |¶
+¶
+[ref]: /url 'title'¶
+¶
+=== generated-337
+--- input
+> > $$ x $$¶
+span`¶
+    - > q¶
+¶
+<div>¶
+##    Spaced¶
+  1. ¶
+> > *[HTML]: Hyper¶
+   span`¶
+>$$  ¶
+- > q¶
+   ```js	¶
+```js¶
+> </div>¶
+Term¶
+      <div>¶
+ 1. one¶
+><b>bold</b> text \¶
+>-->	¶
+      <div>   ¶
+[ref]: /u¶
+¶
+   $$¶
+      3. three   ¶
+***	¶
+--- output
+> > $$ x $$¶
+span`¶
+    - > q¶
+¶
+<div>¶
+##    Spaced¶
+  1. ¶
+> > *[HTML]: Hyper¶
+   span`¶
+>$$  ¶
+- > q¶
+   ```js	¶
+```js¶
+> </div>¶
+Term¶
+      <div>¶
+ 1. one¶
+><b>bold</b> text \¶
+>-->	¶
+      <div>   ¶
+[ref]: /u¶
+¶
+   $$¶
+      3. three   ¶
+***	¶
+=== generated-338
+--- input
+---¶
+title: Doc 338¶
+---¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+a | b¶
+--- | ---¶
+¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+> lazy¶
+continuation¶
+¶
+¶
+#¶
+¶
+> lazy¶
+continuation¶
+¶
+¶
+¶
+--- output
+---¶
+title: Doc 338¶
+---¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+a | b¶
+--- | ---¶
+¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+> lazy¶
+continuation¶
+¶
+#¶
+¶
+> lazy¶
+continuation¶
+¶
+=== generated-339
+--- input
+> </div>¶
+> > ##¶
+> > 1. ``` \¶
+</pre>¶
+      10. ten \¶
+  ##    Spaced¶
+    ```¶
+>~~~¶
+  - nested   ¶
+ Term¶
+        ¶
+Term¶
+  </pre>¶
+1. ¶
+      <b>bold</b> text¶
+   ~ tilde def¶
+--- output
+> </div>¶
+> > ##¶
+> > 1. ``` \¶
+</pre>¶
+      10. ten \¶
+  ##    Spaced¶
+    ```¶
+>~~~¶
+  - nested   ¶
+ Term¶
+        ¶
+Term¶
+  </pre>¶
+1. ¶
+      <b>bold</b> text¶
+   ~ tilde def¶
+=== generated-340
+--- input
+Ends with spaces   ¶
+Term¶
+: definition¶
+¶
+¶
+¶
+--- output
+Ends with spaces   ¶
+Term¶
+: definition¶
+¶
+¶
+¶
+=== generated-341
+--- input
+---¶
+</pre>¶
+Term¶
+> > [^1]: note¶
+`` a ` b ``¶
+¶
+--- output
+---¶
+</pre>¶
+Term¶
+> > [^1]: note¶
+`` a ` b ``¶
+¶
+=== generated-342
+--- input
+    indented code  ¶
+¶
+¶
+    more code¶
+  ¶
+¶
+# Title¶
+¶
+a | b¶
+--- | ---¶
+  ¶
+¶
+> lazy¶
+continuation¶
+  ¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+- - -¶
+¶
+¶
+¶
+Setext¶
+===¶
+  ¶
+¶
+¶
+--- output
+    indented code  ¶
+¶
+¶
+    more code¶
+  ¶
+¶
+# Title¶
+¶
+a | b¶
+--- | ---¶
+¶
+> lazy¶
+continuation¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+- - -¶
+¶
+Setext¶
+===¶
+¶
+=== generated-343
+--- input
+```js	¶
+	[^1]: note¶
+# Heading¶
+text¶
+a \` b¶
+> > quote¶
+ 3. three¶
+> > > quote¶
+   ```js¶
+| a | b |¶
+> <!--¶
+> span`¶
+```js¶
+	1. ¶
+--- output
+```js	¶
+	[^1]: note¶
+# Heading¶
+text¶
+a \` b¶
+> > quote¶
+ 3. three¶
+> > > quote¶
+   ```js¶
+| a | b |¶
+> <!--¶
+> span`¶
+```js¶
+	1. ¶
+```¶
+¶
+=== generated-344
+--- input
+### Closed ###¶
+##   Spaced heading¶
+¶
+> quote  ¶
+> more¶
+*[HTML]: Hyper Text¶
+¶
+¶
+¶
+--- output
+### Closed ###¶
+¶
+## Spaced heading¶
+¶
+> quote  ¶
+> more¶
+*[HTML]: Hyper Text¶
+¶
+¶
+¶
+=== generated-345
+--- input
+      > quote¶
+Term¶
+    -->¶
+	~~~	¶
+> 10. ten¶
+>`code¶
+    ```¶
+~~~¶
+      <div> \¶
+	```js¶
+>-¶
+    <pre>¶
+    $$ x $$¶
+>¶
+  3. three¶
+	   1. nested ¶
+ | a | b |¶
+   `` a ` b ``¶
+</pre>¶
+~~~¶
+    ===¶
+>  - nested¶
+      |---|---|¶
+    ~ tilde def¶
+>===¶
+ ===¶
+    $$¶
+text¶
+>    ```   ¶
+<span>¶
+--- output
+      > quote¶
+Term¶
+    -->¶
+	~~~	¶
+> 10. ten¶
+>`code¶
+    ```¶
+~~~¶
+      <div> \¶
+	```js¶
+>-¶
+    <pre>¶
+    $$ x $$¶
+>¶
+  3. three¶
+	   1. nested ¶
+ | a | b |¶
+   `` a ` b ``¶
+</pre>¶
+~~~¶
+    ===¶
+>  - nested¶
+      |---|---|¶
+    ~ tilde def¶
+>===¶
+ ===¶
+    $$¶
+text¶
+>    ```   ¶
+<span>¶
+=== generated-346
+--- input
+---¶
+title: Doc 346¶
+---¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+Ends with spaces   ¶
+¶
+¶
+1. one¶
+1. two¶
+1. three¶
+¶
+Plain paragraph text.¶
+¶
+¶
+- - -¶
+¶
+text without newline¶
+--- output
+---¶
+title: Doc 346¶
+---¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+Ends with spaces¶
+¶
+1. one¶
+2. two¶
+3. three¶
+¶
+Plain paragraph text.¶
+¶
+- - -¶
+¶
+text without newline¶
+¶
+=== generated-347
+--- input
+ ---¶
+    ===¶
+> ```¶
+##    Spaced¶
+      ***   ¶
+¶
+--- output
+ ---¶
+    ===¶
+> ```¶
+## Spaced¶
+      ***   ¶
+¶
+=== generated-348
+--- input
+Setext two¶
+---¶
+¶
+¶
+Text¶
+1. interrupts¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+¶
+1. wraps¶
+lazily¶
+4. next¶
+¶
+1. wraps¶
+lazily¶
+4. next¶
+¶
+¶
+--- output
+Setext two¶
+---¶
+¶
+Text¶
+1. interrupts¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+1. wraps¶
+lazily¶
+2. next¶
+¶
+3. wraps¶
+lazily¶
+4. next¶
+¶
+=== generated-349
+--- input
+ `` a ` b ``¶
+      [^1]: note¶
+=== ¶
+> - dash  ¶
+      - ```¶
+> > $$ x $$¶
+	---¶
+> <span>¶
+> > 1. ```¶
+      > quote¶
+~ tilde def¶
+  ¶
+a \` b¶
+> >     ``` ¶
+	3. three¶
+      ---¶
+      ##    Spaced¶
+¶
+--- output
+ `` a ` b ``¶
+      [^1]: note¶
+===¶
+> - dash  ¶
+      - ```¶
+> > $$ x $$¶
+	---¶
+> <span>¶
+> > 1. ```¶
+      > quote¶
+~ tilde def¶
+  ¶
+a \` b¶
+> >     ``` ¶
+	3. three¶
+      ---¶
+      ##    Spaced¶
+¶
+=== generated-350
+--- input
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+[ref]: /url 'title'¶
+¶
+¶
+9. nine¶
+3. ten¶
+  ¶
+¶
+Setext¶
+===¶
+¶
+--- output
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+[ref]: /url 'title'¶
+¶
+9. nine¶
+10. ten¶
+¶
+Setext¶
+===¶
+¶
+=== generated-351
+--- input
+    ```¶
+>`` a ` b ``¶
+> [ref]: /u¶
+  ¶
+>[ref]: /u¶
+	*[HTML]: Hyper¶
+1. ```¶
+wrapped line¶
+          ```¶
+	¶
+- > q¶
+1. ¶
+10. ten¶
+ : definition  ¶
+> > + plus \¶
+> quote¶
+      - > q¶
+```¶
+| a | b |  ¶
+ : definition¶
+```¶
+10. ten¶
+   | a | b |¶
+3. three¶
+      <!-- x -->¶
+    ~ tilde def¶
+--- output
+    ```¶
+>`` a ` b ``¶
+> [ref]: /u¶
+¶
+>[ref]: /u¶
+	*[HTML]: Hyper¶
+1. ```¶
+wrapped line¶
+          ```¶
+	¶
+- > q¶
+1. ¶
+10. ten¶
+ : definition  ¶
+> > + plus \¶
+> quote¶
+      - > q¶
+```¶
+| a | b |  ¶
+ : definition¶
+```¶
+10. ten¶
+   | a | b |¶
+3. three¶
+      <!-- x -->¶
+    ~ tilde def¶
+=== generated-352
+--- input
+Two lines  ¶
+with a hard break¶
+¶
+Setext¶
+===¶
+¶
+--- output
+Two lines  ¶
+with a hard break¶
+¶
+Setext¶
+===¶
+¶
+=== generated-353
+--- input
+   -->¶
+      5. five	¶
+1. ```¶
+       1. nested¶
+> - dash¶
+##    Spaced¶
+      - dash ¶
+   ~~~¶
+>  - nested¶
+3. three¶
+>more text¶
+<pre>¶
+> quote   ¶
+| a | b |¶
+  <!--¶
+><!--¶
+	---¶
+> > - dash¶
+ 2. two¶
+3. three¶
+¶
+--- output
+   -->¶
+      5. five	¶
+1. ```¶
+       1. nested¶
+> - dash¶
+¶
+## Spaced¶
+      - dash ¶
+   ~~~¶
+>  - nested¶
+3. three¶
+>more text¶
+<pre>¶
+> quote   ¶
+| a | b |¶
+  <!--¶
+><!--¶
+	---¶
+> > - dash¶
+ 2. two¶
+3. three¶
+   ~~~¶
+¶
+=== generated-354
+--- input
+9. nine¶
+3. ten¶
+¶
+¶
+- - -¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+¶
+¶
+a | b¶
+--- | ---¶
+¶
+Text¶
+1984. was a year¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+¶
+¶
+¶
+   ¶
+¶
+¶
+¶
+--- output
+9. nine¶
+10. ten¶
+¶
+- - -¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+a | b¶
+--- | ---¶
+¶
+Text¶
+1984. was a year¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+¶
+¶
+¶
+   ¶
+¶
+¶
+¶
+=== generated-355
+--- input
+   - dash¶
+````¶
+[ref]: /u¶
+wrapped line¶
+7) seven¶
+> > 5. five¶
+--- output
+   - dash¶
+¶
+````¶
+[ref]: /u¶
+wrapped line¶
+7) seven¶
+> > 5. five¶
+````¶
+¶
+=== generated-356
+--- input
+---¶
+title: Doc 356¶
+---¶
+1) paren¶
+5) paren¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+#¶
+¶
+¶
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+¶
+--- output
+---¶
+title: Doc 356¶
+---¶
+1) paren¶
+5) paren¶
+| a | b |¶
+|---|---|¶
+| 1 | 2 |  ¶
+¶
+#¶
+¶
+````¶
+a¶
+```¶
+b¶
+````¶
+¶
+=== generated-357
+--- input
+    + plus¶
+ span`¶
+1. one¶
+   #tag¶
+      - dash¶
+  -¶
+    [^1]: note¶
+  | a | b |¶
+ # Heading¶
+    ¶
+# Heading ¶
+         1. nested¶
+    <b>bold</b> text¶
+> > [ref]: /u¶
+> > 7) seven¶
+\¶
+  ```  ¶
+  <!--¶
+	3. three¶
+   - dash¶
+ #tag¶
+	  - nested¶
+  * star¶
+    | a | b |¶
+	[ref]: /u ¶
+--- output
+    + plus¶
+ span`¶
+1. one¶
+   #tag¶
+      - dash¶
+  -¶
+    [^1]: note¶
+  | a | b |¶
+ # Heading¶
+    ¶
+# Heading¶
+         1. nested¶
+    <b>bold</b> text¶
+> > [ref]: /u¶
+> > 7) seven¶
+\¶
+  ```  ¶
+  <!--¶
+	3. three¶
+   - dash¶
+ #tag¶
+	  - nested¶
+  * star¶
+    | a | b |¶
+	[ref]: /u ¶
+  ```¶
+¶
+=== generated-358
+--- input
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+  ¶
+¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+¶
+> # quoted heading¶
+> - item¶
+¶
+--- output
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+- a¶
+  1. x¶
+  2. y¶
+- b¶
+¶
+> # quoted heading¶
+> - item¶
+¶
+=== generated-359
+--- input
+: definition¶
++ plus¶
+  ---¶
+> [^1]: note¶
+`code¶
+ ¶
+</div>¶
+ ¶
+ more text¶
+	##    Spaced¶
+	1. ```	¶
+ `` a ` b ``  ¶
+ ~ tilde def¶
+  1. ¶
+¶
+--- output
+: definition¶
++ plus¶
+  ---¶
+> [^1]: note¶
+`code¶
+ ¶
+</div>¶
+¶
+ more text¶
+	##    Spaced¶
+	1. ```	¶
+ `` a ` b ``  ¶
+ ~ tilde def¶
+  1. ¶
+¶
+=== generated-360
+--- input
+1) paren¶
+5) paren¶
+¶
+1. wraps¶
+lazily¶
+4. next¶
+¶
+¶
+¶
+Trailing tab	¶
+  ¶
+¶
+1) paren¶
+5) paren¶
+  ¶
+¶
+¶
+--- output
+1) paren¶
+2) paren¶
+¶
+1. wraps¶
+lazily¶
+2. next¶
+¶
+Trailing tab¶
+¶
+1) paren¶
+2) paren¶
+¶
+=== generated-361
+--- input
+    ```js   ¶
+text¶
+  |---|---|¶
+> <b>bold</b> text¶
+> >     ``` \¶
+      ¶
+    ~ tilde def¶
+   #tag¶
+>   - nested¶
+    2. two¶
+    - > q¶
+<!--¶
+> 3. three¶
+      <span>¶
+    </pre>¶
+      ---¶
+> > ¶
+	<!--¶
+     1. nested¶
+> > ``` \¶
+--- output
+    ```js   ¶
+text¶
+  |---|---|¶
+> <b>bold</b> text¶
+> >     ``` \¶
+¶
+    ~ tilde def¶
+   #tag¶
+>   - nested¶
+    2. two¶
+    - > q¶
+<!--¶
+> 3. three¶
+      <span>¶
+    </pre>¶
+      ---¶
+> > ¶
+	<!--¶
+     1. nested¶
+> > ``` \¶
+=== generated-362
+--- input
+- - -¶
+¶
+¶
+*[HTML]: Hyper Text¶
+¶
+¶
+¶
+¶
+--- output
+- - -¶
+¶
+*[HTML]: Hyper Text¶
+¶
+=== generated-363
+--- input
+  ```¶
+1. ```  ¶
+~ tilde def¶
+  <b>bold</b> text¶
+         1. nested¶
+    a \` b¶
+3. three¶
+       ```¶
+      : definition¶
+  - nested¶
+>5. five¶
+> >     ```¶
+      <!-- x -->  ¶
+> > ***¶
+	: definition ¶
+	  - nested¶
+> ¶
+	- ``` \¶
+  |---|---|	¶
+	1. ¶
+  -¶
+> <!--  ¶
+  7) seven¶
+-¶
+---¶
+7) seven¶
+===¶
+      <!-- x -->¶
+> > a \` b  ¶
+--- output
+  ```¶
+1. ```  ¶
+~ tilde def¶
+  <b>bold</b> text¶
+         1. nested¶
+    a \` b¶
+3. three¶
+       ```¶
+      : definition¶
+  - nested¶
+>5. five¶
+> >     ```¶
+      <!-- x -->  ¶
+> > ***¶
+	: definition ¶
+	  - nested¶
+> ¶
+	- ``` \¶
+  |---|---|	¶
+	1. ¶
+  -¶
+> <!--  ¶
+  7) seven¶
+-¶
+---¶
+7) seven¶
+===¶
+      <!-- x -->¶
+> > a \` b  ¶
+  ```¶
+¶
+=== generated-364
+--- input
+[ref]: /url 'title'¶
+  ¶
+¶
+Term¶
+¶
+: loose definition¶
+¶
+¶
+--- output
+[ref]: /url 'title'¶
+¶
+Term¶
+¶
+: loose definition¶
+¶
+¶
+=== generated-365
+--- input
+1. one  ¶
+ more text¶
+   + plus¶
+> quote¶
+<!-- x -->¶
+> > #tag   ¶
+   -¶
+    5. five \¶
+- ```¶
+¶
+--- output
+1. one  ¶
+ more text¶
+   + plus¶
+> quote¶
+<!-- x -->¶
+> > #tag   ¶
+   -¶
+    5. five \¶
+- ```¶
+¶
+=== generated-366
+--- input
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+¶
+*[HTML]: Hyper Text¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+##   Spaced heading¶
+¶
+¶
+¶
+¶
+--- output
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+¶
+*[HTML]: Hyper Text¶
+¶
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+## Spaced heading¶
+¶
+=== generated-367
+--- input
+ ¶
+`code¶
+> > ~ tilde def¶
+    $$¶
+> a \` b¶
+10. ten¶
+ ===¶
+   > quote \¶
+> > more text¶
+ ¶
+      ~~~¶
+>`code¶
+span`¶
+	3. three¶
+[^1]: note¶
+ |---|---|¶
+	¶
+- ```¶
+	a \` b¶
+--- ¶
+#tag  ¶
+text \¶
+> > <div>¶
+       \¶
+      ~~~¶
+	*[HTML]: Hyper ¶
+</pre>¶
+> > 10. ten¶
+$$ x $$¶
+¶
+--- output
+`code¶
+> > ~ tilde def¶
+    $$¶
+> a \` b¶
+10. ten¶
+ ===¶
+   > quote \¶
+> > more text¶
+ ¶
+      ~~~¶
+>`code¶
+span`¶
+	3. three¶
+[^1]: note¶
+ |---|---|¶
+	¶
+- ```¶
+	a \` b¶
+--- ¶
+#tag  ¶
+text \¶
+> > <div>¶
+       \¶
+      ~~~¶
+	*[HTML]: Hyper ¶
+</pre>¶
+> > 10. ten¶
+$$ x $$¶
+¶
+=== generated-368
+--- input
+#tag line¶
+- a¶
+¶
+¶
+- b¶
+¶
+¶
+#tag line¶
+¶
+##   Spaced heading¶
+¶
+### Closed ###¶
+  ¶
+¶
+* star¶
++ plus¶
+- dash¶
+¶
+¶
+--- output
+#tag line¶
+- a¶
+¶
+- b¶
+¶
+#tag line¶
+¶
+## Spaced heading¶
+¶
+### Closed ###¶
+¶
+* star¶
++ plus¶
+- dash¶
+¶
+=== generated-369
+--- input
+> `code  ¶
+  <span>¶
+> > ````¶
+>7) seven¶
+    1. nested¶
+	~ tilde def¶
+---¶
+ Term \¶
+   </div>¶
+ ¶
+#tag¶
+> [ref]: /u¶
+ 7) seven¶
+~~~¶
+>[^1]: note¶
+5. five¶
+   # Heading¶
+##¶
+   1. nested¶
+: definition¶
+> </pre>¶
+```js¶
+    \¶
+>````¶
+      wrapped line¶
+> quote ¶
+`code¶
+> <pre>¶
+[^1]: note¶
+¶
+--- output
+> `code  ¶
+  <span>¶
+> > ````¶
+>7) seven¶
+    1. nested¶
+	~ tilde def¶
+---¶
+ Term \¶
+   </div>¶
+ ¶
+#tag¶
+> [ref]: /u¶
+ 7) seven¶
+~~~¶
+>[^1]: note¶
+5. five¶
+   # Heading¶
+##¶
+   1. nested¶
+: definition¶
+> </pre>¶
+```js¶
+    \¶
+>````¶
+      wrapped line¶
+> quote ¶
+`code¶
+> <pre>¶
+[^1]: note¶
+¶
+=== generated-370
+--- input
+> quote  ¶
+> more¶
+  ¶
+¶
+Setext two¶
+---¶
+  ¶
+¶
+Text¶
+1. interrupts¶
+¶
+-item¶
+  ¶
+¶
+Ends with spaces   ¶
+¶
+¶
+¶
+¶
+--- output
+> quote  ¶
+> more¶
+¶
+Setext two¶
+---¶
+¶
+Text¶
+1. interrupts¶
+¶
+-item¶
+¶
+Ends with spaces¶
+¶
+=== generated-371
+--- input
+ <!--¶
+> > ¶
+>   1. nested¶
+ a \` b¶
+¶
+--- output
+ <!--¶
+> > ¶
+>   1. nested¶
+ a \` b¶
+¶
+=== generated-372
+--- input
+<!-- comment¶
+¶
+¶
+still comment -->¶
+<span>inline</span> text¶
+   ¶
+¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+  ¶
+¶
+Two lines  ¶
+with a hard break¶
+  ¶
+¶
+**bold _it¶
+¶
+1.¶
+2.¶
+¶
+--- output
+<!-- comment¶
+¶
+¶
+still comment -->¶
+<span>inline</span> text¶
+¶
+$$¶
+x^2  ¶
+¶
+¶
+y¶
+$$¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+**bold _it¶
+¶
+1.¶
+2.¶
+¶
+=== generated-373
+--- input
+> | a | b |¶
+    <pre>  ¶
+>  - nested	¶
+--- output
+> | a | b |¶
+    <pre>  ¶
+>  - nested	¶
+=== generated-374
+--- input
+#tag line¶
+¶
+¶
+# Title¶
+¶
+a | b¶
+--- | ---¶
+Text¶
+1. interrupts¶
+  ¶
+¶
+Setext two¶
+---¶
+¶
+¶
+¶
+*[HTML]: Hyper Text¶
+¶
+--- output
+#tag line¶
+¶
+# Title¶
+¶
+a | b¶
+--- | ---¶
+Text¶
+1. interrupts¶
+¶
+Setext two¶
+---¶
+¶
+*[HTML]: Hyper Text¶
+¶
+=== generated-375
+--- input
+> 3. three¶
+  - nested¶
+   	¶
+   <!--¶
+3. three¶
+      <div>	¶
+\¶
+>- dash¶
+> quote¶
+<pre>¶
+      <b>bold</b> text¶
+[ref]: /u¶
+> 2. two¶
+> -->¶
+     1. nested¶
+---	¶
+--- output
+> 3. three¶
+  - nested¶
+¶
+   <!--¶
+3. three¶
+      <div>	¶
+\¶
+>- dash¶
+> quote¶
+<pre>¶
+      <b>bold</b> text¶
+[ref]: /u¶
+> 2. two¶
+> -->¶
+     1. nested¶
+---¶
+¶
+=== generated-376
+--- input
+1.¶
+2.¶
+¶
+<div>¶
+# in html  ¶
+</div>¶
+¶
+¶
+- - -¶
+- [ ] task¶
+- [x] done¶
+¶
+¶
+   ¶
+¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+  ¶
+¶
+<div>¶
+# in html  ¶
+</div>¶
+$$ a $$¶
+¶
+¶
+¶
+--- output
+1.¶
+2.¶
+¶
+<div>¶
+# in html  ¶
+</div>¶
+¶
+- - -¶
+- [ ] task¶
+- [x] done¶
+¶
+~~~py¶
+x = 1¶
+~~~¶
+¶
+<div>¶
+# in html  ¶
+</div>¶
+$$ a $$¶
+¶
+=== generated-377
+--- input
+> > 7) seven \¶
+    <span>¶
+      span`¶
+\¶
+>1. one¶
+  ```js¶
+	[ref]: /u¶
+more text¶
+~~~¶
+>a \` b  ¶
+   5. five¶
+   - > q¶
+      `code¶
+> > `code¶
+5. five¶
+> - ```¶
+> > | a | b | \¶
+¶
+	~ tilde def¶
+> > $$¶
+> + plus¶
+Term¶
+  - ```¶
+>-¶
+`` a ` b ``¶
+      * star¶
+ `` a ` b ``¶
+¶
+--- output
+> > 7) seven \¶
+    <span>¶
+      span`¶
+\¶
+>1. one¶
+  ```js¶
+	[ref]: /u¶
+more text¶
+~~~¶
+>a \` b  ¶
+   5. five¶
+   - > q¶
+      `code¶
+> > `code¶
+5. five¶
+> - ```¶
+> > | a | b | \¶
+¶
+	~ tilde def¶
+> > $$¶
+> + plus¶
+Term¶
+  - ```¶
+>-¶
+`` a ` b ``¶
+      * star¶
+ `` a ` b ``¶
+¶
+=== generated-378
+--- input
+Text¶
+1984. was a year¶
+¶
+***¶
+¶
+¶
+Setext¶
+===¶
+¶
+#¶
+¶
+--- output
+Text¶
+1984. was a year¶
+¶
+***¶
+¶
+Setext¶
+===¶
+¶
+#¶
+¶
+=== generated-379
+--- input
+```¶
+	1. ```¶
+    ~~~¶
+ ¶
+<pre>¶
+> > > quote¶
+  wrapped line¶
+--- output
+```¶
+	1. ```¶
+    ~~~¶
+ ¶
+<pre>¶
+> > > quote¶
+  wrapped line¶
+```¶
+¶
+=== generated-380
+--- input
+| a |¶
+| - |¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+¶
+¶
+<span>inline</span> text¶
+  ¶
+¶
+> quote  ¶
+> more¶
+¶
+<span>inline</span> text¶
+¶
+¶
+¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+| a |¶
+| - |¶
+¶
+¶
+¶
+Trailing tab	¶
+¶
+text without newline¶
+--- output
+| a |¶
+| - |¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+<span>inline</span> text¶
+¶
+> quote  ¶
+> more¶
+¶
+<span>inline</span> text¶
+¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+| a |¶
+| - |¶
+¶
+¶
+¶
+Trailing tab¶
+¶
+text without newline¶
+¶
+=== generated-381
+--- input
+    5. five¶
+<b>bold</b> text¶
+>-->¶
+ 1. ```¶
+	=== \¶
++ plus¶
+> > > quote¶
+  - ```¶
+> > $$¶
+span`¶
+¶
+--- output
+    5. five¶
+<b>bold</b> text¶
+>-->¶
+ 1. ```¶
+	=== \¶
++ plus¶
+> > > quote¶
+  - ```¶
+> > $$¶
+span`¶
+¶
+=== generated-382
+--- input
+Setext¶
+===¶
+¶
+¶
+¶
+> ```¶
+> code¶
+> ```¶
+Trailing space ¶
+then more¶
+¶
+1. wraps¶
+lazily¶
+4. next¶
+¶
+¶
+¶
+Text¶
+1984. was a year¶
+  ¶
+¶
+¶
+--- output
+Setext¶
+===¶
+¶
+> ```¶
+> code¶
+> ```¶
+Trailing space ¶
+then more¶
+¶
+1. wraps¶
+lazily¶
+2. next¶
+¶
+Text¶
+1984. was a year¶
+¶
+=== generated-383
+--- input
+      2. two¶
+	~~~¶
+      $$¶
+-->¶
+	3. three  ¶
++ plus¶
+3. three ¶
+| a | b |¶
+ 3. three	¶
+ 3. three ¶
+text¶
+>3. three¶
+	$$ x $$¶
+ 1.  \¶
+¶
+--- output
+      2. two¶
+	~~~¶
+      $$¶
+-->¶
+	3. three  ¶
++ plus¶
+3. three ¶
+| a | b |¶
+ 3. three	¶
+ 3. three ¶
+text¶
+>3. three¶
+	$$ x $$¶
+ 1.  \¶
+¶
+=== generated-384
+--- input
+9. nine¶
+3. ten¶
+¶
+¶
+1. wraps¶
+lazily¶
+4. next¶
+[ref]: /url 'title'¶
+Trailing space ¶
+then more¶
+¶
+``` a`b¶
+not a fence¶
+¶
+¶
+--- output
+9. nine¶
+10. ten¶
+¶
+1. wraps¶
+lazily¶
+4. next¶
+[ref]: /url 'title'¶
+Trailing space ¶
+then more¶
+¶
+``` a`b¶
+not a fence¶
+¶
+=== generated-385
+--- input
+	a \` b¶
+    *[HTML]: Hyper¶
+  ~~~¶
+2. two¶
+>$$ x $$¶
+ text¶
+> ```¶
+<!-- x -->¶
+      ```¶
+a \` b¶
+   <span>¶
+> </pre>¶
+	---¶
+    #tag¶
+	5. five¶
+> 10. ten¶
+      ````¶
+   1. one¶
+===¶
+ - ``` \¶
+      5. five¶
+   wrapped line¶
+  #tag¶
+>*[HTML]: Hyper¶
+      1. ¶
+<pre>¶
+> > * star¶
+¶
+¶
+--- output
+	a \` b¶
+    *[HTML]: Hyper¶
+  ~~~¶
+2. two¶
+>$$ x $$¶
+ text¶
+> ```¶
+<!-- x -->¶
+      ```¶
+a \` b¶
+   <span>¶
+> </pre>¶
+	---¶
+    #tag¶
+	5. five¶
+> 10. ten¶
+      ````¶
+   1. one¶
+===¶
+ - ``` \¶
+      5. five¶
+   wrapped line¶
+  #tag¶
+>*[HTML]: Hyper¶
+      1. ¶
+<pre>¶
+> > * star¶
+¶
+  ~~~¶
+¶
+=== generated-386
+--- input
+1. one¶
+1. two¶
+1. three¶
+¶
+- a¶
+  1. x¶
+  5. y¶
+- b¶
+***¶
+¶
+¶
+¶
+#¶
+¶
+¶
+--- output
+1. one¶
+2. two¶
+3. three¶
+¶
+- a¶
+  1. x¶
+  2. y¶
+- b¶
+***¶
+¶
+#¶
+¶
+=== generated-387
+--- input
+   - dash¶
+      ##¶
+	   1. nested¶
+¶
+--- output
+   - dash¶
+      ##¶
+	   1. nested¶
+¶
+=== generated-388
+--- input
+---¶
+title: Doc 388¶
+---¶
+``` a`b¶
+not a fence¶
+¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+  ¶
+¶
+| a |¶
+| - |¶
+  ¶
+¶
+# Title¶
+¶
+¶
+¶
+¶
+--- output
+---¶
+title: Doc 388¶
+---¶
+``` a`b¶
+not a fence¶
+¶
+<!-- comment¶
+¶
+¶
+still comment -->¶
+¶
+| a |¶
+| - |¶
+¶
+# Title¶
+¶
+=== generated-389
+--- input
+    + plus¶
+>    1. nested¶
+	- dash \¶
+   ***¶
+> > -->¶
+> ~~~¶
+10. ten ¶
+	</pre>¶
+   ````¶
+ 5. five¶
+~~~¶
+	</div>¶
+   [ref]: /u \¶
+*[HTML]: Hyper¶
+	<div>¶
+¶
+--- output
+    + plus¶
+>    1. nested¶
+	- dash \¶
+   ***¶
+> > -->¶
+> ~~~¶
+10. ten ¶
+	</pre>¶
+   ````¶
+ 5. five¶
+~~~¶
+	</div>¶
+   [ref]: /u \¶
+*[HTML]: Hyper¶
+	<div>¶
+¶
+=== generated-390
+--- input
+> ```¶
+> code¶
+> ```¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+1) paren¶
+5) paren¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+¶
+a [link](/u "title ¶
+more") b¶
+¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+¶
+--- output
+> ```¶
+> code¶
+> ```¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+1) paren¶
+2) paren¶
+¶
+Two lines  ¶
+with a hard break¶
+¶
+a [link](/u "title ¶
+more") b¶
+¶
+- a¶
+¶
+      indented code  ¶
+¶
+¶
+      more¶
+¶
+=== generated-391
+--- input
+`` a ` b ``¶
+   1. ¶
+```   ¶
+Term¶
+   --> ¶
+      a \` b¶
+> [^1]: note¶
+     \¶
+¶
+--- output
+`` a ` b ``¶
+   1.¶
+¶
+```   ¶
+Term¶
+   --> ¶
+      a \` b¶
+> [^1]: note¶
+     \¶
+```¶
+¶
+=== generated-392
+--- input
+Trailing tab	¶
+¶
+# Title¶
+¶
+¶
+--- output
+Trailing tab¶
+¶
+# Title¶
+¶
+=== generated-393
+--- input
+<!-- x -->¶
+span`¶
+> [^1]: note¶
+[ref]: /u¶
+> -->¶
+~~~¶
+      a \` b¶
+   - > q¶
+      $$¶
+¶
+--- output
+<!-- x -->¶
+span`¶
+> [^1]: note¶
+[ref]: /u¶
+> -->¶
+¶
+~~~¶
+      a \` b¶
+   - > q¶
+      $$¶
+~~~¶
+¶
+=== generated-394
+--- input
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+> quote  ¶
+> more¶
+  ¶
+¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+¶
+¶
+<span>inline</span> text¶
+¶
+--- output
+```¶
+code  ¶
+¶
+¶
+more¶
+```¶
+¶
+> quote  ¶
+> more¶
+¶
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+<span>inline</span> text¶
+¶
+=== generated-395
+--- input
+> ```js ¶
+    + plus¶
+````¶
+> ````¶
+>¶
+   wrapped line¶
+      text¶
+~ tilde def¶
+> -¶
+      ````¶
+> > ~ tilde def¶
+`code¶
+   1. ```¶
+[^1]: note¶
+> > - dash¶
+      -->¶
+~ tilde def¶
+  ¶
+<!--¶
+~ tilde def¶
+ <span>¶
+¶
+--- output
+> ```js ¶
+    + plus¶
+````¶
+> ````¶
+>¶
+   wrapped line¶
+      text¶
+~ tilde def¶
+> -¶
+      ````¶
+> > ~ tilde def¶
+`code¶
+   1. ```¶
+[^1]: note¶
+> > - dash¶
+      -->¶
+~ tilde def¶
+  ¶
+<!--¶
+~ tilde def¶
+ <span>¶
+¶
+=== generated-396
+--- input
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+  ¶
+¶
+***¶
+¶
+¶
+9. nine¶
+3. ten¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+a `code ¶
+span` b¶
+  ¶
+¶
+* star¶
++ plus¶
+- dash¶
+¶
+¶
+--- output
+<details>¶
+<summary>S</summary>¶
+¶
+body¶
+¶
+</details>¶
+¶
+***¶
+¶
+9. nine¶
+10. ten¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+[^1]: Footnote¶
+¶
+    more  ¶
+¶
+¶
+¶
+    indented code  ¶
+¶
+¶
+    more code¶
+a `code ¶
+span` b¶
+  ¶
+¶
+* star¶
++ plus¶
+- dash¶
+¶
+=== generated-397
+--- input
+-¶
+      <div>¶
+> > Term¶
+>[^1]: note¶
+>¶
+ -¶
+  <div> \¶
+      --- \¶
+	<div>¶
+```js¶
+	2. two¶
+> > 10. ten¶
+¶
+--- output
+-¶
+      <div>¶
+> > Term¶
+>[^1]: note¶
+>¶
+ -¶
+  <div> \¶
+      --- \¶
+	<div>¶
+```js¶
+	2. two¶
+> > 10. ten¶
+¶
+=== generated-398
+--- input
+> # quoted heading¶
+> - item¶
+¶
+[ref]: /url 'title'¶
+# Title¶
+```¶
+open fence  ¶
+¶
+--- output
+> # quoted heading¶
+> - item¶
+¶
+[ref]: /url 'title'¶
+¶
+# Title¶
+¶
+```¶
+open fence  ¶
+```¶
+¶
+=== generated-399
+--- input
+      ```¶
+````¶
+   a \` b¶
+    -->  ¶
+      </pre>¶
+      - > q	¶
+  ***¶
+> 3. three¶
+> > : definition¶
+	more text¶
+    - ``` ¶
+   text	¶
+: definition¶
+        - nested¶
+> > ===¶
+```js	¶
+````¶
+    - > q¶
+1. ```¶
+Term¶
+-->	¶
+    <pre>	¶
+> > </pre>¶
+3. three¶
+    ```¶
+>#tag ¶
+--- output
+      ```¶
+````¶
+   a \` b¶
+    -->  ¶
+      </pre>¶
+      - > q	¶
+  ***¶
+> 3. three¶
+> > : definition¶
+	more text¶
+    - ``` ¶
+   text	¶
+: definition¶
+        - nested¶
+> > ===¶
+```js	¶
+````¶
+    - > q¶
+1. ```¶
+Term¶
+-->	¶
+    <pre>	¶
+> > </pre>¶
+3. three¶
+    ```¶
+>#tag ¶

@@ -161,9 +161,11 @@ fun RowScope.TopBarActions(
                     onUndo = { onAction(EditorAction.MenuHistory(redo = false)) },
                     onRedo = { onAction(EditorAction.MenuHistory(redo = true)) },
                     onView = { onAction(EditorAction.OpenView(highlight = null)) },
+                    onTidy = { onAction(EditorAction.TidyTapped) },
                 ),
         )
         SaveMenu(state, onAction)
+        ExportChooser(state, onAction)
         // With Copy moved into ⋮, its chooser opens from ⋮.
         if (copyInMenu) CopyChooser(state, onAction)
     }

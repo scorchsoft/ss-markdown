@@ -89,7 +89,7 @@ class OverflowMenuTest {
 
     private fun everyRowReachable() {
         rule.onNodeWithContentDescription("Undo").assertIsDisplayed()
-        for (row in listOf("New", "Find & replace", "Export PDF", "Settings")) {
+        for (row in listOf("New", "Find & replace", "Export…", "Settings")) {
             rule.onNodeWithText(row).performScrollTo().assertIsDisplayed()
         }
         // The icon row is pinned: still there after scrolling to the last row.
@@ -137,7 +137,7 @@ class OverflowMenuTest {
         // 915 dp, less the keyboard, the menu's margins and its icon row: well under the menu's full height.
         assertTrue("rows are $rows dp tall", rows <= 915 - KEYBOARD_DP - 112 - 48 + 1)
         // The formatting strip, up with the keyboard, has an Undo of its own: check the rows by name.
-        for (row in listOf("New", "Find & replace", "Export PDF", "Settings")) {
+        for (row in listOf("New", "Find & replace", "Export…", "Settings")) {
             rule.onNodeWithText(row).performScrollTo().assertIsDisplayed()
         }
     }

@@ -48,6 +48,8 @@ internal object SettingsJson {
             .put("saveMode", s.saveMode.name)
             .put("tapToEdit", s.tapToEditPreview)
             .put("scrollTogether", s.scrollPanesTogether)
+            .put("tidyCountUp", s.tidyCountUpLists)
+            .put("tidyBlankLines", s.tidyCollapseBlankLines)
             .put("appearance", s.appearance.name)
             .put("history", encodeHistory(s.history))
             .put("autosave", JSONObject(s.autosaveOverrides))
@@ -74,6 +76,8 @@ internal object SettingsJson {
             saveMode = enumOr(o.optString("saveMode"), d.saveMode),
             tapToEditPreview = o.optBoolean("tapToEdit", d.tapToEditPreview),
             scrollPanesTogether = o.optBoolean("scrollTogether", d.scrollPanesTogether),
+            tidyCountUpLists = o.optBoolean("tidyCountUp", d.tidyCountUpLists),
+            tidyCollapseBlankLines = o.optBoolean("tidyBlankLines", d.tidyCollapseBlankLines),
             appearance = enumOr(o.optString("appearance"), d.appearance),
             history = o.optJSONObject("history")?.let(::decodeHistory) ?: d.history,
             autosaveOverrides = o.optJSONObject("autosave")?.let(::decodeOverrides).orEmpty(),

@@ -158,6 +158,22 @@ internal object EditorEffects {
                 vm.saves.requestLeave(PendingLeave.PickFile)
             }
 
+            is EditorAction.ExportAs -> {
+                if (action.format == ExportFormat.Pdf) {
+                    PreviewEffects.exportPdf(vm)
+                } else {
+                    vm.exports.export(action.format)
+                }
+            }
+
+            EditorAction.TidyTapped -> {
+                vm.tidy.ask()
+            }
+
+            EditorAction.TidyConfirmed -> {
+                vm.tidy.apply()
+            }
+
             EditorAction.RetryOpen -> {
                 (before.banner as? EditorBanner.OpenFailed)?.let { vm.openDocument(it.uri) }
             }
@@ -283,7 +299,7 @@ internal object EditorEffects {
             MenuItem.SaveAll -> vm.onAction(EditorAction.Folder(FolderAction.SaveAll))
             MenuItem.FindReplace -> vm.onAction(EditorAction.Find(com.scorchsoft.ssmarkdown.find.FindAction.Open))
             MenuItem.VersionHistory -> vm.emit(EditorEvent.Open(AppScreen.History))
-            MenuItem.ExportPdf -> PreviewEffects.exportPdf(vm)
+            MenuItem.Export -> vm.update { it.copy(overlay = EditorOverlay.ExportChooser) }
             MenuItem.ExportImages -> vm.imageExports.openExport()
             MenuItem.Share -> vm.saves.share(richText = false)
             MenuItem.CopyAs -> vm.copies.openChooser()

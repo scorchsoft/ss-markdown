@@ -77,6 +77,8 @@ class EditorViewModel(
     val recovery = RecoveryController(this)
     val strip = StripController(this)
     val find = FindController(this)
+    val tidy = TidyController(this)
+    val exports = ExportController(this)
     val navigator = NavigatorController(this)
     val folder = FolderController(this)
     val views = ViewMemory(this)

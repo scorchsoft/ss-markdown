@@ -67,8 +67,8 @@ private fun menuGroups(
         ),
         // With Copy in here already (it opens the same chooser), Copy as… would be a twin row.
         listOfNotNull(
-            MenuItem.ExportPdf,
-            MenuItem.ExportImages,
+            // Export… holds PDF, HTML, plain text and images (Andrew, 2026-11-04: one row, less menu).
+            MenuItem.Export,
             MenuItem.Share,
             MenuItem.CopyAs.takeUnless { copyInMenu },
         ),
@@ -76,7 +76,7 @@ private fun menuGroups(
     )
 
 /**
- * ⋮: an Undo · Redo · View icon row on top (as in Chrome's menu), then New ·
+ * ⋮: an Undo · Redo · View · Tidy icon row on top (as in Chrome's menu), then New ·
  * Open file · Open folder · Save as · (Save all (N)) │ Find & replace ·
  * Insert image… · (Show pictures beside this file…) · Version history │
  * Export PDF · Export images… · Share · Copy as… │ View · Settings. The
@@ -134,6 +134,7 @@ data class MenuHistoryState(
     val onUndo: () -> Unit = {},
     val onRedo: () -> Unit = {},
     val onView: () -> Unit = {},
+    val onTidy: () -> Unit = {},
 )
 
 @Composable
@@ -142,6 +143,7 @@ private fun HistoryRow(history: MenuHistoryState) {
         HistoryButton(AppIcons.undo, stringResource(R.string.undo), history.canUndo, history.onUndo)
         HistoryButton(AppIcons.redo, stringResource(R.string.redo), history.canRedo, history.onRedo)
         ViewButton(history.onView)
+        TidyButton(history.onTidy)
     }
 }
 
@@ -270,7 +272,7 @@ private fun labelOf(item: MenuItem): Int =
         MenuItem.SaveAll -> R.string.folder_save_all
         MenuItem.FindReplace -> R.string.menu_find_replace
         MenuItem.VersionHistory -> R.string.menu_version_history
-        MenuItem.ExportPdf -> R.string.menu_export_pdf
+        MenuItem.Export -> R.string.menu_export
         MenuItem.ExportImages -> R.string.menu_export_images
         MenuItem.Share -> R.string.menu_share
         MenuItem.CopyAs -> R.string.menu_copy_as

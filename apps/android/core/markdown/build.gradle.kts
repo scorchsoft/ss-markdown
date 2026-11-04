@@ -17,5 +17,8 @@ tasks.test {
     systemProperty("ssmarkdown.heavyTests", providers.gradleProperty("ssmarkdown.heavyTests").getOrElse("false"))
     // `-Pssmarkdown.updateVectors=true` rewrites Preview's copy of the block-editing matrix.
     systemProperty("ssmarkdown.updateVectors", providers.gradleProperty("ssmarkdown.updateVectors").getOrElse("false"))
+    // `-Pssmarkdown.tidyFuzz=<path>` writes a large Tidy fuzz run for Preview's tidyRender test (TIDY_VECTORS=<path>).
+    systemProperty("ssmarkdown.tidyFuzz", providers.gradleProperty("ssmarkdown.tidyFuzz").getOrElse(""))
+    systemProperty("ssmarkdown.tidyFuzzSeed", providers.gradleProperty("ssmarkdown.tidyFuzzSeed").getOrElse(""))
     maxHeapSize = "2g"
 }

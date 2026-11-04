@@ -21,10 +21,11 @@ sealed interface EditorEvent {
     /** ⋮ → Open folder. */
     data object PickFolder : EditorEvent
 
-    /** Export section… : pick a location, then write [text]. */
+    /** Export section… and Export as HTML or plain text: pick a location, then write [text] as [mimeType]. */
     data class PickExportLocation(
         val suggestedName: String,
         val text: String,
+        val mimeType: String = MARKDOWN_MIME,
     ) : EditorEvent
 
     /** Copy [text] as plain Markdown. */

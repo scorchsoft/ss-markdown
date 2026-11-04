@@ -125,6 +125,10 @@ private fun EditingOverlays(
             DeleteTableDialog(onAction)
         }
 
+        is EditorOverlay.TidyPrompt -> {
+            TidyDialog(overlay.counts, onAction)
+        }
+
         else -> {
             Unit
         }
@@ -276,6 +280,7 @@ private fun messageText(message: UserMessage): String =
         MessageKind.SectionCopied -> stringResource(R.string.msg_section_copied)
         MessageKind.SectionCopiedFormatted -> stringResource(R.string.msg_section_copied_formatted)
         MessageKind.ReplacedAll -> stringResource(R.string.msg_replaced_all, message.argument)
+        MessageKind.Tidied -> stringResource(R.string.msg_tidied)
         MessageKind.Restored -> stringResource(R.string.msg_restored)
         MessageKind.Renamed -> stringResource(R.string.msg_renamed)
         MessageKind.SaveBeforeRename -> stringResource(R.string.msg_save_before_rename)
@@ -294,6 +299,7 @@ private fun messageText(message: UserMessage): String =
         MessageKind.ImageSaved -> stringResource(R.string.msg_image_saved, message.argument)
         MessageKind.ImageCopied -> stringResource(R.string.msg_image_copied)
         MessageKind.NothingToExport -> stringResource(R.string.msg_nothing_to_export)
+        MessageKind.ExportFailed -> stringResource(R.string.msg_export_failed)
         MessageKind.PdfFailed -> stringResource(R.string.msg_pdf_failed)
         MessageKind.ExportStopped -> stringResource(R.string.msg_export_stopped)
         MessageKind.PictureFolderGranted -> stringResource(R.string.msg_picture_folder_granted, message.argument)

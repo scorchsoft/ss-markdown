@@ -47,6 +47,11 @@
     <string name="settings_tap_to_edit">Tap to edit in Preview</string>
     <string name="settings_tap_to_edit_hint">Off: Preview is read-only; links still ask before opening</string>
     <string name="settings_scroll_together">Scroll panes together</string>
+    <string name="settings_tidy">Tidy</string>
+    <string name="settings_tidy_count_up">Number lists 1, 2, 3</string>
+    <string name="settings_tidy_count_up_hint">Tidy renumbers a list written 1, 1, 1 as 1, 2, 3. Off leaves those as written; lists out of order are still put in order.</string>
+    <string name="settings_tidy_blank_lines">Remove extra blank lines</string>
+    <string name="settings_tidy_blank_lines_hint">Several blank lines in a row become one. Off keeps your spacing.</string>
     <string name="settings_sharing">Sharing</string>
     <string name="settings_direct_share">Show recent files in the share sheet</string>
     <string name="settings_direct_share_hint">Their names appear in Android\'s share sheet and when you long-press the app icon</string>

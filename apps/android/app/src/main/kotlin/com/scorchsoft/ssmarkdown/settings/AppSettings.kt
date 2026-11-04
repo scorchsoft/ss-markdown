@@ -51,6 +51,10 @@ data class AppSettings(
     val saveMode: SaveMode = SaveMode.WhenITapSave,
     val tapToEditPreview: Boolean = true,
     val scrollPanesTogether: Boolean = true,
+    /** Tidy: `1. 1. 1.` lists count up too (Settings → Tidy). */
+    val tidyCountUpLists: Boolean = true,
+    /** Tidy: a run of blank lines becomes one; off keeps the spacing Preview draws. */
+    val tidyCollapseBlankLines: Boolean = true,
     val appearance: Appearance = Appearance.System,
     val history: HistoryPolicy = HistoryPolicy(),
     val autosaveOverrides: Map<String, Boolean> = emptyMap(),

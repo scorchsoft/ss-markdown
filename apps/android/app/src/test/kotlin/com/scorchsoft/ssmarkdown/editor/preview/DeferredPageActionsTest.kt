@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.editor.preview
 
 import com.scorchsoft.ssmarkdown.editor.EditorAction
+import com.scorchsoft.ssmarkdown.editor.ExportFormat
 import com.scorchsoft.ssmarkdown.editor.MenuItem
 import com.scorchsoft.ssmarkdown.editor.MessageKind
 import com.scorchsoft.ssmarkdown.editor.ViewMode
@@ -57,7 +58,10 @@ class DeferredPageActionsTest {
     private fun open(name: String) =
         f.vm.openDocument(f.file(name, "# $name\n\n```mermaid\ngraph LR\n  A --> B\n```\n"))
 
-    private fun exportPdf() = f.vm.onAction(EditorAction.ChooseMenuItem(MenuItem.ExportPdf))
+    private fun exportPdf() {
+        f.vm.onAction(EditorAction.ChooseMenuItem(MenuItem.Export))
+        f.vm.onAction(EditorAction.ExportAs(ExportFormat.Pdf))
+    }
 
     private fun message() =
         f.vm.uiState.value.message

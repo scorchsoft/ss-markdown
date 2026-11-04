@@ -30,7 +30,7 @@ class MalformedMarkdownTest {
         n: Int,
     ): String = s.repeat(n)
 
-    private val cases: List<Pair<String, String>> =
+    internal val cases: List<Pair<String, String>> =
         listOf(
             "unclosed emphasis" to "**bold _it ~~strike `code",
             "ten thousand stars" to repeat("*", 10_000),

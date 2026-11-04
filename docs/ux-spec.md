@@ -53,7 +53,7 @@ mockups agreed with Andrew win, and this file gets updated.
   - Every successful save confirms with a short "Saved to <place>"
     message.
 - **⋮** opens: New · Open file · Open folder · Save as │ Find & replace ·
-  Insert image… · Version history │ Export PDF · Export images… · Share · Copy as… │
+  Insert image… · Version history │ Export… · Share · Copy as… │
   View · Settings. **View** (hint "Wrap · A4 page · theme · size") opens
   the View sheet; it was "Display", where Andrew could not find wrapping
   or the A4 page. **Copy as…** opens the same Copy chooser (anchored to
@@ -64,16 +64,27 @@ mockups agreed with Andrew win, and this file gets updated.
   preview has pictures it cannot show without the document's folder,
   **Show pictures beside this file…** follows Insert image… (see
   "Pictures").
-- The menu's **top row is Undo · Redo · View**, three 48 dp icons side by
+- The menu's **top row is Undo · Redo · View · Tidy**, four 48 dp icons side by
   side (as in Chrome's menu). Undo and Redo are dimmed and read as
   unavailable when there is nothing to undo or redo; a tap applies it and
   keeps the menu open, so it can be tapped again. They work in Code, Split
   and Preview. **View** is an "Aa" glyph (TalkBack: "View options"); a tap
-  closes the menu and opens the View sheet.
+  closes the menu and opens the View sheet. **Tidy** is a broom (TalkBack:
+  "Tidy Markdown"); a tap closes the menu and asks "Tidy this file?": what
+  Tidy does (extra blank lines and line-end spaces removed, a blank line
+  around headings and code blocks, numbered lists in order, one final line
+  break; two-space line breaks kept), what it never touches (code, tables,
+  HTML, front matter, and broken Markdown such as `#heading` or `**bold`),
+  and a list of what it would fix in this file, then **Tidy** or **Cancel**.
+  A tidy file says so, with only OK. Tidy records a "Before tidy" version
+  in History and applies as one undo step. The rules
+  (core/markdown `tidy/`) never change how the document renders; each is
+  proved by rendering every test case before and after in Preview's own
+  renderer. A read-only file is never tidied.
 - Opening ⋮ commits the keyboard's word and **hides the keyboard**, so
   the menu has the room; closing it does not bring the keyboard back
   (tapping the text does). The menu never runs off the screen: below
-  the pinned Undo · Redo · View row its rows scroll, with a fade at the edge
+  the pinned Undo · Redo · View · Tidy row its rows scroll, with a fade at the edge
   that has more (checked at 360 × 640 dp, on its side and at 2× font).
 
 **Bottom bar (64 dp)**
@@ -936,7 +947,8 @@ nothing. The sheet fits a 412 × 915 dp phone at 1× font without
 scrolling; it scrolls only at large fonts.
 
 **A4 page mode.** On phones the A4 page renders at fit-width. Pinch in
-A4 zooms the page (it doesn't reflow), and the zoom chip resets to
+A4 zooms the whole page in proportion (it doesn't reflow; the spot under the
+fingers stays still; `e2e/pageZoom.test.ts`), and the zoom chip resets to
 fit-width. On tablets, at 100% page width, body text is at least the
 theme's base size at 100%.
 
@@ -1211,7 +1223,7 @@ Long-press a rendered diagram to get a sheet with:
 - Share
 - Show source in Code
 
-## Export images (⋮ → Export images…)
+## Export images (⋮ → Export… → Images…)
 
 This exports every rendered image in the file in one go: Mermaid
 diagrams, maths blocks if you want them, and embedded pictures.
@@ -1226,9 +1238,33 @@ diagrams, maths blocks if you want them, and embedded pictures.
 - In folder mode, the folder's ⋮ offers the same export for every file
   in the folder.
 
+## Export… (PDF, HTML, plain text, images)
+
+⋮ → **Export…** opens a small chooser (Andrew, 2026-11-04), each row with
+a line saying what it makes:
+
+- **PDF** — "Print, or save as a PDF": as below.
+- **HTML** — "One web page, pictures included": the whole document as the
+  formatted copy renders it (styles inline, pictures embedded), wrapped as
+  a page with its title, saved through the system's Save picker as
+  `name.html`.
+- **Plain text** — "No Markdown symbols, as for an email": the formatted
+  copy's text, saved as `name.txt`. Bold, italics and code marks go; the
+  two top heading levels are underlined with `=` and `-`, smaller headings
+  are lines of their own; lists keep `•` or `1.`, tasks ☐ and ☑; quotes
+  are indented; tables are tab-separated; links add their address in
+  brackets and pictures their alt text. Copy formatted text's plain-text
+  twin is the same text.
+- **Images…** — "Diagrams, maths and pictures: ZIP or files": the Export
+  images sheet (below). It was its own ⋮ row until 2026-11-04.
+
+HTML and plain text, like PDF, come from the drawn page: from Code the
+Preview shows while it is read, then Code comes back. If no page answers,
+"Couldn't prepare the export. Open Preview, then try Export again."
+
 ## PDF
 
-⋮ → Export PDF renders through the A4 print stylesheet and opens the
+⋮ → Export… → PDF renders through the A4 print stylesheet and opens the
 system print dialog, so "Save as PDF" and real printers both work.
 
 - It works from every view. Split and Preview print at once; Code
@@ -1240,7 +1276,7 @@ system print dialog, so "Save as PDF" and real printers both work.
   for a different file.
 - If the Preview cannot appear within 3 s, or does not finish rendering
   within a minute, the message says so and how to try again: "Couldn't
-  prepare the PDF. Open Preview, then ⋮ → Export PDF again." It is never
+  prepare the PDF. Open Preview, then ⋮ → Export… → PDF again." It is never
   silent.
 - Export images and the Mermaid sheet's Save / Share / Copy follow the same
   rules: they wait for the Preview to be drawn, and another file opening
@@ -1370,6 +1406,11 @@ code-font setting.
 - Saving: write to the file "When I tap Save" (default) or "Autosave"
   (see `robustness.md` §3a), version history (on, storage cap, clear).
 - Split view: scroll panes together.
+- Tidy (2026-11-04): **Number lists 1, 2, 3** (on: a list written
+  `1. 1. 1.` is renumbered; off: such lists stay as written, and lists out
+  of order are still put in order) and **Remove extra blank lines** (on: a
+  run becomes one; off: the spacing is kept, only whitespace on blank lines
+  goes). The Tidy prompt points here.
 - Preview: "Tap to edit" (on by default; off = Preview is read-only;
   tapping a link still shows the *Open · Copy link* chip).
 - Sharing: "Show recent files in the share sheet" (on by default). Your

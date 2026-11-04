@@ -6,6 +6,7 @@ import com.scorchsoft.ssmarkdown.files.provider.ProviderResult
 import com.scorchsoft.ssmarkdown.find.FindUiState
 import com.scorchsoft.ssmarkdown.folder.FolderUiState
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
+import com.scorchsoft.ssmarkdown.markdown.tidy.TidyRule
 import com.scorchsoft.ssmarkdown.media.ExportImagesState
 import com.scorchsoft.ssmarkdown.navigator.NavigatorUiState
 import com.scorchsoft.ssmarkdown.preview.RendererState
@@ -349,6 +350,17 @@ sealed interface EditorOverlay {
         val pngScale: Int = 2,
     ) : EditorOverlay
 
+    /** ⋮ → Export…: PDF, HTML or plain text (Andrew, 2026-11-04). */
+    data object ExportChooser : EditorOverlay
+
+    /**
+     * "Tidy this file?": how Tidy works, what it would change here ([counts], empty when the file
+     * is already tidy), then Tidy or Cancel (Andrew, 2026-11-04).
+     */
+    data class TidyPrompt(
+        val counts: Map<TidyRule, Int>,
+    ) : EditorOverlay
+
     /** "Delete this table?": both table menus ask before the whole table goes (Andrew, 2026-11-04). */
     data object ConfirmDeleteTable : EditorOverlay
 
@@ -460,6 +472,7 @@ enum class MessageKind {
     SectionCopied,
     SectionCopiedFormatted,
     ReplacedAll,
+    Tidied,
     Restored,
     Renamed,
     SaveBeforeRename,
@@ -479,6 +492,7 @@ enum class MessageKind {
     ImageCopied,
     NothingToExport,
     PdfFailed,
+    ExportFailed,
     ExportStopped,
     PictureFolderGranted,
     PictureFolderUnrelated,

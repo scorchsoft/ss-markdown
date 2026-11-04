@@ -44,6 +44,11 @@ sealed interface SettingsAction {
 
     data object ToggleScrollTogether : SettingsAction
 
+    /** Settings → Tidy: one of its two switches. */
+    data class ToggleTidy(
+        val choice: TidyChoice,
+    ) : SettingsAction
+
     /** Sharing → "Show recent files in the share sheet". */
     data object ToggleDirectShare : SettingsAction
 
@@ -106,6 +111,10 @@ object SettingsReducer {
                 settings.copy(scrollPanesTogether = !settings.scrollPanesTogether)
             }
 
+            is SettingsAction.ToggleTidy -> {
+                action.choice.toggle(settings)
+            }
+
             SettingsAction.ToggleDirectShare -> {
                 settings.copy(share = settings.share.copy(directShare = !settings.share.directShare))
             }
@@ -119,4 +128,21 @@ object SettingsReducer {
         percent: Int,
         steps: Int,
     ) = (percent + steps * EditorReducer.ZOOM_STEP).coerceIn(EditorReducer.MIN_ZOOM, EditorReducer.MAX_ZOOM)
+}
+
+/** Settings → Tidy's switches. */
+enum class TidyChoice {
+    /** `1. 1. 1.` lists count up. */
+    CountUpLists,
+
+    /** A run of blank lines becomes one. */
+    CollapseBlankLines,
+    ;
+
+    /** [settings] with this switch flipped. */
+    fun toggle(settings: AppSettings): AppSettings =
+        when (this) {
+            CountUpLists -> settings.copy(tidyCountUpLists = !settings.tidyCountUpLists)
+            CollapseBlankLines -> settings.copy(tidyCollapseBlankLines = !settings.tidyCollapseBlankLines)
+        }
 }

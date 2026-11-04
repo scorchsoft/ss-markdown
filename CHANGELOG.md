@@ -7,6 +7,32 @@ release may change behaviour.
 
 ## [Unreleased]
 
+### Added
+
+- Tidy, in ⋮'s top row: evens out how the Markdown is written (extra blank
+  lines, spaces at line ends, blank lines around headings and code blocks,
+  list numbers, the final line break) without changing what the document
+  says or how it looks. It explains itself and asks first; one Undo puts it
+  back and Version history keeps the file as it was. Settings → Tidy
+  chooses whether `1. 1. 1.` lists are renumbered and extra blank lines
+  removed.
+- ⋮ → Export… exports as PDF, HTML (one web page, pictures included) or
+  plain text (no Markdown symbols, as it would read in an email).
+
+### Changed
+
+- Plain text from Copy formatted text underlines the top two heading
+  levels, as an email would set them out.
+
+### Fixed
+
+- Preview: Bold, italics and the other strip edits no longer flash the
+  paragraph away and back.
+- A4 page mode: pinch zooms the whole page in proportion, keeping the
+  spot under your fingers.
+- Preview draws a file's extra blank lines as empty lines instead of one
+  gap, and a tap on one starts typing there.
+
 ## [0.2.10] - 2026-11-04
 
 ### Fixed

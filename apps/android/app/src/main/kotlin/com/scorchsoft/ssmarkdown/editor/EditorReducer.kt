@@ -40,6 +40,7 @@ object EditorReducer {
             }
 
             EditorAction.DismissOverlay,
+            EditorAction.TidyConfirmed,
             EditorAction.KeepEditing,
             EditorAction.ConfirmNotKept,
             is EditorAction.LinkDone,
@@ -47,6 +48,14 @@ object EditorReducer {
             EditorAction.CopyPictureIn,
             -> {
                 state.copy(overlay = null)
+            }
+
+            is EditorAction.ExportAs -> {
+                state.copy(overlay = null)
+            }
+
+            EditorAction.TidyTapped -> {
+                if (state.overlay == EditorOverlay.Menu) state.copy(overlay = null) else state
             }
 
             EditorAction.AskUseMine -> {

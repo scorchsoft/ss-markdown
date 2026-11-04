@@ -251,9 +251,15 @@ sealed interface PendingLeave {
     /** Back from the editor: the app closes. */
     data object Exit : PendingLeave
 
-    /** Opening a file outside the open folder. */
+    /**
+     * Opening another file: Open file…, the Navigator, or a file sent from
+     * another app ([fromAnotherApp], with its [readOnlySource] when the
+     * sender gave no write access).
+     */
     data class OpenOther(
         val uri: String,
+        val fromAnotherApp: Boolean = false,
+        val readOnlySource: String? = null,
     ) : PendingLeave
 
     /** ⋮ → New. */
@@ -336,6 +342,9 @@ sealed interface EditorOverlay {
         val title: String,
         val pngScale: Int = 2,
     ) : EditorOverlay
+
+    /** "Delete this table?": both table menus ask before the whole table goes (Andrew, 2026-11-04). */
+    data object ConfirmDeleteTable : EditorOverlay
 
     /** The table toolbar's ⋯: insert, move, align and delete. */
     data class TableMenu(

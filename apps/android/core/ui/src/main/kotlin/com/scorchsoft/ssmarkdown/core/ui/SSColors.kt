@@ -60,6 +60,16 @@ data class SSColors(
     /** The track behind a segmented control, and its selected segment. */
     val segmentTrack: Color,
     val segmentSelected: Color,
+    /**
+     * Compare's git-style rows: a line only in mine is [diffAdded] on
+     * [diffAddedBg] with a `+`, a line only in the file [diffRemoved] on
+     * [diffRemovedBg] with a `−`. The sign and the strike-through carry the
+     * meaning too, never the colour alone.
+     */
+    val diffAdded: Color,
+    val diffAddedBg: Color,
+    val diffRemoved: Color,
+    val diffRemovedBg: Color,
 )
 
 val SSLightColors =
@@ -82,6 +92,10 @@ val SSLightColors =
         cautionBg = Color(0xFFFFF4DA),
         segmentTrack = Color(0xFFECEBE8),
         segmentSelected = Color(0xFFFFFFFF),
+        diffAdded = Color(0xFF116329),
+        diffAddedBg = Color(0xFFE6F4EA),
+        diffRemoved = Color(0xFFA0111F),
+        diffRemovedBg = Color(0xFFFDECEC),
     )
 
 // Dark values come from the signed-off design canvas. The spec's gutter
@@ -110,6 +124,10 @@ val SSDarkColors =
         cautionBg = Color(0xFF2B2312),
         segmentTrack = Color(0xFF26262A),
         segmentSelected = Color(0xFF3B3B41),
+        diffAdded = Color(0xFF56D364),
+        diffAddedBg = Color(0xFF13261A),
+        diffRemoved = Color(0xFFFF8A82),
+        diffRemovedBg = Color(0xFF2E1517),
     )
 
 val LocalSSColors = staticCompositionLocalOf { SSLightColors }

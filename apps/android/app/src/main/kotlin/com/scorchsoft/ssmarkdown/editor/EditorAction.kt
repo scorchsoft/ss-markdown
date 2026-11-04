@@ -259,10 +259,13 @@ sealed interface EditorAction {
         val action: ExportImagesAction,
     ) : PreviewAction
 
-    /** A table ⋯ sheet row. */
+    /** A table ⋯ sheet row, or the strip's table menu. Delete table asks first ([DeleteTableConfirmed]). */
     data class Table(
         val op: TableOp,
     ) : PreviewAction
+
+    /** "Delete table" in the "Delete this table?" dialog. */
+    data object DeleteTableConfirmed : PreviewAction
 
     /** "Preview paused · Retry". */
     data object RetryPreview : PreviewAction

@@ -48,6 +48,7 @@
     <string name="table_align_center">Centre column</string>
     <string name="table_align_right">Align column right</string>
     <string name="table_delete_row">Delete row</string>
+    <string name="table_delete_table">Delete table</string>
     <string name="table_delete_column">Delete column</string>
 
     <!-- Viewer -->

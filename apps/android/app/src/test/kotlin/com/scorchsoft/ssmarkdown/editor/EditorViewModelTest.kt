@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.editor
 
+import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.find.FindAction
 import com.scorchsoft.ssmarkdown.fixtures.EditorFixture
 import com.scorchsoft.ssmarkdown.history.versions.DocumentKey
@@ -52,6 +53,74 @@ class EditorViewModelTest {
         text: String,
     ) {
         vm.openDocument(file(name, text))
+    }
+
+    /** Andrew, 2026-11-04: an edited file, then Open file…: no "Save changes?" appeared. */
+    @Test
+    fun `Open from a file with unsaved edits asks first, even after the picker paused the app`() {
+        val f = fixture()
+        f.openFile("mine.md", "base\n")
+        f.type(0, "edit ")
+        assertTrue(f.vm.uiState.value.isDirty)
+        val other = f.file("other.md", "other\n")
+
+        f.vm.onPause() // the system picker covers the app
+        f.vm.saves.requestLeave(PendingLeave.OpenOther(other))
+
+        assertEquals(EditorOverlay.DirtyPrompt(PendingLeave.OpenOther(other)), f.vm.uiState.value.overlay)
+    }
+
+    /** Andrew, 2026-11-04: a file sent from another app opened over unsaved edits without asking. */
+    @Test
+    fun `a file from another app asks first over unsaved edits, then opens as sent`() {
+        val f = fixture()
+        f.openFile("mine.md", "base\n")
+        f.type(0, "edit ")
+        val other = f.file("other.md", "other\n")
+
+        f.vm.start(LaunchRequest(other, writable = true, source = null))
+
+        val leave = PendingLeave.OpenOther(other, fromAnotherApp = true)
+        assertEquals(EditorOverlay.DirtyPrompt(leave), f.vm.uiState.value.overlay)
+        assertEquals("still showing the edited file", "edit base\n", f.text())
+        f.vm.onAction(EditorAction.LeaveDiscard)
+        assertEquals("other\n", f.text())
+        assertEquals(
+            DocumentUri(other),
+            f.vm.active
+                ?.open
+                ?.uri,
+        )
+    }
+
+    @Test
+    fun `a file from another app opens at once over a saved file or a blank draft`() {
+        val f = fixture()
+        f.vm.start()
+        val first = f.file("first.md", "first\n")
+        f.vm.start(LaunchRequest(first, writable = true, source = null))
+        assertNull("over a blank draft", f.vm.uiState.value.overlay)
+        assertEquals("first\n", f.text())
+
+        val second = f.file("second.md", "second\n")
+        f.vm.start(LaunchRequest(second, writable = true, source = null))
+        assertNull("over a saved file", f.vm.uiState.value.overlay)
+        assertEquals("second\n", f.text())
+    }
+
+    @Test
+    fun `a file from another app over a draft with text shows the draft sheet`() {
+        val f = fixture()
+        f.vm.start()
+        f.type(0, "# Idea\n")
+        val other = f.file("other.md", "other\n")
+
+        f.vm.start(LaunchRequest(other, writable = true, source = null))
+
+        val leave = PendingLeave.OpenOther(other, fromAnotherApp = true)
+        assertEquals(EditorOverlay.DirtyPrompt(leave, draft = true), f.vm.uiState.value.overlay)
+        f.vm.onAction(EditorAction.LeaveKeepDraft)
+        assertEquals("other\n", f.text())
     }
 
     @Test

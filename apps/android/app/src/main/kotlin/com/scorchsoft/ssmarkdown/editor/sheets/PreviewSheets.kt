@@ -105,5 +105,7 @@ fun TableMenuSheet(onAction: (EditorAction) -> Unit) {
         )
         SheetButton(stringResource(R.string.table_delete_row), Emphasis.Quiet, { op(TableOp.DeleteRow) })
         SheetButton(stringResource(R.string.table_delete_column), Emphasis.Quiet, { op(TableOp.DeleteColumn) })
+        // Asks first: EditorOverlay.ConfirmDeleteTable.
+        SheetButton(stringResource(R.string.table_delete_table), Emphasis.Quiet, { op(TableOp.DeleteTable) })
     }
 }

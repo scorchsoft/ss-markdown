@@ -34,6 +34,11 @@ class SSColorsContrastTest {
                     // UX2-6: the error callout's title and glyph, and its body.
                     "needs-you text on its tint" to (c.needsYouText to c.needsYouBg),
                     "ink on the error tint" to (c.ink to c.needsYouBg),
+                    // Compare's git-style rows: the line, its sign, and its numbers (muted) on each tint.
+                    "added on its tint" to (c.diffAdded to c.diffAddedBg),
+                    "removed on its tint" to (c.diffRemoved to c.diffRemovedBg),
+                    "muted on the added tint" to (c.inkMuted to c.diffAddedBg),
+                    "muted on the removed tint" to (c.inkMuted to c.diffRemovedBg),
                 )
             textPairs.forEach { (name, pair) -> assertContrast("$theme $name", pair.first, pair.second, AA_TEXT) }
         }

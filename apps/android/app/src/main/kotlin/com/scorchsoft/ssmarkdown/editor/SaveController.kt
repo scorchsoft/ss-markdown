@@ -289,7 +289,7 @@ class SaveController(
                 }
 
                 is PendingLeave.OpenOther -> {
-                    host.openDocument(leave.uri)
+                    host.openDocument(leave.uri, leave.fromAnotherApp, leave.readOnlySource)
                 }
 
                 PendingLeave.NewDocument -> {

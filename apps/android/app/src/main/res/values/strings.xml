@@ -165,6 +165,8 @@
     <string name="leave_discard">Don\'t save</string>
     <string name="leave_keep">Keep editing</string>
     <string name="leave_note">“Don\'t save” keeps a copy in History, so it can be undone.</string>
+    <string name="table_delete_confirm_title">Delete this table?</string>
+    <string name="table_delete_confirm_body">The whole table goes, every row and its text. Undo brings it back.</string>
     <string name="leave_draft_title">This draft isn\'t saved to a file yet</string>
     <string name="leave_draft_save_as">Save as…</string>
     <string name="leave_draft_keep">Keep as draft</string>
@@ -214,11 +216,12 @@
     <string name="compare_changes">Changes</string>
     <string name="compare_theirs">File\'s version</string>
     <string name="compare_mine">My version</string>
-    <string name="compare_note">Strike-through grey is text only in the file; blue is text only in yours.</string>
+    <string name="compare_note">− (red, struck through) is text only in the file; + (green) is text only in yours.</string>
     <string name="compare_keep_theirs">Keep the file\'s version</string>
     <string name="compare_merge">Merge my edits</string>
     <string name="compare_mine_tag">mine</string>
     <string name="compare_file_tag">file</string>
+    <string name="compare_no_tag" translatable="false"></string>
 
     <!-- Find -->
     <string name="find_hint">Find</string>

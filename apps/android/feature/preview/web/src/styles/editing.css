@@ -69,3 +69,11 @@ th.editing {
         animation: none;
     }
 }
+
+/* A list shown split around the line being typed (runs.ts splitListAt): until
+   that line has text the source is a loose list, whose items carry paragraph
+   margins; drawn tight, as it will render once typed. */
+.split-list > li > p {
+    margin-top: 0;
+    margin-bottom: 0;
+}

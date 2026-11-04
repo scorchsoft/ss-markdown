@@ -121,6 +121,10 @@ private fun EditingOverlays(
             CopyPictureDialog(onAction)
         }
 
+        EditorOverlay.ConfirmDeleteTable -> {
+            DeleteTableDialog(onAction)
+        }
+
         else -> {
             Unit
         }
@@ -142,6 +146,39 @@ private fun CopyPictureDialog(onAction: (EditorAction) -> Unit) {
         confirmButton = {
             TextButton(onClick = { onAction(EditorAction.CopyPictureIn) }) {
                 Text(stringResource(R.string.copy_picture_confirm), style = SS.type.label, color = SS.colors.ink)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { onAction(EditorAction.DismissOverlay) }) {
+                Text(stringResource(R.string.cancel), style = SS.type.label, color = SS.colors.ink)
+            }
+        },
+    )
+}
+
+/** "Delete this table?" before either table menu removes the whole table; Undo still brings it back. */
+@Composable
+private fun DeleteTableDialog(onAction: (EditorAction) -> Unit) {
+    AlertDialog(
+        onDismissRequest = { onAction(EditorAction.DismissOverlay) },
+        containerColor = SS.colors.chrome,
+        title = {
+            Text(
+                stringResource(R.string.table_delete_confirm_title),
+                style = SS.type.title,
+                color = SS.colors.ink,
+            )
+        },
+        text = {
+            Text(
+                stringResource(R.string.table_delete_confirm_body),
+                style = SS.type.body,
+                color = SS.colors.ink,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onAction(EditorAction.DeleteTableConfirmed) }) {
+                Text(stringResource(R.string.table_delete_table), style = SS.type.label, color = SS.colors.needsYouText)
             }
         },
         dismissButton = {

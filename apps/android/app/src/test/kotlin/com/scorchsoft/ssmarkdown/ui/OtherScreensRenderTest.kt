@@ -178,6 +178,9 @@ class OtherScreensRenderTest(
         rule.setContent { Themed(dark) { CompareScreen(state, {}) } }
         rule.onNodeWithText("1 difference").assertIsDisplayed()
         rule.onNodeWithText("Merge my edits").assertIsDisplayed()
+        // Git-style marks (Andrew, 2026-11-04): − before the file's line, + before mine.
+        rule.onNodeWithText("−", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithText("+", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test

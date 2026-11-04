@@ -9,6 +9,7 @@ import com.scorchsoft.ssmarkdown.editor.MessageKind
 import com.scorchsoft.ssmarkdown.editor.ViewMode
 import com.scorchsoft.ssmarkdown.preview.PrintOutcome
 import com.scorchsoft.ssmarkdown.preview.bridge.HostMessage
+import com.scorchsoft.ssmarkdown.preview.bridge.TableOp
 import kotlinx.coroutines.launch
 
 /**
@@ -48,7 +49,17 @@ internal object PreviewEffects {
             }
 
             is EditorAction.Table -> {
+                // The whole table is a lot to lose to a slip of the finger: ask first (it stays undoable).
+                if (action.op == TableOp.DeleteTable) {
+                    vm.update { it.copy(overlay = EditorOverlay.ConfirmDeleteTable) }
+                    return
+                }
                 vm.preview.send(HostMessage.Table(action.op))
+            }
+
+            EditorAction.DeleteTableConfirmed -> {
+                vm.preview.send(HostMessage.Table(TableOp.DeleteTable))
+                vm.update { it.copy(overlay = null) }
             }
 
             EditorAction.RetryPreview -> {

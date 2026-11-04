@@ -7,6 +7,23 @@ release may change behaviour.
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-11-04
+
+### Changed
+
+- A file opened from another app (Files, an email, Share → Open) asks
+  first over unsaved edits or a draft with text, as Open file… does.
+- Delete table is in the table toolbar's ⋯ menu too, and both table
+  menus ask "Delete this table?" first.
+- Compare and History mark changes the git way: + and green for lines
+  only in yours, − and red (struck through) for lines only in the file.
+
+### Fixed
+
+- Preview: Enter on an empty item in the middle of a list showed one
+  spaced-out list with the caret below it. It now shows two lists with
+  the caret between them, as it will render once you type.
+
 ## [0.2.6] - 2026-11-04
 
 ### Changed

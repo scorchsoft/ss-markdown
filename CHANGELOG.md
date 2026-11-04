@@ -7,6 +7,20 @@ release may change behaviour.
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-11-04
+
+From the 0.2.4 phone test.
+
+### Changed
+
+- Preview's No wrap now works like Code's: each line of the file stays
+  one line, never wrapped at the screen's edge, and the page scrolls
+  sideways. Before, it only unwrapped code and tables, so text looked the
+  same as Fluid.
+- New from an untitled draft with text in it asks first: Save as… (then
+  the new draft), Keep as draft, Delete draft (with Undo) or Keep
+  editing. Drafts were always kept, but nothing said so.
+
 ## [0.2.4] - 2026-11-04
 
 From Andrew's 0.2.3 phone test: editing edge cases, an empty file in

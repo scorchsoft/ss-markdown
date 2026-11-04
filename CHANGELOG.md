@@ -16,8 +16,9 @@ release may change behaviour.
   opens a line above it and keeps the heading, instead of splitting it.
 - Preview: an empty heading or list item can be seen and tapped anywhere
   along its line, and typing fills it.
-- Preview: horizontal rules can be tapped; the caret goes before or after
-  the rule, and Backspace after it removes it.
+- Preview: horizontal rules can be tapped; the caret goes to the end of
+  the block above or the start of the block below, and Backspace there
+  removes the rule.
 - Code: a double-tap selects the word reliably (it could grab the caret's
   handle instead), and a triple-tap selects the paragraph.
 

@@ -108,16 +108,17 @@ export class Editor implements SessionHost {
     /**
      * A tap on (or just beside) a horizontal rule, which holds no text (Andrew, 2026-11-04: rules could
      * not be tapped, nor a caret put before or after one). The upper half puts the caret at the end of
-     * the block above; the lower half opens a line just below the rule, blank lines kept around it so
-     * what is typed is a paragraph of its own. Backspace at the start of that line removes the rule
-     * (EditSession). False when the tap is on no rule.
+     * the block above, the lower half at the start of the block after it; neither changes the file
+     * (only a rule that ends the document gets a line added after it). Backspace at the start of the
+     * block after a rule removes the rule (EditSession). False when the tap is on no rule.
      */
     beginAtRule(x: number, y: number): boolean {
         const rule = ruleNear(x, y);
         if (!rule) return false;
         const r = rule.getBoundingClientRect();
+        const blocks = [...document.querySelectorAll<HTMLElement>(`section.sec.mounted :is(${EDITABLE_BLOCK})`)];
         if (y < (r.top + r.bottom) / 2) {
-            const above = [...document.querySelectorAll<HTMLElement>(`section.sec.mounted :is(${EDITABLE_BLOCK})`)]
+            const above = blocks
                 .filter((el) => el.getBoundingClientRect().bottom <= r.top && this.editableBlock(el) === el)
                 .pop();
             if (above) {
@@ -125,21 +126,20 @@ export class Editor implements SessionHost {
                 return true;
             }
         }
+        // Below: the start of the block after the rule, without changing the file. Enter there opens a line
+        // between (EditSession.lineAbove); Backspace removes the rule.
+        const below = blocks.find((el) => el.getBoundingClientRect().top >= r.bottom && this.editableBlock(el) === el);
+        if (below) {
+            const top = below.getBoundingClientRect().top;
+            this.begin(below, -Infinity, top - 1);
+            return true;
+        }
+        // The rule ends the document: only then does a tap add the line to type on.
         const doc = this.controller.doc;
         const line = Number(rule.dataset.line);
-        const next = doc.lines[line + 1];
-        let edit: SourceEdit;
-        let caret: number;
-        if (next === undefined) {
-            const end = doc.text.length;
-            edit = { from: end, to: end, insert: "\n" };
-            caret = end + 1;
-        } else {
-            const at = doc.lineStart(line + 1);
-            edit = { from: at, to: at, insert: next.trim() === "" ? "\n" : "\n\n" };
-            caret = at;
-        }
-        this.commitAndRerender([edit], caret);
+        if (doc.lines[line + 1] !== undefined) return false;
+        const end = doc.text.length;
+        this.commitAndRerender([{ from: end, to: end, insert: "\n" }], end + 1);
         return true;
     }
 

@@ -9,7 +9,7 @@ import type { FormatAction, PageMessage, TableOp } from "../../protocol";
 import type { RenderController } from "../controller";
 import type { SectionView } from "../sectionView";
 import { escapeTyped } from "../../core/minimalEdit";
-import { codeExit } from "../../core/newline";
+import { codeExit, itemTextStart } from "../../core/newline";
 import { EditSession, type SessionHost } from "./editSession";
 import { CaretKeeper } from "./caretKeeper";
 import { KeyboardKeeper } from "./keyboardKeeper";
@@ -24,7 +24,7 @@ import {
     type CellAddress,
 } from "./tableEditor";
 import { TableToolbar } from "./tableToolbar";
-import { blockNear, caretAt } from "./tapPoint";
+import { blockNear, caretAt, ruleNear } from "./tapPoint";
 import { copySelection } from "./clip";
 
 /** Blocks that take a caret. Anything inside a read-only block never does. */
@@ -79,7 +79,7 @@ export class Editor implements SessionHost {
         const block = target.closest<HTMLElement>(EDITABLE_BLOCK);
         if (!block || !sectionOf(block)) return null;
         const hasRun = block.matches("[data-s]") || block.querySelector("[data-s]") !== null;
-        return hasRun || block.matches("td, th") ? block : null;
+        return hasRun || block.matches("td, th") || isEmptyBlock(block) ? block : null;
     }
 
     /** The block a tap on [target] at ([x], [y]) edits, including one beside it (tapPoint.ts). */
@@ -99,9 +99,48 @@ export class Editor implements SessionHost {
         const typed = this.startSession(block, view);
         caretAt(block, x, y);
         this.ensureCellRun(block);
+        this.ensureEmptyBlockRun(block, view);
         this.updateToolbar();
         this.announce(true);
         this.afterStart(typed, null);
+    }
+
+    /**
+     * A tap on (or just beside) a horizontal rule, which holds no text (Andrew, 2026-11-04: rules could
+     * not be tapped, nor a caret put before or after one). The upper half puts the caret at the end of
+     * the block above; the lower half opens a line just below the rule, blank lines kept around it so
+     * what is typed is a paragraph of its own. Backspace at the start of that line removes the rule
+     * (EditSession). False when the tap is on no rule.
+     */
+    beginAtRule(x: number, y: number): boolean {
+        const rule = ruleNear(x, y);
+        if (!rule) return false;
+        const r = rule.getBoundingClientRect();
+        if (y < (r.top + r.bottom) / 2) {
+            const above = [...document.querySelectorAll<HTMLElement>(`section.sec.mounted :is(${EDITABLE_BLOCK})`)]
+                .filter((el) => el.getBoundingClientRect().bottom <= r.top && this.editableBlock(el) === el)
+                .pop();
+            if (above) {
+                this.begin(above, x, above.getBoundingClientRect().bottom + 1);
+                return true;
+            }
+        }
+        const doc = this.controller.doc;
+        const line = Number(rule.dataset.line);
+        const next = doc.lines[line + 1];
+        let edit: SourceEdit;
+        let caret: number;
+        if (next === undefined) {
+            const end = doc.text.length;
+            edit = { from: end, to: end, insert: "\n" };
+            caret = end + 1;
+        } else {
+            const at = doc.lineStart(line + 1);
+            edit = { from: at, to: at, insert: next.trim() === "" ? "\n" : "\n\n" };
+            caret = at;
+        }
+        this.commitAndRerender([edit], caret);
+        return true;
     }
 
     /**
@@ -499,6 +538,27 @@ export class Editor implements SessionHost {
         return this.controller.views.find((v) => v.el === section) ?? null;
     }
 
+    /**
+     * An empty heading or list item (`## `, `- `) renders with no text and so no run (Andrew,
+     * 2026-11-04: invisible, and only its edge took a tap); give it one at its text's start in the
+     * source, with the caret in it, so typing fills it.
+     */
+    private ensureEmptyBlockRun(block: HTMLElement, view: SectionView): void {
+        if (!isEmptyBlock(block)) return;
+        const line = Number(block.dataset.line);
+        const text = this.controller.doc.lines[line];
+        if (Number.isNaN(line) || text === undefined) return;
+        const start = block.matches("li") ? itemTextStart(text) : (/^ {0,3}#{1,6}[ \t]*/.exec(text)?.[0].length ?? 0);
+        if (start < 0) return;
+        const run = emptyRun(view.el, this.controller.doc.lineStart(line) + start);
+        block.appendChild(run);
+        // The session knows the runs it started with: start it again over the new one, as for a cell.
+        this.session?.stop();
+        const typed = this.startSession(block, view);
+        setCaretInRun(run, 0);
+        this.afterStart(typed, null);
+    }
+
     /** An empty table cell has no run; give it one so typing has offsets. */
     private ensureCellRun(block: HTMLElement): void {
         if (!block.matches("td, th") || block.querySelector("[data-s]")) return;
@@ -563,6 +623,12 @@ export class Editor implements SessionHost {
     }
 }
 
+/** A heading or list item with no text at all: only a task box, or nothing. */
+function isEmptyBlock(block: Element): boolean {
+    if (!block.matches("h1, h2, h3, h4, h5, h6, li") || (block.textContent ?? "").trim() !== "") return false;
+    return [...block.children].every((el) => el.matches("input.task-list-item-checkbox"));
+}
+
 /** Whether [lines] hold nothing but whitespace; a long document is never blank, so it stops early. */
 function isBlank(lines: readonly string[]): boolean {
     return lines.length <= BLANK_SCAN_LINES && lines.every((line) => line.trim().length === 0);
@@ -571,7 +637,7 @@ function isBlank(lines: readonly string[]): boolean {
 const BLANK_SCAN_LINES = 64;
 
 /** Format actions that stand for a key press, answered by an edit and a `select`. */
-const STRUCTURAL: ReadonlySet<FormatAction> = new Set(["enter", "backspace", "type}", "type]", "type)"]);
+const STRUCTURAL: ReadonlySet<FormatAction> = new Set(["enter", "backspace", "type}", "type]", "type)", "table"]);
 
 /** Browser formatting input types and the actions they mean. */
 const INPUT_FORMATS: Readonly<Record<string, FormatAction>> = {

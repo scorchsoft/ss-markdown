@@ -187,6 +187,8 @@ export type FormatAction =
     | "task"
     | "quote"
     | "codeBlock"
+    /** The strip's Table key: Kotlin inserts a table at this selection, as in Code. */
+    | "table"
     | "heading0"
     | "heading1"
     | "heading2"

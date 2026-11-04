@@ -29,6 +29,9 @@ enum class FormatAction(
     TASK("task", EditCommand.ToggleList(ListKind.Task), block = true),
     QUOTE("quote", EditCommand.ToggleBlockquote, block = true),
     CODE_BLOCK("codeBlock", EditCommand.ToggleCodeBlock, block = true),
+
+    /** The strip's Table key: Code's own Insert table at the page's caret (Andrew, 2026-11-04: it did nothing). */
+    TABLE("table", EditCommand.InsertTable(), block = true),
     PARAGRAPH("heading0", EditCommand.SetHeading(level = 0), block = true),
     HEADING_1("heading1", EditCommand.SetHeading(level = 1), block = true),
     HEADING_2("heading2", EditCommand.SetHeading(level = 2), block = true),

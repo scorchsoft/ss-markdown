@@ -88,6 +88,15 @@ internal fun MarkdownCodeView.selectWordAt(
     session.selectWord(offsetAtView(x, y), words)
 }
 
+/** Triple-tap: the paragraph under ([x], [y]). */
+internal fun MarkdownCodeView.selectParagraphAt(
+    x: Float,
+    y: Float,
+) {
+    requestFocus()
+    session.selectParagraph(offsetAtView(x, y))
+}
+
 internal fun MarkdownCodeView.scrollByClamped(
     dx: Int,
     dy: Int,

@@ -46,6 +46,35 @@ class TapCaretTest {
         return view.session.caret
     }
 
+    /** [count] quick taps at ([x], [y]), as a finger double- or triple-taps. */
+    private fun taps(
+        count: Int,
+        x: Float,
+        y: Float,
+    ): Pair<Int, Int> {
+        clock += TAP_GAP_MS
+        repeat(count) {
+            view.dispatchTouchEvent(MotionEvent.obtain(clock, clock, MotionEvent.ACTION_DOWN, x, y, 0))
+            view.dispatchTouchEvent(MotionEvent.obtain(clock, clock + TAP_MS, MotionEvent.ACTION_UP, x, y, 0))
+            clock += QUICK_TAP_MS
+        }
+        return view.session.selectionStart to view.session.selectionEnd
+    }
+
+    /** Andrew, 2026-11-04: double-tap a word, triple-tap the paragraph. */
+    @Test
+    fun `a double-tap selects the word, a triple-tap the paragraph`() {
+        val text = "Title line\n\nFirst line of a paragraph\nand its second line\n\nAfter."
+        show(text)
+        val word = text.indexOf("paragraph")
+        val x = view.textLeft + view.charWidth * ("First line of a ".length + 2)
+        val y = rowMid(text.indexOf("First"))
+        assertEquals(word to word + "paragraph".length, taps(2, x, y))
+        val start = text.indexOf("First")
+        val end = text.indexOf("second line") + "second line".length
+        assertEquals("the whole paragraph, both lines", start to end, taps(3, x, y))
+    }
+
     private fun rowMid(offset: Int): Float = view.yForOffset(offset) + view.lineHeight / 2f
 
     private val farRight: Float get() = WIDTH - 4f
@@ -108,5 +137,8 @@ class TapCaretTest {
         const val HEIGHT = 1_920
         const val TAP_GAP_MS = 1_000L
         const val TAP_MS = 50L
+
+        /** Well inside the double-tap timeout (300 ms) and past its minimum (40 ms). */
+        const val QUICK_TAP_MS = 150L
     }
 }

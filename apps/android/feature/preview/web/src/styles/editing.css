@@ -77,3 +77,21 @@ th.editing {
     margin-top: 0;
     margin-bottom: 0;
 }
+
+/* An empty heading (`## ` with nothing after it) has a line of its own, so it
+   can be seen and tapped anywhere along it (Andrew, 2026-11-04); a faint word
+   says what it is until something is typed. */
+:is(h1, h2, h3, h4, h5, h6):empty {
+    min-height: 1.2em;
+}
+:is(h1, h2, h3, h4, h5, h6):empty::before {
+    content: "Heading";
+    color: var(--muted);
+    opacity: 0.6;
+    font-weight: 400;
+}
+@media print {
+    :is(h1, h2, h3, h4, h5, h6):empty::before {
+        content: none;
+    }
+}

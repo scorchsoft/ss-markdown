@@ -4,7 +4,9 @@ import android.view.GestureDetector
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
+import android.view.ViewConfiguration
 import android.widget.Magnifier
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -17,7 +19,8 @@ import kotlin.math.roundToInt
  *    top and bottom edges ("drag-scroll").
  * 3. **Long-press** selects the word and, while the finger stays down,
  *    dragging extends the selection; lifting shows the text toolbar.
- * 4. **Double-tap** selects the word; **tap** places the caret and shows
+ * 4. **Double-tap** selects the word, a **triple-tap** the paragraph (Andrew,
+ *    2026-11-04); **tap** places the caret and shows
  *    the insertion handle; **drag/fling** scroll. A tap that lands while a
  *    fling is moving only stops it, as in every platform list: it does not
  *    move the caret or raise a handle the reader never asked for.
@@ -32,6 +35,12 @@ internal class TouchController(
     private val edge = EDGE_DP * view.resources.displayMetrics.density
 
     private var dragging: HandleKind? = null
+
+    /** When and where the last double-tap landed, to tell a triple-tap from two double-taps. */
+    private var lastDoubleTapAt = Long.MIN_VALUE / 2
+    private var lastDoubleTapX = 0f
+    private var lastDoubleTapY = 0f
+    private val slop = ViewConfiguration.get(view.context).scaledDoubleTapSlop.toFloat()
     private var selectingByLongPress = false
     private var pinching = false
     private var tapped = false
@@ -53,7 +62,8 @@ internal class TouchController(
         val down = event.actionMasked == MotionEvent.ACTION_DOWN
         if (down) downStoppedFling = view.stopFling()
         return when {
-            down && startHandleDrag(event) -> {
+            // Right after a double-tap, the next tap is a triple-tap, not a grab of the new selection's handles.
+            down && !followsDoubleTap(event) && startHandleDrag(event) -> {
                 true
             }
 
@@ -67,6 +77,12 @@ internal class TouchController(
             }
         }
     }
+
+    /** True for a touch soon after the last double-tap and near it: the third tap of a triple-tap. */
+    private fun followsDoubleTap(event: MotionEvent): Boolean =
+        // From the double-tap's lift to this touch's press, as the platform times a double-tap.
+        event.downTime - lastDoubleTapAt <= ViewConfiguration.getDoubleTapTimeout() &&
+            abs(event.x - lastDoubleTapX) <= slop && abs(event.y - lastDoubleTapY) <= slop
 
     private fun startHandleDrag(event: MotionEvent): Boolean {
         for (kind in HandleKind.entries) {
@@ -157,6 +173,13 @@ internal class TouchController(
 
         override fun onSingleTapUp(e: MotionEvent): Boolean {
             if (downStoppedFling) return true
+            // The third tap of a triple-tap comes as a single tap (the detector pairs taps only): the paragraph.
+            if (followsDoubleTap(e)) {
+                view.selectParagraphAt(e.x, e.y)
+                lastDoubleTapAt = Long.MIN_VALUE / 2
+                view.showTextActions()
+                return true
+            }
             view.onTap(e.x, e.y)
             tapped = true
             return true
@@ -164,8 +187,16 @@ internal class TouchController(
 
         override fun onDoubleTap(e: MotionEvent): Boolean {
             view.selectWordAt(e.x, e.y)
+            lastDoubleTapX = e.x
+            lastDoubleTapY = e.y
             view.showTextActions()
             return true
+        }
+
+        /** The double-tap's lift, remembered so a third tap soon after and near it selects the paragraph. */
+        override fun onDoubleTapEvent(e: MotionEvent): Boolean {
+            if (e.actionMasked == MotionEvent.ACTION_UP) lastDoubleTapAt = e.eventTime
+            return false
         }
 
         override fun onLongPress(e: MotionEvent) {

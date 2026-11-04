@@ -77,5 +77,6 @@ object PreviewStripKeys {
             StripKey.Outdent to FormatAction.OUTDENT,
             StripKey.Task to FormatAction.TASK,
             StripKey.Quote to FormatAction.QUOTE,
+            StripKey.Table to FormatAction.TABLE,
         )
 }

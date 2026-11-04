@@ -237,7 +237,7 @@ The rules every row inherits, so they are not repeated in each one:
 |---|---|---|---|---|---|---|---|
 | EB-HEAD-01 | `## Title‸` | Enter | A plain paragraph line, never a second heading | New paragraph below the heading | [GDOCS], [NOTION], [PM] (splitBlock) | P1 | BlockEditingMatrixTest, e2e/blockEditing: `EB-HEAD-01 heading end` |
 | EB-HEAD-02 | `## Ti‸tle` | Enter | `## Ti⏎‸tle`; the second half is a paragraph | same | [PM] (splitBlock) | P2 | BlockEditingMatrixTest, e2e/blockEditing: `EB-HEAD-02 heading middle splits` |
-| EB-HEAD-03 | `## ‸Title` | Enter | An empty line above; the heading is unchanged and moves down with the caret | same | [PM], [GDOCS] | P2 | untested |
+| EB-HEAD-03 | `## ‸Title` | Enter | An empty line above; the heading is unchanged and moves down with the caret | An empty line opens above and the caret goes to it, the heading unchanged: Preview has no other way to reach that line (Andrew, 2026-11-04: under a table, Enter here split the heading). The same at the start of a paragraph's first line | [PM], [GDOCS]; Andrew | P2 | e2e/blockEditing: `enter at a heading's start under a table`, `enter at a paragraph's start under a heading` |
 | EB-HEAD-04 | `## ‸Title` | Backspace | Deletes one character of the marker (it is text) | The heading becomes a paragraph `Title` | [GDOCS], [NOTION], [PM] | P2 | untested |
 | EB-HEAD-05 | Empty paragraph | Type `# ` | It is a heading as typed | `# ` at the start of an empty paragraph makes Heading 1; Backspace straight after (or Undo) gives back the literal `# ` | [TT] (input rules), [NOTION] | P2 | untested |
 | EB-HEAD-06 | `#Title` (no space) | Render, ¶ | Not a heading; ¶ shows Paragraph | Shown as text | [CMS] §4.2 | P2 | untested |
@@ -347,7 +347,7 @@ The rules every row inherits, so they are not repeated in each one:
 | EB-BREAK-05 | Two soft-wrapped lines `one⏎two` (one paragraph) | Backspace at the start of `two` in Preview | n/a | Preview shows "one two" on one line; Backspace at "two" deletes the space between them, i.e. the source line break | brainstorm | P2 | untested |
 | EB-BREAK-06 | Empty paragraph between two paragraphs | Enter on an empty line in Preview | n/a | Several empty paragraphs are allowed while typing but collapse to one blank line in the source (Markdown cannot hold more); the caret stays where the user expects | brainstorm | P2 | untested |
 | EB-BREAK-07 | Paragraph `a‸` with paragraph `b` two lines below | Delete forward at end of `a` in Preview | n/a | Joins `b` onto `a` (removes the blank line) | [PM] (joinForward) | P2 | untested |
-| EB-BREAK-08 | Thematic break `---` | Tap or Backspace after it in Preview | n/a | Selected as a unit, deleted as one line | [PM] (selectNodeBackward) | P3 | untested |
+| EB-BREAK-08 | Thematic break `---` | Tap or Backspace after it in Preview | n/a | A tap within 20 px: upper half to the end of the block above, lower half a new line below the rule; Backspace at the start of the line after it removes the rule as one line | [PM] (selectNodeBackward); Andrew, 2026-11-04 | P2 | `e2e/rules.test.ts` |
 | EB-BREAK-09 | Paragraph ending with `\` | Edit in Preview | n/a | The backslash break is kept | [CMS] §6.7 | P3 | untested |
 | EB-BREAK-10 | Mixed CRLF file | Enter | New breaks use the file's dominant ending | same | [SSM] robustness | P1 | untested |
 
@@ -386,7 +386,7 @@ The rules every row inherits, so they are not repeated in each one:
 
 | ID | Situation | Action | Code | Preview | Source | P | Status |
 |---|---|---|---|---|---|---|---|
-| EB-SEL-01 | Any text | Double-tap a word | Selects the word (grapheme- and word-break aware; `snake_case` is one word; markup chars `**` are not part of the word) | Selects the rendered word | [AND-SEL]; brainstorm | P1 | untested |
+| EB-SEL-01 | Any text | Double-tap a word | Selects the word (grapheme- and word-break aware; `snake_case` is one word; markup chars `**` are not part of the word); a third tap soon after selects the paragraph, its run of non-blank lines | Selects the rendered word (the WebView's own) | [AND-SEL]; brainstorm; Andrew, 2026-11-04 | P1 | Code: `TapCaretTest` (double, then triple); Preview: untested (Chromium's) |
 | EB-SEL-02 | Selection | Drag a handle | Extends by character, snapping to words when dragging fast as Android's TextView does; the handle never hides under the strip | same, inside the block or across blocks | [AND-SEL] | P1 | untested |
 | EB-SEL-03 | Selection across two blocks in Preview | Type a letter | Replaces the selection; the two blocks merge into the first block's type | Same source result | [PM] (deleteSelection then join), [GDOCS] | P1 | untested |
 | EB-SEL-04 | Selection from mid-list into a following paragraph | Delete | The paragraph tail joins the list item; no orphan marker remains | same | [PM]; brainstorm | P2 | untested |

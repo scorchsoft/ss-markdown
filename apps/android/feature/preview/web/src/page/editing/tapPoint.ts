@@ -159,3 +159,16 @@ function linesOf(block: HTMLElement): Box[] {
     }
     return lines.sort((p, q) => p.top - q.top);
 }
+
+/** How far above or below a rule (a 1 px line) a tap still counts as on it, in CSS px. */
+const RULE_SLOP = 20;
+
+/** The thematic break a tap at ([x], [y]) is on or just beside, if any. */
+export function ruleNear(x: number, y: number): HTMLElement | null {
+    for (const hr of document.querySelectorAll<HTMLElement>("section.sec.mounted > hr[data-line]")) {
+        const r = hr.getBoundingClientRect();
+        const mid = (r.top + r.bottom) / 2;
+        if (Math.abs(y - mid) <= RULE_SLOP && x >= r.left - RULE_SLOP && x <= r.right + RULE_SLOP) return hr;
+    }
+    return null;
+}

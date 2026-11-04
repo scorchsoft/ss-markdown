@@ -35,6 +35,9 @@ object BlockEditingMatrix {
 
         /** `}` typed (Preview: the key pressed). */
         TypeBrace("type}"),
+
+        /** The strip's Table key: a 3 × 2 table after the caret's block, its first header selected. */
+        Table("table"),
     }
 
     /**
@@ -344,6 +347,31 @@ object BlockEditingMatrix {
                 "x\n\n```\na‸\nb\n```",
                 "x\n\na‸\n```\nb\n```",
             ),
+            // Enter at the very start of a heading or paragraph (Andrew, 2026-11-04: below a table, Enter at the
+            // heading's start split it): Preview opens a line above and keeps the block; Code is raw text.
+            enter(
+                "enter at a heading's start under a table",
+                "| a |\n|---|\n| 1 |\n\n## ‸Title",
+                "| a |\n|---|\n| 1 |\n\n## \n‸Title",
+                previewAfter = "| a |\n|---|\n| 1 |\n\n‸\n\n## Title",
+            ),
+            enter(
+                "enter at a paragraph's start under a heading",
+                "## Head\n‸Text",
+                "## Head\n\n‸Text",
+                previewAfter = "## Head\n\n‸\n\nText",
+            ),
+            // The Table key (Andrew, 2026-11-04: it did nothing in Preview). The new table's first header is selected.
+            row("table after a paragraph", Action.Table, "Intro‸\n\n## Next", "Intro\n\n${TABLE}\n\n## Next"),
+            // A blank line after it, so the text below never reads as another row.
+            row("table after a heading", Action.Table, "## Title‸\nText", "## Title\n\n${TABLE}\n\nText"),
+            row(
+                "table on a blank line",
+                Action.Table,
+                "Intro\n\n‸\n\nEnd",
+                "Intro\n\n${TABLE}\n\nEnd",
+                preview = false,
+            ),
             row("block code joins the block above", Action.BlockCode, "```\na\n```\nb‸", "```\na\nb‸\n```"),
             row("block code joins the block below", Action.BlockCode, "b‸\n```py\nc\n```", "```py\nb‸\nc\n```"),
             row(
@@ -374,6 +402,11 @@ object BlockEditingMatrix {
             ),
         )
 
+    /** The table the Table key inserts (padded, 3 columns, 2 rows), its first header selected. */
+    private const val TABLE =
+        "| «Column 1» | Column 2 | Column 3 |\n| -------- | -------- | -------- |\n" +
+            "|          |          |          |\n|          |          |          |"
+
     /** The command a row runs in Code. Backspace is special: see [BlockEditingMatrixTest]. */
     @Suppress("CyclomaticComplexMethod") // One branch per action.
     fun command(action: Action): EditCommand =
@@ -392,5 +425,6 @@ object BlockEditingMatrix {
             Action.BlockQuote -> EditCommand.SetBlockType(BlockType.Quote)
             Action.BlockCode -> EditCommand.SetBlockType(BlockType.CodeBlock)
             Action.TypeBrace -> EditCommand.Type("}")
+            Action.Table -> EditCommand.InsertTable()
         }
 }

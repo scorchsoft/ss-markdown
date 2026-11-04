@@ -7,6 +7,20 @@ release may change behaviour.
 
 ## [Unreleased]
 
+## [0.2.9] - 2026-11-04
+
+### Fixed
+
+- Preview: the strip's Table key inserts a table, as in Code.
+- Preview: Enter at the start of a heading (say, the one under a table)
+  opens a line above it and keeps the heading, instead of splitting it.
+- Preview: an empty heading or list item can be seen and tapped anywhere
+  along its line, and typing fills it.
+- Preview: horizontal rules can be tapped; the caret goes before or after
+  the rule, and Backspace after it removes it.
+- Code: a double-tap selects the word reliably (it could grab the caret's
+  handle instead), and a triple-tap selects the paragraph.
+
 ## [0.2.8] - 2026-11-04
 
 ### Added

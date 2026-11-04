@@ -358,6 +358,42 @@ class DraftWorkflowTest {
         assertTrue(f.drafts.list().any { it.uri == draft })
     }
 
+    /** Andrew, 2026-11-04: opening a file from a draft must ask too, not just New. */
+    @Test
+    fun `Open from a draft with text asks the same, and each choice then opens the file`() {
+        for (choice in listOf(EditorAction.LeaveKeepDraft, EditorAction.LeaveDiscard, EditorAction.LeaveSave)) {
+            val f = draftWith("# Plan\nsteps\n")
+            val draft = f.uri()
+            val other = f.file("other.md", "other\n")
+            val open = PendingLeave.OpenOther(other)
+
+            f.vm.saves.requestLeave(open)
+            assertEquals(EditorOverlay.DirtyPrompt(open, draft = true), f.vm.uiState.value.overlay)
+            f.vm.onAction(choice)
+            if (choice == EditorAction.LeaveSave) f.vm.saves.onSaveLocation(f.pickNewFile("plan.md"))
+
+            assertEquals("$choice opens the file", DocumentUri(other), f.uri())
+            assertEquals("other\n", f.text())
+            val draftKept = f.drafts.list().any { it.uri == draft }
+            assertEquals(
+                "$choice keeps the draft only for Keep as draft",
+                choice == EditorAction.LeaveKeepDraft,
+                draftKept,
+            )
+            if (choice == EditorAction.LeaveSave) assertEquals("# Plan\nsteps\n", f.disk("plan.md"))
+        }
+    }
+
+    @Test
+    fun `Open from an empty draft does not ask`() {
+        val f = fixture()
+        f.vm.start()
+        val other = f.file("other.md", "other\n")
+        f.vm.saves.requestLeave(PendingLeave.OpenOther(other))
+        assertNull(f.vm.uiState.value.overlay)
+        assertEquals(DocumentUri(other), f.uri())
+    }
+
     @Test
     fun `New from an empty draft or a saved file does not ask`() {
         val f = fixture()

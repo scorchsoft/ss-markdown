@@ -288,7 +288,7 @@ sealed interface EditorOverlay {
 
     /**
      * Save / Don't save / Keep editing. With [draft], the document is an
-     * untitled draft about to be left by New: Save as… / Keep as draft /
+     * untitled draft about to be left by New or Open: Save as… / Keep as draft /
      * Delete draft / Keep editing, since leaving a draft loses nothing but
      * said nothing either (Andrew, 2026-11-04).
      */

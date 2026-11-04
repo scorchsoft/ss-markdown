@@ -11,9 +11,10 @@ import com.scorchsoft.ssmarkdown.editor.EditorAction
  * keeps a copy in History, so it can be undone; with History off
  * ([historyOn] false) the note says it cannot (DS-9).
  *
- * For an untitled draft left by New ([DraftLeaveSheet]) nothing is lost
- * either way, but the user should know where it went: Save as… (then the
- * new file), Keep as draft, Delete draft (with Undo) or Keep editing.
+ * For an untitled draft left by New or Open ([DraftLeaveSheet]) nothing is
+ * lost either way, but the user should know where it went: Save as… (then
+ * on to the new or opened file), Keep as draft, Delete draft (with Undo)
+ * or Keep editing.
  */
 @Composable
 fun LeaveSheet(
@@ -30,7 +31,7 @@ fun LeaveSheet(
     }
 }
 
-/** New from an untitled draft with words in it (Andrew, 2026-11-04). */
+/** New or Open from an untitled draft with words in it (Andrew, 2026-11-04). */
 @Composable
 fun DraftLeaveSheet(onAction: (EditorAction) -> Unit) {
     SSSheet(onDismiss = { onAction(EditorAction.KeepEditing) }) {

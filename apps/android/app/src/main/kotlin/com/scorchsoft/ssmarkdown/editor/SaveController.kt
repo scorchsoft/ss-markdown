@@ -214,9 +214,10 @@ class SaveController(
     fun requestLeave(leave: PendingLeave) {
         val uri = host.active?.open?.uri
         val dirty = host.state.isDirty && uri?.isDraft == false
-        // New from a draft with words in it: the draft is kept, but say so and offer Save as… or Delete.
+        // New or Open from a draft with words in it: the draft is kept, but say so and offer Save as… or Delete.
+        val leavesDraft = leave == PendingLeave.NewDocument || leave is PendingLeave.OpenOther
         val draftWithText =
-            leave == PendingLeave.NewDocument && uri?.isDraft == true &&
+            leavesDraft && uri?.isDraft == true &&
                 host.active
                     ?.text
                     ?.snapshot()

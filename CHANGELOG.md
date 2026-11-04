@@ -7,6 +7,14 @@ release may change behaviour.
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-11-04
+
+### Changed
+
+- Opening a file (Open file… or the Navigator) from an untitled draft
+  with text in it asks the same as New: Save as…, Keep as draft, Delete
+  draft (with Undo) or Keep editing.
+
 ## [0.2.5] - 2026-11-04
 
 From the 0.2.4 phone test.

@@ -1008,9 +1008,10 @@ set in Settings.
   the conflict sheet (see "File changed outside the app"). The conflict
   sheet is the only place conflicts are resolved.
 - Leaving with unsaved changes prompts Save / Don't save / Keep editing.
-- New from an untitled draft with text in it asks "This draft isn't saved
-  to a file yet": Save as… (then the new draft), Keep as draft, Delete
-  draft (Undo straight after) or Keep editing. Nothing is lost either way;
+- New, Open file… or opening from the Navigator, from an untitled draft
+  with text in it, asks "This draft isn't saved to a file yet": Save as…
+  (then on to the new draft or the file), Keep as draft, Delete draft
+  (Undo straight after) or Keep editing. Nothing is lost either way;
   the prompt says where the draft went.
   This happens only when a buffer would leave memory (see `robustness.md`
   §6); switching files in a folder never prompts.

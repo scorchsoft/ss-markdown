@@ -7,6 +7,8 @@ release may change behaviour.
 
 ## [Unreleased]
 
+## [0.2.12] - 2026-11-04
+
 ### Changed
 
 - Preview: a long-press on a heading selects its text, like any other

@@ -284,10 +284,11 @@ layout budget assumes them:
    by itself (security review SEC-7).
 4. Tap on a **task checkbox** → toggles it (one character changes).
 5. Tap on **text** → caret and keyboard (if "Tap to edit" is on).
-6. **Long-press a heading** → the section menu directly (Copy section as
-   Markdown · Copy section as formatted text, the last-used first · Select
-   section · Export section…), with **Select
-   text instead** as its last row. That's J10 in 2 taps.
+6. **Long-press a heading** → native selection, like any text. Until
+   2026-11-04 it opened the section menu, but Andrew selects text for many
+   reasons besides copying, and the selection's own menu already offers
+   Copy Markdown and Copy formatted. The section menu is a long-press on
+   the heading in the Navigator (J10).
 7. **Long-press other text** → native selection.
 8. **Pinch** → this file's preview text size.
 9. **No double-tap gestures** on text in Preview. Double-tap is Android's
@@ -704,7 +705,8 @@ separate Recent menu.
   file and draft row has a ⋯ for Rename · Duplicate · Delete.
 - The Navigator opens **below the header**, so the title, the unsaved
   dot and Save stay visible.
-- **Long-press a heading** here or in Preview to get:
+- **Long-press a heading** here to get (in Preview, a long-press selects
+  text instead):
   - Copy section as Markdown
   - Copy section as formatted text (the two in the Copy chooser's order:
     the last-used first and filled; "Section copied as …" confirms)

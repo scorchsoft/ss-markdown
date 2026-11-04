@@ -7,8 +7,16 @@ release may change behaviour.
 
 ## [Unreleased]
 
+### Changed
+
+- Preview: a long-press on a heading selects its text, like any other
+  text, instead of opening the section sheet. The section sheet is a
+  long-press on the heading in the Navigator.
+
 ### Fixed
 
+- Preview: the scroll handle no longer goes missing after text was
+  selected and the selection cleared.
 - Preview: an unfinished `$$` maths block in a list item no longer hides
   the text after the list.
 

@@ -185,17 +185,9 @@ export class Gestures {
     private onLongPress(e: MouseEvent): void {
         const target = e.target instanceof Element ? e.target : null;
         if (!target) return;
-        const heading = target.closest<HTMLElement>("h1, h2, h3, h4, h5, h6");
-        if (heading && !target.closest(".editing")) {
-            e.preventDefault();
-            this.deps.post({
-                type: "headingLongPress",
-                line: lineOf(heading),
-                level: Number(heading.tagName.slice(1)),
-                text: heading.textContent ?? "",
-            });
-            return;
-        }
+        // A heading's long-press selects its text like any other (Andrew, 2026-11-04: "there might be many
+        // reasons that I select text"): the selection's own menu copies it as Markdown or formatted, and
+        // the section menu stays one long-press away in the Navigator. `headingLongPress` is no longer sent.
         const viewer = target.closest<HTMLElement>("[data-viewer]");
         if (viewer) {
             e.preventDefault();

@@ -194,12 +194,10 @@ describe("tap to edit", () => {
             href: "https://example.com",
             line: 2,
         });
+        // A heading's long-press is a plain text selection now: no section menu (Andrew, 2026-11-04).
         await page.locator("h1").click({ button: "right" });
-        expect(await waitForMessage(page, (m) => m.type === "headingLongPress")).toMatchObject({
-            line: 0,
-            level: 1,
-            text: "Head",
-        });
+        await page.waitForTimeout(200);
+        expect((await received(page)).some((m) => m.type === "headingLongPress")).toBe(false);
         await page.locator(".edit-in-code").click();
         expect(await waitForMessage(page, (m) => m.type === "editInCode")).toMatchObject({ line: 4 });
         await page.locator(".math-block").click();

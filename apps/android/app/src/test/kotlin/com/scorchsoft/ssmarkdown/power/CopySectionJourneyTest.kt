@@ -15,7 +15,6 @@ import com.scorchsoft.ssmarkdown.fixtures.EditorFixture
 import com.scorchsoft.ssmarkdown.fixtures.LiveEditor
 import com.scorchsoft.ssmarkdown.fixtures.TapCounter
 import com.scorchsoft.ssmarkdown.platform.PlatformActions
-import com.scorchsoft.ssmarkdown.preview.bridge.BridgeCodec
 import com.scorchsoft.ssmarkdown.ui.Themed
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -36,15 +35,10 @@ import org.robolectric.annotation.Config
  * that section's Markdown: from its heading up to the next heading of the
  * same or a higher level, code fences and all, nothing of its neighbours.
  *
- * Both long-presses are driven end to end through the real view model and
- * the real screen:
- *
- * - **Preview**: the page's `headingLongPress` message (what
- *   `gestures.ts` posts; the Playwright e2e `editing.test.ts` proves a
- *   right-click or long-press on an `h1` posts it with the source line) is
- *   decoded by the real bridge codec and delivered to the editor's
- *   Preview session, exactly as the WebView bridge delivers it.
- * - **Navigator**: tap the title, then a real long-press on the heading row.
+ * Driven end to end through the real view model and the real screen: tap
+ * the title, then a real long-press on the heading row in the Navigator.
+ * (A long-press on a heading in Preview selects its text since 2026-11-04,
+ * Andrew: the selection's own menu copies it; it opens no sheet.)
  *
  * Then a real click on "Copy section" in the sheet. The resulting event
  * goes to [PlatformActions.copy], the call the app's effects host makes
@@ -87,21 +81,6 @@ class CopySectionJourneyTest {
     }
 
     @Test
-    fun `long-press a heading in Preview, Copy section, and the clipboard holds exactly that section`() {
-        val f = editor()
-        val taps = TapCounter(rule)
-        val message =
-            BridgeCodec.decode("""{"type":"headingLongPress","line":$HEADING_LINE,"level":2,"text":"Installing"}""")
-                ?: error("the bridge dropped the page's message")
-        rule.runOnIdle { message.deliverTo(f.vm.preview) }
-        rule.waitForIdle()
-
-        assertEquals(COPIED, copySection(f, taps))
-        // Two taps, as J10 budgets them: the long-press and Copy section.
-        assertEquals(2, taps.taps + 1)
-    }
-
-    @Test
     fun `long-press a heading in the Navigator, Copy section, and the clipboard holds exactly that section`() {
         val f = editor()
         val taps = TapCounter(rule)
@@ -112,6 +91,8 @@ class CopySectionJourneyTest {
         rule.waitForIdle()
 
         assertEquals(COPIED, copySection(f, taps))
+        // Three taps, as J10 budgets them: the title, the long-press and Copy section.
+        assertEquals(3, taps.taps + 1)
     }
 
     private companion object {
@@ -133,7 +114,5 @@ class CopySectionJourneyTest {
 
         /** The section's lines, joined: the blank line before "## Using" is in it, its line break is not. */
         val COPIED = SECTION.removeSuffix("\n")
-
-        val HEADING_LINE = DOCUMENT.lines().indexOf("## Installing")
     }
 }

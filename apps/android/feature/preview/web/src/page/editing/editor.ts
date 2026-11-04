@@ -38,6 +38,8 @@ export class Editor implements SessionHost {
     private pendingEnd: number | null = null;
     private readonly toolbar: TableToolbar;
     private selectionTimer: ReturnType<typeof setTimeout> | null = null;
+    /** The last selection reported to Kotlin, so a selection that went away can be reported as gone. */
+    private reported: { from: number; to: number } | null = null;
     /** Whether the table being edited was padded when its first cell was tapped. */
     private paddedTable = false;
     /** A handoff skipped the re-pad: the session that takes over still owes it. */
@@ -628,8 +630,17 @@ export class Editor implements SessionHost {
             this.onSelectionChange();
             return;
         }
-        const range = session?.selectionRange();
-        if (!session || !range) return;
+        if (!session) return;
+        const range = session.selectionRange();
+        if (!range) {
+            // The selection left the block, or there is none (a tap on blank space clears it). Kotlin
+            // hides the fast-scroll thumb while text is selected, and nothing else would tell it the
+            // selection is gone: it stayed hidden until editing ended (Andrew, 2026-11-04: "I never had
+            // the little tab thing … when I switched to code mode … it showed again").
+            const last = this.reported;
+            if (last && last.from !== last.to) this.postSelection(session, { from: last.to, to: last.to }, []);
+            return;
+        }
         const marks = new Set<string>();
         const sel = window.getSelection();
         let node: Node | null = sel?.anchorNode ?? null;
@@ -640,11 +651,16 @@ export class Editor implements SessionHost {
             }
             node = node.parentNode;
         }
+        this.postSelection(session, range, [...marks]);
+    }
+
+    private postSelection(session: EditSession, range: { from: number; to: number }, marks: string[]): void {
+        this.reported = range;
         this.post({
             type: "selection",
             from: range.from,
             to: range.to,
-            marks: [...marks],
+            marks,
             inTable: session.inTable,
             baseRev: this.controller.rev,
         });

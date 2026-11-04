@@ -9,7 +9,8 @@ import type { FormatAction, PageMessage, TableOp } from "../../protocol";
 import type { RenderController } from "../controller";
 import type { SectionView } from "../sectionView";
 import { escapeTyped } from "../../core/minimalEdit";
-import { blankLinesAbove, codeExit, itemTextStart } from "../../core/newline";
+import { BLANK_LINE } from "../../render/blankLinesPlugin";
+import { codeExit, itemTextStart } from "../../core/newline";
 import { EditSession, type SessionHost } from "./editSession";
 import { CaretKeeper } from "./caretKeeper";
 import { KeyboardKeeper } from "./keyboardKeeper";
@@ -154,7 +155,8 @@ export class Editor implements SessionHost {
         const views = this.controller.views;
         const last = views[views.length - 1];
         if (!last?.mounted) return false;
-        const tail = last.el.lastElementChild;
+        // The document's drawn blank lines are space, not the last block (a tap on one is beginOnBlankLine's).
+        const tail = [...last.el.children].reverse().find((el) => !el.classList.contains(BLANK_LINE)) ?? null;
         const bottom = tail?.getBoundingClientRect().bottom ?? -Infinity;
         const session = this.session;
         // Already editing the last block (its section waits to re-render until editing ends): stay in it.
@@ -182,6 +184,31 @@ export class Editor implements SessionHost {
         if (!block) return false;
         this.begin(block, x, y);
         return true;
+    }
+
+    /**
+     * A tap on a drawn blank line (render/blankLinesPlugin.ts) starts typing on that line, without
+     * changing the file. Only on a line with a blank line above and below it: text typed there is a
+     * paragraph of its own, never joined to the block above or below. A tap on the gap's edge lines
+     * takes the nearest such line; a gap too small to have one is left to the nearest block.
+     */
+    beginOnBlankLine(target: Element): boolean {
+        const drawn = target.closest<HTMLElement>(`.${BLANK_LINE}`);
+        if (!drawn) return false;
+        const lines = this.controller.doc.lines;
+        const tapped = Number(drawn.dataset.line);
+        if (Number.isNaN(tapped) || (lines[tapped] ?? "x").trim() !== "") return false;
+        let first = tapped;
+        while (first > 0 && (lines[first - 1] ?? "").trim() === "") first--;
+        let last = tapped;
+        while (last < lines.length - 1 && (lines[last + 1] ?? "").trim() === "") last++;
+        const lowest = first === 0 ? 0 : first + 1;
+        const highest = last === lines.length - 1 ? last : last - 1;
+        if (lowest > highest) return false;
+        const line = Math.min(highest, Math.max(lowest, tapped));
+        this.end();
+        this.restoreCaret(this.controller.doc.lineStart(line));
+        return this.session !== null;
     }
 
     /**
@@ -244,7 +271,6 @@ export class Editor implements SessionHost {
             const cell = cellAtOffset(view.el, this.controller.doc, offset);
             const line = this.controller.doc.lineAt(offset);
             run = cell ? cell.appendChild(emptyRun(view.el, offset)) : placeholderRun(view.el, offset, line);
-            if (!cell) addBlankSpacers(run, this.controller.doc.lines, line);
             setCaretInRun(run, 0);
         }
         const block = this.editableBlock(run) ?? run.closest<HTMLElement>(".placeholder");
@@ -620,24 +646,6 @@ export class Editor implements SessionHost {
             inTable: session.inTable,
             baseRev: this.controller.rev,
         });
-    }
-}
-
-/**
- * Markdown draws any number of blank lines as one gap, so Enter on an empty line seemed to do nothing
- * (Andrew, 2026-11-04). While the line is being edited, each blank line above it beyond the usual gap
- * is drawn as an empty line, so the caret sits where the source has it.
- */
-function addBlankSpacers(run: HTMLElement, lines: readonly string[], line: number): void {
-    const placeholder = run.closest<HTMLElement>(".placeholder");
-    if (!placeholder) return;
-    const above = blankLinesAbove(lines, line);
-    const extra = line - above > 0 ? above - 1 : above;
-    for (let i = 0; i < extra; i++) {
-        const gap = document.createElement("div");
-        gap.className = "blank-line";
-        gap.setAttribute("aria-hidden", "true");
-        placeholder.before(gap);
     }
 }
 

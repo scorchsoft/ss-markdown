@@ -137,6 +137,8 @@ export class Gestures {
             editor.end();
             return false;
         }
+        // On a drawn blank line: typing on that line (render/blankLinesPlugin.ts).
+        if (editor.beginOnBlankLine(target)) return false;
         // On or beside a rule (and not on a block's own text): before or after it (EB-BREAK-08).
         if (!editor.editableBlock(target) && editor.beginAtRule(e.clientX, e.clientY)) return false;
         const block = editor.blockAt(target, e.clientX, e.clientY);

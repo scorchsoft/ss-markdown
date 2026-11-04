@@ -121,4 +121,33 @@ describe("tap where there is no block", () => {
         // Somewhere in the middle of the page, not the end of the document.
         expect((await selection(page)).from).toBeLessThan(source.length - 10);
     });
+
+    it("draws a file's extra blank lines, and a tap on one types on that line", async () => {
+        const page = await openPreview(h);
+        // Lines 1-4 are blank: line 1 is the usual gap, 2-4 are drawn.
+        const source = "Intro.\n\n\n\n\n## Chapters\n";
+        await loadMarkdown(page, source);
+        const lines = await page.$$eval(".blank-line", (els) => els.map((el) => (el as HTMLElement).dataset.line));
+        expect(lines).toEqual(["2", "3", "4"]);
+        await clearReceived(page);
+        await page.click('.blank-line[data-line="3"]');
+        await waitForMessage(page, (m) => m.type === "editingChanged");
+        expect((await selection(page)).from).toBe(source.indexOf("\n\n\n\n") + 3);
+        // The caret's line is drawn where the blank line was: the page does not shift.
+        expect(await page.$$eval(".blank-line", (els) => els.length)).toBe(2);
+        await page.keyboard.type("Hi");
+        await expectSource(page, source, "Intro.\n\n\nHi\n\n## Chapters\n");
+    });
+
+    it("moves a tap on the line right above a block to one that keeps its own paragraph", async () => {
+        const page = await openPreview(h);
+        const source = "Intro.\n\n\n\n\nNext paragraph.\n";
+        await loadMarkdown(page, source);
+        await clearReceived(page);
+        await page.click('.blank-line[data-line="4"]');
+        await waitForMessage(page, (m) => m.type === "editingChanged");
+        await page.keyboard.type("Hi");
+        // Typed on line 3, not 4: on line 4 it would have joined "Next paragraph.".
+        await expectSource(page, source, "Intro.\n\n\nHi\n\nNext paragraph.\n");
+    });
 });

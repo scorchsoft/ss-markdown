@@ -6,6 +6,7 @@
  * section's start offset comes from its view (`data-offset` mirrors it). Everything
  * here returns absolute offsets into the whole source.
  */
+import { BLANK_LINE } from "../../render/blankLinesPlugin";
 import { viewOfElement } from "../sectionView";
 
 export interface RunRecord {
@@ -143,7 +144,12 @@ export function placeholderRun(section: HTMLElement, offset: number, line: numbe
     const run = emptyRun(section, offset);
     const host = [...section.querySelectorAll<HTMLElement>("[data-line]")]
         .reverse()
-        .find((el) => Number(el.dataset.line) === line && !el.querySelector("[data-line]"));
+        .find(
+            (el) =>
+                Number(el.dataset.line) === line &&
+                !el.querySelector("[data-line]") &&
+                !el.classList.contains(BLANK_LINE),
+        );
     if (host && !host.matches("blockquote, .markdown-alert")) {
         host.appendChild(run);
         return run;
@@ -167,6 +173,14 @@ export function placeholderRun(section: HTMLElement, offset: number, line: numbe
             return run;
         }
         parent = around;
+    }
+    // The drawn blank line this one stands for (render/blankLinesPlugin.ts) gives way to it.
+    const drawn = [...parent.children].find(
+        (el) => el.classList.contains(BLANK_LINE) && Number((el as HTMLElement).dataset.line) === line,
+    );
+    if (drawn) {
+        drawn.replaceWith(p);
+        return run;
     }
     const after = [...parent.children].find((el) => Number((el as HTMLElement).dataset.line) > line);
     parent.insertBefore(p, after ?? null);

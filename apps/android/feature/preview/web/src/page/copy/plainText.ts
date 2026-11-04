@@ -1,7 +1,9 @@
 /**
- * The plain-text twin of a formatted copy, for apps that paste text only:
- * the rendered words with no Markdown symbols. Headings are lines of their
- * own, lists keep "•" or "1." markers, tasks their ☐ and ☑, quotes are
+ * The plain-text twin of a formatted copy, for apps that paste text only,
+ * and Export… as plain text: the rendered words with no Markdown symbols, as
+ * an email would set them out. Top-level and second-level headings are
+ * underlined with "=" and "-" (Andrew, 2026-11-04: "heading syntax needs to
+ * be structured differently"), smaller ones are lines of their own, lists keep "•" or "1." markers, tasks their ☐ and ☑, quotes are
  * indented, tables are tab-separated (a spreadsheet pastes them into cells),
  * pictures are their alt text in brackets and links add their address.
  */
@@ -50,6 +52,13 @@ function block(el: Element): string[][] {
             return [(el.textContent ?? "").split("\n")];
         case "hr":
             return [[RULE]];
+        case "h1":
+        case "h2": {
+            const lines = inlineLines([...el.childNodes]);
+            if (lines.length === 0) return [];
+            const width = Math.max(...lines.map((l) => [...l].length));
+            return [[...lines, (tag === "h1" ? "=" : "-").repeat(width)]];
+        }
         case "blockquote":
             return blocks(el.childNodes).map((lines) => lines.map((l) => QUOTE_INDENT + l));
         case "div":

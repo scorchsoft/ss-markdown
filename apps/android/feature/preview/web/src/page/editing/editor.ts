@@ -94,9 +94,11 @@ export class Editor implements SessionHost {
             caretAt(block, x, y); // a tap in the padding of the block being edited
             return;
         }
-        this.end();
+        // HTML an edit has outdated stays on screen until its render (controller.ts splice): its offsets
+        // are the old text's, so a tap in that moment starts nothing rather than type in the wrong place.
         const view = this.viewOf(block);
-        if (!view) return;
+        if (!view || view.needsRender) return;
+        this.end();
         const typed = this.startSession(block, view);
         caretAt(block, x, y);
         this.ensureCellRun(block);

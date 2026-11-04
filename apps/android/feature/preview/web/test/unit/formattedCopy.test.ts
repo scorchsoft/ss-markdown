@@ -126,9 +126,12 @@ describe("formatted copy HTML", () => {
 describe("formatted copy plain text", () => {
     it("has headings as lines, list markers, tab-separated tables and no Markdown symbols", () => {
         const out = text(readFileSync(resolve(CORPUS, "basics.md"), "utf8"));
-        expect(out.startsWith("Basics heading\n\nA paragraph with bold, italic, strike, inline code and a link")).toBe(
-            true,
-        );
+        // A top-level heading is underlined, as an email would set it out (Andrew, 2026-11-04).
+        expect(
+            out.startsWith(
+                "Basics heading\n==============\n\nA paragraph with bold, italic, strike, inline code and a link",
+            ),
+        ).toBe(true);
         expect(out).toContain("link (https://example.com)");
         expect(out).toContain("• Bullet one\n• Bullet two\n  • Nested bullet\n• Bullet three");
         expect(out).toContain("1. First\n2. Second\n3. Third");
@@ -137,6 +140,11 @@ describe("formatted copy plain text", () => {
         expect(out).toContain("[An image]");
         expect(out).toContain("Final paragraph with a hard break\nafter two spaces.");
         expect(out).not.toMatch(/^#|\*\*|^\||^```|^> /m);
+    });
+
+    it("underlines the two top heading levels to their width, and leaves smaller ones as lines", () => {
+        const out = text("# Title\n\n## A section\n\n### Smaller\n\nText.");
+        expect(out).toBe("Title\n=====\n\nA section\n---------\n\nSmaller\n\nText.");
     });
 
     it("keeps tasks, footnotes and maths readable", () => {

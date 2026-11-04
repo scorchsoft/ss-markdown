@@ -4,6 +4,7 @@
  * not one spaced-out loose list with the caret below it.
  */
 import { afterAll, beforeAll, expect, it } from "vitest";
+import type { Page } from "playwright";
 import type { PageMessage } from "../../src/protocol";
 import {
     clearReceived,
@@ -77,7 +78,7 @@ it("keeps the caret inside a quote when a quoted list is split", async () => {
 });
 
 /** [source] with the page's edits applied, as Kotlin would. */
-async function sourceNow(page: import("playwright").Page, source: string): Promise<string> {
+async function sourceNow(page: Page, source: string): Promise<string> {
     let text = source;
     for (const m of await received(page)) {
         if (m.type !== "sourceEdit") continue;

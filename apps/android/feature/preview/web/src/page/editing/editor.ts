@@ -9,7 +9,7 @@ import type { FormatAction, PageMessage, TableOp } from "../../protocol";
 import type { RenderController } from "../controller";
 import type { SectionView } from "../sectionView";
 import { escapeTyped } from "../../core/minimalEdit";
-import { codeExit, itemTextStart } from "../../core/newline";
+import { blankLinesAbove, codeExit, itemTextStart } from "../../core/newline";
 import { EditSession, type SessionHost } from "./editSession";
 import { CaretKeeper } from "./caretKeeper";
 import { KeyboardKeeper } from "./keyboardKeeper";
@@ -242,9 +242,9 @@ export class Editor implements SessionHost {
         let run = placeCaret(view.el, offset);
         if (!run) {
             const cell = cellAtOffset(view.el, this.controller.doc, offset);
-            run = cell
-                ? cell.appendChild(emptyRun(view.el, offset))
-                : placeholderRun(view.el, offset, this.controller.doc.lineAt(offset));
+            const line = this.controller.doc.lineAt(offset);
+            run = cell ? cell.appendChild(emptyRun(view.el, offset)) : placeholderRun(view.el, offset, line);
+            if (!cell) addBlankSpacers(run, this.controller.doc.lines, line);
             setCaretInRun(run, 0);
         }
         const block = this.editableBlock(run) ?? run.closest<HTMLElement>(".placeholder");
@@ -620,6 +620,24 @@ export class Editor implements SessionHost {
             inTable: session.inTable,
             baseRev: this.controller.rev,
         });
+    }
+}
+
+/**
+ * Markdown draws any number of blank lines as one gap, so Enter on an empty line seemed to do nothing
+ * (Andrew, 2026-11-04). While the line is being edited, each blank line above it beyond the usual gap
+ * is drawn as an empty line, so the caret sits where the source has it.
+ */
+function addBlankSpacers(run: HTMLElement, lines: readonly string[], line: number): void {
+    const placeholder = run.closest<HTMLElement>(".placeholder");
+    if (!placeholder) return;
+    const above = blankLinesAbove(lines, line);
+    const extra = line - above > 0 ? above - 1 : above;
+    for (let i = 0; i < extra; i++) {
+        const gap = document.createElement("div");
+        gap.className = "blank-line";
+        gap.setAttribute("aria-hidden", "true");
+        placeholder.before(gap);
     }
 }
 

@@ -5,7 +5,16 @@
  */
 import { afterAll, beforeAll, expect, it } from "vitest";
 import type { PageMessage } from "../../src/protocol";
-import { clearReceived, loadMarkdown, openPreview, send, startHarness, waitForMessage, type Harness } from "./harness";
+import {
+    clearReceived,
+    loadMarkdown,
+    openPreview,
+    received,
+    send,
+    startHarness,
+    waitForMessage,
+    type Harness,
+} from "./harness";
 
 let h: Harness;
 beforeAll(async () => (h = await startHarness()));
@@ -65,4 +74,60 @@ it("keeps the caret inside a quote when a quoted list is split", async () => {
         ),
     );
     expect(kids).toEqual(["ul:2", "p", "ul:1"]);
+});
+
+/** [source] with the page's edits applied, as Kotlin would. */
+async function sourceNow(page: import("playwright").Page, source: string): Promise<string> {
+    let text = source;
+    for (const m of await received(page)) {
+        if (m.type !== "sourceEdit") continue;
+        for (const e of [...m.edits].sort((a, b) => b.from - a.from)) {
+            text = text.slice(0, e.from) + e.insert + text.slice(e.to);
+        }
+    }
+    return text;
+}
+
+for (const [name, source, want] of [
+    ["bullet", "- a\n- b\n\n\n- d\n- e", "- a\n- b\n- d\n- e"],
+    ["numbered", "1. a\n2. b\n\n\n\n3. d", "1. a\n2. b\n3. d"],
+] as const) {
+    it(`Backspace on the empty line rejoins a split ${name} list, the caret at the item's end`, async () => {
+        const page = await openPreview(h);
+        await loadMarkdown(page, source);
+        const at = source.indexOf("\n\n\n") + 2;
+        await send(page, { type: "select", rev: 1, from: at, to: at });
+        await page.waitForSelector(".placeholder.editing");
+        await clearReceived(page);
+        await page.keyboard.press("Backspace");
+        const end = Date.now() + 4000;
+        while ((await sourceNow(page, source)) !== want && Date.now() < end) await page.waitForTimeout(100);
+        expect(await sourceNow(page, source)).toBe(want);
+        const sel = (await waitForMessage(page, (m) => m.type === "selection")) as Extract<
+            PageMessage,
+            { type: "selection" }
+        >;
+        expect(sel.from).toBe(want.indexOf(" b") + 2);
+    });
+}
+
+it("Enter on an empty line adds a line each time, and the caret is drawn lower", async () => {
+    const page = await openPreview(h);
+    const source = "Para\n\n";
+    await loadMarkdown(page, source);
+    await send(page, { type: "select", rev: 1, from: source.length, to: source.length });
+    await page.waitForSelector(".placeholder.editing");
+    const caretY = (): Promise<number> =>
+        page.evaluate(() => document.querySelector(".placeholder.editing")?.getBoundingClientRect().top ?? 0);
+    const first = await caretY();
+    await clearReceived(page);
+    await page.keyboard.press("Enter");
+    await waitForMessage(page, (m) => m.type === "sourceEdit");
+    await page.waitForSelector(".placeholder.editing");
+    await page.waitForTimeout(200);
+    expect(await sourceNow(page, source)).toBe("Para\n\n\n");
+    expect(await caretY()).toBeGreaterThan(first + 10);
+    await page.keyboard.press("Backspace");
+    await page.waitForTimeout(300);
+    expect(await sourceNow(page, source)).toBe("Para\n\n");
 });

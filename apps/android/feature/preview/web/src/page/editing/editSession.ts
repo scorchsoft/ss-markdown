@@ -14,6 +14,9 @@ import {
     itemTextStart,
     newlineInsert,
     type BlockKind,
+    blankLineBackspace,
+    blankLineEnter,
+    type LineEdit,
 } from "../../core/newline";
 import type { FormatAction } from "../../protocol";
 import { escapeTyped } from "../../core/minimalEdit";
@@ -205,6 +208,10 @@ export class EditSession {
             else this.enter(type === "insertLineBreak");
             return;
         }
+        if (type === "deleteContentBackward" && this.backspaceBlankLine()) {
+            e.preventDefault();
+            return;
+        }
         if (type === "deleteContentBackward" && this.deleteRuleAbove()) {
             e.preventDefault();
             return;
@@ -294,6 +301,8 @@ export class EditSession {
             const exit = r.from === r.to ? this.host.codeExitAt(r.from) : null;
             if (exit) this.host.commitAndRerender([exit], exit.caret);
             else this.host.format("enter");
+        } else if (!hard && r.from === r.to && this.blankLine(r.from, blankLineEnter)) {
+            return;
         } else if (!hard && (kind === "listItem" || isListLine(line) || isEmptyQuoteLine(line))) {
             this.host.format("enter");
         } else if (!hard && r.from === r.to && this.atLineTextStart(r.from, line)) {
@@ -331,6 +340,26 @@ export class EditSession {
         const aboveBlank = at === 0 || this.host.lineTextAt(at - 1).trim() === "";
         const insert = (aboveBlank ? "" : "\n") + "\n\n";
         this.host.commitAndRerender([{ from: at, to: at, insert }], at + (aboveBlank ? 0 : 1));
+    }
+
+    /** Backspace with a bare caret on a blank line: [blankLineBackspace]. */
+    private backspaceBlankLine(): boolean {
+        if (this.blockKind() === "code") return false;
+        this.flush();
+        const r = this.selectionRange();
+        return !!r && r.from === r.to && this.blankLine(r.from, blankLineBackspace);
+    }
+
+    /** Runs a blank-line [rule] at [offset]; true when it made an edit. */
+    private blankLine(
+        offset: number,
+        rule: (lines: readonly string[], line: number, lineStart: (line: number) => number) => LineEdit | null,
+    ): boolean {
+        const doc = this.host.doc;
+        const edit = rule(doc.lines, doc.lineAt(offset), (l) => doc.lineStart(l));
+        if (!edit) return false;
+        this.host.commitAndRerender([{ from: edit.from, to: edit.to, insert: edit.insert }], edit.caret);
+        return true;
     }
 
     /**

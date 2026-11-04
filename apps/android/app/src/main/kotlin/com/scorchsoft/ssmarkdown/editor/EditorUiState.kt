@@ -265,6 +265,12 @@ sealed interface PendingLeave {
     /** ⋮ → New. */
     data object NewDocument : PendingLeave
 
+    /**
+     * ⋮ → Open file… (or the Navigator's, or a banner's): asked before the
+     * picker opens, so the answer comes first (Andrew, 2026-11-04).
+     */
+    data object PickFile : PendingLeave
+
     /** Closing the open folder with dirty files. */
     data object CloseFolder : PendingLeave
 }

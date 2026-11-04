@@ -155,7 +155,7 @@ internal object EditorEffects {
             }
 
             EditorAction.OpenAnotherFile -> {
-                vm.emit(EditorEvent.PickFileToOpen)
+                vm.saves.requestLeave(PendingLeave.PickFile)
             }
 
             EditorAction.RetryOpen -> {
@@ -277,7 +277,7 @@ internal object EditorEffects {
         vm.update { if (it.overlay == EditorOverlay.Menu) it.copy(overlay = null) else it }
         when (item) {
             MenuItem.New -> vm.saves.requestLeave(PendingLeave.NewDocument)
-            MenuItem.OpenFile -> vm.emit(EditorEvent.PickFileToOpen)
+            MenuItem.OpenFile -> vm.saves.requestLeave(PendingLeave.PickFile)
             MenuItem.OpenFolder -> vm.emit(EditorEvent.PickFolder)
             MenuItem.SaveAs -> vm.saves.saveAs()
             MenuItem.SaveAll -> vm.onAction(EditorAction.Folder(FolderAction.SaveAll))

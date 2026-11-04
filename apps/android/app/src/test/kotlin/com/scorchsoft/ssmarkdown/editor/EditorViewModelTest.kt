@@ -70,6 +70,63 @@ class EditorViewModelTest {
         assertEquals(EditorOverlay.DirtyPrompt(PendingLeave.OpenOther(other)), f.vm.uiState.value.overlay)
     }
 
+    /** Andrew, 2026-11-04: Open file… should ask before the picker, not after a file is chosen. */
+    @Test
+    fun `Open file asks before the picker, Save saves, then the picker, and the pick opens without asking again`() {
+        val f = fixture()
+        f.openFile("mine.md", "base\n")
+        f.type(0, "edit ")
+        f.vm.onAction(EditorAction.ChooseMenuItem(MenuItem.OpenFile))
+        assertEquals(EditorOverlay.DirtyPrompt(PendingLeave.PickFile), f.vm.uiState.value.overlay)
+        assertFalse("no picker yet", f.events.contains(EditorEvent.PickFileToOpen))
+
+        f.vm.onAction(EditorAction.LeaveSave)
+        assertEquals("edit base\n", f.disk("mine.md"))
+        assertEquals(EditorEvent.PickFileToOpen, f.events.last())
+        val other = f.file("other.md", "other\n")
+        f.vm.saves.onFilePicked(other)
+        assertNull(f.vm.uiState.value.overlay)
+        assertEquals("other\n", f.text())
+    }
+
+    @Test
+    fun `Open file's Don't save puts the file back as on disk, then the picker, and cancelling it stays there`() {
+        val f = fixture()
+        f.openFile("mine.md", "base\n")
+        f.type(0, "edit ")
+        f.vm.onAction(EditorAction.ChooseMenuItem(MenuItem.OpenFile))
+        f.vm.onAction(EditorAction.LeaveDiscard)
+        assertEquals(EditorEvent.PickFileToOpen, f.events.last())
+        assertEquals("base\n", f.text())
+        assertFalse(f.vm.uiState.value.isDirty)
+        f.vm.saves.onPickCancelled()
+        assertEquals("base\n", f.text())
+        assertNull(f.vm.uiState.value.overlay)
+    }
+
+    @Test
+    fun `Open file with nothing unsaved goes straight to the picker`() {
+        val f = fixture()
+        f.openFile("mine.md", "base\n")
+        f.vm.onAction(EditorAction.ChooseMenuItem(MenuItem.OpenFile))
+        assertNull(f.vm.uiState.value.overlay)
+        assertEquals(EditorEvent.PickFileToOpen, f.events.last())
+    }
+
+    @Test
+    fun `Open file from a draft with text shows the draft sheet first, Keep as draft, then the pick opens`() {
+        val f = fixture()
+        f.vm.start()
+        f.type(0, "# Idea\n")
+        f.vm.onAction(EditorAction.ChooseMenuItem(MenuItem.OpenFile))
+        assertEquals(EditorOverlay.DirtyPrompt(PendingLeave.PickFile, draft = true), f.vm.uiState.value.overlay)
+        f.vm.onAction(EditorAction.LeaveKeepDraft)
+        assertEquals(EditorEvent.PickFileToOpen, f.events.last())
+        f.vm.saves.onFilePicked(f.file("other.md", "other\n"))
+        assertNull("asked once, before the picker", f.vm.uiState.value.overlay)
+        assertEquals("other\n", f.text())
+    }
+
     /** Andrew, 2026-11-04: a file sent from another app opened over unsaved edits without asking. */
     @Test
     fun `a file from another app asks first over unsaved edits, then opens as sent`() {

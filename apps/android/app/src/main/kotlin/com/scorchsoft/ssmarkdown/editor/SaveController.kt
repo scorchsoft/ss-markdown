@@ -215,14 +215,17 @@ class SaveController(
         val uri = host.active?.open?.uri
         val dirty = host.state.isDirty && uri?.isDraft == false
         // New or Open from a draft with words in it: the draft is kept, but say so and offer Save as… or Delete.
-        val leavesDraft = leave == PendingLeave.NewDocument || leave is PendingLeave.OpenOther
+        val leavesDraft =
+            leave == PendingLeave.NewDocument || leave == PendingLeave.PickFile || leave is PendingLeave.OpenOther
         val draftWithText =
             leavesDraft && uri?.isDraft == true &&
                 host.active
                     ?.text
                     ?.snapshot()
                     ?.isNotBlank() == true
-        val folderSwitch = leave is PendingLeave.OpenOther && host.state.folder != null
+        // In folder mode every file keeps its own unsaved edits: opening another loses nothing.
+        val folderSwitch =
+            (leave is PendingLeave.OpenOther || leave == PendingLeave.PickFile) && host.state.folder != null
         if (draftWithText) {
             host.update { it.copy(overlay = EditorOverlay.DirtyPrompt(leave, draft = true)) }
         } else if (dirty && !folderSwitch) {
@@ -247,6 +250,24 @@ class SaveController(
             afterSaveAs = leave
         }
         save { leave(leave, discard = false) }
+    }
+
+    /** True while the picker is up after the leave prompt was answered for it ([PendingLeave.PickFile]). */
+    private var answeredBeforePick = false
+
+    /**
+     * The picker chose [uri]: it opens, asking first unless the question was
+     * already answered before the picker opened.
+     */
+    fun onFilePicked(uri: String) {
+        val answered = answeredBeforePick
+        answeredBeforePick = false
+        if (answered) leave(PendingLeave.OpenOther(uri), discard = false) else requestLeave(PendingLeave.OpenOther(uri))
+    }
+
+    /** The picker was cancelled: nothing opens, and nothing more is asked. */
+    fun onPickCancelled() {
+        answeredBeforePick = false
     }
 
     /** Where to go once a Save as… started from the leave prompt has verified. */
@@ -294,6 +315,16 @@ class SaveController(
 
                 PendingLeave.NewDocument -> {
                     host.newDraft()
+                }
+
+                PendingLeave.PickFile -> {
+                    // Don't save took the edits away: the file comes back as it is on disk; a deleted draft
+                    // leaves a fresh one. Then the picker; what is picked opens without asking again.
+                    if (discard && open != null) {
+                        if (open.uri.isDraft) host.newDraft() else host.openDocument(open.uri.value)
+                    }
+                    answeredBeforePick = true
+                    host.emit(EditorEvent.PickFileToOpen)
                 }
 
                 PendingLeave.CloseFolder -> {

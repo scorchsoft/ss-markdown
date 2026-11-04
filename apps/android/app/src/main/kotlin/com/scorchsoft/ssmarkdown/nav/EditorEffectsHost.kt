@@ -96,9 +96,7 @@ private fun rememberPickers(
         saveAs = rememberLauncherForActivityResult(markdown) { uri -> vm.saves.onSaveLocation(uri?.toString()) },
         openFile =
             rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-                uri?.let {
-                    onFilePicked(graph, it)
-                }
+                if (uri != null) onFilePicked(graph, uri) else vm.saves.onPickCancelled()
             },
         openFolder =
             rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) {
@@ -160,7 +158,7 @@ private fun onFilePicked(
 ) {
     val document = DocumentUri(uri.toString())
     if (!graph.permissions.take(document, write = true)) graph.permissions.take(document, write = false)
-    graph.editor.saves.requestLeave(PendingLeave.OpenOther(document.value))
+    graph.editor.saves.onFilePicked(document.value)
 }
 
 // One line per event; the targets all come from one composable.

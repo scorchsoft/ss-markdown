@@ -7,6 +7,17 @@ release may change behaviour.
 
 ## [Unreleased]
 
+## [0.2.10] - 2026-11-04
+
+### Fixed
+
+- Preview: Backspace on the empty line between two halves of a split list
+  rejoins them into one tight list, with no blank line left in the file.
+- Preview: Enter on an empty line adds a line each time and the caret
+  moves down; Backspace walks back up.
+- ⋮ → Open file… asks about unsaved edits before the picker opens, not
+  after a file is chosen.
+
 ## [0.2.9] - 2026-11-04
 
 ### Fixed

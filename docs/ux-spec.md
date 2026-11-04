@@ -1016,6 +1016,9 @@ set in Settings.
   the conflict sheet (see "File changed outside the app"). The conflict
   sheet is the only place conflicts are resolved.
 - Leaving with unsaved changes prompts Save / Don't save / Keep editing.
+- ⋮ → Open file… asks **before** the picker (Andrew, 2026-11-04): Save
+  (then the picker), Don't save (the file back as on disk, then the
+  picker) or Keep editing; what is picked then opens without asking again.
 - New, Open file… or opening from the Navigator, from an untitled draft
   with text in it, asks "This draft isn't saved to a file yet": Save as…
   (then on to the new draft or the file), Keep as draft, Delete draft

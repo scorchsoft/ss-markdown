@@ -117,6 +117,9 @@ export function isBalancedHtml(html: string): boolean {
     return depth === 0;
 }
 
+/** Only HTML comments and white space. */
+const COMMENTS_ONLY = /^\s*(?:<!--[\s\S]*?-->\s*)+$/;
+
 /**
  * A self-contained HTML block is wrapped as a read-only block with its Edit in
  * Code chip. An open tag that wraps Markdown (`<details>` … `</details>`) is
@@ -125,6 +128,11 @@ export function isBalancedHtml(html: string): boolean {
 const htmlBlock: Rule = (tokens, idx) => {
     const token = tokens[idx];
     if (!token) return "";
+    // A block of nothing but comments draws nothing, so it gets no chip: one on
+    // an empty block hung out of it, clipped, over the next block (Andrew,
+    // 2026-11-05). It keeps its lines, so scrolling and Split still find it.
+    if (COMMENTS_ONLY.test(token.content))
+        return `<div class="ro-block ro-comment" contenteditable="false"${lineAttrs(token)}></div>\n`;
     const html = neutralizeUserHtml(token.content);
     return isBalancedHtml(html) ? readOnlyBlock(token, "html", `<div class="raw-html">${html}</div>`) : html;
 };

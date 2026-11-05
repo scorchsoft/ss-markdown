@@ -3,8 +3,11 @@ package com.scorchsoft.ssmarkdown.document
 import com.scorchsoft.ssmarkdown.editor.EditorAction
 import com.scorchsoft.ssmarkdown.editor.EditorBanner
 import com.scorchsoft.ssmarkdown.editor.EditorEvent
+import com.scorchsoft.ssmarkdown.editor.EditorOverlay
 import com.scorchsoft.ssmarkdown.editor.LineChange
 import com.scorchsoft.ssmarkdown.editor.MenuItem
+import com.scorchsoft.ssmarkdown.editor.MessageKind
+import com.scorchsoft.ssmarkdown.editor.PendingLeave
 import com.scorchsoft.ssmarkdown.editor.SaveButton
 import com.scorchsoft.ssmarkdown.editor.SaveProblem
 import com.scorchsoft.ssmarkdown.editor.SaveStatusLine
@@ -245,6 +248,8 @@ class DraftWorkflowTest {
         val first = f.uri()
 
         f.vm.onAction(EditorAction.ChooseMenuItem(MenuItem.New))
+        assertEquals(EditorOverlay.DirtyPrompt(PendingLeave.NewDocument, draft = true), f.vm.uiState.value.overlay)
+        f.vm.onAction(EditorAction.LeaveKeepDraft)
 
         val second = f.uri()
         assertNotEquals("New must not reuse a draft that holds unsaved typing", first, second)
@@ -277,11 +282,124 @@ class DraftWorkflowTest {
 
         f.doc().typeAtEnd("x")
         f.vm.onAction(EditorAction.ChooseMenuItem(MenuItem.New))
+        f.vm.onAction(EditorAction.LeaveKeepDraft)
         val second = f.uri()
         f.vm.onAction(EditorAction.ChooseMenuItem(MenuItem.New))
 
         assertEquals(second, f.uri())
         assertEquals(2, f.drafts.list().size)
+    }
+
+    /** Andrew, 2026-11-04: New from a draft said nothing, so its text seemed gone. */
+    @Test
+    fun `New from a draft with text asks first, and Keep editing stays put`() {
+        val f = draftWith("# Plan\nsteps\n")
+        val draft = f.uri()
+
+        f.vm.onAction(EditorAction.ChooseMenuItem(MenuItem.New))
+        assertEquals(EditorOverlay.DirtyPrompt(PendingLeave.NewDocument, draft = true), f.vm.uiState.value.overlay)
+        f.vm.onAction(EditorAction.KeepEditing)
+
+        assertNull(f.vm.uiState.value.overlay)
+        assertEquals(draft, f.uri())
+        assertEquals("# Plan\nsteps\n", f.text())
+    }
+
+    @Test
+    fun `Save as at the draft prompt saves the file, then opens the new draft`() {
+        val f = draftWith("# Plan\nsteps\n")
+        val draft = f.uri()
+        f.vm.onAction(EditorAction.ChooseMenuItem(MenuItem.New))
+        f.vm.onAction(EditorAction.LeaveSave)
+        assertTrue(f.events.last() is EditorEvent.PickSaveLocation)
+        assertEquals("still on the draft while the picker is up", draft, f.uri())
+
+        f.vm.saves.onSaveLocation(f.pickNewFile("plan.md"))
+
+        assertEquals("# Plan\nsteps\n", f.disk("plan.md"))
+        assertTrue("on a new draft", f.uri().isDraft)
+        assertNotEquals(draft, f.uri())
+        assertEquals("", f.text())
+        assertTrue("the old draft became the file", f.drafts.list().none { it.uri == draft })
+    }
+
+    @Test
+    fun `a cancelled Save as at the draft prompt stays on the draft`() {
+        val f = draftWith("# Plan\n")
+        val draft = f.uri()
+        f.vm.onAction(EditorAction.ChooseMenuItem(MenuItem.New))
+        f.vm.onAction(EditorAction.LeaveSave)
+        f.vm.saves.onSaveLocation(null)
+
+        assertEquals(draft, f.uri())
+        assertEquals("# Plan\n", f.text())
+        // A later Save as is just a save: it does not run the cancelled New.
+        f.vm.onAction(EditorAction.SaveTapped)
+        f.vm.saves.onSaveLocation(f.pickNewFile("plan.md"))
+        assertEquals(DocumentUri(EditorFixture.SCHEME + "plan.md"), f.uri())
+    }
+
+    @Test
+    fun `Delete draft at the prompt opens a new draft and Undo brings the old one back`() {
+        val f = draftWith("# Scratch\nthrowaway\n")
+        val draft = f.uri()
+        f.vm.onAction(EditorAction.ChooseMenuItem(MenuItem.New))
+        f.vm.onAction(EditorAction.LeaveDiscard)
+
+        assertTrue(f.uri().isDraft)
+        assertNotEquals(draft, f.uri())
+        assertTrue("gone from Drafts", f.drafts.list().none { it.uri == draft })
+        val message = f.vm.uiState.value.message
+        assertEquals(MessageKind.DraftDeleted, message?.kind)
+        assertTrue(message?.undo == true)
+
+        f.vm.navigator.undoDeleteDraft()
+        assertEquals("# Scratch\nthrowaway\n", f.drafts.resolve(draft)?.readText())
+        assertTrue(f.drafts.list().any { it.uri == draft })
+    }
+
+    /** Andrew, 2026-11-04: opening a file from a draft must ask too, not just New. */
+    @Test
+    fun `Open from a draft with text asks the same, and each choice then opens the file`() {
+        for (choice in listOf(EditorAction.LeaveKeepDraft, EditorAction.LeaveDiscard, EditorAction.LeaveSave)) {
+            val f = draftWith("# Plan\nsteps\n")
+            val draft = f.uri()
+            val other = f.file("other.md", "other\n")
+            val open = PendingLeave.OpenOther(other)
+
+            f.vm.saves.requestLeave(open)
+            assertEquals(EditorOverlay.DirtyPrompt(open, draft = true), f.vm.uiState.value.overlay)
+            f.vm.onAction(choice)
+            if (choice == EditorAction.LeaveSave) f.vm.saves.onSaveLocation(f.pickNewFile("plan.md"))
+
+            assertEquals("$choice opens the file", DocumentUri(other), f.uri())
+            assertEquals("other\n", f.text())
+            val draftKept = f.drafts.list().any { it.uri == draft }
+            assertEquals(
+                "$choice keeps the draft only for Keep as draft",
+                choice == EditorAction.LeaveKeepDraft,
+                draftKept,
+            )
+            if (choice == EditorAction.LeaveSave) assertEquals("# Plan\nsteps\n", f.disk("plan.md"))
+        }
+    }
+
+    @Test
+    fun `Open from an empty draft does not ask`() {
+        val f = fixture()
+        f.vm.start()
+        val other = f.file("other.md", "other\n")
+        f.vm.saves.requestLeave(PendingLeave.OpenOther(other))
+        assertNull(f.vm.uiState.value.overlay)
+        assertEquals(DocumentUri(other), f.uri())
+    }
+
+    @Test
+    fun `New from an empty draft or a saved file does not ask`() {
+        val f = fixture()
+        f.vm.start()
+        f.vm.onAction(EditorAction.ChooseMenuItem(MenuItem.New))
+        assertNull(f.vm.uiState.value.overlay)
     }
 
     private companion object {

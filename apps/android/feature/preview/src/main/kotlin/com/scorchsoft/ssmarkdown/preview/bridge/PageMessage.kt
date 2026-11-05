@@ -247,6 +247,22 @@ sealed interface PageMessage {
     ) : PageMessage
 
     /**
+     * The answer to [HostMessage.CopySelection]: the selection's Markdown
+     * (null with nothing selected) and its formatted copy (null when it
+     * would not fit). Consumed by `PreviewView.copySelection`.
+     */
+    data class SelectionCopyResult(
+        val requestId: Int,
+        val markdown: String?,
+        val html: String?,
+        val text: String?,
+    ) : PageMessage {
+        /** The formatted copy, or null. */
+        val copy: FormattedCopy?
+            get() = if (html != null && text != null) FormattedCopy(html, text, truncated = false) else null
+    }
+
+    /**
      * The answer to [HostMessage.ExportHtml]: the rendered lines as clean
      * HTML, or null when the page could not render them. Consumed by
      * `PreviewView.exportHtml`, not by the listener.

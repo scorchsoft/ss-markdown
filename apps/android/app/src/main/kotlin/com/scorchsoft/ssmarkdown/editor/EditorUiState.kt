@@ -6,6 +6,7 @@ import com.scorchsoft.ssmarkdown.files.provider.ProviderResult
 import com.scorchsoft.ssmarkdown.find.FindUiState
 import com.scorchsoft.ssmarkdown.folder.FolderUiState
 import com.scorchsoft.ssmarkdown.markdown.edit.TextSelection
+import com.scorchsoft.ssmarkdown.markdown.tidy.TidyRule
 import com.scorchsoft.ssmarkdown.media.ExportImagesState
 import com.scorchsoft.ssmarkdown.navigator.NavigatorUiState
 import com.scorchsoft.ssmarkdown.preview.RendererState
@@ -251,13 +252,25 @@ sealed interface PendingLeave {
     /** Back from the editor: the app closes. */
     data object Exit : PendingLeave
 
-    /** Opening a file outside the open folder. */
+    /**
+     * Opening another file: Open file…, the Navigator, or a file sent from
+     * another app ([fromAnotherApp], with its [readOnlySource] when the
+     * sender gave no write access).
+     */
     data class OpenOther(
         val uri: String,
+        val fromAnotherApp: Boolean = false,
+        val readOnlySource: String? = null,
     ) : PendingLeave
 
     /** ⋮ → New. */
     data object NewDocument : PendingLeave
+
+    /**
+     * ⋮ → Open file… (or the Navigator's, or a banner's): asked before the
+     * picker opens, so the answer comes first (Andrew, 2026-11-04).
+     */
+    data object PickFile : PendingLeave
 
     /** Closing the open folder with dirty files. */
     data object CloseFolder : PendingLeave
@@ -286,9 +299,15 @@ sealed interface EditorOverlay {
     /** "Use my version…" asks first: it overwrites the other app's change. */
     data object ConfirmUseMine : EditorOverlay
 
-    /** Save / Don't save / Keep editing. */
+    /**
+     * Save / Don't save / Keep editing. With [draft], the document is an
+     * untitled draft about to be left by New or Open: Save as… / Keep as draft /
+     * Delete draft / Keep editing, since leaving a draft loses nothing but
+     * said nothing either (Andrew, 2026-11-04).
+     */
     data class DirtyPrompt(
         val leave: PendingLeave,
+        val draft: Boolean = false,
     ) : EditorOverlay
 
     /**
@@ -330,6 +349,20 @@ sealed interface EditorOverlay {
         val title: String,
         val pngScale: Int = 2,
     ) : EditorOverlay
+
+    /** ⋮ → Export…: PDF, HTML or plain text (Andrew, 2026-11-04). */
+    data object ExportChooser : EditorOverlay
+
+    /**
+     * "Tidy this file?": how Tidy works, what it would change here ([counts], empty when the file
+     * is already tidy), then Tidy or Cancel (Andrew, 2026-11-04).
+     */
+    data class TidyPrompt(
+        val counts: Map<TidyRule, Int>,
+    ) : EditorOverlay
+
+    /** "Delete this table?": both table menus ask before the whole table goes (Andrew, 2026-11-04). */
+    data object ConfirmDeleteTable : EditorOverlay
 
     /** The table toolbar's ⋯: insert, move, align and delete. */
     data class TableMenu(
@@ -439,6 +472,7 @@ enum class MessageKind {
     SectionCopied,
     SectionCopiedFormatted,
     ReplacedAll,
+    Tidied,
     Restored,
     Renamed,
     SaveBeforeRename,
@@ -458,6 +492,7 @@ enum class MessageKind {
     ImageCopied,
     NothingToExport,
     PdfFailed,
+    ExportFailed,
     ExportStopped,
     PictureFolderGranted,
     PictureFolderUnrelated,

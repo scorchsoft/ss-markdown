@@ -53,7 +53,7 @@ mockups agreed with Andrew win, and this file gets updated.
   - Every successful save confirms with a short "Saved to <place>"
     message.
 - **⋮** opens: New · Open file · Open folder · Save as │ Find & replace ·
-  Insert image… · Version history │ Export PDF · Export images… · Share · Copy as… │
+  Insert image… · Version history │ Export… · Share · Copy as… │
   View · Settings. **View** (hint "Wrap · A4 page · theme · size") opens
   the View sheet; it was "Display", where Andrew could not find wrapping
   or the A4 page. **Copy as…** opens the same Copy chooser (anchored to
@@ -64,16 +64,27 @@ mockups agreed with Andrew win, and this file gets updated.
   preview has pictures it cannot show without the document's folder,
   **Show pictures beside this file…** follows Insert image… (see
   "Pictures").
-- The menu's **top row is Undo · Redo · View**, three 48 dp icons side by
+- The menu's **top row is Undo · Redo · View · Tidy**, four 48 dp icons side by
   side (as in Chrome's menu). Undo and Redo are dimmed and read as
   unavailable when there is nothing to undo or redo; a tap applies it and
   keeps the menu open, so it can be tapped again. They work in Code, Split
   and Preview. **View** is an "Aa" glyph (TalkBack: "View options"); a tap
-  closes the menu and opens the View sheet.
+  closes the menu and opens the View sheet. **Tidy** is a broom (TalkBack:
+  "Tidy Markdown"); a tap closes the menu and asks "Tidy this file?": what
+  Tidy does (extra blank lines and line-end spaces removed, a blank line
+  around headings and code blocks, numbered lists in order, one final line
+  break; two-space line breaks kept), what it never touches (code, tables,
+  HTML, front matter, and broken Markdown such as `#heading` or `**bold`),
+  and a list of what it would fix in this file, then **Tidy** or **Cancel**.
+  A tidy file says so, with only OK. Tidy records a "Before tidy" version
+  in History and applies as one undo step. The rules
+  (core/markdown `tidy/`) never change how the document renders; each is
+  proved by rendering every test case before and after in Preview's own
+  renderer. A read-only file is never tidied.
 - Opening ⋮ commits the keyboard's word and **hides the keyboard**, so
   the menu has the room; closing it does not bring the keyboard back
   (tapping the text does). The menu never runs off the screen: below
-  the pinned Undo · Redo · View row its rows scroll, with a fade at the edge
+  the pinned Undo · Redo · View · Tidy row its rows scroll, with a fade at the edge
   that has more (checked at 360 × 640 dp, on its side and at 2× font).
 
 **Bottom bar (64 dp)**
@@ -273,10 +284,11 @@ layout budget assumes them:
    by itself (security review SEC-7).
 4. Tap on a **task checkbox** → toggles it (one character changes).
 5. Tap on **text** → caret and keyboard (if "Tap to edit" is on).
-6. **Long-press a heading** → the section menu directly (Copy section as
-   Markdown · Copy section as formatted text, the last-used first · Select
-   section · Export section…), with **Select
-   text instead** as its last row. That's J10 in 2 taps.
+6. **Long-press a heading** → native selection, like any text. Until
+   2026-11-04 it opened the section menu, but Andrew selects text for many
+   reasons besides copying, and the selection's own menu already offers
+   Copy Markdown and Copy formatted. The section menu is a long-press on
+   the heading in the Navigator (J10).
 7. **Long-press other text** → native selection.
 8. **Pinch** → this file's preview text size.
 9. **No double-tap gestures** on text in Preview. Double-tap is Android's
@@ -620,9 +632,12 @@ only when it applies.
   stops, unless held. It never shows while selection handles or the text
   toolbar are in use.
 - **Look.** A pill 6 dp wide and 44 dp tall, 3 dp from the right edge, in
-  the gutter grey; 10 dp and `inkMuted` while held. Its touch target is
-  48 × 48 dp. No track: the reading line under the header already shows
-  progress.
+  the gutter grey, ringed by a 1.5 dp halo of the page colour so it stays
+  a distinct handle over text; it eases to 10 dp and `inkMuted` while held
+  (at once with "Remove animations"). Its touch target is 48 × 48 dp. No
+  track: the reading line under the header already shows progress, and
+  no view draws a platform scrollbar beside it (the Preview WebView's is
+  off).
 - **Drag.** The pill's position is a fraction of the document and the pane
   jumps there live. Code maps it by line index through the height map,
   so a file with estimated heights stays steady and only moves forwards
@@ -690,7 +705,8 @@ separate Recent menu.
   file and draft row has a ⋯ for Rename · Duplicate · Delete.
 - The Navigator opens **below the header**, so the title, the unsaved
   dot and Save stay visible.
-- **Long-press a heading** here or in Preview to get:
+- **Long-press a heading** here to get (in Preview, a long-press selects
+  text instead):
   - Copy section as Markdown
   - Copy section as formatted text (the two in the Copy chooser's order:
     the last-used first and filled; "Section copied as …" confirms)
@@ -707,6 +723,14 @@ tests are `PasteMatrixTest` and `e2e/paste.test.ts`).
 
 A normal paste **keeps formatting** (Andrew, 2026-11-03). **Paste as
 plain text** puts in only the words. Both are one Undo step.
+
+**Copying a selection** (Andrew, 2026-11-04) offers the same two forms as
+the header's Copy chooser. In Preview the text menu has **Copy Markdown**
+(the selection's exact source) and **Copy formatted** (its rendering,
+inline-styled for mail and documents, with a plain-text twin) after Copy,
+which still carries both so a paste back into Preview keeps formatting.
+In Code, Copy is the Markdown and **Copy formatted** renders the lines
+the selection touches.
 
 **HTML** on the clipboard (a copy from Chrome, Gmail, Google Docs or
 Word) is converted to Markdown, the same way in both surfaces
@@ -908,7 +932,10 @@ One sheet with a **fixed layout**, the same from every entry point:
 
 1. **Lines**: a **Code** row (Wrap / No wrap) and a **Preview** row
    (Fluid / A4 page / No wrap), each a label and a compact segmented
-   control.
+   control. Preview's No wrap matches Code's: each source line of text
+   stays one line (a list item or table cell one line each), never wrapped
+   at the screen's edge, and the page pans sideways (Andrew, 2026-11-04;
+   it used to unwrap only code and tables, so prose looked like Fluid).
 2. **Appearance** (System / Light / Dark).
 3. **Text size · this file**: Code − / + and Preview − / +, with the real
    size beside each and "Reset to your default".
@@ -922,7 +949,8 @@ nothing. The sheet fits a 412 × 915 dp phone at 1× font without
 scrolling; it scrolls only at large fonts.
 
 **A4 page mode.** On phones the A4 page renders at fit-width. Pinch in
-A4 zooms the page (it doesn't reflow), and the zoom chip resets to
+A4 zooms the whole page in proportion (it doesn't reflow; the spot under the
+fingers stays still; `e2e/pageZoom.test.ts`), and the zoom chip resets to
 fit-width. On tablets, at 100% page width, body text is at least the
 theme's base size at 100%.
 
@@ -1002,6 +1030,14 @@ set in Settings.
   the conflict sheet (see "File changed outside the app"). The conflict
   sheet is the only place conflicts are resolved.
 - Leaving with unsaved changes prompts Save / Don't save / Keep editing.
+- ⋮ → Open file… asks **before** the picker (Andrew, 2026-11-04): Save
+  (then the picker), Don't save (the file back as on disk, then the
+  picker) or Keep editing; what is picked then opens without asking again.
+- New, Open file… or opening from the Navigator, from an untitled draft
+  with text in it, asks "This draft isn't saved to a file yet": Save as…
+  (then on to the new draft or the file), Keep as draft, Delete draft
+  (Undo straight after) or Keep editing. Nothing is lost either way;
+  the prompt says where the draft went.
   This happens only when a buffer would leave memory (see `robustness.md`
   §6); switching files in a folder never prompts.
 - First open of a file, under "Last used": **Preview** for files opened
@@ -1189,7 +1225,7 @@ Long-press a rendered diagram to get a sheet with:
 - Share
 - Show source in Code
 
-## Export images (⋮ → Export images…)
+## Export images (⋮ → Export… → Images…)
 
 This exports every rendered image in the file in one go: Mermaid
 diagrams, maths blocks if you want them, and embedded pictures.
@@ -1204,9 +1240,33 @@ diagrams, maths blocks if you want them, and embedded pictures.
 - In folder mode, the folder's ⋮ offers the same export for every file
   in the folder.
 
+## Export… (PDF, HTML, plain text, images)
+
+⋮ → **Export…** opens a small chooser (Andrew, 2026-11-04), each row with
+a line saying what it makes:
+
+- **PDF** — "Print, or save as a PDF": as below.
+- **HTML** — "One web page, pictures included": the whole document as the
+  formatted copy renders it (styles inline, pictures embedded), wrapped as
+  a page with its title, saved through the system's Save picker as
+  `name.html`.
+- **Plain text** — "No Markdown symbols, as for an email": the formatted
+  copy's text, saved as `name.txt`. Bold, italics and code marks go; the
+  two top heading levels are underlined with `=` and `-`, smaller headings
+  are lines of their own; lists keep `•` or `1.`, tasks ☐ and ☑; quotes
+  are indented; tables are tab-separated; links add their address in
+  brackets and pictures their alt text. Copy formatted text's plain-text
+  twin is the same text.
+- **Images…** — "Diagrams, maths and pictures: ZIP or files": the Export
+  images sheet (below). It was its own ⋮ row until 2026-11-04.
+
+HTML and plain text, like PDF, come from the drawn page: from Code the
+Preview shows while it is read, then Code comes back. If no page answers,
+"Couldn't prepare the export. Open Preview, then try Export again."
+
 ## PDF
 
-⋮ → Export PDF renders through the A4 print stylesheet and opens the
+⋮ → Export… → PDF renders through the A4 print stylesheet and opens the
 system print dialog, so "Save as PDF" and real printers both work.
 
 - It works from every view. Split and Preview print at once; Code
@@ -1218,7 +1278,7 @@ system print dialog, so "Save as PDF" and real printers both work.
   for a different file.
 - If the Preview cannot appear within 3 s, or does not finish rendering
   within a minute, the message says so and how to try again: "Couldn't
-  prepare the PDF. Open Preview, then ⋮ → Export PDF again." It is never
+  prepare the PDF. Open Preview, then ⋮ → Export… → PDF again." It is never
   silent.
 - Export images and the Mermaid sheet's Save / Share / Copy follow the same
   rules: they wait for the Preview to be drawn, and another file opening
@@ -1258,7 +1318,9 @@ line and 25-30 lines a page, with a quarter of the width empty).
   rows, diagrams and pictures are not split across pages when they fit on
   one.
 - Diagrams and images scale to the text width and never split across
-  pages.
+  pages: one taller than a page's text (240 mm, Letter's, so A4 fits too)
+  scales down to fit a page. Nothing prints in the 15 mm at the foot but
+  the page number.
 - The **A4 page mode** in Preview uses the same stylesheet at true scale.
   On a phone that makes body text small, by design ("true scale, pinch
   to read"); pinch zooms the page, not the type.
@@ -1346,6 +1408,11 @@ code-font setting.
 - Saving: write to the file "When I tap Save" (default) or "Autosave"
   (see `robustness.md` §3a), version history (on, storage cap, clear).
 - Split view: scroll panes together.
+- Tidy (2026-11-04): **Number lists 1, 2, 3** (on: a list written
+  `1. 1. 1.` is renumbered; off: such lists stay as written, and lists out
+  of order are still put in order) and **Remove extra blank lines** (on: a
+  run becomes one; off: the spacing is kept, only whitespace on blank lines
+  goes). The Tidy prompt points here.
 - Preview: "Tap to edit" (on by default; off = Preview is read-only;
   tapping a link still shows the *Open · Copy link* chip).
 - Sharing: "Show recent files in the share sheet" (on by default). Your

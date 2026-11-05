@@ -79,6 +79,7 @@ fun SettingsScreen(
         SwitchRow(stringResource(R.string.settings_scroll_together), settings.scrollPanesTogether, {
             onAction(SettingsAction.ToggleScrollTogether)
         })
+        TidySection(settings, onAction)
         SectionLabel(stringResource(R.string.settings_sharing))
         SwitchRow(
             stringResource(R.string.settings_direct_share),
@@ -203,5 +204,26 @@ private fun Segments(
         selectedIndex = selected,
         onSelect = onSelect,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+}
+
+/** Tidy's conventions (Andrew, 2026-11-04: "pick a convention and have it in the settings"). */
+@Composable
+private fun TidySection(
+    settings: AppSettings,
+    onAction: (SettingsAction) -> Unit,
+) {
+    SectionLabel(stringResource(R.string.settings_tidy))
+    SwitchRow(
+        stringResource(R.string.settings_tidy_count_up),
+        settings.tidyCountUpLists,
+        { onAction(SettingsAction.ToggleTidy(TidyChoice.CountUpLists)) },
+        stringResource(R.string.settings_tidy_count_up_hint),
+    )
+    SwitchRow(
+        stringResource(R.string.settings_tidy_blank_lines),
+        settings.tidyCollapseBlankLines,
+        { onAction(SettingsAction.ToggleTidy(TidyChoice.CollapseBlankLines)) },
+        stringResource(R.string.settings_tidy_blank_lines_hint),
     )
 }

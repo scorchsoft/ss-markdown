@@ -1,5 +1,6 @@
 package com.scorchsoft.ssmarkdown.conflict
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,8 +11,11 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -25,6 +29,9 @@ import com.scorchsoft.ssmarkdown.ui.NoteText
 import com.scorchsoft.ssmarkdown.ui.SecondaryScreen
 
 private val NumberColumn = 32.dp
+
+/** The + / − column. */
+private val SignColumn = 16.dp
 
 /** What the Compare screen can do. */
 sealed interface CompareAction {
@@ -102,38 +109,79 @@ private fun ChangeRow(row: CompareRow) {
         )
         return
     }
-    val (tag, color, decoration) =
-        when (row.type) {
-            DiffLineType.Removed -> {
-                Triple(
-                    stringResource(R.string.compare_file_tag),
-                    SS.colors.inkMuted,
-                    TextDecoration.LineThrough,
-                )
-            }
+    val style = rowStyle(row.type)
+    // Git-style: a + or − before the line and a tint behind the row; the tag and strike-through stay,
+    // so the meaning never rests on colour (Andrew, 2026-11-04).
+    val rowModifier = if (style.tint == Color.Unspecified) Modifier else Modifier.background(style.tint)
+    Row(
+        rowModifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .semantics(mergeDescendants = true) {},
+    ) {
+        Number(row.theirsLine, style.numbers)
+        Number(row.mineLine, style.numbers)
+        Text(
+            style.sign,
+            style = SS.type.code.copy(fontWeight = FontWeight.Bold),
+            color = style.ink,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(SignColumn),
+        )
+        Text(
+            stringResource(style.tag),
+            style = SS.type.caption,
+            color = style.numbers,
+            modifier = Modifier.width(36.dp),
+        )
+        Text(row.text.trimEnd('\n'), style = SS.type.code.copy(textDecoration = style.decoration), color = style.ink)
+    }
+}
 
-            DiffLineType.Added -> {
-                Triple(stringResource(R.string.compare_mine_tag), SS.colors.info, null)
-            }
+/** How a Compare row is drawn: its sign, tag, colours and decoration. */
+private data class RowStyle(
+    val sign: String,
+    val tag: Int,
+    val ink: Color,
+    val numbers: Color,
+    val tint: Color,
+    val decoration: TextDecoration?,
+)
 
-            DiffLineType.Context -> {
-                Triple("", SS.colors.ink, null)
-            }
+@Composable
+private fun rowStyle(type: DiffLineType): RowStyle {
+    val c = SS.colors
+    return when (type) {
+        DiffLineType.Removed -> {
+            RowStyle(
+                "−",
+                R.string.compare_file_tag,
+                c.diffRemoved,
+                c.inkMuted,
+                c.diffRemovedBg,
+                TextDecoration.LineThrough,
+            )
         }
-    Row(Modifier.padding(horizontal = 8.dp, vertical = 2.dp)) {
-        Number(row.theirsLine)
-        Number(row.mineLine)
-        Text(tag, style = SS.type.caption, color = SS.colors.inkMuted, modifier = Modifier.width(36.dp))
-        Text(row.text.trimEnd('\n'), style = SS.type.code.copy(textDecoration = decoration), color = color)
+
+        DiffLineType.Added -> {
+            RowStyle("+", R.string.compare_mine_tag, c.diffAdded, c.inkMuted, c.diffAddedBg, null)
+        }
+
+        DiffLineType.Context -> {
+            RowStyle(" ", R.string.compare_no_tag, c.ink, c.gutter, Color.Unspecified, null)
+        }
     }
 }
 
 @Composable
-private fun Number(n: Int?) {
+private fun Number(
+    n: Int?,
+    color: Color = SS.colors.gutter,
+) {
     Text(
         n?.toString().orEmpty(),
         style = SS.type.caption,
-        color = SS.colors.gutter,
+        color = color,
         textAlign = TextAlign.End,
         modifier = Modifier.width(NumberColumn).padding(end = 4.dp),
     )

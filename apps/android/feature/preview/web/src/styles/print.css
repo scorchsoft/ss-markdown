@@ -189,6 +189,18 @@
     :root :is(img, .diagram-svg svg) {
         max-width: 100%;
     }
+    /* A picture, diagram or formula is one piece: taller than a page's text it was sliced
+       across the page foot, with a blank page before it (Andrew, 2026-11-04). It scales
+       down to fit one page instead: 240 mm is the text height of Letter (279 mm less the
+       20 + 15 mm margins), so it fits A4 too. */
+    :root :is(img, .diagram-svg svg, .math-block .katex-display > .katex) {
+        max-height: 240mm;
+    }
+    :root :is(img, .diagram-svg svg) {
+        width: auto;
+        height: auto;
+        object-fit: contain;
+    }
 }
 
 /* A4 page mode: the print stylesheet at true scale on screen. On a phone the
@@ -203,6 +215,14 @@
     --muted: var(--l-muted);
     --border: var(--l-border);
     color-scheme: light;
+}
+/* Pinch scales the whole page, like a PDF viewer: text, margins and pictures together, so the
+   page keeps its layout (Andrew, 2026-11-04: pinch did nothing in A4 page mode). Screen only:
+   print is always true scale. */
+@media screen {
+    :root.page-mode .doc {
+        zoom: var(--zoom);
+    }
 }
 :root.page-mode body {
     background: #e8e8ea;

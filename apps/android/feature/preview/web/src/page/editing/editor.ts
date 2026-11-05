@@ -9,7 +9,8 @@ import type { FormatAction, PageMessage, TableOp } from "../../protocol";
 import type { RenderController } from "../controller";
 import type { SectionView } from "../sectionView";
 import { escapeTyped } from "../../core/minimalEdit";
-import { codeExit } from "../../core/newline";
+import { BLANK_LINE } from "../../render/blankLinesPlugin";
+import { codeExit, itemTextStart } from "../../core/newline";
 import { EditSession, type SessionHost } from "./editSession";
 import { CaretKeeper } from "./caretKeeper";
 import { KeyboardKeeper } from "./keyboardKeeper";
@@ -24,7 +25,7 @@ import {
     type CellAddress,
 } from "./tableEditor";
 import { TableToolbar } from "./tableToolbar";
-import { blockNear, caretAt } from "./tapPoint";
+import { blockNear, caretAt, ruleNear } from "./tapPoint";
 import { copySelection } from "./clip";
 
 /** Blocks that take a caret. Anything inside a read-only block never does. */
@@ -37,6 +38,8 @@ export class Editor implements SessionHost {
     private pendingEnd: number | null = null;
     private readonly toolbar: TableToolbar;
     private selectionTimer: ReturnType<typeof setTimeout> | null = null;
+    /** The last selection reported to Kotlin, so a selection that went away can be reported as gone. */
+    private reported: { from: number; to: number } | null = null;
     /** Whether the table being edited was padded when its first cell was tapped. */
     private paddedTable = false;
     /** A handoff skipped the re-pad: the session that takes over still owes it. */
@@ -79,7 +82,7 @@ export class Editor implements SessionHost {
         const block = target.closest<HTMLElement>(EDITABLE_BLOCK);
         if (!block || !sectionOf(block)) return null;
         const hasRun = block.matches("[data-s]") || block.querySelector("[data-s]") !== null;
-        return hasRun || block.matches("td, th") ? block : null;
+        return hasRun || block.matches("td, th") || isEmptyBlock(block) ? block : null;
     }
 
     /** The block a tap on [target] at ([x], [y]) edits, including one beside it (tapPoint.ts). */
@@ -93,15 +96,123 @@ export class Editor implements SessionHost {
             caretAt(block, x, y); // a tap in the padding of the block being edited
             return;
         }
-        this.end();
+        // HTML an edit has outdated stays on screen until its render (controller.ts splice): its offsets
+        // are the old text's, so a tap in that moment starts nothing rather than type in the wrong place.
         const view = this.viewOf(block);
-        if (!view) return;
+        if (!view || view.needsRender) return;
+        this.end();
         const typed = this.startSession(block, view);
         caretAt(block, x, y);
         this.ensureCellRun(block);
+        this.ensureEmptyBlockRun(block, view);
         this.updateToolbar();
         this.announce(true);
         this.afterStart(typed, null);
+    }
+
+    /**
+     * A tap on (or just beside) a horizontal rule, which holds no text (Andrew, 2026-11-04: rules could
+     * not be tapped, nor a caret put before or after one). The upper half puts the caret at the end of
+     * the block above, the lower half at the start of the block after it; neither changes the file
+     * (only a rule that ends the document gets a line added after it). Backspace at the start of the
+     * block after a rule removes the rule (EditSession). False when the tap is on no rule.
+     */
+    beginAtRule(x: number, y: number): boolean {
+        const rule = ruleNear(x, y);
+        if (!rule) return false;
+        const r = rule.getBoundingClientRect();
+        const blocks = [...document.querySelectorAll<HTMLElement>(`section.sec.mounted :is(${EDITABLE_BLOCK})`)];
+        if (y < (r.top + r.bottom) / 2) {
+            const above = blocks
+                .filter((el) => el.getBoundingClientRect().bottom <= r.top && this.editableBlock(el) === el)
+                .pop();
+            if (above) {
+                this.begin(above, x, above.getBoundingClientRect().bottom + 1);
+                return true;
+            }
+        }
+        // Below: the start of the block after the rule, without changing the file. Enter there opens a line
+        // between (EditSession.lineAbove); Backspace removes the rule.
+        const below = blocks.find((el) => el.getBoundingClientRect().top >= r.bottom && this.editableBlock(el) === el);
+        if (below) {
+            const top = below.getBoundingClientRect().top;
+            this.begin(below, -Infinity, top - 1);
+            return true;
+        }
+        // The rule ends the document: only then does a tap add the line to type on.
+        const doc = this.controller.doc;
+        const line = Number(rule.dataset.line);
+        if (doc.lines[line + 1] !== undefined) return false;
+        const end = doc.text.length;
+        this.commitAndRerender([{ from: end, to: end, insert: "\n" }], end + 1);
+        return true;
+    }
+
+    /**
+     * A tap below everything the page shows. In a blank document (a new file has nothing to tap)
+     * the caret goes to its end, on a placeholder line; otherwise into the last block at its end,
+     * when that block is text (a paragraph, heading, list item or quote), not a table, code or
+     * anything read-only (EB-CARET-04).
+     * False, and nothing changes, for a tap above the end of the content.
+     */
+    beginBelowEnd(x: number, y: number): boolean {
+        const views = this.controller.views;
+        const last = views[views.length - 1];
+        if (!last?.mounted) return false;
+        // The document's drawn blank lines are space, not the last block (a tap on one is beginOnBlankLine's).
+        const tail = [...last.el.children].reverse().find((el) => !el.classList.contains(BLANK_LINE)) ?? null;
+        const bottom = tail?.getBoundingClientRect().bottom ?? -Infinity;
+        const session = this.session;
+        // Already editing the last block (its section waits to re-render until editing ends): stay in it.
+        if (session?.view === last && tail?.contains(session.block) && y >= bottom) {
+            if (!session.block.matches(".placeholder")) caretAt(session.block, x, y);
+            return true;
+        }
+        if (last.needsRender) return false;
+        const doc = this.controller.doc;
+        if (isBlank(doc.lines)) {
+            if (tail && y < bottom) return false;
+            this.end();
+            this.restoreCaret(doc.text.length);
+            return this.session !== null;
+        }
+        if (!tail || y < bottom) return false;
+        // A final table, code block or read-only block is left alone: below those, EB-CARET-04 wants a new
+        // paragraph, which a tap must not write by itself.
+        if (tail.matches("table, pre, .ro-block, .diagram, .math-block") || tail.querySelector(":scope > table"))
+            return false;
+        const blocks = [...last.el.querySelectorAll<HTMLElement>(EDITABLE_BLOCK)].filter(
+            (el) => tail.contains(el) && !el.matches("td, th, code") && this.editableBlock(el) === el,
+        );
+        const block = blocks[blocks.length - 1];
+        if (!block) return false;
+        this.begin(block, x, y);
+        return true;
+    }
+
+    /**
+     * A tap on a drawn blank line (render/blankLinesPlugin.ts) starts typing on that line, without
+     * changing the file. Only on a line with a blank line above and below it: text typed there is a
+     * paragraph of its own, never joined to the block above or below. A tap on the gap's edge lines
+     * takes the nearest such line; a gap too small to have one is left to the nearest block.
+     */
+    beginOnBlankLine(target: Element): boolean {
+        const drawn = target.closest<HTMLElement>(`.${BLANK_LINE}`);
+        if (!drawn) return false;
+        const lines = this.controller.doc.lines;
+        const tapped = Number(drawn.dataset.line);
+        if (Number.isNaN(tapped) || (lines[tapped] ?? "x").trim() !== "") return false;
+        let first = tapped;
+        while (first > 0 && (lines[first - 1] ?? "").trim() === "") first--;
+        let last = tapped;
+        while (last < lines.length - 1 && (lines[last + 1] ?? "").trim() === "") last++;
+        const lowest = first === 0 ? 0 : first + 1;
+        const highest = last === lines.length - 1 ? last : last - 1;
+        if (lowest > highest) return false;
+        const line = Math.min(highest, Math.max(lowest, tapped));
+        this.end();
+        this.restoreCaret(this.controller.doc.lineStart(line));
+        return this.session !== null;
     }
 
     /**
@@ -162,9 +273,8 @@ export class Editor implements SessionHost {
         let run = placeCaret(view.el, offset);
         if (!run) {
             const cell = cellAtOffset(view.el, this.controller.doc, offset);
-            run = cell
-                ? cell.appendChild(emptyRun(view.el, offset))
-                : placeholderRun(view.el, offset, this.controller.doc.lineAt(offset));
+            const line = this.controller.doc.lineAt(offset);
+            run = cell ? cell.appendChild(emptyRun(view.el, offset)) : placeholderRun(view.el, offset, line);
             setCaretInRun(run, 0);
         }
         const block = this.editableBlock(run) ?? run.closest<HTMLElement>(".placeholder");
@@ -458,6 +568,27 @@ export class Editor implements SessionHost {
         return this.controller.views.find((v) => v.el === section) ?? null;
     }
 
+    /**
+     * An empty heading or list item (`## `, `- `) renders with no text and so no run (Andrew,
+     * 2026-11-04: invisible, and only its edge took a tap); give it one at its text's start in the
+     * source, with the caret in it, so typing fills it.
+     */
+    private ensureEmptyBlockRun(block: HTMLElement, view: SectionView): void {
+        if (!isEmptyBlock(block)) return;
+        const line = Number(block.dataset.line);
+        const text = this.controller.doc.lines[line];
+        if (Number.isNaN(line) || text === undefined) return;
+        const start = block.matches("li") ? itemTextStart(text) : (/^ {0,3}#{1,6}[ \t]*/.exec(text)?.[0].length ?? 0);
+        if (start < 0) return;
+        const run = emptyRun(view.el, this.controller.doc.lineStart(line) + start);
+        block.appendChild(run);
+        // The session knows the runs it started with: start it again over the new one, as for a cell.
+        this.session?.stop();
+        const typed = this.startSession(block, view);
+        setCaretInRun(run, 0);
+        this.afterStart(typed, null);
+    }
+
     /** An empty table cell has no run; give it one so typing has offsets. */
     private ensureCellRun(block: HTMLElement): void {
         if (!block.matches("td, th") || block.querySelector("[data-s]")) return;
@@ -499,8 +630,17 @@ export class Editor implements SessionHost {
             this.onSelectionChange();
             return;
         }
-        const range = session?.selectionRange();
-        if (!session || !range) return;
+        if (!session) return;
+        const range = session.selectionRange();
+        if (!range) {
+            // The selection left the block, or there is none (a tap on blank space clears it). Kotlin
+            // hides the fast-scroll thumb while text is selected, and nothing else would tell it the
+            // selection is gone: it stayed hidden until editing ended (Andrew, 2026-11-04: "I never had
+            // the little tab thing … when I switched to code mode … it showed again").
+            const last = this.reported;
+            if (last && last.from !== last.to) this.postSelection(session, { from: last.to, to: last.to }, []);
+            return;
+        }
         const marks = new Set<string>();
         const sel = window.getSelection();
         let node: Node | null = sel?.anchorNode ?? null;
@@ -511,19 +651,37 @@ export class Editor implements SessionHost {
             }
             node = node.parentNode;
         }
+        this.postSelection(session, range, [...marks]);
+    }
+
+    private postSelection(session: EditSession, range: { from: number; to: number }, marks: string[]): void {
+        this.reported = range;
         this.post({
             type: "selection",
             from: range.from,
             to: range.to,
-            marks: [...marks],
+            marks,
             inTable: session.inTable,
             baseRev: this.controller.rev,
         });
     }
 }
 
+/** A heading or list item with no text at all: only a task box, or nothing. */
+function isEmptyBlock(block: Element): boolean {
+    if (!block.matches("h1, h2, h3, h4, h5, h6, li") || (block.textContent ?? "").trim() !== "") return false;
+    return [...block.children].every((el) => el.matches("input.task-list-item-checkbox"));
+}
+
+/** Whether [lines] hold nothing but whitespace; a long document is never blank, so it stops early. */
+function isBlank(lines: readonly string[]): boolean {
+    return lines.length <= BLANK_SCAN_LINES && lines.every((line) => line.trim().length === 0);
+}
+
+const BLANK_SCAN_LINES = 64;
+
 /** Format actions that stand for a key press, answered by an edit and a `select`. */
-const STRUCTURAL: ReadonlySet<FormatAction> = new Set(["enter", "backspace", "type}", "type]", "type)"]);
+const STRUCTURAL: ReadonlySet<FormatAction> = new Set(["enter", "backspace", "type}", "type]", "type)", "table"]);
 
 /** Browser formatting input types and the actions they mean. */
 const INPUT_FORMATS: Readonly<Record<string, FormatAction>> = {

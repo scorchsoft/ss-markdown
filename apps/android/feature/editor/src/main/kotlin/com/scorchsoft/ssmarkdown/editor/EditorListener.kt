@@ -5,6 +5,7 @@ package com.scorchsoft.ssmarkdown.editor
  * [MarkdownCodeView]. Every method has an empty default, so a host
  * overrides only what it needs. All calls arrive on the main thread.
  */
+@Suppress("TooManyFunctions") // One no-op default per event the view reports; nothing to split.
 interface EditorListener {
     /** The selection settled at `[start, end)` (equal for a caret), after the keyboard's batch closed. */
     fun onSelectionChanged(
@@ -83,6 +84,19 @@ interface EditorListener {
      * itself; false lets the view type a line break, delete or type as usual.
      */
     fun onEditKey(key: EditKey): Boolean = false
+
+    /**
+     * The selection menu's "Copy formatted text" over `[start, end)`: the
+     * host puts the selection's rendering on the clipboard. False when it
+     * cannot (the menu then never offers it: [canCopyFormatted]).
+     */
+    fun onCopyFormatted(
+        start: Int,
+        end: Int,
+    ): Boolean = false
+
+    /** Whether the host can answer [onCopyFormatted]. */
+    val canCopyFormatted: Boolean get() = false
 }
 
 /** The keys offered to [EditorListener.onEditKey]. */

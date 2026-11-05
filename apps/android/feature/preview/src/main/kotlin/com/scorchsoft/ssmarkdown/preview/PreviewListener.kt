@@ -98,6 +98,17 @@ interface PreviewContentListener {
         text: String,
     ) = Unit
 
+    /**
+     * The selection menu's "Copy Markdown" ([formatted] false) or "Copy
+     * formatted text": the page's [markdown] for the selection and its
+     * formatted [copy] (null when it would not fit the clipboard).
+     */
+    fun onSelectionCopy(
+        formatted: Boolean,
+        markdown: String,
+        copy: FormattedCopy?,
+    ) = Unit
+
     /** The "Edit in Code" chip on a block Preview cannot edit. */
     fun onEditInCode(line: Int) = Unit
 

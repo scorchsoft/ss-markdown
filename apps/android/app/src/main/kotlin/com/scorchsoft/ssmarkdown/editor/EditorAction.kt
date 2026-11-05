@@ -27,7 +27,7 @@ enum class MenuItem {
     SaveAll,
     FindReplace,
     VersionHistory,
-    ExportPdf,
+    Export,
     ExportImages,
     Share,
 
@@ -98,6 +98,17 @@ sealed interface EditorAction {
     ) : EditorAction
 
     data object DismissOverlay : EditorAction
+
+    /** A row of ⋮ → Export…'s chooser ([EditorOverlay.ExportChooser]). */
+    data class ExportAs(
+        val format: ExportFormat,
+    ) : EditorAction
+
+    /** ⋮'s Tidy icon: works out what Tidy would change, then asks ([EditorOverlay.TidyPrompt]). */
+    data object TidyTapped : EditorAction
+
+    /** "Tidy" on the prompt: the plan is applied as one undo step, after a History checkpoint. */
+    data object TidyConfirmed : EditorAction
 
     data object TitleTapped : EditorAction
 
@@ -180,6 +191,9 @@ sealed interface EditorAction {
 
     data object LeaveDiscard : EditorAction
 
+    /** The draft prompt's "Keep as draft": leave, the draft kept in the Navigator's Drafts. */
+    data object LeaveKeepDraft : EditorAction
+
     data object KeepEditing : EditorAction
 
     // The formatting strip.
@@ -256,10 +270,13 @@ sealed interface EditorAction {
         val action: ExportImagesAction,
     ) : PreviewAction
 
-    /** A table ⋯ sheet row. */
+    /** A table ⋯ sheet row, or the strip's table menu. Delete table asks first ([DeleteTableConfirmed]). */
     data class Table(
         val op: TableOp,
     ) : PreviewAction
+
+    /** "Delete table" in the "Delete this table?" dialog. */
+    data object DeleteTableConfirmed : PreviewAction
 
     /** "Preview paused · Retry". */
     data object RetryPreview : PreviewAction

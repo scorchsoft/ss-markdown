@@ -10,6 +10,7 @@ import {
     send,
     startHarness,
     waitForMessage,
+    diagramsSettled,
     type Harness,
 } from "./harness";
 
@@ -196,6 +197,42 @@ describe("print and PDF", () => {
         const pageNumbers = items.filter((i) => /^\d+$/.test(i.str.trim()) && i.y > 297 * MM - 15 * MM);
         expect(pageNumbers.length).toBe(pages.length);
         for (const n of pageNumbers) expect(Math.abs(n.size - 8)).toBeLessThan(0.2);
+    });
+
+    // Andrew, 2026-11-04: a diagram taller than a page was sliced across the page foot, with a
+    // blank page before it. Tall blocks of every kind keep to the text box, and no page is empty.
+    it("keeps tall blocks inside the margins: a tall diagram fits one page, and no page is blank", async () => {
+        const page = await openPreview(h);
+        const nodes = Array.from({ length: 30 }, (_, j) => `  N${j} --> N${j + 1}`).join("\n");
+        const list = Array.from({ length: 70 }, (_, j) => `- List item ${j}`).join("\n");
+        const quote = Array.from({ length: 60 }, (_, j) => `> Quote line ${j}.`).join("\n>\n");
+        const code = Array.from({ length: 90 }, (_, j) => `code line ${j}`).join("\n");
+        await loadMarkdown(
+            page,
+            `# Tall\n\n${list}\n\n${quote}\n\n\`\`\`\n${code}\n\`\`\`\n\n\`\`\`mermaid\ngraph TD\n${nodes}\n\`\`\`\n\nAfter.`,
+        );
+        await diagramsSettled(page);
+        const { items, pages } = await printToPdf(page, "tall-blocks");
+        const isPageNumber = (i: TextItem): boolean => /^\d+$/.test(i.str.trim()) && Math.abs(i.size - 8) < 0.2;
+        const text = items.filter((i) => !isPageNumber(i));
+        // Nothing reaches into the 15 mm at the foot (a descender is about 0.25 em below the baseline).
+        for (const i of text)
+            expect(i.y + 0.25 * i.size, `"${i.str}" on page ${i.page}`).toBeLessThanOrEqual(282 * MM + 0.5);
+        // Every page prints something besides its number (the diagram's labels are text too).
+        for (let p = 1; p <= pages.length; p++)
+            expect(
+                text.some((i) => i.page === p),
+                `page ${p} is blank`,
+            ).toBe(true);
+        // The diagram is one picture on one page: its first and last nodes print together.
+        const first = text.find((i) => i.str.trim() === "N0");
+        const last = text.find((i) => i.str.trim() === "N30");
+        if (first && last) expect(first.page).toBe(last.page);
+        const svg = await page.evaluate(() => {
+            const el = document.querySelector(".diagram-svg svg");
+            return el ? getComputedStyle(el).maxHeight : null;
+        });
+        expect(svg).not.toBeNull();
     });
 
     // Andrew, 0.2.1: his transcript printed about 12 words a line and 25-30 lines a page, with a

@@ -89,7 +89,9 @@ internal object ListToggle {
      * Rewrites the marker of every item in the lists [lines] are in, at their
      * level, as [kind]; task boxes stay. Numbers count from 1 in the
      * document's delimiter. Where the marker's width changes, the lines
-     * nested in the item move by the same amount, so they stay nested.
+     * nested in the item move by the same amount, so they stay nested. A
+     * line nested under several switched items (a selection over a parent
+     * and its child) moves by their sum, in one edit.
      */
     @Suppress("LongParameterList") // One pass over parsed lines; splitting it would only pass them around.
     private fun switchLists(
@@ -102,6 +104,7 @@ internal object ListToggle {
         fences: FenceStates,
     ) {
         val done = HashSet<Int>()
+        val shifts = LinkedHashMap<Int, Pair<LineSpan, Int>>()
         lines.forEachIndexed { i, line ->
             if (line.start in done) return@forEachIndexed
             val block = ListBlock.around(text, line, prefixes[i], fences)
@@ -121,10 +124,14 @@ internal object ListToggle {
                 builder.replace(item.span.start + p.indentEnd, item.span.start + p.markerEnd, marker)
                 val shift = marker.length - old
                 if (shift != 0) {
-                    for (child in item.children) shiftIndent(builder, child, shift)
+                    for (child in item.children) {
+                        val total = (shifts[child.start]?.second ?: 0) + shift
+                        shifts[child.start] = child to total
+                    }
                 }
             }
         }
+        for ((child, shift) in shifts.values) if (shift != 0) shiftIndent(builder, child, shift)
     }
 
     /** Moves a nested line by [shift] columns: spaces added after its quote, or up to that many removed. */

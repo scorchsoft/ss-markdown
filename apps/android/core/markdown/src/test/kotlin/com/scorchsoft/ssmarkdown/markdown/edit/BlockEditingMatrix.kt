@@ -35,6 +35,9 @@ object BlockEditingMatrix {
 
         /** `}` typed (Preview: the key pressed). */
         TypeBrace("type}"),
+
+        /** The strip's Table key: a 3 × 2 table after the caret's block, its first header selected. */
+        Table("table"),
     }
 
     /**
@@ -187,7 +190,22 @@ object BlockEditingMatrix {
                 "- [ ] a\n- ‸b",
             ),
             row("EB-LIST-31 backspace nested makes a paragraph", Action.Backspace, "- a\n  - ‸b", "- a\n\n‸b"),
-            row("EB-LIST-32 backspace empty item", Action.Backspace, "- a\n- ‸", "- a\n\n‸"),
+            // An empty item under its list is deleted with its line; a numbered list closes up (Andrew, 2026-11-04).
+            row("EB-LIST-32 backspace empty item", Action.Backspace, "- a\n- ‸", "- a‸"),
+            row("backspace empty middle bullet", Action.Backspace, "- a\n- ‸\n- c", "- a‸\n- c"),
+            row(
+                "EB-NUM-09 backspace empty middle numbered renumbers",
+                Action.Backspace,
+                "1. a\n2. b\n3. ‸\n4. d\n5. e",
+                "1. a\n2. b‸\n3. d\n4. e",
+            ),
+            row("EB-NUM-14 backspace empty numbered", Action.Backspace, "1. a\n2. ‸", "1. a‸"),
+            row("backspace empty lazy numbered", Action.Backspace, "1. a\n1. ‸\n1. c", "1. a‸\n1. c"),
+            row("backspace empty nested item", Action.Backspace, "- a\n  - ‸\n- c", "- a‸\n- c"),
+            row("backspace empty item in quote", Action.Backspace, "> - a\n> - ‸", "> - a‸"),
+            row("backspace empty only item", Action.Backspace, "- ‸", "‸"),
+            row("backspace empty first item", Action.Backspace, "text\n\n- ‸\n- b", "text\n\n‸\n- b"),
+            row("backspace empty task loses its box first", Action.Backspace, "- [ ] a\n- [ ] ‸", "- [ ] a\n- ‸"),
             row("backspace item in quote", Action.Backspace, "> - a\n> - ‸b", "> - a\n>\n> ‸b"),
             row("backspace again merges as normal", Action.Backspace, "- a\n\n‸b", "- a\n‸b", preview = false),
             row("backspace mid-text deletes a char", Action.Backspace, "- a‸b", "- ‸b"),
@@ -329,6 +347,31 @@ object BlockEditingMatrix {
                 "x\n\n```\na‸\nb\n```",
                 "x\n\na‸\n```\nb\n```",
             ),
+            // Enter at the very start of a heading or paragraph (Andrew, 2026-11-04: below a table, Enter at the
+            // heading's start split it): Preview opens a line above and keeps the block; Code is raw text.
+            enter(
+                "enter at a heading's start under a table",
+                "| a |\n|---|\n| 1 |\n\n## ‸Title",
+                "| a |\n|---|\n| 1 |\n\n## \n‸Title",
+                previewAfter = "| a |\n|---|\n| 1 |\n\n‸\n\n## Title",
+            ),
+            enter(
+                "enter at a paragraph's start under a heading",
+                "## Head\n‸Text",
+                "## Head\n\n‸Text",
+                previewAfter = "## Head\n\n‸\n\nText",
+            ),
+            // The Table key (Andrew, 2026-11-04: it did nothing in Preview). The new table's first header is selected.
+            row("table after a paragraph", Action.Table, "Intro‸\n\n## Next", "Intro\n\n${TABLE}\n\n## Next"),
+            // A blank line after it, so the text below never reads as another row.
+            row("table after a heading", Action.Table, "## Title‸\nText", "## Title\n\n${TABLE}\n\nText"),
+            row(
+                "table on a blank line",
+                Action.Table,
+                "Intro\n\n‸\n\nEnd",
+                "Intro\n\n${TABLE}\n\nEnd",
+                preview = false,
+            ),
             row("block code joins the block above", Action.BlockCode, "```\na\n```\nb‸", "```\na\nb‸\n```"),
             row("block code joins the block below", Action.BlockCode, "b‸\n```py\nc\n```", "```py\nb‸\nc\n```"),
             row(
@@ -359,6 +402,11 @@ object BlockEditingMatrix {
             ),
         )
 
+    /** The table the Table key inserts (padded, 3 columns, 2 rows), its first header selected. */
+    private const val TABLE =
+        "| «Column 1» | Column 2 | Column 3 |\n| -------- | -------- | -------- |\n" +
+            "|          |          |          |\n|          |          |          |"
+
     /** The command a row runs in Code. Backspace is special: see [BlockEditingMatrixTest]. */
     @Suppress("CyclomaticComplexMethod") // One branch per action.
     fun command(action: Action): EditCommand =
@@ -377,5 +425,6 @@ object BlockEditingMatrix {
             Action.BlockQuote -> EditCommand.SetBlockType(BlockType.Quote)
             Action.BlockCode -> EditCommand.SetBlockType(BlockType.CodeBlock)
             Action.TypeBrace -> EditCommand.Type("}")
+            Action.Table -> EditCommand.InsertTable()
         }
 }

@@ -30,6 +30,8 @@ class SettingsTest {
                 formattingBar = StripRows.Two,
                 lineNumbers = false,
                 splitTyping = SplitTyping.BothPanes,
+                tidyCountUpLists = false,
+                tidyCollapseBlankLines = false,
             ).withRecent(RecentFile("content://a", "a.md", "Documents", 5, pinned = true))
         assertEquals(settings, SettingsJson.decode(JSONObject(SettingsJson.encode(settings).toString())))
     }
@@ -176,5 +178,21 @@ class SettingsTest {
         val s = SettingsReducer.reduce(AppSettings(), SettingsAction.StepCodeZoom(-100))
         assertEquals(50, s.defaultZoomCode)
         assertTrue(SettingsReducer.reduce(AppSettings(), SettingsAction.ToggleScrollTogether).scrollPanesTogether.not())
+        assertTrue(
+            SettingsReducer
+                .reduce(
+                    AppSettings(),
+                    SettingsAction.ToggleTidy(TidyChoice.CountUpLists),
+                ).tidyCountUpLists
+                .not(),
+        )
+        assertTrue(
+            SettingsReducer
+                .reduce(
+                    AppSettings(),
+                    SettingsAction.ToggleTidy(TidyChoice.CollapseBlankLines),
+                ).tidyCollapseBlankLines
+                .not(),
+        )
     }
 }

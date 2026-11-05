@@ -48,6 +48,7 @@
     <string name="table_align_center">Centre column</string>
     <string name="table_align_right">Align column right</string>
     <string name="table_delete_row">Delete row</string>
+    <string name="table_delete_table">Delete table</string>
     <string name="table_delete_column">Delete column</string>
 
     <!-- Viewer -->
@@ -83,7 +84,7 @@
     <string name="msg_images_exported">Saved to Downloads/SS Markdown/%1$s</string>
     <string name="msg_images_failed">Couldn\'t export the images</string>
     <string name="msg_nothing_to_export">No diagrams or pictures in this file</string>
-    <string name="msg_pdf_failed">Couldn\'t prepare the PDF. Open Preview, then ⋮ → Export PDF again.</string>
+    <string name="msg_pdf_failed">Couldn\'t prepare the PDF. Open Preview, then ⋮ → Export… → PDF again.</string>
     <string name="msg_export_stopped">Export stopped: another file opened. Nothing was saved.</string>
 
     <!-- Display -->

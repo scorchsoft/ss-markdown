@@ -6,6 +6,7 @@
  * section's start offset comes from its view (`data-offset` mirrors it). Everything
  * here returns absolute offsets into the whole source.
  */
+import { BLANK_LINE } from "../../render/blankLinesPlugin";
 import { viewOfElement } from "../sectionView";
 
 export interface RunRecord {
@@ -143,7 +144,12 @@ export function placeholderRun(section: HTMLElement, offset: number, line: numbe
     const run = emptyRun(section, offset);
     const host = [...section.querySelectorAll<HTMLElement>("[data-line]")]
         .reverse()
-        .find((el) => Number(el.dataset.line) === line && !el.querySelector("[data-line]"));
+        .find(
+            (el) =>
+                Number(el.dataset.line) === line &&
+                !el.querySelector("[data-line]") &&
+                !el.classList.contains(BLANK_LINE),
+        );
     if (host && !host.matches("blockquote, .markdown-alert")) {
         host.appendChild(run);
         return run;
@@ -158,9 +164,67 @@ export function placeholderRun(section: HTMLElement, offset: number, line: numbe
         host.appendChild(p);
         return run;
     }
-    const after = [...section.children].find((el) => Number((el as HTMLElement).dataset.line) > line);
-    section.insertBefore(p, after ?? null);
+    // Into the quote or alert that holds the line, and through a list that does, so the caret is drawn
+    // where the line is, never below the whole block (Andrew, 2026-11-04).
+    let parent: HTMLElement = section;
+    for (let around = spanning(parent, line); around; around = spanning(parent, line)) {
+        if (around.matches("ul, ol")) {
+            splitListAt(around, line, p);
+            return run;
+        }
+        parent = around;
+    }
+    // The drawn blank line this one stands for (render/blankLinesPlugin.ts) gives way to it.
+    const drawn = [...parent.children].find(
+        (el) => el.classList.contains(BLANK_LINE) && Number((el as HTMLElement).dataset.line) === line,
+    );
+    if (drawn) {
+        drawn.replaceWith(p);
+        return run;
+    }
+    const after = [...parent.children].find((el) => Number((el as HTMLElement).dataset.line) > line);
+    parent.insertBefore(p, after ?? null);
     return run;
+}
+
+/** The child list, quote or alert of [parent] whose source lines run past [line], if any. */
+function spanning(parent: HTMLElement, line: number): HTMLElement | null {
+    for (const el of parent.children) {
+        if (!(el instanceof HTMLElement) || !el.matches("ul, ol, blockquote, .markdown-alert")) continue;
+        const start = Number(el.dataset.line);
+        const end = Number(el.dataset.lineEnd);
+        if (start < line && line < end) return el;
+    }
+    return null;
+}
+
+/**
+ * Draws the empty line [p] stands for where it is: Enter on an empty item in
+ * the middle of a list ends the list there (EB-LIST-07), but until something
+ * is typed the source is only blank lines, which Markdown reads as one loose
+ * list, and the caret went below the whole list (Andrew, 2026-11-04). The list
+ * is shown split around [p], as it will render once the line has text; the
+ * section re-renders from source when editing ends.
+ */
+function splitListAt(list: HTMLElement, line: number, p: HTMLElement): void {
+    const items = [...list.children].filter((el): el is HTMLElement => el instanceof HTMLElement && el.matches("li"));
+    const later = items.filter((li) => Number(li.dataset.line) > line);
+    if (later.length === 0) {
+        list.after(p);
+        return;
+    }
+    const rest = list.cloneNode(false) as HTMLElement;
+    rest.removeAttribute("data-line");
+    rest.removeAttribute("data-line-end");
+    rest.removeAttribute("data-rl");
+    rest.removeAttribute("data-rle");
+    if (list instanceof HTMLOListElement && rest instanceof HTMLOListElement) {
+        rest.start = list.start + items.length - later.length;
+    }
+    for (const li of later) rest.appendChild(li);
+    list.after(p, rest);
+    list.classList.add("split-list");
+    rest.classList.add("split-list");
 }
 
 /** An empty run at absolute [offset] in [section], holding a zero-width space for the caret. */

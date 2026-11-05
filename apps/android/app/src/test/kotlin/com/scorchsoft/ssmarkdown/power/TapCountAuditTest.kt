@@ -226,7 +226,7 @@ class TapCountAuditTest {
     }
 
     @Test
-    fun `PDF export is one tap after the menu`() {
+    fun `PDF export is two taps after the menu`() {
         val (f, taps) = editor()
         val printed = ArrayList<String>()
         val page =
@@ -240,16 +240,18 @@ class TapCountAuditTest {
             }
         f.vm.preview.attachPage(page) {}
         taps.tap(MORE)
-        taps.tap("Export PDF")
+        taps.tap("Export…")
+        taps.tap("PDF")
         assertEquals("the page is asked to print this file", listOf("notes"), printed)
-        assertEquals(1, taps.afterMenu())
+        assertEquals(2, taps.afterMenu())
     }
 
     @Test
-    fun `Mermaid export is two taps after the menu`() {
+    fun `Mermaid export is three taps after the menu`() {
         val (f, taps) = editor("# D\n\n```mermaid\ngraph LR\n  A --> B\n```\n")
         taps.tap(MORE)
-        taps.tap("Export images…")
+        taps.tap("Export…")
+        taps.tap("Images…")
         assertTrue(f.vm.uiState.value.overlay is EditorOverlay.ExportImages)
         taps.tap("Export 1 image")
         // The export is under way. Its bytes come from the WebView, which a host
@@ -258,7 +260,8 @@ class TapCountAuditTest {
         val sheet = f.vm.uiState.value.overlay as EditorOverlay.ExportImages
         assertTrue("Export did not start", sheet.state.running)
         assertEquals(1, sheet.state.count)
-        assertEquals(2, taps.afterMenu())
+        // Export images moved into Export… (Andrew, 2026-11-04): one tap more, one menu row less.
+        assertEquals(3, taps.afterMenu())
     }
 
     // The Navigator: tap the title, type 2-3 letters, tap the result.

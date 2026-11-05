@@ -36,13 +36,15 @@ class PreviewStripKeysTest {
 
     @Test
     fun `every key Preview's strip shows does something, the list and indent keys as Code's commands`() {
-        val handledElsewhere = setOf(StripKey.Table, StripKey.BlockStyle)
+        // Table was "handled elsewhere" here, and was not: in Preview it did nothing (Andrew, 2026-11-04).
+        val handledElsewhere = setOf(StripKey.BlockStyle)
         for (key in StripLayout.previewKeys - handledElsewhere) {
             assertNotNull("$key", PreviewStripKeys.actionFor(key, inHeading = false))
         }
         assertEquals(FormatAction.NUMBERED, PreviewStripKeys.actionFor(StripKey.NumberedList, inHeading = false))
         assertEquals(FormatAction.OUTDENT, PreviewStripKeys.actionFor(StripKey.Outdent, inHeading = false))
         assertEquals(FormatAction.INDENT, PreviewStripKeys.actionFor(StripKey.Indent, inHeading = false))
+        assertEquals(FormatAction.TABLE, PreviewStripKeys.actionFor(StripKey.Table, inHeading = false))
         // Outdent and Indent sit together, ← then →, in both strips.
         for (keys in listOf(StripLayout.codeKeys, StripLayout.previewKeys)) {
             assertEquals(keys.indexOf(StripKey.Outdent) + 1, keys.indexOf(StripKey.Indent))
@@ -88,5 +90,23 @@ class PreviewStripKeysTest {
             assertEquals(choice, PreviewStripKeys.choiceFor(type))
         }
         assertEquals(null, PreviewStripKeys.choiceFor(null))
+    }
+
+    /** Andrew, 2026-11-04: the Table key did nothing in Preview. It inserts Code's table at the page's caret. */
+    @Test
+    fun `Table in Preview inserts the table Code would, after the caret's block, and never inside a cell`() {
+        val text = "Intro paragraph.\n\n## Next"
+        val caret = TextSelection(5, 5)
+        val result = PreviewFormatter.format(text, caret, FormatAction.TABLE, DocumentStyle.DEFAULT)
+        assertNotNull(result)
+        val code = EditCommand.InsertTable().apply(text, caret, DocumentStyle.DEFAULT)
+        var after = text
+        for (e in result!!.edits.sortedByDescending { it.from }) after = after.replaceRange(e.from, e.to, e.insert)
+        assertEquals(code.applyTo(text), after)
+        assertEquals(code.selection, result.selection)
+        assertEquals(
+            null,
+            PreviewFormatter.format(text, caret, FormatAction.TABLE, DocumentStyle.DEFAULT, inTable = true),
+        )
     }
 }

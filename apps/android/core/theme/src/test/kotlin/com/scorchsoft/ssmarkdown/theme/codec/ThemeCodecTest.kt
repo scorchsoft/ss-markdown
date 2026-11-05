@@ -121,6 +121,13 @@ class ThemeCodecTest {
     }
 
     @Test
+    fun `a huge font name is refused, not a stack overflow`() {
+        val name = "a ".repeat(50_000).trim()
+        val text = "{\n  \"name\": \"Big\",\n  \"fonts\": { \"body\": \"$name\" }\n}"
+        assertEquals(listOf("line 3, “body” isn't a font family name"), problems(text))
+    }
+
+    @Test
     fun `broken JSON points at the line`() {
         assertEquals(
             listOf("line 3, the JSON is broken: expected “,” or “}”"),

@@ -1,6 +1,7 @@
 package com.scorchsoft.ssmarkdown.editor
 
 import com.scorchsoft.ssmarkdown.files.document.CloseOutcome
+import com.scorchsoft.ssmarkdown.files.document.OpenDocument
 import com.scorchsoft.ssmarkdown.files.provider.DocumentUri
 import com.scorchsoft.ssmarkdown.files.saf.SuggestedFileName
 import com.scorchsoft.ssmarkdown.files.save.SaveOutcome
@@ -82,7 +83,10 @@ class SaveController(
     /** The picker answered; [target] is null when it was cancelled. */
     fun onSaveLocation(target: String?) {
         val open = host.active?.open ?: return
-        if (target == null) return
+        if (target == null) {
+            afterSaveAs = null
+            return
+        }
         deps.permissions(target, true)
         val from = open.uri
         host.updateMeta(from.value) { it.copy(saving = true, savingAs = true) }
@@ -102,6 +106,12 @@ class SaveController(
                 ) {
                     host.message(MessageKind.PicturesStayedWithDraft)
                 }
+                afterSaveAs?.let {
+                    afterSaveAs = null
+                    leave(it, discard = false)
+                }
+            } else {
+                afterSaveAs = null
             }
         }
     }
@@ -203,21 +213,66 @@ class SaveController(
 
     /** Something would take a dirty buffer out of memory: ask first; otherwise just do it. */
     fun requestLeave(leave: PendingLeave) {
-        val dirty =
-            host.state.isDirty && host.active
-                ?.open
-                ?.uri
-                ?.isDraft == false
-        val folderSwitch = leave is PendingLeave.OpenOther && host.state.folder != null
-        if (dirty && !folderSwitch) {
+        val uri = host.active?.open?.uri
+        val dirty = host.state.isDirty && uri?.isDraft == false
+        // New or Open from a draft with words in it: the draft is kept, but say so and offer Save as… or Delete.
+        val leavesDraft =
+            leave == PendingLeave.NewDocument || leave == PendingLeave.PickFile || leave is PendingLeave.OpenOther
+        val draftWithText =
+            leavesDraft && uri?.isDraft == true &&
+                host.active
+                    ?.text
+                    ?.snapshot()
+                    ?.isNotBlank() == true
+        // In folder mode every file keeps its own unsaved edits: opening another loses nothing.
+        val folderSwitch =
+            (leave is PendingLeave.OpenOther || leave == PendingLeave.PickFile) && host.state.folder != null
+        if (draftWithText) {
+            host.update { it.copy(overlay = EditorOverlay.DirtyPrompt(leave, draft = true)) }
+        } else if (dirty && !folderSwitch) {
             host.update { it.copy(overlay = EditorOverlay.DirtyPrompt(leave)) }
         } else {
             leave(leave, discard = false)
         }
     }
 
-    /** "Save" at the prompt: leave only once the save has verified. */
-    fun saveThenLeave(leave: PendingLeave) = save { leave(leave, discard = false) }
+    /**
+     * "Save" at the prompt: leave only once the save has verified. A draft
+     * goes through the Save as… picker first, and leaves once that save has
+     * verified; cancelling the picker stays on the draft.
+     */
+    fun saveThenLeave(leave: PendingLeave) {
+        host.update { it.copy(overlay = null) }
+        if (host.active
+                ?.open
+                ?.uri
+                ?.isDraft == true
+        ) {
+            afterSaveAs = leave
+        }
+        save { leave(leave, discard = false) }
+    }
+
+    /** True while the picker is up after the leave prompt was answered for it ([PendingLeave.PickFile]). */
+    private var answeredBeforePick = false
+
+    /**
+     * The picker chose [uri]: it opens, asking first unless the question was
+     * already answered before the picker opened.
+     */
+    fun onFilePicked(uri: String) {
+        val answered = answeredBeforePick
+        answeredBeforePick = false
+        if (answered) leave(PendingLeave.OpenOther(uri), discard = false) else requestLeave(PendingLeave.OpenOther(uri))
+    }
+
+    /** The picker was cancelled: nothing opens, and nothing more is asked. */
+    fun onPickCancelled() {
+        answeredBeforePick = false
+    }
+
+    /** Where to go once a Save as… started from the leave prompt has verified. */
+    private var afterSaveAs: PendingLeave? = null
 
     /**
      * Carries out [leave]; with [discard], "Don't save" (a History
@@ -233,31 +288,71 @@ class SaveController(
         host.update { it.copy(overlay = null) }
         val open = host.active?.open
         deps.scope.launch {
-            if (discard && open != null) {
-                val closed = deps.store.close(open.uri, discardUnsaved = true, evenIfNotKept = evenIfNotKept)
-                if (closed is CloseOutcome.NotKept) {
-                    val ask = EditorOverlay.NotKept(NotKeptStep.DontSave(leave), closed.checkpoint)
-                    host.update { it.copy(overlay = ask) }
-                    return@launch
-                }
+            if (discard && open != null && !dropEdits(open, leave, evenIfNotKept)) return@launch
+            go(leave, open, discard)
+        }
+    }
+
+    /**
+     * "Don't save" / "Delete draft" before leaving [open]. A draft's last
+     * typing is written first, so Undo brings all of it back, then it goes
+     * to the drafts trash with Undo, as the Navigator's delete does (DS-16).
+     * False when History could not keep a file's edits and the user is
+     * asked first (R2-DS-1).
+     */
+    private suspend fun dropEdits(
+        open: OpenDocument,
+        leave: PendingLeave,
+        evenIfNotKept: Boolean,
+    ): Boolean {
+        if (open.uri.isDraft) {
+            if (deps.store[open.uri]?.isDirty == true) deps.store.save(open.uri)
+            deps.store.close(open.uri)
+            if (withContext(deps.io) { deps.drafts.trash(open.uri) }) {
+                (host as? EditorViewModel)?.navigator?.trashed(open.uri)
             }
-            when (leave) {
-                PendingLeave.Exit -> {
-                    open?.uri?.let(deps.autosave::onLeave)
-                    host.emit(EditorEvent.Finish)
-                }
+            return true
+        }
+        val closed = deps.store.close(open.uri, discardUnsaved = true, evenIfNotKept = evenIfNotKept)
+        if (closed is CloseOutcome.NotKept) {
+            host.update { it.copy(overlay = EditorOverlay.NotKept(NotKeptStep.DontSave(leave), closed.checkpoint)) }
+            return false
+        }
+        return true
+    }
 
-                is PendingLeave.OpenOther -> {
-                    host.openDocument(leave.uri)
-                }
+    /** Goes where [leave] says, from [open] (whose edits [discarded] or not). */
+    private fun go(
+        leave: PendingLeave,
+        open: OpenDocument?,
+        discarded: Boolean,
+    ) {
+        when (leave) {
+            PendingLeave.Exit -> {
+                open?.uri?.let(deps.autosave::onLeave)
+                host.emit(EditorEvent.Finish)
+            }
 
-                PendingLeave.NewDocument -> {
-                    host.newDraft()
-                }
+            is PendingLeave.OpenOther -> {
+                host.openDocument(leave.uri, leave.fromAnotherApp, leave.readOnlySource)
+            }
 
-                PendingLeave.CloseFolder -> {
-                    host.update { it.copy(folder = null) }
+            PendingLeave.NewDocument -> {
+                host.newDraft()
+            }
+
+            PendingLeave.PickFile -> {
+                // Don't save took the edits away: the file comes back as it is on disk; a deleted draft
+                // leaves a fresh one. Then the picker; what is picked opens without asking again.
+                if (discarded && open != null) {
+                    if (open.uri.isDraft) host.newDraft() else host.openDocument(open.uri.value)
                 }
+                answeredBeforePick = true
+                host.emit(EditorEvent.PickFileToOpen)
+            }
+
+            PendingLeave.CloseFolder -> {
+                host.update { it.copy(folder = null) }
             }
         }
     }

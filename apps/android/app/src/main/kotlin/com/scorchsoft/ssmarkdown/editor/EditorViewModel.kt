@@ -77,6 +77,8 @@ class EditorViewModel(
     val recovery = RecoveryController(this)
     val strip = StripController(this)
     val find = FindController(this)
+    val tidy = TidyController(this)
+    val exports = ExportController(this)
     val navigator = NavigatorController(this)
     val folder = FolderController(this)
     val views = ViewMemory(this)
@@ -155,8 +157,21 @@ class EditorViewModel(
         return !draft.isDraft || deps.drafts.resolve(draft)?.isFile == true
     }
 
-    private fun openRequested(request: LaunchRequest) =
-        openDocument(request.uri, fromAnotherApp = request.fromAnotherApp, readOnlySource = request.source)
+    /**
+     * A file sent from another app (a `.md` tapped in Files, Share → Open).
+     * With a document already on screen it asks first, as Open file… does:
+     * Save / Don't save for unsaved edits, the draft sheet for a draft with
+     * text (Andrew, 2026-11-04: it opened over unsaved edits without a word).
+     * The same file again, or nothing on screen yet, opens at once.
+     */
+    private fun openRequested(request: LaunchRequest) {
+        val current = active?.open?.uri?.value
+        if (current == null || current == request.uri) {
+            openDocument(request.uri, fromAnotherApp = request.fromAnotherApp, readOnlySource = request.source)
+            return
+        }
+        saves.requestLeave(PendingLeave.OpenOther(request.uri, request.fromAnotherApp, request.source))
+    }
 
     /** The single entry point for user actions. */
     fun onAction(action: EditorAction) {
@@ -662,6 +677,12 @@ class EditorViewModel(
     }
 
     override fun onCopyTooLarge(chars: Int) = message(MessageKind.CopyTooLarge)
+
+    override fun onCopyFormatted(
+        document: ActiveDocument,
+        start: Int,
+        end: Int,
+    ): Boolean = document === active && copies.copySelection(document, start, end)
 
     /** Admission control for large pastes (PERF-G): refused with a message rather than risking the heap. */
     override fun admitPaste(chars: Int): Boolean {

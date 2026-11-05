@@ -14,6 +14,9 @@ import {
     itemTextStart,
     newlineInsert,
     type BlockKind,
+    blankLineBackspace,
+    blankLineEnter,
+    type LineEdit,
 } from "../../core/newline";
 import type { FormatAction } from "../../protocol";
 import { escapeTyped } from "../../core/minimalEdit";
@@ -25,6 +28,9 @@ import { OWN_HTML } from "./clip";
 import type { SectionView } from "../sectionView";
 import { pointToSource, runText, sectionOffset, shiftRuns, snapshotRuns, type RunRecord } from "./runs";
 import { StrayGuard } from "./strayGuard";
+
+/** A thematic break line (`---`, `***`, `___`, spaced or not). */
+const THEMATIC_BREAK = /^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/;
 
 export const FLUSH_DELAY_MS = 150;
 
@@ -202,6 +208,14 @@ export class EditSession {
             else this.enter(type === "insertLineBreak");
             return;
         }
+        if (type === "deleteContentBackward" && this.backspaceBlankLine()) {
+            e.preventDefault();
+            return;
+        }
+        if (type === "deleteContentBackward" && this.deleteRuleAbove()) {
+            e.preventDefault();
+            return;
+        }
         if (type === "deleteContentBackward" && this.atItemTextStart()) {
             e.preventDefault();
             this.host.format("backspace");
@@ -287,11 +301,92 @@ export class EditSession {
             const exit = r.from === r.to ? this.host.codeExitAt(r.from) : null;
             if (exit) this.host.commitAndRerender([exit], exit.caret);
             else this.host.format("enter");
+        } else if (!hard && r.from === r.to && this.blankLine(r.from, blankLineEnter)) {
+            return;
         } else if (!hard && (kind === "listItem" || isListLine(line) || isEmptyQuoteLine(line))) {
             this.host.format("enter");
+        } else if (!hard && r.from === r.to && this.atLineTextStart(r.from, line)) {
+            this.lineAbove(r.from);
         } else {
             this.structural(newlineInsert(line, hard), null);
         }
+    }
+
+    /**
+     * True with the caret at the start of a heading's or paragraph's first line, before any of its text
+     * (a quote is left to its own rule): Enter there opens a line above ([lineAbove]).
+     */
+    private atLineTextStart(offset: number, line: string): boolean {
+        if (/^ {0,3}>/.test(line)) return false;
+        const start = /^ {0,3}(?:#{1,6}(?:[ \t]+|$))?/.exec(line)?.[0].length ?? 0;
+        if (offset - this.host.lineStartAt(offset) > start) return false;
+        const lineStart = this.host.lineStartAt(offset);
+        // A heading is one line; a paragraph's first line is the one after a blank (later lines split as usual).
+        const heading = /^ {0,3}#{1,6}(?:[ \t]|$)/;
+        if (heading.test(line) || lineStart === 0) return true;
+        const above = this.host.lineTextAt(lineStart - 1);
+        return above.trim() === "" || heading.test(above);
+    }
+
+    /**
+     * Enter at the start of a heading or paragraph (Andrew, 2026-11-04: Enter at the start of a heading
+     * below a table split it, leaving an empty heading and its text as a paragraph). The block stays as
+     * it is and moves down; a new empty line opens above it with the caret on it, blank lines around it
+     * so what is typed there is a paragraph of its own.
+     */
+    private lineAbove(offset: number): void {
+        this.flush();
+        const at = this.host.lineStartAt(offset);
+        const aboveBlank = at === 0 || this.host.lineTextAt(at - 1).trim() === "";
+        const insert = (aboveBlank ? "" : "\n") + "\n\n";
+        this.host.commitAndRerender([{ from: at, to: at, insert }], at + (aboveBlank ? 0 : 1));
+    }
+
+    /** Backspace with a bare caret on a blank line: [blankLineBackspace]. */
+    private backspaceBlankLine(): boolean {
+        if (this.blockKind() === "code") return false;
+        this.flush();
+        const r = this.selectionRange();
+        return !!r && r.from === r.to && this.blankLine(r.from, blankLineBackspace);
+    }
+
+    /** Runs a blank-line [rule] at [offset]; true when it made an edit. */
+    private blankLine(
+        offset: number,
+        rule: (lines: readonly string[], line: number, lineStart: (line: number) => number) => LineEdit | null,
+    ): boolean {
+        const doc = this.host.doc;
+        const edit = rule(doc.lines, doc.lineAt(offset), (l) => doc.lineStart(l));
+        if (!edit) return false;
+        this.host.commitAndRerender([{ from: edit.from, to: edit.to, insert: edit.insert }], edit.caret);
+        return true;
+    }
+
+    /**
+     * Backspace at the start of the line right after a horizontal rule (blank lines between allowed)
+     * removes the rule as one unit, never half of its `---` (EB-BREAK-08). True when it did.
+     */
+    private deleteRuleAbove(): boolean {
+        if (this.blockKind() === "code") return false;
+        this.flush();
+        const r = this.selectionRange();
+        if (!r || r.from !== r.to) return false;
+        const lineStart = this.host.lineStartAt(r.from);
+        const before = this.host.lineTextAt(r.from).slice(0, r.from - lineStart);
+        if (before.trim() !== "" || lineStart === 0) return false;
+        let at = lineStart;
+        while (at > 0) {
+            const prevStart = this.host.lineStartAt(at - 1);
+            const text = this.host.lineTextAt(at - 1);
+            if (text.trim() === "") {
+                at = prevStart;
+                continue;
+            }
+            if (!THEMATIC_BREAK.test(text)) return false;
+            this.host.commitAndRerender([{ from: prevStart, to: lineStart, insert: "" }], prevStart + before.length);
+            return true;
+        }
+        return false;
     }
 
     /** True with the caret right at the start of a list item's text, where Backspace takes the marker off. */

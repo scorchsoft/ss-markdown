@@ -73,7 +73,16 @@
     <string name="menu_find_replace">Find &amp; replace</string>
     <string name="menu_find_hint">Ctrl F</string>
     <string name="menu_version_history">Version history</string>
-    <string name="menu_export_pdf">Export PDF</string>
+    <string name="menu_export">Export…</string>
+    <string name="export_pdf">PDF</string>
+    <string name="export_pdf_hint">Print, or save as a PDF</string>
+    <string name="export_html">HTML</string>
+    <string name="export_html_hint">One web page, pictures included</string>
+    <string name="export_text">Plain text</string>
+    <string name="export_text_hint">No Markdown symbols, as for an email</string>
+    <string name="export_images">Images…</string>
+    <string name="export_images_hint">Diagrams, maths and pictures: ZIP or files</string>
+    <string name="msg_export_failed">Couldn\'t prepare the export. Open Preview, then try Export again.</string>
     <string name="menu_export_images">Export images…</string>
     <string name="menu_export_images_hint">ZIP or files</string>
     <string name="menu_share">Share</string>
@@ -146,6 +155,42 @@
     <string name="msg_draft_deleted">Draft deleted</string>
     <string name="msg_section_copied">Section copied as Markdown</string>
     <string name="msg_section_copied_formatted">Section copied as formatted text</string>
+    <string name="msg_tidied">Tidied. Undo in ⋮ puts it back.</string>
+    <string name="tidy_button">Tidy Markdown</string>
+    <string name="tidy_title">Tidy this file?</string>
+    <string name="tidy_how">Tidy evens out how the Markdown is written without changing what the document says or how it looks. It removes extra blank lines and spaces at the ends of lines, puts a blank line around headings and code blocks, numbers numbered lists in order, and ends the file with one line break. Lines broken with two spaces stay broken.</string>
+    <string name="tidy_never">It never changes code blocks, tables, HTML or front matter, and it never guesses at broken Markdown: “#heading” or “**bold” stay as you wrote them.</string>
+    <string name="tidy_in_this_file">In this file it would fix:</string>
+    <string name="tidy_nothing">This file is already tidy.</string>
+    <string name="tidy_undo">Undo puts it back, and Version history keeps the file as it was.</string>
+    <string name="tidy_settings">How lists are numbered, and whether extra blank lines go, are in Settings → Tidy.</string>
+    <string name="tidy_confirm">Tidy</string>
+    <string name="tidy_final_newline">The line break at the end of the file</string>
+    <string name="tidy_unclosed_fence">A code block left open at the end (closed)</string>
+    <plurals name="tidy_extra_blank_lines">
+        <item quantity="one">Extra blank lines in %d place</item>
+        <item quantity="other">Extra blank lines in %d places</item>
+    </plurals>
+    <plurals name="tidy_trailing_spaces">
+        <item quantity="one">Spaces at the end of %d line</item>
+        <item quantity="other">Spaces at the end of %d lines</item>
+    </plurals>
+    <plurals name="tidy_around_heading">
+        <item quantity="one">%d missing blank line by a heading</item>
+        <item quantity="other">%d missing blank lines by headings</item>
+    </plurals>
+    <plurals name="tidy_around_fence">
+        <item quantity="one">%d missing blank line by a code block</item>
+        <item quantity="other">%d missing blank lines by code blocks</item>
+    </plurals>
+    <plurals name="tidy_heading_spacing">
+        <item quantity="one">Extra spaces after the # of %d heading</item>
+        <item quantity="other">Extra spaces after the # of %d headings</item>
+    </plurals>
+    <plurals name="tidy_list_numbering">
+        <item quantity="one">%d list number out of order</item>
+        <item quantity="other">%d list numbers out of order</item>
+    </plurals>
     <string name="msg_replaced_all">Replaced %1$s</string>
     <string name="msg_restored">Restored · your previous text is in History</string>
     <string name="msg_renamed">Renamed</string>
@@ -165,6 +210,13 @@
     <string name="leave_discard">Don\'t save</string>
     <string name="leave_keep">Keep editing</string>
     <string name="leave_note">“Don\'t save” keeps a copy in History, so it can be undone.</string>
+    <string name="table_delete_confirm_title">Delete this table?</string>
+    <string name="table_delete_confirm_body">The whole table goes, every row and its text. Undo brings it back.</string>
+    <string name="leave_draft_title">This draft isn\'t saved to a file yet</string>
+    <string name="leave_draft_save_as">Save as…</string>
+    <string name="leave_draft_keep">Keep as draft</string>
+    <string name="leave_draft_delete">Delete draft</string>
+    <string name="leave_draft_note">A kept draft stays on this phone, under Drafts in the Navigator. “Delete draft” can be undone straight after.</string>
     <string name="leave_note_history_off">History is off, so “Don\'t save” can\'t be undone.</string>
 
     <!-- Conflict sheet -->
@@ -209,11 +261,12 @@
     <string name="compare_changes">Changes</string>
     <string name="compare_theirs">File\'s version</string>
     <string name="compare_mine">My version</string>
-    <string name="compare_note">Strike-through grey is text only in the file; blue is text only in yours.</string>
+    <string name="compare_note">− (red, struck through) is text only in the file; + (green) is text only in yours.</string>
     <string name="compare_keep_theirs">Keep the file\'s version</string>
     <string name="compare_merge">Merge my edits</string>
     <string name="compare_mine_tag">mine</string>
     <string name="compare_file_tag">file</string>
+    <string name="compare_no_tag" translatable="false"></string>
 
     <!-- Find -->
     <string name="find_hint">Find</string>

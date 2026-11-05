@@ -73,6 +73,9 @@ object AppIcons {
     val folder by lazy { icon("M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z") }
     val file by lazy { icon("M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z", "M14 3v5h5") }
     val pin by lazy { icon("M9 4h6l-1 6 3 3H7l3-3z", "M12 13v7") }
+
+    /** Tidy: a broom. */
+    val tidy by lazy { icon("M20 4l-8 8", "M10.5 10.5l3 3-3.5 6.5-6.5-6.5z", "M7 16.5l2.5-2.5") }
     val arrowUp by lazy { icon("M12 19V5", "M6 11l6-6 6 6") }
 
     private const val GRID = 24f

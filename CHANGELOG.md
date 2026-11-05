@@ -7,6 +7,153 @@ release may change behaviour.
 
 ## [Unreleased]
 
+## [0.2.12] - 2026-11-04
+
+### Changed
+
+- Preview: a long-press on a heading selects its text, like any other
+  text, instead of opening the section sheet. The section sheet is a
+  long-press on the heading in the Navigator.
+
+### Fixed
+
+- Preview: the scroll handle no longer goes missing after text was
+  selected and the selection cleared.
+- Preview: an unfinished `$$` maths block in a list item no longer hides
+  the text after the list.
+
+## [0.2.11] - 2026-11-04
+
+### Added
+
+- Tidy, in ⋮'s top row: evens out how the Markdown is written (extra blank
+  lines, spaces at line ends, blank lines around headings and code blocks,
+  list numbers, the final line break) without changing what the document
+  says or how it looks. It explains itself and asks first; one Undo puts it
+  back and Version history keeps the file as it was. Settings → Tidy
+  chooses whether `1. 1. 1.` lists are renumbered and extra blank lines
+  removed.
+- ⋮ → Export… exports as PDF, HTML (one web page, pictures included) or
+  plain text (no Markdown symbols, as it would read in an email).
+
+### Changed
+
+- Plain text from Copy formatted text underlines the top two heading
+  levels, as an email would set them out.
+
+### Fixed
+
+- Preview: Bold, italics and the other strip edits no longer flash the
+  paragraph away and back.
+- A4 page mode: pinch zooms the whole page in proportion, keeping the
+  spot under your fingers.
+- Preview draws a file's extra blank lines as empty lines instead of one
+  gap, and a tap on one starts typing there.
+
+## [0.2.10] - 2026-11-04
+
+### Fixed
+
+- Preview: Backspace on the empty line between two halves of a split list
+  rejoins them into one tight list, with no blank line left in the file.
+- Preview: Enter on an empty line adds a line each time and the caret
+  moves down; Backspace walks back up.
+- ⋮ → Open file… asks about unsaved edits before the picker opens, not
+  after a file is chosen.
+
+## [0.2.9] - 2026-11-04
+
+### Fixed
+
+- Preview: the strip's Table key inserts a table, as in Code.
+- Preview: Enter at the start of a heading (say, the one under a table)
+  opens a line above it and keeps the heading, instead of splitting it.
+- Preview: an empty heading or list item can be seen and tapped anywhere
+  along its line, and typing fills it.
+- Preview: horizontal rules can be tapped; the caret goes to the end of
+  the block above or the start of the block below, and Backspace there
+  removes the rule.
+- Code: a double-tap selects the word reliably (it could grab the caret's
+  handle instead), and a triple-tap selects the paragraph.
+
+## [0.2.8] - 2026-11-04
+
+### Added
+
+- Copy a selection as Markdown or as formatted text. In Preview the text
+  menu has Copy Markdown and Copy formatted; in Code, Copy gives the
+  Markdown and Copy formatted gives the selected lines as they read.
+
+## [0.2.7] - 2026-11-04
+
+### Changed
+
+- A file opened from another app (Files, an email, Share → Open) asks
+  first over unsaved edits or a draft with text, as Open file… does.
+- Delete table is in the table toolbar's ⋯ menu too, and both table
+  menus ask "Delete this table?" first.
+- Compare and History mark changes the git way: + and green for lines
+  only in yours, − and red (struck through) for lines only in the file.
+
+### Fixed
+
+- Preview: Enter on an empty item in the middle of a list showed one
+  spaced-out list with the caret below it. It now shows two lists with
+  the caret between them, as it will render once you type.
+
+## [0.2.6] - 2026-11-04
+
+### Changed
+
+- Opening a file (Open file… or the Navigator) from an untitled draft
+  with text in it asks the same as New: Save as…, Keep as draft, Delete
+  draft (with Undo) or Keep editing.
+
+## [0.2.5] - 2026-11-04
+
+From the 0.2.4 phone test.
+
+### Changed
+
+- Preview's No wrap now works like Code's: each line of the file stays
+  one line, never wrapped at the screen's edge, and the page scrolls
+  sideways. Before, it only unwrapped code and tables, so text looked the
+  same as Fluid.
+- New from an untitled draft with text in it asks first: Save as… (then
+  the new draft), Keep as draft, Delete draft (with Undo) or Keep
+  editing. Drafts were always kept, but nothing said so.
+
+## [0.2.4] - 2026-11-04
+
+From Andrew's 0.2.3 phone test: editing edge cases, an empty file in
+Preview, the fast-scroll pill, PDF page bottoms, the ⋮ menu over the
+keyboard, and a malformed-Markdown robustness pass.
+
+### Changed
+
+- Backspace on an emptied list item deletes the item with its line, the
+  caret going to the end of the item above, and a numbered list closes up
+  (1, 2, 4, 5 reads 1, 2, 3, 4). Before, it left a blank line that split
+  the list. Code and Preview behave the same.
+- The fast-scroll pill has a thin halo in the page colour and eases
+  between rest and held; Preview no longer draws Android's own scrollbar
+  beside it.
+- The ⋮ menu waits for the keyboard to go and opens once, at full size;
+  with the keyboard still up its rows scroll above it.
+
+### Fixed
+
+- Preview of an empty file: a tap now starts editing, so you can type
+  straight into a new file. A tap below the last paragraph puts the caret
+  at its end.
+- Preview showed text typed after Enter twice until editing ended.
+- PDF: a diagram, picture or formula taller than a page was sliced across
+  the page foot, with a blank page before it. It now scales to fit a page.
+- Crashes on malformed Markdown found by the new robustness suites: the
+  ¶ Paragraph command on a very wide table row, pasting with very long
+  table or rule lines, a theme with a huge font name, and the list keys on
+  a selection over an item and its nested item.
+
 ## [0.2.3] - 2026-11-03
 
 From the 0.2.2 phone test: lists, paste, tapping, Split and the keyboard

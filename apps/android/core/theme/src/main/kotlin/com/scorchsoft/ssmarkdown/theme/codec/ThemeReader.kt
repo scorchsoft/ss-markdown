@@ -91,7 +91,8 @@ internal class ThemeReader {
 
     private fun fontName(member: Member?): String? {
         val name = member?.let { findings.string(it) }?.trim() ?: return null
-        if (!FONT_NAME.matches(name)) {
+        // The length cap first: the regex recurses once per word, so a huge name would overflow the stack.
+        if (name.length > MAX_FONT_NAME || !FONT_NAME.matches(name)) {
             findings.problem(member, "isn't a font family name")
             return null
         }
@@ -160,6 +161,9 @@ internal class ThemeReader {
 
         /** Google Fonts family names are letters, digits and single spaces. */
         private val FONT_NAME = Regex("""[A-Za-z0-9]+( [A-Za-z0-9]+)*""")
+
+        /** Far longer than any Google Fonts family name. */
+        private const val MAX_FONT_NAME = 100
         private val NOT_SLUG = Regex("[^a-z0-9]+")
 
         /** A stable id for a custom theme: never equal to a built-in's. */

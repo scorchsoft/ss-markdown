@@ -65,7 +65,12 @@ internal class SelectionHandles(
         bounds(kind, x, y, hit)
         val growX = (touchSize - hit.width()).coerceAtLeast(0f) / 2
         val growY = (touchSize - hit.height()).coerceAtLeast(0f) / 2
-        return touchX in hit.left - growX..hit.right + growX && touchY in hit.top - growY..hit.bottom + growY
+        // The caret's handle hangs below its line and never reaches up into it: a second tap on the
+        // word just tapped is a double-tap, not a grab of the handle (Andrew, 2026-11-04). It takes
+        // the whole growth below instead. A selection's handles keep their target both ways.
+        val top = if (kind == HandleKind.INSERTION) y else hit.top - growY
+        val bottom = if (kind == HandleKind.INSERTION) hit.bottom + 2 * growY else hit.bottom + growY
+        return touchX in hit.left - growX..hit.right + growX && touchY in top..bottom
     }
 
     /** Draws a [kind] handle in [color] with its point at ([x], [y]). */

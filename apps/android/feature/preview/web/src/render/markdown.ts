@@ -20,6 +20,7 @@ import type { HeadingInfo, RenderDefinitions } from "../protocol";
 import { installBlockRules, type RenderEnv } from "./blocks";
 import { mathPlugin } from "./mathPlugin";
 import type { MarkdownIt } from "./mdTypes";
+import { blankLinesPlugin } from "./blankLinesPlugin";
 import { sourceMapPlugin } from "./sourceMapPlugin";
 import { tocPlugin } from "./tocPlugin";
 
@@ -74,6 +75,7 @@ export function createMarkdown(): MarkdownIt {
     // each section: a section cannot know the document's other footnotes.
     md.core.ruler.disable("footnote_tail");
     installBlockRules(md);
+    md.use(blankLinesPlugin);
     return md;
 }
 

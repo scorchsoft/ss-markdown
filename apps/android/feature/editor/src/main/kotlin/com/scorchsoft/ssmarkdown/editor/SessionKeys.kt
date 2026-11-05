@@ -104,14 +104,3 @@ fun EditingSession.moveOrExtend(
 ) {
     if (extend) extendSelection(offset) else moveCaretTo(offset)
 }
-
-/** Selects the word under [offset] (double-tap, long-press). */
-fun EditingSession.selectWord(
-    offset: Int,
-    words: WordFinder,
-) {
-    val word = words.wordAt(document.text, offset)
-    clearComposing()
-    document.breakTypingRun()
-    setSelection(word.first, word.last + 1)
-}

@@ -74,8 +74,8 @@ internal class CommandRunner(
                 copy(cut = true)
             }
 
-            EditorCommand.COPY -> {
-                copy(cut = false)
+            EditorCommand.COPY, EditorCommand.COPY_FORMATTED -> {
+                copy(cut = false, formatted = command == EditorCommand.COPY_FORMATTED)
             }
 
             EditorCommand.PASTE, EditorCommand.PASTE_PLAIN -> {
@@ -229,8 +229,16 @@ internal class CommandRunner(
 
     private fun rowsPerPage(): Int = (view.height / view.rowHeight.coerceAtLeast(1) - 1).coerceAtLeast(1)
 
-    private fun copy(cut: Boolean): Boolean {
+    private fun copy(
+        cut: Boolean,
+        formatted: Boolean = false,
+    ): Boolean {
         val session = view.session
+        // "Copy formatted": the host renders the selection (Andrew, 2026-11-04).
+        if (formatted) {
+            return session.hasSelection &&
+                view.listener?.onCopyFormatted(session.selectionStart, session.selectionEnd) == true
+        }
         val length = session.selectionEnd - session.selectionStart
         val tooLarge = length > MAX_CLIPBOARD_CHARS
         if (tooLarge) view.listener?.onCopyTooLarge(length)

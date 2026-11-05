@@ -68,7 +68,7 @@ class NavigatorController(
             is NavigatorAction.HeadingMenu -> sectionMenu(action.line)
             is NavigatorAction.OpenFile -> openFile(action.uri)
             NavigatorAction.OpenFirstResult -> openFirstResult()
-            NavigatorAction.OpenPicker -> host.emit(EditorEvent.PickFileToOpen)
+            NavigatorAction.OpenPicker -> vm?.saves?.requestLeave(PendingLeave.PickFile)
             is NavigatorAction.DeleteDraft -> deleteDraft(action.uri)
             is NavigatorAction.CopySection -> vm?.copies?.copySection(action.line, action.format)
             is NavigatorAction.SelectSection -> selectSection(action.line)
@@ -170,6 +170,13 @@ class NavigatorController(
             }
             loadDrafts()
         }
+    }
+
+    /** A draft the leave prompt's "Delete draft" moved to the trash: "Draft deleted · Undo", as here. */
+    fun trashed(uri: DocumentUri) {
+        lastDeleted = uri
+        host.message(MessageKind.DraftDeleted, undo = true)
+        loadDrafts()
     }
 
     /** Undo on "Draft deleted": the draft comes back as it was. */

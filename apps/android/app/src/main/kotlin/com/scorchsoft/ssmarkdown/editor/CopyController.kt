@@ -2,6 +2,7 @@ package com.scorchsoft.ssmarkdown.editor
 
 import com.scorchsoft.ssmarkdown.document.ActiveDocument
 import com.scorchsoft.ssmarkdown.editor.SaveController.Companion.CLIPBOARD_LIMIT_CHARS
+import com.scorchsoft.ssmarkdown.preview.FormattedCopy
 import com.scorchsoft.ssmarkdown.settings.CopyFormat
 import kotlinx.coroutines.launch
 
@@ -56,6 +57,57 @@ class CopyController(
         when (format) {
             CopyFormat.Markdown -> copyMarkdown(text, MessageKind.SectionCopied)
             CopyFormat.Formatted -> copyFormatted(doc, text, range.first, range.last + 1, section = true)
+        }
+    }
+
+    /**
+     * The Code selection menu's "Copy formatted" (Andrew, 2026-11-04): the
+     * lines the selection touches, as the Preview renders them. A rendering
+     * holds whole blocks, so a selection inside a paragraph copies that
+     * paragraph; Copy gives the exact Markdown. False when there is nothing
+     * to copy.
+     */
+    fun copySelection(
+        doc: ActiveDocument,
+        start: Int,
+        end: Int,
+    ): Boolean {
+        if (end <= start) return false
+        val tree = doc.text.text
+        val text = tree.getText(start, end)
+        val fromLine = tree.positionAt(start).line
+        // An end at a line's start does not take that line in.
+        val endPos = tree.positionAt(end)
+        val lastLine = if (endPos.column == 0 && endPos.line > fromLine) endPos.line - 1 else endPos.line
+        copyFormatted(doc, text, fromLine, lastLine + 1, section = false)
+        return true
+    }
+
+    /**
+     * The Preview selection menu's "Copy Markdown" / "Copy formatted text",
+     * answered by the page: [markdown] exactly, or the selection's own
+     * rendering ([copy]); a formatted copy too large for the clipboard goes
+     * as Markdown and says so.
+     */
+    fun copyPreviewSelection(
+        formatted: Boolean,
+        markdown: String,
+        copy: FormattedCopy?,
+    ) {
+        when {
+            !formatted -> {
+                copyMarkdown(markdown, MessageKind.Copied)
+            }
+
+            copy == null -> {
+                copyMarkdown(markdown, null)
+                vm.message(MessageKind.FormattedFailed)
+            }
+
+            else -> {
+                vm.emit(EditorEvent.CopyFormatted(copy))
+                vm.message(MessageKind.CopiedFormatted)
+            }
         }
     }
 

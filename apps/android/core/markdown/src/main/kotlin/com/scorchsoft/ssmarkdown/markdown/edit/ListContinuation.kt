@@ -176,7 +176,11 @@ internal object ListContinuation {
      * Backspace at the very start of an item's text (docs/editing-behaviours.md
      * D2): the marker comes off and the text stays where it is, a plain
      * paragraph line ([exitList]). A task loses only its box first, so it is
-     * a bullet again (EB-TASK-05). Null when the caret is anywhere else.
+     * a bullet again (EB-TASK-05). An empty item right under another line
+     * of its list is deleted outright, the caret going to the end of the
+     * line above and a numbered list closing up (EB-LIST-32, EB-NUM-09):
+     * taking only its marker off would leave a blank line splitting the
+     * list. Null when the caret is anywhere else.
      */
     fun unwrapItem(
         text: CharSequence,
@@ -193,7 +197,31 @@ internal object ListContinuation {
             builder.delete(line.start + p.bodyStart, line.start + p.contentStart)
             return builder.buildMapping(selection)
         }
+        if (p.content.isBlank()) deleteEmptyItem(text, line, p)?.let { return it }
         return exitList(text, line, p, selection)
+    }
+
+    /**
+     * Removes the empty item on [line] with its line break, when the line
+     * above belongs to the same list (an item, or an indented line of one,
+     * in the same quote). The ordered items after it are renumbered from
+     * the number it had, so `1. 2. 3.` with 2 emptied and deleted reads
+     * `1. 2.` again. Null when nothing of the list is above.
+     */
+    private fun deleteEmptyItem(
+        text: CharSequence,
+        line: LineSpan,
+        p: LinePrefix,
+    ): EditResult? {
+        val above = TextLines.previous(text, line) ?: return null
+        val a = LinePrefix.parse(above.content)
+        val inList = !above.isBlank && a.quote == p.quote && (a.isListItem || a.indent.isNotEmpty())
+        if (!inList) return null
+        val builder = EditBuilder(text)
+        builder.delete(above.end, line.end)
+        val marker = p.marker
+        if (marker is ListMarker.Ordered) Renumbering.after(text, builder, line, p, marker.number)
+        return builder.build(TextSelection.caret(above.end))
     }
 
     /**

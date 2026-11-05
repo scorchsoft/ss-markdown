@@ -49,9 +49,9 @@ export interface PreviewSettings {
     readonly lean: boolean;
     readonly readOnly: boolean;
     /**
-     * Display → Preview wrapping "No wrap": the reading-width cap is lifted,
-     * code lines and table cells keep their natural width and scroll sideways
-     * in their own box. Fluid (the default) wraps code too, so nothing does.
+     * Display → Preview wrapping "No wrap": as in Code, each source line of
+     * text, code and table rows keeps its natural width, and the page pans
+     * sideways. Fluid (the default) wraps code too, so nothing does.
      */
     readonly noWrap?: boolean;
 }
@@ -143,6 +143,12 @@ export type HostMessage =
           readonly maxChars: number;
       }
     /**
+     * The selection toolbar's "Copy Markdown" / "Copy formatted text": the
+     * current selection's source and its formatted copy, together at most
+     * [maxChars]. Answered by `selectionCopy` with the same [requestId].
+     */
+    | { readonly type: "copySelection"; readonly requestId: number; readonly maxChars: number }
+    /**
      * Find & replace: the matches, as source offsets in the text at revision
      * [rev], flat `[start0, end0, start1, end1, …]`; absent keeps the ones
      * the page holds, empty clears them. [current] is an index or -1; with
@@ -181,6 +187,8 @@ export type FormatAction =
     | "task"
     | "quote"
     | "codeBlock"
+    /** The strip's Table key: Kotlin inserts a table at this selection, as in Code. */
+    | "table"
     | "heading0"
     | "heading1"
     | "heading2"
@@ -307,6 +315,18 @@ export type PageMessage =
     | { readonly type: "tableMenu"; readonly line: number; readonly row: number; readonly column: number }
     | { readonly type: "exportResult"; readonly requestId: number; readonly mime: string; readonly data: string }
     | { readonly type: "printReady"; readonly requestId: number }
+    /**
+     * The answer to `copySelection`: the selection's Markdown, null with
+     * nothing selected; [html] and its plain-text twin [text], null when
+     * the formatted copy would not fit.
+     */
+    | {
+          readonly type: "selectionCopy";
+          readonly requestId: number;
+          readonly markdown: string | null;
+          readonly html: string | null;
+          readonly text: string | null;
+      }
     /**
      * The answer to `exportHtml`: [html] and its plain-text twin [text], both
      * null when the lines could not be rendered; [truncated] when the copy

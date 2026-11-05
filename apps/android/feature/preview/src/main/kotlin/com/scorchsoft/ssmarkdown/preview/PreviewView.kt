@@ -64,6 +64,9 @@ class PreviewView
 
         /** Formatted copies waiting for the page's answer, by request id. Main thread only. */
         private val htmlRequests = HashMap<Int, (FormattedCopy?) -> Unit>()
+
+        /** Selection copies waiting for the page's answer, by request id. Main thread only. */
+        private val selectionRequests = HashMap<Int, (PageMessage.SelectionCopyResult?) -> Unit>()
         private var nextHtmlRequest = 1
 
         private val recovery = RendererRecovery()
@@ -75,6 +78,7 @@ class PreviewView
                     is PageMessage.TopLine -> topLine = message.line
                     is PageMessage.PrintReady -> printing.onPageReady(message.requestId)
                     is PageMessage.HtmlResult -> htmlRequests.remove(message.requestId)?.invoke(message.copy)
+                    is PageMessage.SelectionCopyResult -> selectionRequests.remove(message.requestId)?.invoke(message)
                     is PageMessage.ImageQuery -> answerImages(message)
                     else -> Unit
                 }
@@ -257,6 +261,9 @@ class PreviewView
             val waiting = htmlRequests.values.toList()
             htmlRequests.clear()
             waiting.forEach { it(null) }
+            val selections = selectionRequests.values.toList()
+            selectionRequests.clear()
+            selections.forEach { it(null) }
         }
 
         /**
@@ -268,7 +275,7 @@ class PreviewView
             callback: ActionMode.Callback,
             type: Int,
         ): ActionMode? {
-            val wrapped =
+            val withPaste =
                 PlainPasteCallback(
                     delegate = callback,
                     resources = resources,
@@ -276,6 +283,7 @@ class PreviewView
                     pastePlain = ::pastePlain,
                     schedule = { delay, action -> postDelayed(action, delay) },
                 )
+            val wrapped = CopyChoiceCallback(withPaste, resources, ::copySelection)
             return super.startActionModeForChild(originalView, wrapped, type)
         }
 
@@ -287,6 +295,33 @@ class PreviewView
             if (!plainPaste || webView?.hasFocus() != true) return super.dispatchKeyEvent(event)
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) pastePlain()
             return true
+        }
+
+        /**
+         * The selection menu's "Copy Markdown" / "Copy formatted": asks the
+         * page for the selection's copies, hands them to the listener, and
+         * finishes [mode] once answered (or after [COPY_TIMEOUT_MILLIS]).
+         */
+        private fun copySelection(
+            formatted: Boolean,
+            mode: ActionMode,
+        ) {
+            val id = nextHtmlRequest++
+            val finish = Runnable { mode.finish() }
+            selectionRequests[id] = { result ->
+                removeCallbacks(finish)
+                mode.finish()
+                val markdown = result?.markdown
+                if (markdown != null) listener?.onSelectionCopy(formatted, markdown, result.copy)
+            }
+            postDelayed(
+                {
+                    selectionRequests.remove(id)
+                    finish.run()
+                },
+                COPY_TIMEOUT_MILLIS,
+            )
+            send(HostMessage.CopySelection(id, MAX_COPY_CHARS))
         }
 
         /** Sends the clip to the page, which inserts its words at the selection being edited. */
@@ -349,5 +384,11 @@ class PreviewView
         private companion object {
             /** Pictures and diagrams take the page up to 8 s (exportHtml.ts); this leaves room for the words. */
             const val EXPORT_TIMEOUT_MILLIS = 20_000L
+
+            /** A selection copy embeds pictures within 8 s too (selectionCopy.ts). */
+            const val COPY_TIMEOUT_MILLIS = 12_000L
+
+            /** About 1 MB of UTF-16 through Binder, as the app's other copies (robustness §5). */
+            const val MAX_COPY_CHARS = 400_000
         }
     }

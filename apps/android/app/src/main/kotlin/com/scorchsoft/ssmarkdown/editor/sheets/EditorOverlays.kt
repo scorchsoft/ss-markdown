@@ -59,7 +59,7 @@ fun EditorOverlays(
         }
 
         is EditorOverlay.DirtyPrompt -> {
-            LeaveSheet(name, onAction, historyOn = state.historyOn)
+            if (overlay.draft) DraftLeaveSheet(onAction) else LeaveSheet(name, onAction, historyOn = state.historyOn)
         }
 
         is EditorOverlay.Display -> {
@@ -121,6 +121,14 @@ private fun EditingOverlays(
             CopyPictureDialog(onAction)
         }
 
+        EditorOverlay.ConfirmDeleteTable -> {
+            DeleteTableDialog(onAction)
+        }
+
+        is EditorOverlay.TidyPrompt -> {
+            TidyDialog(overlay.counts, onAction)
+        }
+
         else -> {
             Unit
         }
@@ -142,6 +150,39 @@ private fun CopyPictureDialog(onAction: (EditorAction) -> Unit) {
         confirmButton = {
             TextButton(onClick = { onAction(EditorAction.CopyPictureIn) }) {
                 Text(stringResource(R.string.copy_picture_confirm), style = SS.type.label, color = SS.colors.ink)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { onAction(EditorAction.DismissOverlay) }) {
+                Text(stringResource(R.string.cancel), style = SS.type.label, color = SS.colors.ink)
+            }
+        },
+    )
+}
+
+/** "Delete this table?" before either table menu removes the whole table; Undo still brings it back. */
+@Composable
+private fun DeleteTableDialog(onAction: (EditorAction) -> Unit) {
+    AlertDialog(
+        onDismissRequest = { onAction(EditorAction.DismissOverlay) },
+        containerColor = SS.colors.chrome,
+        title = {
+            Text(
+                stringResource(R.string.table_delete_confirm_title),
+                style = SS.type.title,
+                color = SS.colors.ink,
+            )
+        },
+        text = {
+            Text(
+                stringResource(R.string.table_delete_confirm_body),
+                style = SS.type.body,
+                color = SS.colors.ink,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onAction(EditorAction.DeleteTableConfirmed) }) {
+                Text(stringResource(R.string.table_delete_table), style = SS.type.label, color = SS.colors.needsYouText)
             }
         },
         dismissButton = {
@@ -239,6 +280,7 @@ private fun messageText(message: UserMessage): String =
         MessageKind.SectionCopied -> stringResource(R.string.msg_section_copied)
         MessageKind.SectionCopiedFormatted -> stringResource(R.string.msg_section_copied_formatted)
         MessageKind.ReplacedAll -> stringResource(R.string.msg_replaced_all, message.argument)
+        MessageKind.Tidied -> stringResource(R.string.msg_tidied)
         MessageKind.Restored -> stringResource(R.string.msg_restored)
         MessageKind.Renamed -> stringResource(R.string.msg_renamed)
         MessageKind.SaveBeforeRename -> stringResource(R.string.msg_save_before_rename)
@@ -257,6 +299,7 @@ private fun messageText(message: UserMessage): String =
         MessageKind.ImageSaved -> stringResource(R.string.msg_image_saved, message.argument)
         MessageKind.ImageCopied -> stringResource(R.string.msg_image_copied)
         MessageKind.NothingToExport -> stringResource(R.string.msg_nothing_to_export)
+        MessageKind.ExportFailed -> stringResource(R.string.msg_export_failed)
         MessageKind.PdfFailed -> stringResource(R.string.msg_pdf_failed)
         MessageKind.ExportStopped -> stringResource(R.string.msg_export_stopped)
         MessageKind.PictureFolderGranted -> stringResource(R.string.msg_picture_folder_granted, message.argument)

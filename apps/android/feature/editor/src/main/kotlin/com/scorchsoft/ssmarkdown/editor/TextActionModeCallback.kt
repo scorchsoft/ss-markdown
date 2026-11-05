@@ -29,6 +29,9 @@ internal class TextActionModeCallback(
         /** True when the clip is formatted (HTML or Markdown), so "Paste as plain text" differs from Paste. */
         val canPastePlain: Boolean
 
+        /** True when the host can copy the selection as formatted text. */
+        val canCopyFormatted: Boolean
+
         /** Runs a clipboard or selection command; returns true if it did something. */
         fun runCommand(command: EditorCommand): Boolean
 
@@ -85,6 +88,7 @@ internal class TextActionModeCallback(
             val enabled =
                 when (item.command) {
                     EditorCommand.CUT, EditorCommand.COPY -> host.hasSelection
+                    EditorCommand.COPY_FORMATTED -> host.hasSelection && host.canCopyFormatted
                     EditorCommand.PASTE -> host.canPaste
                     EditorCommand.PASTE_PLAIN -> host.canPaste && host.canPastePlain
                     else -> true
@@ -108,6 +112,8 @@ internal class TextActionModeCallback(
             listOf(
                 Item(android.R.id.cut, android.R.string.cut, EditorCommand.CUT),
                 Item(android.R.id.copy, android.R.string.copy, EditorCommand.COPY),
+                // Copy gives the Markdown; this gives the selection as it reads, for mail and documents.
+                Item(R.id.editor_copy_formatted, R.string.editor_copy_formatted, EditorCommand.COPY_FORMATTED),
                 Item(android.R.id.paste, android.R.string.paste, EditorCommand.PASTE),
                 // The platform's id, so it reads as TextView's item does; our own string.
                 Item(android.R.id.pasteAsPlainText, R.string.editor_paste_plain, EditorCommand.PASTE_PLAIN),

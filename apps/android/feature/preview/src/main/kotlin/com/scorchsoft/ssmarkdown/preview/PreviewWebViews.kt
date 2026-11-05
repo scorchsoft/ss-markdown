@@ -40,6 +40,10 @@ internal object PreviewWebViews {
             // Keep the renderer alive while visible; let the system reclaim it when hidden.
             setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true)
             overScrollMode = View.OVER_SCROLL_NEVER
+            // The fast-scroll pill is the only scroll indicator (ux-spec "Fast scroll": no track).
+            // A WebView draws the platform's scrollbar by default, which sat beside the pill.
+            isVerticalScrollBarEnabled = false
+            isHorizontalScrollBarEnabled = false
             webViewClient = client
         }
 

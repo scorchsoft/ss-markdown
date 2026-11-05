@@ -155,7 +155,23 @@ internal object EditorEffects {
             }
 
             EditorAction.OpenAnotherFile -> {
-                vm.emit(EditorEvent.PickFileToOpen)
+                vm.saves.requestLeave(PendingLeave.PickFile)
+            }
+
+            is EditorAction.ExportAs -> {
+                if (action.format == ExportFormat.Pdf) {
+                    PreviewEffects.exportPdf(vm)
+                } else {
+                    vm.exports.export(action.format)
+                }
+            }
+
+            EditorAction.TidyTapped -> {
+                vm.tidy.ask()
+            }
+
+            EditorAction.TidyConfirmed -> {
+                vm.tidy.apply()
             }
 
             EditorAction.RetryOpen -> {
@@ -168,6 +184,10 @@ internal object EditorEffects {
 
             EditorAction.LeaveSave -> {
                 (before.overlay as? EditorOverlay.DirtyPrompt)?.let { vm.saves.saveThenLeave(it.leave) }
+            }
+
+            EditorAction.LeaveKeepDraft -> {
+                (before.overlay as? EditorOverlay.DirtyPrompt)?.let { vm.saves.leave(it.leave, discard = false) }
             }
 
             EditorAction.LeaveDiscard -> {
@@ -273,13 +293,13 @@ internal object EditorEffects {
         vm.update { if (it.overlay == EditorOverlay.Menu) it.copy(overlay = null) else it }
         when (item) {
             MenuItem.New -> vm.saves.requestLeave(PendingLeave.NewDocument)
-            MenuItem.OpenFile -> vm.emit(EditorEvent.PickFileToOpen)
+            MenuItem.OpenFile -> vm.saves.requestLeave(PendingLeave.PickFile)
             MenuItem.OpenFolder -> vm.emit(EditorEvent.PickFolder)
             MenuItem.SaveAs -> vm.saves.saveAs()
             MenuItem.SaveAll -> vm.onAction(EditorAction.Folder(FolderAction.SaveAll))
             MenuItem.FindReplace -> vm.onAction(EditorAction.Find(com.scorchsoft.ssmarkdown.find.FindAction.Open))
             MenuItem.VersionHistory -> vm.emit(EditorEvent.Open(AppScreen.History))
-            MenuItem.ExportPdf -> PreviewEffects.exportPdf(vm)
+            MenuItem.Export -> vm.update { it.copy(overlay = EditorOverlay.ExportChooser) }
             MenuItem.ExportImages -> vm.imageExports.openExport()
             MenuItem.Share -> vm.saves.share(richText = false)
             MenuItem.CopyAs -> vm.copies.openChooser()

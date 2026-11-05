@@ -74,6 +74,15 @@ th {
 .ro-block {
     position: relative;
 }
+/* Raw HTML can be shorter than its chip (a lone <hr>): the block is at least
+   as tall as the chip, so the chip never hangs over the next block or is
+   clipped by its section. */
+.ro-html {
+    min-height: 36px;
+}
+.ro-block.ro-comment {
+    margin: 0;
+}
 .edit-in-code {
     position: absolute;
     top: 4px;

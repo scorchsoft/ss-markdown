@@ -280,15 +280,26 @@ abbr[title] {
 :root[data-theme="reader"] .doc {
     max-width: 68ch;
 }
-/* No wrap: the reading-width cap is lifted for wide tables and code, while
-   prose still wraps to the screen so reading never needs sideways panning. */
+/* No wrap, as in Code: each source line of text stays one line, never wrapped
+   at the screen's edge, and the page pans sideways (Andrew, 2026-11-04: prose
+   still wrapped, so No wrap looked the same as Fluid). The page is as wide as
+   its longest line, so sections (paint-contained) never clip it. */
 .no-wrap .doc,
 :root[data-theme="reader"].no-wrap .doc {
     max-width: none;
+    width: max-content;
+    min-width: 100%;
+    box-sizing: border-box;
 }
-.no-wrap th,
-.no-wrap td {
+.no-wrap :is(p, h1, h2, h3, h4, h5, h6, dt) {
+    white-space: pre;
+    overflow-wrap: normal;
+}
+/* A list item or cell may hold blocks, and `pre` would turn the line breaks
+   between them into blank lines: these keep to one line without it. */
+.no-wrap :is(li, dd, th, td) {
     white-space: nowrap;
+    overflow-wrap: normal;
 }
 :root[data-theme="contrast"] a {
     text-decoration-thickness: 2px;

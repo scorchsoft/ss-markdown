@@ -39,6 +39,8 @@ class ListToggleTest {
                 Case("1) a\n2) b\n‸c", "1) a\n2) b\n3) ‸c"),
                 Case("«a\n  b\nc»", "«1. a\n  1. b\n2. c»"),
                 Case("- [ ] ta‸sk", "1. [ ] ta‸sk"),
+                // A parent and its child switched at once: the grandchild moves by both widths (MalformedMarkdownTest).
+                Case("«- a\n  - b»\n    - c", "«1. a\n   1. b»\n      - c"),
             ),
         )
 

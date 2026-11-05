@@ -6,6 +6,7 @@
  * and a long document is rendered a slice at a time and stops when the
  * clipboard's budget is spent.
  */
+import { BLANK_LINE } from "../render/blankLinesPlugin";
 import type { RenderController } from "./controller";
 import { Formatter, STYLES } from "./copy/formatted";
 import { embedAll } from "./copy/media";
@@ -99,6 +100,8 @@ export async function exportHtml(
 function blocksIn(view: SectionView, fromLine: number, toLine: number): Element[] {
     if (view.html === null) return [];
     return [...sanitizeForCopy(view.html).children].filter((child) => {
+        // A drawn blank line is Preview's own spacing, not content to copy.
+        if (child.classList.contains(BLANK_LINE)) return false;
         const data = (child as HTMLElement).dataset;
         const rl = Number(data.rl);
         const line = Number.isNaN(rl) ? view.startLine : view.startLine + rl;

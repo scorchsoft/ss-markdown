@@ -7,4 +7,5 @@
     <string name="editor_a11y_previous_heading">Previous heading</string>
     <!-- Text toolbar item after Paste in the Code pane and in Preview: pastes only the words of a formatted clip. -->
     <string name="editor_paste_plain">Paste as plain text</string>
+    <string name="editor_copy_formatted">Copy formatted</string>
 </resources>

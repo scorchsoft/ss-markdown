@@ -28,6 +28,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -319,17 +320,26 @@ private fun Expanded(
 /** A diff line: removed text grey with a strike-through, added text info blue. Never red. */
 @Composable
 fun DiffText(line: DiffLine) {
+    // The same git-style marks as Compare: − red on a red tint, + green on a green tint.
+    val c = SS.colors
     val (prefix, color, decoration) =
         when (line.type) {
-            DiffLineType.Removed -> Triple("− ", SS.colors.inkMuted, TextDecoration.LineThrough)
-            DiffLineType.Added -> Triple("+ ", SS.colors.info, null)
-            DiffLineType.Context -> Triple("  ", SS.colors.ink, null)
+            DiffLineType.Removed -> Triple("− ", c.diffRemoved, TextDecoration.LineThrough)
+            DiffLineType.Added -> Triple("+ ", c.diffAdded, null)
+            DiffLineType.Context -> Triple("  ", c.ink, null)
+        }
+    val tint =
+        when (line.type) {
+            DiffLineType.Removed -> c.diffRemovedBg
+            DiffLineType.Added -> c.diffAddedBg
+            DiffLineType.Context -> Color.Transparent
         }
     Text(
         prefix + line.text.trimEnd('\n'),
         style = SS.type.code.copy(textDecoration = decoration),
         color = color,
         maxLines = 1,
+        modifier = Modifier.fillMaxWidth().background(tint),
     )
 }
 

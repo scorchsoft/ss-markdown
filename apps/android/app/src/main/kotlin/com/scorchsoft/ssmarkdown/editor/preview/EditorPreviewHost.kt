@@ -62,6 +62,10 @@ class EditorPreviewHost(
                 vm.media.onLongPress(event.kind, event.line)
             }
 
+            is PreviewEvent.SelectionCopy -> {
+                vm.copies.copyPreviewSelection(event.formatted, event.markdown, event.copy)
+            }
+
             is PreviewEvent.TableMenu -> {
                 vm.update { it.copy(overlay = EditorOverlay.TableMenu(event.line)) }
             }

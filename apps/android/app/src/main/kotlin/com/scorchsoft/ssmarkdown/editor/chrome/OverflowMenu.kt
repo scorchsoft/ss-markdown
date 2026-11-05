@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -66,8 +67,8 @@ private fun menuGroups(
         ),
         // With Copy in here already (it opens the same chooser), Copy as… would be a twin row.
         listOfNotNull(
-            MenuItem.ExportPdf,
-            MenuItem.ExportImages,
+            // Export… holds PDF, HTML, plain text and images (Andrew, 2026-11-04: one row, less menu).
+            MenuItem.Export,
             MenuItem.Share,
             MenuItem.CopyAs.takeUnless { copyInMenu },
         ),
@@ -75,7 +76,7 @@ private fun menuGroups(
     )
 
 /**
- * ⋮: an Undo · Redo · View icon row on top (as in Chrome's menu), then New ·
+ * ⋮: an Undo · Redo · View · Tidy icon row on top (as in Chrome's menu), then New ·
  * Open file · Open folder · Save as · (Save all (N)) │ Find & replace ·
  * Insert image… · (Show pictures beside this file…) · Version history │
  * Export PDF · Export images… · Share · Copy as… │ View · Settings. The
@@ -104,10 +105,17 @@ fun OverflowMenu(
     picturesNeedFolder: Boolean = false,
 ) {
     val hardwareKeyboard = LocalConfiguration.current.keyboard == Configuration.KEYBOARD_QWERTY
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, containerColor = SS.colors.chrome) {
+    // Measured here, in the editor's window: inside the menu's popup window the keyboard's inset
+    // reads as zero, so with the keyboard up the rows ran under it and never scrolled.
+    val rowsMaxHeight = menuRowsMaxHeight()
+    DropdownMenu(
+        expanded = expanded && keyboardGoneOrWaited(expanded),
+        onDismissRequest = onDismiss,
+        containerColor = SS.colors.chrome,
+    ) {
         HistoryRow(history)
         HorizontalDivider(thickness = SS.dimens.hairline, color = SS.colors.border)
-        ScrollingRows(maxHeight = menuRowsMaxHeight()) {
+        ScrollingRows(maxHeight = rowsMaxHeight) {
             menuGroups(copyInMenu, saveAll = unsavedCount > 0, showPictures = picturesNeedFolder).forEachIndexed {
                 index,
                 group,
@@ -126,6 +134,7 @@ data class MenuHistoryState(
     val onUndo: () -> Unit = {},
     val onRedo: () -> Unit = {},
     val onView: () -> Unit = {},
+    val onTidy: () -> Unit = {},
 )
 
 @Composable
@@ -134,6 +143,7 @@ private fun HistoryRow(history: MenuHistoryState) {
         HistoryButton(AppIcons.undo, stringResource(R.string.undo), history.canUndo, history.onUndo)
         HistoryButton(AppIcons.redo, stringResource(R.string.redo), history.canRedo, history.onRedo)
         ViewButton(history.onView)
+        TidyButton(history.onTidy)
     }
 }
 
@@ -200,7 +210,7 @@ private fun ScrollingRows(
 ) {
     val scroll = rememberScrollState()
     val fade = SS.colors.chrome
-    Box(Modifier.heightIn(max = maxHeight)) {
+    Box(Modifier.heightIn(max = maxHeight).testTag(MENU_ROWS_TAG)) {
         Column(Modifier.verticalScroll(scroll)) { content() }
         if (scroll.canScrollBackward) {
             Box(
@@ -226,7 +236,9 @@ private fun ScrollingRows(
 /**
  * The height left for the rows: the window, less the system bars and the
  * keyboard (the menu hides the keyboard as it opens, but may draw before
- * it has gone), less the menu's margins and the pinned icon row.
+ * it has gone, and a keyboard that stays keeps its room), less the menu's
+ * margins and the pinned icon row. Read in the editor's window, never the
+ * popup's, which hears of no keyboard.
  */
 @Composable
 private fun menuRowsMaxHeight(): Dp {
@@ -244,6 +256,9 @@ private fun menuRowsMaxHeight(): Dp {
 
 /** Above and below the menu (Material's 48 dp vertical margin each side) and its own padding. */
 private val MenuMargins = 112.dp
+
+/** The menu's scrolling rows, for tests. */
+const val MENU_ROWS_TAG = "menu-rows"
 private val FadeHeight = 24.dp
 private const val DISABLED_ALPHA = 0.38f
 
@@ -257,7 +272,7 @@ private fun labelOf(item: MenuItem): Int =
         MenuItem.SaveAll -> R.string.folder_save_all
         MenuItem.FindReplace -> R.string.menu_find_replace
         MenuItem.VersionHistory -> R.string.menu_version_history
-        MenuItem.ExportPdf -> R.string.menu_export_pdf
+        MenuItem.Export -> R.string.menu_export
         MenuItem.ExportImages -> R.string.menu_export_images
         MenuItem.Share -> R.string.menu_share
         MenuItem.CopyAs -> R.string.menu_copy_as

@@ -1,5 +1,8 @@
 # Store assets
 
+The Google Play listing is <https://play.google.com/store/apps/details?id=com.scorchsoft.ssmarkdown>; its text is in
+[`docs/marketing/play/LISTING.md`](../marketing/play/LISTING.md).
+
 | File | What it is |
 |---|---|
 | `play-icon-512.png` | Google Play icon: 512 × 512, 32-bit PNG, full-bleed square (Play applies its own mask). Rendered from `docs/brand/ssmd-logo.svg`, glyphs in the central ~60%. |

@@ -10,6 +10,10 @@
   <a href="https://www.scorchsoft.com">Scorchsoft</a>.
 </p>
 
+<p align="center">
+  <a href="https://play.google.com/store/apps/details?id=com.scorchsoft.ssmarkdown"><strong>Get it on Google Play</strong></a>
+</p>
+
 ---
 
 > **Status:** feature-complete for its first release candidate, pending

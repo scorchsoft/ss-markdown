@@ -6,6 +6,8 @@ claims discipline): no "best", "fastest" or "#1", no speed figures, and "free" a
 "no ads" only in the full description, never in the title, short description or
 graphics. Full description: 3,409 of 4,000 characters; short description: 78 of 80.
 
+Live listing: <https://play.google.com/store/apps/details?id=com.scorchsoft.ssmarkdown> (package `com.scorchsoft.ssmarkdown`).
+
 ## App name (30)
 
 `SS Markdown`

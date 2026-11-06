@@ -1,0 +1,46 @@
+[
+ {
+  "out": "01-edits-come-back.png",
+  "img": "editor-recovered.png",
+  "cap": "Your edits come back"
+ },
+ {
+  "out": "02-opens-to-your-page.png",
+  "img": "editor-draft.png",
+  "cap": "Opens straight to your page"
+ },
+ {
+  "out": "03-preview.png",
+  "img": "preview-clean-light.png",
+  "cap": "See the page as you write"
+ },
+ {
+  "out": "04-nothing-overwritten.png",
+  "img": "conflict-sheet-dark.png",
+  "cap": "Changed elsewhere? Nothing is overwritten.",
+  "dark": true
+ },
+ {
+  "out": "05-saved-in-place.png",
+  "img": "editor-saved.png",
+  "cap": "Saved back to the same file"
+ },
+ {
+  "out": "06-diagrams-maths.png",
+  "img": "preview-clean-dark.png",
+  "cap": "Diagrams and maths, offline",
+  "dark": true,
+  "y": 2150
+ },
+ {
+  "out": "07-find.png",
+  "img": "find.png",
+  "cap": "Find in every view"
+ },
+ {
+  "out": "08-your-theme.png",
+  "img": "theme-editor-dark.png",
+  "cap": "Your theme, your fonts",
+  "dark": true
+ }
+]

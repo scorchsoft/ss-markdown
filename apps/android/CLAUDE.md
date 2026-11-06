@@ -113,6 +113,22 @@ ships `PreviewActivity`, or loses `baseline.prof` or the licence texts.
 - **APK size** is a guideline, not a hard limit (`docs/quality-bar.md` §4):
   shrink only where nothing regresses, and record any deliberate rise.
 
+## The Play release build
+
+`gradle -p apps/android :app:bundleRelease` builds the `.aab` for Google
+Play (`app/build/outputs/bundle/release/app-release.aab`). It is signed
+with the **upload key**, whose path and passwords live only in the
+releaser's `~/.gradle/gradle.properties` (`ssmarkdown.upload.storeFile`,
+`.storePassword`, `.keyAlias`, `.keyPassword`); without all four, release
+builds unsigned. Never commit the key or its passwords. Play App Signing
+holds the real app-signing key, so a lost upload key is reset in Play
+Console. The bundle embeds its R8 mapping (`BUNDLE-METADATA/.../proguard.map`)
+and Play extracts it, so no separate upload is needed; still archive
+`app/build/outputs/mapping/release/mapping.txt` with the `.aab`. Every
+upload needs a higher `versionCode`. The Play warning about missing native
+debug symbols is expected: the only `.so` is AndroidX's
+`libandroidx.graphics.path.so`, which ships without symbols.
+
 Tests run on debug only (root `build.gradle.kts` removes the release
 unit-test component). Robolectric is pinned to `sdk=34` in
 `app/src/test/resources/robolectric.properties`; a different `@Config`

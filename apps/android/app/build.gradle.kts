@@ -16,7 +16,7 @@ ssmarkdownCoverage {
 }
 
 // `-Pssmarkdown.minifyDebug=true` turns `assembleDebug` into the hand-over
-// artefact: signed with the debug key (there is no release key yet), but
+// artefact: signed with the sideload debug key (not the Play upload key), but
 // otherwise built as a release would be. It is NOT debuggable, because AGP
 // runs R8 in debug mode for a debuggable variant: no optimisation, no
 // renaming, full debug info, and no baseline profile in the APK. That
@@ -24,6 +24,18 @@ ssmarkdownCoverage {
 // PERF-1). Stack traces from it are obfuscated, so mapping.txt is archived
 // next to every APK handed over (app/build/outputs/mapping/debug/).
 val minifyDebug = providers.gradleProperty("ssmarkdown.minifyDebug").orNull?.toBoolean() == true
+
+// The Play upload key signs `bundleRelease`. Its location and passwords live
+// only in the releaser's ~/.gradle/gradle.properties, never in the repo
+// (ssmarkdown.upload.storeFile, .storePassword, .keyAlias, .keyPassword).
+// Without all four, release builds unsigned, so CI and contributors still
+// build it. Google re-signs with the app-signing key (Play App Signing), so a
+// lost upload key is reset in Play Console, not the end of the app.
+fun uploadProperty(name: String) = providers.gradleProperty("ssmarkdown.upload.$name").orNull
+val uploadSigning =
+    listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+        .associateWith(::uploadProperty)
+        .takeIf { props -> props.values.all { !it.isNullOrBlank() } }
 
 // `-Pssmarkdown.screenshots=true` runs ScreenshotTest, which renders the
 // screens to PNGs under app/build/screenshots/ for review. It is a review
@@ -74,6 +86,14 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        if (uploadSigning != null) {
+            create("upload") {
+                storeFile = file(uploadSigning.getValue("storeFile")!!)
+                storePassword = uploadSigning.getValue("storePassword")
+                keyAlias = uploadSigning.getValue("keyAlias")
+                keyPassword = uploadSigning.getValue("keyPassword")
+            }
+        }
     }
 
     buildTypes {
@@ -85,6 +105,7 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
         release {
+            if (uploadSigning != null) signingConfig = signingConfigs.getByName("upload")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

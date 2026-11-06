@@ -117,3 +117,24 @@ screenshot (the description and video already carry that claim).
 
 Render: `PLAYWRIGHT=<folder with node_modules/playwright> node render.cjs feature`
 and `… node render.cjs shots`.
+
+## Tablet screenshots (7-inch and 10-inch; 6 at 1440 × 2560, 9:16)
+
+Upload `tablet-screenshots/01-…png` to `06-…png` to both the 7-inch and the 10-inch
+slots. Built by `tablet-shot.html` from `tablets.json` (`node render.cjs tablets`).
+The screens are the Robolectric harness at 840 × 1200 dp, 320 dpi (1680 × 2400, the
+size of the harness's own `width-840-docked` shot), with the folder panel docked. They
+were rendered by temporary copies of existing harness tests at that size (recovered,
+saved, conflict sheet, navigator, find, theme editor); those copies weren't committed.
+
+| # | Caption | Screen |
+|---|---|---|
+| 1 | Your edits come back | recovered, folder docked (light) |
+| 2 | Work across a whole folder | saved, folder docked, one unsaved file and Save all (light) |
+| 3 | Changed elsewhere? Nothing is overwritten. | conflict sheet (dark) |
+| 4 | Jump to any heading | navigator outline (light) |
+| 5 | Find in every view | find, folder docked (dark) |
+| 6 | Your theme, your fonts | theme editor (dark) |
+
+Not used: the harness's 600 and 1280 dp Split shots (their Preview pane is a stand-in,
+because Robolectric can't run a WebView) and History (its sample is dated 1970).

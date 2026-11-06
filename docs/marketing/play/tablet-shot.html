@@ -1,0 +1,37 @@
+<!doctype html>
+<!--
+  One Play tablet screenshot, 1440 x 2560 (9:16): a short caption above a real screen.
+  Rendered by render.cjs, which passes ?img=<file>&cap=<caption>&dark=1&y=<crop top>.
+  App screens are the Robolectric harness at 840 x 1200 dp, 320 dpi (1680 x 2400). Preview
+  pages are the Preview renderer's own captures (1236 px wide), shown on their own,
+  never pasted into app chrome (the same honesty rule as the promo films).
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@font-face { font-family: Inter; src: url("../../../apps/android/feature/fonts/src/main/assets/fonts/bundled/inter.ttf"); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1440px; height: 2560px; overflow: hidden; font-family: Inter, sans-serif; background: #f4f3ef; color: #17171a; }
+body.dark { background: #17171a; color: #f2f2f4; }
+.cap { position: absolute; left: 70px; right: 70px; top: 150px; height: 290px; display: flex; align-items: center; justify-content: center; text-align: center;
+  font-size: 100px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.08; }
+.phone { position: absolute; left: 50%; top: 540px; transform: translateX(-50%); width: 1252px; height: 1766px; padding: 26px; border-radius: 64px;
+  background: #0d0d0f; box-shadow: 0 40px 110px rgba(0,0,0,.28); }
+body.dark .phone { box-shadow: 0 0 0 3px #45454c, 0 40px 110px rgba(0,0,0,.6); }
+.screen { width: 1200px; height: 1714px; border-radius: 40px; overflow: hidden; background: #fff; position: relative; }
+.screen img { position: absolute; left: 0; width: 100%; }
+</style>
+</head>
+<body>
+<div class="cap" id="cap"></div>
+<div class="phone"><div class="screen"><img id="img" alt=""></div></div>
+<script>
+const q = new URLSearchParams(location.search);
+if (q.get("dark")) document.body.classList.add("dark");
+document.getElementById("cap").textContent = q.get("cap") || "";
+const img = document.getElementById("img");
+img.onload = () => { img.style.top = -(Number(q.get("y") || 0) * 1200 / img.naturalWidth) + "px"; document.fonts.ready.then(() => { window.shotReady = true; }); };
+img.src = q.get("img");
+</script>
+</body>

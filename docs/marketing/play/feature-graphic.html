@@ -1,0 +1,34 @@
+<!doctype html>
+<!--
+  Play feature graphic, 1024 x 500. Play draws the video's play button over the middle,
+  so the middle is kept clear: the logo and line on the left, a real screen on the right
+  (the Robolectric capture of the recovery banner). No price, "free" or ranking text.
+  Render: node render.cjs feature
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@font-face { font-family: Inter; src: url("../../../apps/android/feature/fonts/src/main/assets/fonts/bundled/inter.ttf"); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1024px; height: 500px; overflow: hidden; font-family: Inter, sans-serif; color: #f2f2f4;
+  background: #17171a radial-gradient(ellipse 60% 80% at 75% 40%, #2a2a30 0%, #17171a 70%); }
+.brand { position: absolute; left: 56px; top: 92px; }
+.brand img { width: 112px; height: 112px; border-radius: 26px; display: block; }
+.brand .n { margin-top: 30px; font-size: 58px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+.brand .t { margin-top: 18px; font-size: 25px; font-weight: 500; line-height: 1.3; color: #c9c9cf; }
+.phone { position: absolute; left: 702px; top: 44px; width: 286px; height: 620px; padding: 9px; border-radius: 40px; background: #0d0d0f;
+  box-shadow: 0 0 0 2px #45454c, 0 24px 70px rgba(0,0,0,.6); }
+.screen { width: 268px; height: 595px; border-radius: 31px; overflow: hidden; background: #fff; }
+.screen img { width: 100%; display: block; }
+</style>
+</head>
+<body>
+<div class="brand">
+  <img src="../../brand/logo-240.png" alt="">
+  <div class="n">SS Markdown</div>
+  <div class="t">Your Markdown files.<br>Calm, quick, and kept safe.</div>
+</div>
+<div class="phone"><div class="screen"><img src="src/editor-recovered.png" alt=""></div></div>
+</body>
+</html>

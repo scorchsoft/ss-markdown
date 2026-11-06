@@ -1,0 +1,8 @@
+[
+ {"out": "01-edits-come-back.png", "img": "tab-recovered.png", "cap": "Your edits come back"},
+ {"out": "02-whole-folder.png", "img": "tab-saved.png", "cap": "Work across a whole folder"},
+ {"out": "03-nothing-overwritten.png", "img": "tab-conflict-dark.png", "cap": "Changed elsewhere? Nothing is overwritten.", "dark": true},
+ {"out": "04-jump-to-heading.png", "img": "tab-navigator.png", "cap": "Jump to any heading"},
+ {"out": "05-find.png", "img": "tab-find-dark.png", "cap": "Find in every view", "dark": true},
+ {"out": "06-your-theme.png", "img": "tab-theme-editor-dark.png", "cap": "Your theme, your fonts", "dark": true}
+]
